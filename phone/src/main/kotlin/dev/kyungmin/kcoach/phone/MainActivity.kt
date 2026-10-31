@@ -2741,7 +2741,9 @@ class MainActivity : ComponentActivity() {
         heightDp: Int,
         compact: Boolean = false,
     ): View {
-        if (Exercise3DView.has(this, exercise.id)) {
+        // Lists only ever get the light preview; a live 3D view per row is what made scrolling break.
+        if (compact && ExercisePreviews.has(this, exercise.id)) return ExercisePreviewView(this, exercise.id)
+        if (!compact && Exercise3DView.has(this, exercise.id)) {
             val radiusDp = if (compact) 12 else 20
             return Exercise3DView(this, exercise.id).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(heightDp))

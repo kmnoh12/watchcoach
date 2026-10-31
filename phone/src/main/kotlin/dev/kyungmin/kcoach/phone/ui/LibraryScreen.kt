@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -55,6 +56,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.kyungmin.kcoach.phone.ExerciseDefinition
+import dev.kyungmin.kcoach.phone.ExercisePreviews
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
@@ -191,6 +194,26 @@ fun ExerciseBrowser(
         .map { (it.index + firstRowIndex) to Bodies.indexOf((it.value as LibRow.Band).body) }
     val spy: Float? by remember(bands) {
         derivedStateOf { if (body == "전체") scrollPosition(listState, bands) else null }
+    }
+
+    // Read the previews for the rows on screen plus one screen above and below, so a fast scroll finds them already decoded.
+    val previewContext = LocalContext.current
+    LaunchedEffect(rows, listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.let { (it.firstOrNull()?.index ?: 0) to (it.lastOrNull()?.index ?: 0) } }
+            .collect { (first, last) ->
+                val page = (last - first + 1).coerceAtLeast(1)
+                val from = (first - page - firstRowIndex).coerceAtLeast(0)
+                val to = (last + page - firstRowIndex).coerceAtMost(rows.lastIndex)
+                if (from > to) return@collect
+                val ids = rows.subList(from, to + 1).flatMap { row ->
+                    when (row) {
+                        is LibRow.Item -> listOf(row.exercise.id)
+                        is LibRow.Family -> (if (row.expanded) row.members else row.members.take(3)).map { it.id }
+                        else -> emptyList()
+                    }
+                }
+                ExercisePreviews.prefetch(previewContext, ids)
+            }
     }
 
     Column(Modifier.fillMaxSize().background(KColors.Bg).padding(top = 14.dp)) {
@@ -399,9 +422,7 @@ private fun ExerciseRow(
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val entered = rememberEntered()
-        val fade by animateFloatAsState(if (entered) 1f else 0f, Motion.ui(), label = "thumb")
-        AndroidView(factory = { thumbnail(exercise) }, modifier = Modifier.size(thumbSize.dp).alpha(fade))
+        AndroidView(factory = { thumbnail(exercise) }, modifier = Modifier.size(thumbSize.dp))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(exercise.name, color = KColors.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
