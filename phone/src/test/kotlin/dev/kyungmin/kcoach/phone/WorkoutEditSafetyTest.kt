@@ -130,7 +130,11 @@ class WorkoutEditSafetyTest {
             actions(activity).onRemoveSet(0, 0)
             assertEquals(1, routine(activity).exercises[0].sets.size)
             actions(activity).onUndoRemoveSet()
-            assertEquals(added.plannedSets, SessionStore(app).loadActive().getOrThrow()!!.plannedSets)
+            val restored = SessionStore(app).loadActive().getOrThrow()!!
+            // Removing the working set starts its successor; Undo preserves both attempts' clocks.
+            assertEquals(added.plannedSets.map { it.copy(workingStartedAtMs = 0) }, restored.plannedSets.map { it.copy(workingStartedAtMs = 0) })
+            assertEquals(added.plannedSets[0].workingStartedAtMs, restored.plannedSets[0].workingStartedAtMs)
+            assertTrue(restored.plannedSets[1].workingStartedAtMs > 0)
             assertEquals(added.plannedSets.map { it.setId }, routine(activity).exercises[0].sets.map { it.setId })
         } finally { controller.destroy() }
     }

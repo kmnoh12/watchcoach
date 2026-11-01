@@ -94,7 +94,7 @@ object UnilateralSetReducer {
         val duration = progress.firstSideDurationMs ?: return null
         val start = progress.otherStartedAtMs ?: return null
         val elapsed = nowMs - start - (snapshot.totalPausedMs - progress.pausedAtOtherStartMs).coerceAtLeast(0)
-        if (elapsed < duration + 15_000L) return null
+        if (elapsed < duration + 15_000L + set.setTimerAdjustmentMs) return null
         val result = apply(snapshot, snapshot.sessionId, set.setId, set.attemptId,
             UnilateralAction.COMPLETE_OTHER_SIDE, nowMs, progress.watchReps)
         if (result !is SetCompletionResult.Applied) return null

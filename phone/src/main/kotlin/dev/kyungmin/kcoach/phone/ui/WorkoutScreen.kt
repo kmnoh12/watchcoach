@@ -177,6 +177,10 @@ fun ActiveWorkoutScreen(
                 )
             }
             RecordBanner(model.recordBanner)
+            val setClockLeft = model.pausedSetClockMs ?: model.setClockEndAtMs?.let { (it - now).coerceAtLeast(0) }
+            if (setClockLeft != null) {
+                SetClockBar(setClockLeft, model.paused, actions::onAdjustSetClock)
+            }
             RestBar(
                 rest = rest,
                 idleSeconds = current?.restSeconds ?: 0,

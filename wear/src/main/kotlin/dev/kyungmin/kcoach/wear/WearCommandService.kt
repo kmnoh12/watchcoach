@@ -209,6 +209,9 @@ class WearCommandService : WearableListenerService() {
                 putExtra("startDirectionSnapshot", fields.getOrNull(20).orEmpty())
                 putExtra("tempoSettings", fields.getOrNull(21).orEmpty())
                 putExtra("unilateralProgress", fields.getOrNull(24).orEmpty())
+                putExtra("setClockValue", fields.getOrNull(25)?.toLongOrNull() ?: -1L)
+                putExtra("setClockTotal", fields.getOrNull(26)?.toLongOrNull() ?: 1L)
+                putExtra("setClockPaused", fields.getOrNull(27) == "true")
                 if (fields.getOrNull(22)?.toLongOrNull() != null) putExtra("restRev", fields[22].toLong())
                 putExtra("watchRestSeq", fields.getOrNull(23)?.toLongOrNull() ?: 0L)
             } else {

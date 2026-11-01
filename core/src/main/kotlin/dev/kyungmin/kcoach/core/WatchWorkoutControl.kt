@@ -1,6 +1,6 @@
 package dev.kyungmin.kcoach.core
 
-enum class WatchWorkoutAction { START_PREPARED, NEXT_SET, REST_ADJUST, REST_PAUSE, REST_RESUME, EDIT_SET, START_OTHER_SIDE, FINISH_WATCH_SIDE_ONLY, COMPLETE_OTHER_SIDE }
+enum class WatchWorkoutAction { START_PREPARED, NEXT_SET, SET_ADJUST, REST_ADJUST, REST_PAUSE, REST_RESUME, EDIT_SET, START_OTHER_SIDE, FINISH_WATCH_SIDE_ONLY, COMPLETE_OTHER_SIDE }
 enum class WatchWorkoutControlStatus { APPLIED, DUPLICATE, STALE, BUSY, NO_PLAN, REJECTED }
 
 data class WatchWorkoutOffer(val sessionId: String, val routineName: String, val exerciseName: String,
@@ -38,6 +38,7 @@ data class WatchWorkoutControl(val commandId: String, val action: WatchWorkoutAc
         require((action == WatchWorkoutAction.START_PREPARED) == (planHash != null))
         require(if (action in setOf(WatchWorkoutAction.REST_ADJUST, WatchWorkoutAction.REST_PAUSE, WatchWorkoutAction.REST_RESUME))
             deltaSeconds != null && restSeconds != null && restSeconds in 0..1800 && restEndAtMs != null && restEndAtMs >= 0
+            else if (action == WatchWorkoutAction.SET_ADJUST) deltaSeconds in setOf(-10, 10) && restSeconds == null && restEndAtMs == null
             else deltaSeconds == null && restSeconds == null && restEndAtMs == null)
         require(action != WatchWorkoutAction.REST_PAUSE || pausedRestRemainingMs != null)
         require(action != WatchWorkoutAction.REST_RESUME || pausedRestRemainingMs == null)
@@ -55,7 +56,7 @@ data class WatchWorkoutControl(val commandId: String, val action: WatchWorkoutAc
         payload = mapOf("kind" to "WORKOUT_CONTROL_V1", "action" to action.name, "attemptId" to attemptId,
             "planHash" to planHash.orEmpty(), "side" to side.orEmpty(), "placement" to placement.orEmpty()) +
             (if (seq > 0 || pausedRestRemainingMs != null) mapOf("seq" to seq.toString(),
-                "pausedRestRemainingMs" to (pausedRestRemainingMs?.toString() ?: "")) else emptyMap()) + (if (action in setOf(WatchWorkoutAction.REST_ADJUST, WatchWorkoutAction.REST_PAUSE, WatchWorkoutAction.REST_RESUME, WatchWorkoutAction.EDIT_SET, WatchWorkoutAction.COMPLETE_OTHER_SIDE)) mapOf(
+                "pausedRestRemainingMs" to (pausedRestRemainingMs?.toString() ?: "")) else emptyMap()) + (if (action in setOf(WatchWorkoutAction.REST_ADJUST, WatchWorkoutAction.REST_PAUSE, WatchWorkoutAction.REST_RESUME, WatchWorkoutAction.EDIT_SET, WatchWorkoutAction.COMPLETE_OTHER_SIDE, WatchWorkoutAction.SET_ADJUST)) mapOf(
             "deltaSeconds" to (deltaSeconds?.toString() ?: ""), "restSeconds" to (restSeconds?.toString() ?: ""),
             "restEndAtMs" to (restEndAtMs?.toString() ?: ""), "which" to which.orEmpty(), "reps" to reps.toString(),
             "weightKg" to (weightKg?.toString() ?: "")) else emptyMap())))

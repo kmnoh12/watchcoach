@@ -1121,15 +1121,15 @@ class MainActivity : ComponentActivity() {
             sessionId = result.sessionId,
         )
         val estimated = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
-            ?.snapshot?.plannedSets?.filter { it.completed && it.unilateral?.estimated == true }.orEmpty()
+            ?.snapshot?.plannedSets?.filter { it.completed && (it.unilateral?.estimated == true || it.repSource == SetRepSource.ESTIMATED) }.orEmpty()
         showStandalone(ComposeView(this).apply {
             setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { showRecords() },
                 summary = { dev.kyungmin.kcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) },
-                estimatedSets = estimated.map { "${it.exerciseName} · ${it.setIndex + 1}세트" to requireNotNull(it.unilateral?.otherReps) },
+                estimatedSets = estimated.map { "${it.exerciseName} · ${it.setIndex + 1}세트" to requireNotNull(it.unilateral?.otherReps ?: it.performedReps) },
                 confirmEstimate = { index, reps ->
                     val set = estimated[index]
                     if (FinishedWorkoutStore(this@MainActivity).confirmOther(result.sessionId, set.setId, set.attemptId, reps)) {
-                        historyCache = null
+                        this@MainActivity.historyCache = null
                         showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
                     }
                 }) }
@@ -1808,6 +1808,9 @@ class MainActivity : ComponentActivity() {
             val weight = target.weightKg?.let { "${formatActiveWeight(it, workout.usePounds)}${if (workout.usePounds) "lb" else "kg"} × " }.orEmpty()
             "다음: ${target.exerciseName} $setLabel · $weight${target.targetReps}회"
         }
+        val clockNow = System.currentTimeMillis()
+        val clockSnapshot = if (activeWorkout === workout) sessionStore.loadActive().getOrNull()?.takeIf { it.sessionId == workout.sessionId } else null
+        val clockRemaining = clockSnapshot?.let { dev.kyungmin.kcoach.core.SetClock.remainingMs(it, clockNow, ManualAutoFinishSetting.isEnabled(this)) }
         return WorkoutUiModel(
             routineName = workout.routine.name,
             isPreview = activeWorkout !== workout,
@@ -1818,6 +1821,8 @@ class MainActivity : ComponentActivity() {
             exerciseIndex = workout.restingPageIndex ?: workout.exerciseIndex,
             usePounds = workout.usePounds,
             swipeDelete = SwipeDeleteSetting.isEnabled(this),
+            setClockEndAtMs = clockRemaining?.takeIf { clockSnapshot?.paused == false }?.plus(clockNow),
+            pausedSetClockMs = clockRemaining?.takeIf { clockSnapshot?.paused == true },
             restStartAtMs = activeRestStartAtMs,
             restEndAtMs = activeRestEndAtMs,
             pausedRestRemainingMs = pausedRestRemainingMs,
@@ -1856,7 +1861,7 @@ class MainActivity : ComponentActivity() {
                             weightText = formatActiveWeight(set.weightKg, workout.usePounds),
                             reps = if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
-                            estimated = set.unilateral?.otherRepSource == SetRepSource.ESTIMATED,
+                            estimated = set.repSource == SetRepSource.ESTIMATED || set.unilateral?.otherRepSource == SetRepSource.ESTIMATED,
                             halfDone = !set.completed && set.unilateral?.holdsRest == true,
                             otherSideWorking = !set.completed && set.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING,
                             warmup = set.setType == SetType.WARMUP,
@@ -2135,9 +2140,12 @@ class MainActivity : ComponentActivity() {
             val routineExercise = exercise(exerciseIndex) ?: return
             if (routineExercise.sets.size <= 1 || setIndex !in routineExercise.sets.indices) return
             if (activeWorkout === workout) {
-                val removed = runCatching { workoutSnapshot(workout).plannedSets.single {
-                    it.exerciseIndex == exerciseIndex && it.setIndex == setIndex
-                } }.getOrElse {
+                val removed = runCatching {
+                    val visible = workoutSnapshot(workout).plannedSets.single { it.exerciseIndex == exerciseIndex && it.setIndex == setIndex }
+                    requireNotNull(sessionStore.loadActive().getOrThrow()).plannedSets.single {
+                        it.setId == visible.setId && it.attemptId == visible.attemptId
+                    }
+                }.getOrElse {
                     Log.e(EVENT_TAG, "remove set snapshot failed", it)
                     Toast.makeText(this@MainActivity, "세트 구성을 읽지 못해 삭제하지 않았어요", Toast.LENGTH_SHORT).show()
                     return
@@ -2210,6 +2218,14 @@ class MainActivity : ComponentActivity() {
                 return
             }
             exercise(exerciseIndex)?.let { requestAllSetsCompletion(workout, it) }
+        }
+
+        override fun onAdjustSetClock(deltaSeconds: Int) {
+            val workout = workout() ?: return
+            val next = sessionStore.adjustSetClock(workout.sessionId, deltaSeconds, System.currentTimeMillis()).getOrNull() ?: return
+            applySnapshotToWorkout(workout, next)
+            resyncActiveWorkoutToWatch(workout)
+            bumpWorkoutUi()
         }
 
         override fun onAdjustRest(deltaSeconds: Int) {

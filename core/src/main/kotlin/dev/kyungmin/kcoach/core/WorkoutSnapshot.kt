@@ -49,6 +49,11 @@ data class PlannedSetSnapshot(
     val attemptId: String = "",
     val identityRequired: Boolean = false,
     val unilateral: UnilateralProgress? = UnilateralExercises.initial(exerciseId, completed),
+    val workingStartedAtMs: Long = 0,
+    val workingPausedAtStartMs: Long = 0,
+    val completedDurationMs: Long? = null,
+    val setTimerLimitMs: Long? = null,
+    val setTimerAdjustmentMs: Long = 0,
 )
 
 data class WorkoutSnapshot(
@@ -107,7 +112,7 @@ data class WorkoutSnapshot(
     }
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 8
+        const val CURRENT_SCHEMA_VERSION = 9
         internal const val MAX_COLLECTION_SIZE = 10_000
     }
 }
@@ -148,6 +153,9 @@ object WorkoutSnapshotCodec {
                 data.writeBoolean(set.rpe != null); set.rpe?.let { data.writeString(it) }
                 data.writeString(set.setId); data.writeString(set.attemptId); data.writeBoolean(set.identityRequired)
                 data.writeString(set.unilateral?.encode().orEmpty())
+                data.writeLong(set.workingStartedAtMs); data.writeLong(set.workingPausedAtStartMs)
+                data.writeLong(set.completedDurationMs ?: -1); data.writeLong(set.setTimerLimitMs ?: -1)
+                data.writeLong(set.setTimerAdjustmentMs)
             }
             data.writeInt(snapshot.performedReps.size)
             snapshot.performedReps.toSortedMap().forEach { (exerciseId, reps) ->
@@ -216,6 +224,9 @@ object WorkoutSnapshotCodec {
                     attemptId = if (schemaVersion >= 6) data.readString() else "",
                     identityRequired = schemaVersion >= 6 && data.readBoolean(),
                 ).let { set -> if (schemaVersion >= 8) set.copy(unilateral = UnilateralProgress.decode(data.readString())) else set }
+                    .let { set -> if (schemaVersion >= 9) set.copy(workingStartedAtMs = data.readLong(),
+                        workingPausedAtStartMs = data.readLong(), completedDurationMs = data.readLong().takeIf { it >= 0 },
+                        setTimerLimitMs = data.readLong().takeIf { it >= 0 }, setTimerAdjustmentMs = data.readLong()) else set }
             }
             val performedReps = buildMap {
                 repeat(data.readCount("performed reps")) {

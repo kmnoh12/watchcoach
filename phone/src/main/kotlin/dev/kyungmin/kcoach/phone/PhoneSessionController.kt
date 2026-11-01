@@ -67,7 +67,7 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
             is PhonePlanEdit.AddSet -> {
                 val source = exercise(edit.exerciseIndex).last()
                 val added = source.copy(setIndex = source.setIndex + 1, completed = false,
-                    performedReps = null, repSource = null, unilateral = UnilateralExercises.initial(source.exerciseId), setType = "NORMAL", rpe = null,
+                    performedReps = null, repSource = null, workingStartedAtMs = 0, workingPausedAtStartMs = 0, completedDurationMs = null, setTimerLimitMs = null, setTimerAdjustmentMs = 0, unilateral = UnilateralExercises.initial(source.exerciseId), setType = "NORMAL", rpe = null,
                     setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true)
                 sets.add(sets.indexOf(source) + 1, added)
             }
@@ -75,7 +75,7 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
                 val source = exercise(edit.exerciseIndex).single { it.setIndex == edit.setIndex }
                 val insertion = source.setIndex + 1
                 val copy = source.copy(setIndex = insertion, completed = false, performedReps = null,
-                    repSource = null, rpe = null, unilateral = UnilateralExercises.initial(source.exerciseId),
+                    repSource = null, rpe = null, workingStartedAtMs = 0, workingPausedAtStartMs = 0, completedDurationMs = null, setTimerLimitMs = null, setTimerAdjustmentMs = 0, unilateral = UnilateralExercises.initial(source.exerciseId),
                     setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true)
                 sets.add(sets.indexOf(source) + 1, copy)
                 // Rest may schedule the copy next; a measuring/paused working set keeps its identity.
@@ -225,10 +225,10 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
         fun command(snapshot: WorkoutSnapshot, type: String, restSeconds: Int? = null): String {
             val target = WorkoutSessionReducer.nextPendingSet(snapshot)
             if (target == null && type == "SET") return WearSync.command("COMPLETE", snapshot.sessionId, "", 0, 0)
-            return WearSync.withUnilateral(WearSync.withRestVersion(WearSync.richCommand(type, snapshot.sessionId, target?.exerciseId.orEmpty(),
+            return WearSync.withSetClock(WearSync.withUnilateral(WearSync.withRestVersion(WearSync.richCommand(type, snapshot.sessionId, target?.exerciseId.orEmpty(),
                 target?.exerciseName?.ifBlank { target.exerciseId } ?: "운동 완료", target?.setIndex ?: 0,
                 target?.targetReps ?: 1, target?.weightKg, restSeconds ?: target?.restSeconds ?: 0,
-                snapshot.restEndAtMs, target?.setId.orEmpty(), target?.attemptId.orEmpty()), snapshot.restRev, snapshot.watchRestSeq), target?.unilateral)
+                snapshot.restEndAtMs, target?.setId.orEmpty(), target?.attemptId.orEmpty()), snapshot.restRev, snapshot.watchRestSeq), target?.unilateral), snapshot, System.currentTimeMillis())
         }
     }
 }

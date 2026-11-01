@@ -98,6 +98,20 @@ fun RestBar(
     }
 }
 
+/** The existing ten-second controls, kept separate from the user's rest settings. */
+@Composable
+fun SetClockBar(remainingMs: Long, paused: Boolean, onAdjust: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(KColors.Surface).padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        val seconds = (remainingMs + 999) / 1000
+        Text("세트 진행 중  %d:%02d".format(seconds / 60, seconds % 60), color = KColors.Sage,
+            fontSize = 16.sp, modifier = Modifier.weight(1f))
+        RoundButton(KIcon.Minus, KColors.SurfaceRaised) { if (!paused) onAdjust(-10) }
+        Spacer(Modifier.width(10.dp))
+        RoundButton(KIcon.Plus, KColors.SurfaceRaised) { if (!paused) onAdjust(10) }
+    }
+}
+
 /** Expanded rest panel: big gradient ring, controls and presets. */
 @Composable
 fun ExpandedRestPanel(

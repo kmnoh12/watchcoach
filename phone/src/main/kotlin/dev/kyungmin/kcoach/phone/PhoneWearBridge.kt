@@ -119,7 +119,11 @@ class PhoneWearBridge(private val context: Context) {
         }
         if (path != WearSync.PATH_COMMAND) { dispatch(path, payload); return }
         val durable = runCatching {
-            commandOutbox.enqueue(WorkoutWearingStore(context).bind(payload).getOrThrow())
+            val fields = WearSync.parse(payload)
+            val active = SessionStore(context).loadActive().getOrThrow()?.takeIf { it.sessionId == fields.getOrNull(2) }
+            val timed = if (active != null && fields.getOrNull(1) in setOf("START", "SET", "SYNC", "PAUSE", "RESUME"))
+                WearSync.withSetClock(payload, active, System.currentTimeMillis(), ManualAutoFinishSetting.isEnabled(context)) else payload
+            commandOutbox.enqueue(WorkoutWearingStore(context).bind(timed).getOrThrow())
         }.getOrElse {
             Log.w("KCoachEvent", "watch command was not frozen; state retained", it)
             PhoneWorkoutService.notifyCommandRejected(context, "BINDING")

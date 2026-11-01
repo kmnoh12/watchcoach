@@ -103,6 +103,8 @@ object WorkoutSessionReducer {
                     performedReps = event.reps,
                     repSource = event.repSource,
                     completed = true,
+                    completedDurationMs = if (set.workingStartedAtMs > 0) SetClock.elapsed(snapshot, set,
+                        event.completedAtMs ?: (event.restEndAtMs - set.restSeconds * 1000L)) else set.completedDurationMs,
                 )
             } else {
                 set
@@ -132,7 +134,7 @@ object WorkoutSessionReducer {
         if (reps == null || reps !in 0..9_999) return snapshot
         val set = SetIdentity.resolve(snapshot, exerciseId, setIndex, setId, attemptId)?.takeIf { it.completed || it.unilateral?.holdsRest == true }
             ?: return snapshot
-        if (set.repSource == SetRepSource.MANUAL || set.unilateral?.watchRepSource == SetRepSource.MANUAL) return snapshot
+        if (set.repSource == SetRepSource.ESTIMATED || set.repSource == SetRepSource.MANUAL || set.unilateral?.watchRepSource == SetRepSource.MANUAL) return snapshot
         val updated = snapshot.plannedSets.map {
             if (it === set) it.copy(performedReps = if (it.completed) reps else null, repSource = if (it.completed) SetRepSource.PHONE_ANALYSIS else null,
                 unilateral = it.unilateral?.copy(watchReps = reps, watchRepSource = SetRepSource.PHONE_ANALYSIS)) else it

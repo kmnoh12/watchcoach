@@ -21,6 +21,8 @@ data class WorkoutUiModel(
     val recordBanner: RecordBannerUi? = null,
     /** Swipe a set row left to reveal its delete button. */
     val swipeDelete: Boolean = true,
+    val setClockEndAtMs: Long? = null,
+    val pausedSetClockMs: Long? = null,
 )
 
 data class ExerciseUi(
@@ -87,6 +89,7 @@ interface WorkoutActions {
     fun onUndoRemoveSet()
     fun onSetRest(exerciseIndex: Int, setIndex: Int)
     fun onAllSetsDone(exerciseIndex: Int)
+    fun onAdjustSetClock(deltaSeconds: Int) {}
     fun onAdjustRest(deltaSeconds: Int)
     fun onRestPreset(seconds: Int)
     fun onSkipRest()

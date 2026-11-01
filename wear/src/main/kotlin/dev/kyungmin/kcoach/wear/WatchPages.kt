@@ -128,6 +128,7 @@ internal class ChevronView(context: Context, private val up: Boolean) : View(con
  * left removes ten and the knob springs back; tapping the left or right end does the same.
  */
 internal class JogBar(context: Context) : View(context) {
+    var accent = WatchWorkoutFace.YELLOW
     var onStep: (Int) -> Unit = {}
     private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = WatchWorkoutFace.CARD }
     private val knob = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -195,7 +196,7 @@ internal class JogBar(context: Context) : View(context) {
         glyph.textAlign = Paint.Align.LEFT; canvas.drawText("−", 26 * k, gy, glyph)
         glyph.textAlign = Paint.Align.RIGHT; canvas.drawText("+", width - 26 * k, gy, glyph)
         val active = abs(offset) > 1f
-        knob.color = if (active) WatchWorkoutFace.YELLOW else WatchWorkoutFace.CONTROL
+        knob.color = if (active) accent else WatchWorkoutFace.CONTROL
         label.color = if (active) Color.rgb(36, 26, 0) else WatchWorkoutFace.WHITE
         label.textSize = 36 * k
         val cx = width / 2f + offset

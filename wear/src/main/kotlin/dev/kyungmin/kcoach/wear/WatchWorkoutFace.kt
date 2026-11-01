@@ -131,6 +131,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
      * 0 while the rest runs, 1 once it is paused (design 4-1). The time shrinks to 85 % and turns white, the
      * "정지" button becomes the yellow "계속", the label fades in, the ten-second bar dims and the heart arrow goes.
      */
+    var setTiming = false
     var restMorph = 0f
         set(value) {
             val next = value.coerceIn(0f, 1f)
@@ -147,11 +148,11 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         val offsetX = (width - side) / 2f; val offsetY = (height - side) / 2f
         val shrink = 1f - .148f * p
         listOf(value, valueGhost).forEach {
-            it.setTextColor(blend(YELLOW, WHITE, p))
+            it.setTextColor(blend(if (setTiming) SAGE else YELLOW, WHITE, p))
             it.scaleX = shrink; it.scaleY = shrink; it.translationY = 12f * scale * p
             if (it.width > 0) { it.pivotX = offsetX + 216f * scale - it.left; it.pivotY = offsetY + 126f * scale - it.top }
         }
-        subtitle.alpha = p; subtitle.translationY = 6f * scale * (1f - p)
+        subtitle.alpha = if (setTiming) 1f else p; subtitle.translationY = 6f * scale * (1f - p)
         jog.alpha = 1f - .65f * p; jog.isEnabled = p < .5f
         chevronDown.alpha = 1f - p
         restPause.resume = p

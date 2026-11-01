@@ -75,6 +75,11 @@ class MainActivity : Activity() {
     private var reps = 0
     private var heartRate = 0
     private var runtimePhase = "IDLE"
+    private var setClockRemaining = -1L
+    private var setClockTotal = 1L
+    private var setClockReceivedAt = 0L
+    private fun clockLeft(now: Long) = if (setClockRemaining < 0) -1L else
+        (setClockRemaining - if (paused) 0 else (now - setClockReceivedAt).coerceAtLeast(0)).coerceAtLeast(0)
     private var personalizedTracking = false
     private var shadowCommandId = ""
     private var shadowCount = 0
@@ -211,6 +216,9 @@ class MainActivity : Activity() {
         setId = intent.getStringExtra("setId").orEmpty()
         attemptId = intent.getStringExtra("attemptId").orEmpty()
         manualRequired = intent.getBooleanExtra("manualRequired", false)
+        setClockRemaining = intent.getLongExtra("setClockRemaining", -1L)
+        setClockTotal = intent.getLongExtra("setClockTotal", 1L).coerceAtLeast(1)
+        setClockReceivedAt = System.currentTimeMillis()
         manualStatus = intent.getStringExtra("manualStatus").orEmpty()
         tempoEnabled = intent.getBooleanExtra("tempoEnabled", false)
         tempoHint = intent.getStringExtra("tempoHint").orEmpty()
@@ -517,6 +525,13 @@ class MainActivity : Activity() {
 
     /** Rest time in ten second steps, from the bar, its ends, or the bezel. */
     private fun adjustRest(delta: Int) {
+        if (!resting && setClockRemaining >= 0 && !paused) {
+            val request = dev.kyungmin.kcoach.core.WatchWorkoutControl(java.util.UUID.randomUUID().toString(),
+                dev.kyungmin.kcoach.core.WatchWorkoutAction.SET_ADJUST, sessionId, setId, attemptId, deltaSeconds = delta)
+            startServiceSafely(Intent(this, WearWorkoutService::class.java).putExtra(WearWorkoutService.EXTRA_COMMAND, "WORKOUT_CONTROL_SUBMIT")
+                .putExtra("payload", request.encode()))
+            return
+        }
         if (!resting || paused) return
         val now = System.currentTimeMillis()
         val applied = delta
@@ -532,7 +547,7 @@ class MainActivity : Activity() {
             val steps = rotaryRemainder.toInt()
             if (steps != 0) {
                 rotaryRemainder -= steps
-                if (resting && pager.page == 0) {
+                if ((resting || setClockRemaining >= 0) && pager.page == 0) {
                     window.decorView.performHapticFeedback(if (Build.VERSION.SDK_INT >= 34) 18 /* ROTARY_SCROLL_TICK */ else android.view.HapticFeedbackConstants.CLOCK_TICK)
                     uiBoundary("bezel rest adjustment") { adjustRest(steps * 10) }
                 }
@@ -666,7 +681,10 @@ class MainActivity : Activity() {
         if (measuring) { lastWorkingReps = count ?: reps; lastWorkingWeight = weightKg }
         if (resting && !wasResting) restEditSegment = 1
         wasResting = resting
-        face.primary(if (resting) 2 else if (active) 0 else 1)
+        val setTiming = active && !resting && setClockRemaining >= 0
+        face.setTiming = setTiming
+        face.jog.accent = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
+        face.primary(if (resting || setTiming) 2 else if (active) 0 else 1)
         face.homeLayout(!active && !complete)
         face.value.maxLines = if (complete) 2 else 1
         face.showDivider = measuring
@@ -743,6 +761,17 @@ class MainActivity : Activity() {
                 face.restSkip.alpha = if (face.restSkip.isEnabled) 1f else .4f
                 // No inactivity completion: an unobserved arm must be explicitly recorded or skipped.
             }
+            if (setTiming) {
+                val left = (clockLeft(now) + 999) / 1000
+                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 54f)
+                face.value.setTextColor(WatchWorkoutFace.SAGE)
+                face.target.visibility = View.GONE
+                face.setSubtitle(if (runtimePhase == "OTHER_SIDE_WORKING") "반대손 · 직접 기록" else "세트 진행 중", WatchWorkoutFace.SOFT, medium = true)
+                face.subtitle.alpha = 1f
+                face.jog.visibility = View.VISIBLE; face.jog.isEnabled = !paused
+                face.hint.text = "위로 · 횟수 기록"
+                face.applyRestMorph()
+            }
             if (paused && !restPaused) face.hint.text = "폰에서 계속할 수 있어요"
             face.layoutCount(); face.layoutMetrics()
         } else if (complete) {
@@ -816,12 +845,16 @@ class MainActivity : Activity() {
             auxPage.bind(heartRate, if (elapsed >= 3600) "%d:%02d:%02d".format(elapsed / 3600, elapsed % 3600 / 60, elapsed % 60) else "%d:%02d".format(elapsed / 60, elapsed % 60), setIndex, clockText)
         }
         if (!active) face.heart.show(0)
-        if (resting && restEnd(now) > now) {
+        restRing.timerColor = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
+        if (setTiming) {
+            val end = now + clockLeft(now)
+            restRing.setWindow(end - setClockTotal, end); restRing.visibility = View.VISIBLE
+        } else if (resting && restEnd(now) > now) {
             restRing.setWindow(restEnd(now) - restSeconds.coerceAtLeast(1) * 1_000L, restEnd(now)); restRing.visibility = View.VISIBLE
         } else if (active && !resting && !paused && count != null && targetReps > 0) {
             restRing.setProgress(count.toFloat() / targetReps); restRing.visibility = View.VISIBLE
         } else restRing.visibility = View.GONE
-        rollCountIfChanged(measuring)
+        rollCountIfChanged(measuring && !setTiming)
         val presentation = if (active) "active" else if (complete) "complete" else "home"
         if (lastPresentation != presentation) {
             lastPresentation = presentation
@@ -1060,6 +1093,7 @@ class MainActivity : Activity() {
             strokeCap = Paint.Cap.ROUND
             color = WatchWorkoutFace.YELLOW
         }
+        var timerColor = WatchWorkoutFace.YELLOW
         private var startAtMs = 0L
         private var endAtMs = 0L
         private var progress: Float? = null
@@ -1161,7 +1195,7 @@ class MainActivity : Activity() {
             }
             // The unlit rim stays visible behind the shrinking rest time, as in the design.
             paint.color = WatchWorkoutFace.TRACK; canvas.drawArc(oval, -90f, 360f, false, paint)
-            paint.color = WatchWorkoutFace.YELLOW
+            paint.color = timerColor
             paint.alpha = (255 * (1f - .65f * fade)).toInt()
             canvas.drawArc(oval, -90f, 360f * fraction, false, paint)
             paint.alpha = 255

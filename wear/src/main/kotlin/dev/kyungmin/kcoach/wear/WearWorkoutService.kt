@@ -189,6 +189,56 @@ class WearWorkoutService : Service(), SensorEventListener {
     private var lastAppliedCommand = ""
     private var lastCommandRevision = 0L
     private val completionRetry = Runnable { replayCompletion() }
+    private var setClockValue = -1L
+    private var setClockTotal = 1L
+    private var setClockPaused = false
+    private var setClockKey = ""
+    private var setClockWarned = false
+    private var setClockFinished = false
+    private fun setClockRemaining() = if (setClockValue < 0) -1L else
+        (if (setClockPaused) setClockValue else setClockValue - System.currentTimeMillis()).coerceAtLeast(0)
+    private val setClockTicker = object : Runnable {
+        override fun run() {
+            val left = setClockRemaining()
+            if (left < 0) return
+            if (!paused && !setClockPaused) {
+                if (left in 1..5000 && !setClockWarned) {
+                    setClockWarned = true; checkpoint(); vibrateSetClock()
+                }
+                if (left == 0L && !setClockFinished) {
+                    setClockFinished = true; checkpoint(); vibrateSetClock()
+                }
+            }
+            broadcastState(force = true)
+            handler.postDelayed(this, 250L)
+        }
+    }
+    private fun vibrateSetClock() {
+        val vibrator = getSystemService(android.os.Vibrator::class.java)
+        vibrator?.vibrate(android.os.VibrationEffect.createOneShot(120, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+    }
+    private fun applySetClock(intent: Intent, type: String) {
+        if (type !in MUTATING_COMMANDS) return
+        if (type == "REST" && setClockValue >= 0 && !setClockFinished && !setClockPaused && setClockRemaining() == 0L) {
+            setClockFinished = true; vibrateSetClock()
+        }
+        if (!intent.hasExtra("setClockValue") && type in setOf("PAUSE", "RESUME")) {
+            if (type == "PAUSE" && setClockValue >= 0 && !setClockPaused) {
+                setClockValue = setClockRemaining(); setClockPaused = true
+            } else if (type == "RESUME" && setClockValue >= 0 && setClockPaused) {
+                setClockValue += System.currentTimeMillis(); setClockPaused = false
+            }
+            return
+        }
+        val key = listOf(intent.getStringExtra("session"), intent.getStringExtra("setId"), intent.getStringExtra("attemptId")).joinToString(":")
+        if (key != setClockKey) { setClockKey = key; setClockWarned = false; setClockFinished = false }
+        setClockValue = intent.getLongExtra("setClockValue", -1L)
+        setClockTotal = intent.getLongExtra("setClockTotal", 1L).coerceAtLeast(1)
+        setClockPaused = intent.getBooleanExtra("setClockPaused", false)
+        handler.removeCallbacks(setClockTicker)
+        if (setClockValue >= 0) handler.post(setClockTicker)
+    }
+
     private var unilateralProgress: dev.kyungmin.kcoach.core.UnilateralProgress? = null
     private val manualOutbox by lazy { ManualSetOutbox(this) }
     private val patternProfiles by lazy { PatternProfileStore(this) }
@@ -340,6 +390,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             }
         }
         val applied = runCatching {
+        if (intent != null) applySetClock(intent, type.orEmpty())
         if (type in MUTATING_COMMANDS && intent != null) {
             if (intent.getStringExtra("session") != sessionId) { phoneRev = 0; mySeq = 0 }
             if (intent.hasExtra("restRev")) {
@@ -471,6 +522,7 @@ class WearWorkoutService : Service(), SensorEventListener {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(setClockTicker)
         serviceDestroyed = true
         handler.removeCallbacks(setEndTicker)
         if (!startupFailed) checkpoint() // A failed startup has not restored the original owner yet.
@@ -578,6 +630,8 @@ class WearWorkoutService : Service(), SensorEventListener {
             intent.getLongExtra("pausedRestRemainingMs", 0L).toString(),
             intent.getStringExtra("patternShadowCommandId").orEmpty(),
             intent.getStringExtra("unilateralProgress").orEmpty(),
+            intent.getLongExtra("setClockValue", -1L).toString(), intent.getLongExtra("setClockTotal", 1L).toString(),
+            intent.getBooleanExtra("setClockPaused", false).toString(),
         )
         var boundFields = intent.getStringExtra("patternBinding")?.takeIf { it.isNotEmpty() }?.let { fields + it } ?: fields
         intent.getStringExtra("patternWearing")?.takeIf { it.isNotEmpty() }?.let { boundFields = boundFields + it }
@@ -694,6 +748,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             command.setId == setId && command.attemptId == attemptId && calibrationStage == null && !resting && pausedRestRemainingMs == 0L)
         check(checkpoint()) { "Raw capture must be preserved before manual completion" }
         check(manualOutbox.enqueue(command)) { "Manual count is already pending or belongs to an older revision" }
+        setClockValue = -1L; handler.removeCallbacks(setClockTicker)
         countingPaused = false
         running = false
         reps = command.performedReps
@@ -840,6 +895,8 @@ class WearWorkoutService : Service(), SensorEventListener {
             .put("setIndex", setIndex).put("setId", setId).put("attemptId", attemptId).put("targetReps", targetReps).put("weightKg", weightKg ?: JSONObject.NULL)
             .put("phoneRev", phoneRev).put("mySeq", mySeq)
             .put("unilateralProgress", unilateralProgress?.encode().orEmpty())
+            .put("setClockValue", setClockValue).put("setClockTotal", setClockTotal).put("setClockPaused", setClockPaused)
+            .put("setClockKey", setClockKey).put("setClockWarned", setClockWarned).put("setClockFinished", setClockFinished)
             .put("restSeconds", restSeconds).put("restEndAtMs", restEndAtMs).put("pausedRestRemainingMs", pausedRestRemainingMs)
             .put("countingPaused", countingPaused).put("countingResetAfterNs", countingResetAfterNs).put("editStatus", editStatus)
             .put("running", running).put("resting", resting).put("paused", paused).put("reps", reps).put("heartRate", heartRate)
@@ -896,6 +953,10 @@ class WearWorkoutService : Service(), SensorEventListener {
             pausedRestRemainingMs = state.getLong("pausedRestRemainingMs")
             running = state.getBoolean("running"); resting = state.getBoolean("resting"); paused = state.getBoolean("paused")
             unilateralProgress = dev.kyungmin.kcoach.core.UnilateralProgress.decode(state.optString("unilateralProgress"))
+            setClockValue = state.optLong("setClockValue", -1L); setClockTotal = state.optLong("setClockTotal", 1L)
+            setClockPaused = state.optBoolean("setClockPaused"); setClockKey = state.optString("setClockKey")
+            setClockWarned = state.optBoolean("setClockWarned"); setClockFinished = state.optBoolean("setClockFinished")
+            if (setClockValue >= 0) handler.post(setClockTicker)
             firstSideActiveMs = state.optLong("firstSideActiveMs", 0L)
             firstSideActiveSinceMs = null
             countingPaused = state.optBoolean("countingPaused") && running && !resting
@@ -1432,7 +1493,6 @@ class WearWorkoutService : Service(), SensorEventListener {
         trackingProfile.mode != TrackingMode.MANUAL_REQUIRED
 
     private fun startRest(intent: Intent) {
-        if (unilateralProgress?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING) vibrateCompleted()
         unilateralProgress = null
         countingPaused = false
         if (captureSampleCount > 0 && (!sameSet(intent) || intent.getStringExtra("exerciseId").orEmpty().let { it.isNotBlank() && it != exerciseId })) {
@@ -1555,6 +1615,7 @@ class WearWorkoutService : Service(), SensorEventListener {
     }
 
     private fun finishSession(phase: String, startId: Int = 0) {
+        setClockValue = -1L; handler.removeCallbacks(setClockTicker)
         unilateralProgress = null
         markPhoneAlive()
         if (sessionId.isBlank()) {
@@ -2395,6 +2456,8 @@ class WearWorkoutService : Service(), SensorEventListener {
             putExtra("setId", setId)
             putExtra("attemptId", attemptId)
             putExtra("unilateralProgress", unilateralProgress?.encode().orEmpty())
+            putExtra("setClockRemaining", setClockRemaining())
+            putExtra("setClockTotal", setClockTotal)
             putExtra("unilateralStage", unilateralProgress?.stage?.name.orEmpty())
             putExtra("otherSideTargetReps", unilateralProgress?.watchReps ?: -1)
             putExtra("manualRequired", unilateralProgress?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING || trackingProfile.mode == TrackingMode.MANUAL_REQUIRED)

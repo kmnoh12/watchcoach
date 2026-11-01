@@ -185,6 +185,7 @@ class WatchWorkoutControlTest {
         val app = RuntimeEnvironment.getApplication()
         val store = SessionStore(app)
         assertTrue(store.saveActive(snapshot().copy(startedAtMs = 100)))
+        val before = store.loadActive().getOrThrow()!!
         val sent = mutableListOf<Pair<String, String>>()
         val controller = WatchWorkoutController(app) { path, value -> sent += path to value }
         val edit = WatchWorkoutControl("current", WatchWorkoutAction.EDIT_SET, "watch-session", "set-0", "attempt-0",
@@ -194,8 +195,8 @@ class WatchWorkoutControlTest {
         assertTrue(runCatching { edit.copy(weightKg = null) }.isFailure)
         assertEquals(WatchWorkoutControlStatus.APPLIED, controller.receive(edit.encode(), 200).getOrThrow().ack.status)
         val saved = SessionStore(app).loadActive().getOrThrow()!!
-        assertEquals(snapshot().copy(startedAtMs = 100,
-            plannedSets = snapshot().plannedSets.mapIndexed { index, set -> if (index == 0) set.copy(weightKg = 35.0) else set }), saved)
+        assertEquals(before.copy(
+            plannedSets = before.plannedSets.mapIndexed { index, set -> if (index == 0) set.copy(weightKg = 35.0) else set }), saved)
         val sync = WearSync.parse(sent.last { it.first == WearSync.PATH_COMMAND }.second)
         assertEquals("SYNC", sync[1]); assertEquals("12", sync[6]); assertEquals("35.0", sync[7])
         assertEquals("WORKING", sync[11])

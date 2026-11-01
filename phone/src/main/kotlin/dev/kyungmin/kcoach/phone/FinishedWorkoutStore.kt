@@ -40,11 +40,14 @@ internal class FinishedWorkoutStore(private val context: Context) {
         val record = prefs.getString(key, null)?.let(::JSONObject) ?: return@synchronized false
         val snapshot = WorkoutSnapshotCodec.decode(record.getString("snapshot"))
         val set = snapshot.plannedSets.singleOrNull { it.setId == setId && it.attemptId == attemptId }
-            ?.takeIf { it.completed && it.unilateral?.estimated == true } ?: return@synchronized false
+            ?.takeIf { it.completed && (it.unilateral?.estimated == true || it.repSource == SetRepSource.ESTIMATED) } ?: return@synchronized false
         val corrected = snapshot.copy(plannedSets = snapshot.plannedSets.map {
-            if (it === set) it.copy(unilateral = it.unilateral!!.confirmOther(reps)) else it
+            if (it === set) if (it.unilateral?.estimated == true) it.copy(unilateral = requireNotNull(it.unilateral).confirmOther(reps))
+            else it.copy(performedReps = reps, repSource = SetRepSource.MANUAL) else it
         })
-        record.put("snapshot", WorkoutSnapshotCodec.encode(corrected)).put("projected", false)
+        val totals = corrected.copy(performedReps = corrected.plannedSets.filter { it.completed }.groupBy { it.exerciseId }
+            .mapValues { (_, sets) -> sets.sumOf { it.performedReps ?: 0 } })
+        record.put("snapshot", WorkoutSnapshotCodec.encode(totals)).put("projected", false)
         check(prefs.edit().putString(key, record.toString()).commit())
         project(key, record)
         true

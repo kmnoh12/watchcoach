@@ -162,6 +162,18 @@ object WearSync {
         return fields.joinToString("|")
     }
 
+    fun withSetClock(payload: String, snapshot: WorkoutSnapshot, nowMs: Long, enabled: Boolean = true): String {
+        val fields = parse(payload).toMutableList()
+        while (fields.size < 28) fields.add("")
+        val remaining = SetClock.remainingMs(snapshot, nowMs, enabled)
+        val target = WorkoutSessionReducer.nextPendingSet(snapshot)
+        fields[25] = remaining?.let { if (snapshot.paused) it else nowMs + it }?.toString().orEmpty()
+        fields[26] = (target?.unilateral?.firstSideDurationMs?.plus(15_000L)
+            ?: target?.setTimerLimitMs ?: 0L).plus(target?.setTimerAdjustmentMs ?: 0).coerceAtLeast(1).toString()
+        fields[27] = snapshot.paused.toString()
+        return fields.joinToString("|")
+    }
+
     fun hello(device: String): String = listOf("1", device, System.currentTimeMillis()).joinToString("|")
 
     fun heartbeat(device: String): String =

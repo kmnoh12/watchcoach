@@ -155,7 +155,7 @@ class PhoneWorkoutService : Service() {
                     .onFailure { Log.e("KCoachEvent", "background rest transition failed", it) }
                 val snapshot = sessionStore.loadActive().getOrNull()
                 val resting = snapshot?.phase == WorkoutPhase.RESTING && !snapshot.paused
-                handler.postDelayed(this, if (resting || snapshot?.plannedSets?.any { it.unilateral?.holdsRest == true } == true) 250L else HEARTBEAT_INTERVAL_MS)
+                handler.postDelayed(this, if (resting || snapshot?.let { dev.kyungmin.kcoach.core.SetClock.remainingMs(it, System.currentTimeMillis()) != null } == true || snapshot?.plannedSets?.any { it.unilateral?.holdsRest == true } == true) 250L else HEARTBEAT_INTERVAL_MS)
             }
         }
         restTicker = tick
