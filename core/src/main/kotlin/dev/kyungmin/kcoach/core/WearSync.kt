@@ -66,6 +66,7 @@ object WearSync {
         restEndAtMs: Long = 0L,
         setId: String = "",
         attemptId: String = "",
+        firstSideDurationMs: Long? = null,
     ): String = listOf(
         "2", type, sessionId, exerciseId, exerciseName.replace('|', '/'), setIndex,
         targetReps, weightKg ?: "", restSeconds, restEndAtMs,
@@ -201,11 +202,12 @@ object WearSync {
         completionId: String = "",
         setId: String = "",
         attemptId: String = "",
+        firstSideDurationMs: Long? = null,
     ): String = listOf(
         "2", sessionId, exerciseId, exerciseName.replace('|', '/'), setIndex, reps,
         targetReps, weightKg ?: "", heartRate, phase, recording, System.currentTimeMillis(),
         restEndAtMs, sampleCount, trackingProfileId.replace('|', '/'), personalized,
-    ).let { if (setId.isNotBlank() || attemptId.isNotBlank()) it + listOf(completionId, setId, attemptId) else if (completionId.isBlank()) it else it + completionId }.joinToString("|")
+    ).let { if (setId.isNotBlank() || attemptId.isNotBlank()) it + listOf(completionId, setId, attemptId) else if (completionId.isBlank()) it else it + completionId }.let { if (firstSideDurationMs == null) it else it + firstSideDurationMs }.joinToString("|")
 
     fun setAck(sessionId: String, exerciseId: String, setIndex: Int, completionId: String, setId: String = "", attemptId: String = ""): String =
         listOf("1", sessionId, exerciseId, setIndex, completionId).let { if (setId.isBlank() && attemptId.isBlank()) it else it + listOf(setId, attemptId) }.joinToString("|")

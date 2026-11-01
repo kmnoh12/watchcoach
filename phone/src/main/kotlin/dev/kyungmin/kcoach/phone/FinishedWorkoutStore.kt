@@ -34,6 +34,22 @@ internal class FinishedWorkoutStore(private val context: Context) {
             }.getOrNull()
         }.sortedWith(compareByDescending<Evidence> { it.snapshot.startedAtMs }.thenBy { it.snapshot.sessionId })
 
+    fun confirmOther(sessionId: String, setId: String, attemptId: String, reps: Int): Boolean = synchronized(lock) {
+        if (reps !in 0..9_999) return@synchronized false
+        val key = "session:$sessionId"
+        val record = prefs.getString(key, null)?.let(::JSONObject) ?: return@synchronized false
+        val snapshot = WorkoutSnapshotCodec.decode(record.getString("snapshot"))
+        val set = snapshot.plannedSets.singleOrNull { it.setId == setId && it.attemptId == attemptId }
+            ?.takeIf { it.completed && it.unilateral?.estimated == true } ?: return@synchronized false
+        val corrected = snapshot.copy(plannedSets = snapshot.plannedSets.map {
+            if (it === set) it.copy(unilateral = it.unilateral!!.confirmOther(reps)) else it
+        })
+        record.put("snapshot", WorkoutSnapshotCodec.encode(corrected)).put("projected", false)
+        check(prefs.edit().putString(key, record.toString()).commit())
+        project(key, record)
+        true
+    }
+
     fun finish(snapshot: WorkoutSnapshot, title: String, minutes: Int, usePounds: Boolean = false) = synchronized(lock) {
         if (snapshot.plannedSets.none { it.completed }) return@synchronized
         val key = "session:${snapshot.sessionId}"

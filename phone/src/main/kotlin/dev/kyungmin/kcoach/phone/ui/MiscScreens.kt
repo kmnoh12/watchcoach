@@ -210,8 +210,21 @@ class ResultUi(
 )
 
 @Composable
-fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Unit, summary: (@Composable () -> Unit)? = null) {
+fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Unit, summary: (@Composable () -> Unit)? = null,
+    estimatedSets: List<Pair<String, Int>> = emptyList(), confirmEstimate: (Int, Int) -> Unit = { _, _ -> }) {
     val context = LocalContext.current
+    var editingEstimate by remember { mutableStateOf<Int?>(null) }
+    var estimateText by remember { mutableStateOf("") }
+    editingEstimate?.let { index ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { editingEstimate = null },
+            title = { Text("반대손 횟수") },
+            text = { BasicTextField(estimateText, { estimateText = it.filter(Char::isDigit).take(4) },
+                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                estimateText.toIntOrNull()?.takeIf { it in 0..9_999 }?.let { confirmEstimate(index, it); editingEstimate = null }
+            }) { Text("확정") } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { editingEstimate = null }) { Text("취소") } })
+    }
     val scope = rememberCoroutineScope()
     // The content column is taller than the viewport, so recording it here exports the whole page.
     val capture = rememberGraphicsLayer()
@@ -286,6 +299,10 @@ fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Uni
                 Text(result.subtitle, color = KColors.Muted, fontSize = 14.sp)
                 Spacer(Modifier.height(18.dp))
                 summary?.invoke()
+                estimatedSets.forEachIndexed { index, (label, reps) ->
+                    Text("$label · 반대손 ${reps}회 · 추정", color = KColors.Muted, fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { estimateText = reps.toString(); editingEstimate = index }.padding(vertical = 10.dp))
+                }
                 if (result.records.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
                     Row(verticalAlignment = Alignment.Bottom) {

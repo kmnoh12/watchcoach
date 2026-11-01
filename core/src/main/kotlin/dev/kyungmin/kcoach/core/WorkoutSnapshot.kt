@@ -22,7 +22,7 @@ enum class CaptureState {
     ACKED,
 }
 
-enum class SetRepSource { MANUAL, WATCH, PHONE_ANALYSIS }
+enum class SetRepSource { MANUAL, WATCH, PHONE_ANALYSIS, ESTIMATED }
 
 data class PlannedSetSnapshot(
     val exerciseIndex: Int,

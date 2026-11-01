@@ -67,6 +67,7 @@ data class SetUi(
     /** One-arm set: the watch arm is done and the other arm is pending, shown as a half-opacity check. */
     val halfDone: Boolean = false,
     val otherSideWorking: Boolean = false,
+    val estimated: Boolean = false,
 )
 
 enum class SetField { WEIGHT, REPS }

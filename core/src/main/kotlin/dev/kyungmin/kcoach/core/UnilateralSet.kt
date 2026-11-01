@@ -11,23 +11,38 @@ data class UnilateralProgress(
     val watchReps: Int? = null,
     val watchRepSource: SetRepSource? = null,
     val otherReps: Int? = null,
+    val otherRepSource: SetRepSource? = null,
+    val firstSideDurationMs: Long? = null,
+    val otherStartedAtMs: Long? = null,
+    val pausedAtOtherStartMs: Long = 0,
+
 ) {
     init {
+        require(firstSideDurationMs == null || firstSideDurationMs >= 0)
+        require(otherStartedAtMs == null || otherStartedAtMs >= 0)
+        require(pausedAtOtherStartMs >= 0)
         require(watchReps == null || watchReps in 0..9_999)
         require(otherReps == null || otherReps in 0..9_999)
         require((watchReps == null) == (watchRepSource == null))
         require((stage == UnilateralStage.WATCH_SIDE_WORKING) == (watchReps == null))
         require((stage == UnilateralStage.BOTH_COMPLETE) == (otherReps != null))
     }
+    val estimated: Boolean get() = otherRepSource == SetRepSource.ESTIMATED
+    fun confirmOther(reps: Int): UnilateralProgress {
+        require(stage == UnilateralStage.BOTH_COMPLETE && reps in 0..9_999)
+        return copy(otherReps = reps, otherRepSource = SetRepSource.MANUAL)
+    }
     val holdsRest: Boolean get() = stage in setOf(UnilateralStage.AWAITING_OTHER_SIDE, UnilateralStage.OTHER_SIDE_WORKING)
-    fun encode(): String = listOf(stage.name, watchReps?.toString().orEmpty(), watchRepSource?.name.orEmpty(), otherReps?.toString().orEmpty()).joinToString(",")
+    fun encode(): String = listOf(stage.name, watchReps?.toString().orEmpty(), watchRepSource?.name.orEmpty(), otherReps?.toString().orEmpty(), otherRepSource?.name.orEmpty(), firstSideDurationMs?.toString().orEmpty(), otherStartedAtMs?.toString().orEmpty(), pausedAtOtherStartMs.toString()).joinToString(",")
     companion object {
         fun decode(value: String): UnilateralProgress? {
             if (value.isEmpty()) return null
             val fields = value.split(',')
-            require(fields.size == 4)
+            require(fields.size == 4 || fields.size == 8)
             return UnilateralProgress(UnilateralStage.valueOf(fields[0]), fields[1].takeIf { it.isNotEmpty() }?.toInt(),
-                fields[2].takeIf { it.isNotEmpty() }?.let(SetRepSource::valueOf), fields[3].takeIf { it.isNotEmpty() }?.toInt())
+                fields[2].takeIf { it.isNotEmpty() }?.let(SetRepSource::valueOf), fields[3].takeIf { it.isNotEmpty() }?.toInt(),
+                fields.getOrNull(4)?.takeIf { it.isNotEmpty() }?.let(SetRepSource::valueOf),
+                fields.getOrNull(5)?.toLongOrNull(), fields.getOrNull(6)?.toLongOrNull(), fields.getOrNull(7)?.toLongOrNull() ?: 0)
         }
     }
 }
@@ -69,7 +84,27 @@ object UnilateralExercises {
 }
 
 object UnilateralSetReducer {
-    /** The global setting authorizes starting the other arm; only explicit completion may record that arm. */
+    /** Persisted active-time clock: pauses and process recreation do not restart it. */
+    fun autoComplete(snapshot: WorkoutSnapshot, nowMs: Long): WorkoutSnapshot? {
+        if (snapshot.paused || snapshot.phase != WorkoutPhase.WORKING) return null
+        val set = WorkoutSessionReducer.nextPendingSet(snapshot) ?: return null
+        if (set.exerciseId !in UnilateralExercises.ids) return null
+        val progress = set.unilateral ?: return null
+        if (progress.stage != UnilateralStage.OTHER_SIDE_WORKING) return null
+        val duration = progress.firstSideDurationMs ?: return null
+        val start = progress.otherStartedAtMs ?: return null
+        val elapsed = nowMs - start - (snapshot.totalPausedMs - progress.pausedAtOtherStartMs).coerceAtLeast(0)
+        if (elapsed < duration + 15_000L) return null
+        val result = apply(snapshot, snapshot.sessionId, set.setId, set.attemptId,
+            UnilateralAction.COMPLETE_OTHER_SIDE, nowMs, progress.watchReps)
+        if (result !is SetCompletionResult.Applied) return null
+        return result.snapshot.copy(plannedSets = result.snapshot.plannedSets.map {
+            if (it.setId == set.setId && it.attemptId == set.attemptId)
+                it.copy(unilateral = it.unilateral?.copy(otherRepSource = SetRepSource.ESTIMATED)) else it
+        })
+    }
+
+    /** Explicit input records manual evidence and cancels the pending clock. */
     fun apply(snapshot: WorkoutSnapshot, sessionId: String, setId: String, attemptId: String,
               action: UnilateralAction, nowMs: Long, otherReps: Int? = null): SetCompletionResult {
         fun reject(reason: String) = SetCompletionResult.Rejected(snapshot, reason)
@@ -93,7 +128,10 @@ object UnilateralSetReducer {
         if (progress.stage != expected && !skipOther || action != UnilateralAction.COMPLETE_OTHER_SIDE && otherReps != null)
             return reject("invalid_unilateral_transition")
         // A complete press confirms the suggested matching count; it is manual evidence, never a sensor count.
-        val updated = progress.copy(stage = stage, otherReps = if (stage == UnilateralStage.BOTH_COMPLETE) otherReps ?: progress.watchReps else null)
+        val updated = progress.copy(stage = stage, otherReps = if (stage == UnilateralStage.BOTH_COMPLETE) otherReps ?: progress.watchReps else null,
+            otherRepSource = if (stage == UnilateralStage.BOTH_COMPLETE) SetRepSource.MANUAL else null,
+            otherStartedAtMs = if (stage == UnilateralStage.OTHER_SIDE_WORKING) nowMs else null,
+            pausedAtOtherStartMs = snapshot.totalPausedMs)
         val candidate = snapshot.copy(plannedSets = snapshot.plannedSets.map { if (it === set) it.copy(unilateral = updated) else it })
         if (action == UnilateralAction.START_OTHER_SIDE) return SetCompletionResult.Applied(candidate)
         return WorkoutSessionReducer.completeSet(candidate, SetCompletionEvent(sessionId, set.exerciseId, set.setIndex,

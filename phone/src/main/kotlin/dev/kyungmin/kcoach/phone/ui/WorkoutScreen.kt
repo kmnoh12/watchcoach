@@ -442,7 +442,7 @@ private fun SetRow(
         ) {
             Cell(set.label, Modifier.weight(SetWeights[0]), if (isCurrent) KColors.Sage else KColors.Muted, null, onLabel, sub = set.previous)
             if (weighted) Cell(set.weightText, Modifier.weight(SetWeights[1]), KColors.White, editingField == SetField.WEIGHT, onWeight)
-            Cell(set.reps?.toString() ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps)
+            Cell(set.reps?.toString() ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps, sub = if (set.estimated) "추정" else null)
             CheckCell(set.completed, half = set.halfDone, modifier = Modifier.weight(SetWeights[3]).padding(horizontal = 4.dp).height(40.dp).clickable { onCheck() }, highlighted = isCurrent)
             Box(Modifier.weight(SetWeights[4]).clickable { onMore() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 18.dp) }
         }

@@ -150,7 +150,8 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
         require(fields.size >= 12 && fields[0] == "2" && fields[9] == "SET_COMPLETE") { "Invalid set completion payload" }
         val completionId = fields.getOrNull(16)?.takeIf { it.matches(Regex("[A-Za-z0-9-]{1,80}")) }
         val event = SetCompletionEvent(fields[1], fields[2], fields[4].toInt(), fields[5].toInt(), 0,
-            if (completionId == null) fields[11].toLong() else 0L, setId = fields.getOrNull(17).orEmpty(), attemptId = fields.getOrNull(18).orEmpty())
+            if (completionId == null) fields[11].toLong() else 0L, setId = fields.getOrNull(17).orEmpty(), attemptId = fields.getOrNull(18).orEmpty(),
+            firstSideDurationMs = fields.getOrNull(19)?.toLongOrNull()?.takeIf { it in 0..86_400_000L }, completedAtMs = nowMs)
         if (completionId != null && (store.hasCompletionReceipt(event.sessionId, completionId) || store.isSessionClosed(event.sessionId))) {
             send(WearSync.PATH_SET_ACK, WearSync.setAck(event.sessionId, event.exerciseId, event.setIndex, completionId, event.setId, event.attemptId))
             return@runCatching null
@@ -210,6 +211,11 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
     }
 
     fun advanceRest(nowMs: Long, skip: Boolean = false): Result<WorkoutSnapshot?> = runCatching {
+        val auto = store.advanceOtherSide(nowMs).getOrThrow()
+        if (auto != null) {
+            send(WearSync.PATH_COMMAND, command(auto, "REST"))
+            return@runCatching auto
+        }
         val next = store.advanceAfterRest(nowMs, skip).getOrThrow() ?: return@runCatching null
         send(WearSync.PATH_COMMAND, command(next, "SET"))
         next

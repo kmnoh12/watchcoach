@@ -10,6 +10,8 @@ data class SetCompletionEvent(
     val repSource: SetRepSource = SetRepSource.MANUAL,
     val setId: String = "",
     val attemptId: String = "",
+    val firstSideDurationMs: Long? = null,
+    val completedAtMs: Long? = null,
 ) {
     val completionKey: String = if (setId.isBlank()) "$sessionId:$exerciseId:$setIndex" else "$sessionId:$setId:$attemptId"
 }
@@ -87,7 +89,10 @@ object WorkoutSessionReducer {
                 setIndex = completedSet.setIndex,
                 plannedSets = snapshot.plannedSets.map { if (it === completedSet) it.copy(
                     unilateral = UnilateralProgress(if (firstSidePolicy == UnilateralFirstSidePolicy.BOTH_SIDES)
-                        UnilateralStage.OTHER_SIDE_WORKING else UnilateralStage.AWAITING_OTHER_SIDE, event.reps, event.repSource)) else it },
+                        UnilateralStage.OTHER_SIDE_WORKING else UnilateralStage.AWAITING_OTHER_SIDE, event.reps, event.repSource,
+                        firstSideDurationMs = event.firstSideDurationMs,
+                        otherStartedAtMs = if (firstSidePolicy == UnilateralFirstSidePolicy.BOTH_SIDES) event.completedAtMs else null,
+                        pausedAtOtherStartMs = snapshot.totalPausedMs + if (snapshot.paused) ((event.completedAtMs ?: snapshot.pausedSinceMs) - snapshot.pausedSinceMs).coerceAtLeast(0) else 0)) else it },
                 restEndAtMs = 0, pausedRestRemainingMs = 0,
                 lastSequence = maxOf(snapshot.lastSequence, event.sequence)))
         }

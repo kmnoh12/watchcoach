@@ -208,6 +208,12 @@ class WearWorkoutService : Service(), SensorEventListener {
     private var startDirectionSnapshot = ""
     private var startDirectionStatus = "UNCONFIRMED"
     private var countingStartNs: Long? = null
+    private var firstSideActiveMs = 0L
+    private var firstSideActiveSinceMs: Long? = null
+    private fun freezeFirstSideClock() {
+        firstSideActiveSinceMs?.let { firstSideActiveMs += (android.os.SystemClock.elapsedRealtime() - it).coerceAtLeast(0) }
+        firstSideActiveSinceMs = null
+    }
     private var tempoSettings = ""
     private var tempoMuted = false
     private var tempoHint = ""
@@ -708,8 +714,10 @@ class WearWorkoutService : Service(), SensorEventListener {
                 if (!running || resting || paused) return
                 val pause = intent.getStringExtra(EXTRA_COMMAND) == "COUNTING_PAUSE"
                 if (countingPaused != pause) {
+                    freezeFirstSideClock()
                     resetCountingWindow()
                     countingPaused = pause
+                    if (!pause && measurementReady) firstSideActiveSinceMs = android.os.SystemClock.elapsedRealtime()
                     countingResetAfterNs = android.os.SystemClock.elapsedRealtimeNanos()
                     tempoPolicy.pause()
                     check(checkpoint())
@@ -852,6 +860,8 @@ class WearWorkoutService : Service(), SensorEventListener {
             .put("patternSelectionMode", patternSelectionMode)
             .put("startWristContext", startWristContext).put("startWristDeviceId", startWristDeviceId)
             .put("startDirectionSnapshot", startDirectionSnapshot).put("startDirectionStatus", startDirectionStatus)
+            .put("firstSideActiveMs", firstSideActiveMs + (firstSideActiveSinceMs?.let { (android.os.SystemClock.elapsedRealtime() - it).coerceAtLeast(0) } ?: 0))
+            .put("firstSideActiveSinceMs", firstSideActiveSinceMs ?: JSONObject.NULL)
             .put("countingStartNs", countingStartNs ?: JSONObject.NULL)
             .put("tempoSettings", tempoSettings).put("tempoMuted", tempoMuted).put("tempoHint", tempoHint)
             .put("lastTempoAlertNs", lastTempoAlertNs)
@@ -886,6 +896,8 @@ class WearWorkoutService : Service(), SensorEventListener {
             pausedRestRemainingMs = state.getLong("pausedRestRemainingMs")
             running = state.getBoolean("running"); resting = state.getBoolean("resting"); paused = state.getBoolean("paused")
             unilateralProgress = dev.kyungmin.kcoach.core.UnilateralProgress.decode(state.optString("unilateralProgress"))
+            firstSideActiveMs = state.optLong("firstSideActiveMs", 0L)
+            firstSideActiveSinceMs = null
             countingPaused = state.optBoolean("countingPaused") && running && !resting
             countingResetAfterNs = state.optLong("countingResetAfterNs")
             editStatus = state.optString("editStatus")
@@ -1220,6 +1232,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         patternSelectionMode = intent.getStringExtra("patternSelectionMode").orEmpty()
         // Any unresolved previous chunks stay on disk instead of being erased
         // when a replacement set starts.
+        firstSideActiveMs = 0; firstSideActiveSinceMs = null
         countingPaused = false; countingResetAfterNs = 0L; editStatus = ""
         resetCaptureBuffer(deleteChunks = false)
         patternWearing = intent.getStringExtra("patternWearing").orEmpty()
@@ -1419,6 +1432,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         trackingProfile.mode != TrackingMode.MANUAL_REQUIRED
 
     private fun startRest(intent: Intent) {
+        if (unilateralProgress?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING) vibrateCompleted()
         unilateralProgress = null
         countingPaused = false
         if (captureSampleCount > 0 && (!sameSet(intent) || intent.getStringExtra("exerciseId").orEmpty().let { it.isNotBlank() && it != exerciseId })) {
@@ -1483,6 +1497,7 @@ class WearWorkoutService : Service(), SensorEventListener {
     }
 
     private fun pauseSession() {
+        freezeFirstSideClock()
         countingPaused = false
         setEndGate.reset(); postTargetGuard.reset()
         tempoPolicy.pause()
@@ -1671,6 +1686,7 @@ class WearWorkoutService : Service(), SensorEventListener {
                             broadcastState(force = true)
                         }
                     } else {
+                        if (firstSideActiveSinceMs == null) firstSideActiveSinceMs = android.os.SystemClock.elapsedRealtime()
                         if (startDirectionSnapshot.isNotEmpty() && countingStartNs == null) {
                             require(startDirectionStatus in setOf("CONFIRMED", "BYPASSED"))
                             countingStartNs = sensorSample.timestampNs
@@ -1774,10 +1790,13 @@ class WearWorkoutService : Service(), SensorEventListener {
         running = false
         unregisterMotionSensors()
         cancelMeasurementPreparation()
+        val hadFirstSideClock = firstSideActiveSinceMs != null || firstSideActiveMs > 0
+        freezeFirstSideClock()
         if (!wasCalibration) {
             pendingCompletion = WearSync.liveState(sessionId, exerciseId, exerciseName, setIndex, reps, targetReps,
                 weightKg, heartRate, "SET_COMPLETE", false, restEndAtMs, captureSampleCount, trackingProfile.id,
-                trackingProfile.calibrationProfileVersion != null, UUID.randomUUID().toString(), setId, attemptId)
+                trackingProfile.calibrationProfileVersion != null, UUID.randomUUID().toString(), setId, attemptId,
+                firstSideDurationMs = if (hadFirstSideClock && setId.isNotBlank()) firstSideActiveMs else null)
             if (!checkpoint()) {
                 pendingCompletion = null
                 throw java.io.IOException("Completion checkpoint failed; raw capture retained")
@@ -1818,6 +1837,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         handler.post(setEndTicker)
         forearmRotationDetector?.beginCounting()
         profiledMotionDetector?.beginCounting()
+        if (firstSideActiveSinceMs == null) firstSideActiveSinceMs = android.os.SystemClock.elapsedRealtime()
         measurementReady = true
         measurementArmed = true
         vibrateReady()
@@ -2310,6 +2330,7 @@ class WearWorkoutService : Service(), SensorEventListener {
 
     private fun resetSessionFields() {
         unilateralProgress = null
+        firstSideActiveMs = 0; firstSideActiveSinceMs = null
         countingPaused = false; countingResetAfterNs = 0L; editStatus = ""
         shadowSampleCalls = 0L; shadowProcessingHistogram.fill(0); shadowEvents.clear()
         patternShadowCommandId = ""; frozenShadow = null; shadowDetector = null; shadowUseConfirmed = false; shadowCount = 0; shadowInterrupted = false

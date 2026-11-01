@@ -84,4 +84,62 @@ class UnilateralSessionTest {
         assertEquals(UnilateralStage.WATCH_SIDE_ONLY, result.snapshot!!.plannedSets.single().unilateral!!.stage)
         assertNull(result.snapshot!!.plannedSets.single().unilateral!!.otherReps)
     }
+
+    private fun timedController(): PhoneSessionController {
+        OneArmSetting.setEnabled(app, false)
+        val store = SessionStore(app)
+        assertTrue(store.saveActive(initial()))
+        return PhoneSessionController(store) { _, _ -> }.also {
+            it.receiveCompletion(completion() + "|30000", 1_000).getOrThrow()
+        }
+    }
+    @Test fun timedOppositeSideRestoresRemainingTimeAndStartsOneRestAfterPause() {
+        val controller = timedController()
+        assertNull(controller.advanceRest(45_999).getOrThrow())
+        SessionStore(app).setPaused("s", true, 11_000).getOrThrow()
+        assertNull(controller.advanceRest(100_000).getOrThrow())
+        SessionStore(app).setPaused("s", false, 31_000).getOrThrow()
+        val restored = PhoneSessionController(SessionStore(app)) { _, _ -> }
+        assertNull(restored.advanceRest(65_999).getOrThrow())
+        val done = restored.advanceRest(66_000).getOrThrow()!!
+        assertEquals(126_000, done.restEndAtMs)
+        assertTrue(done.plannedSets.single().unilateral!!.estimated)
+        assertNull(restored.advanceRest(66_001).getOrThrow())
+        assertFalse(ProgressionPlanStore(app).logs(done, 1).single().sets.single().progressionEligible)
+    }
+    @Test fun explicitInputBeforeTimeoutWinsAndFinishedCorrectionPreservesMeasuredSide() {
+        val controller = timedController()
+        val manual = controller.unilateralAction("s", "set", "a", UnilateralAction.COMPLETE_OTHER_SIDE, 40_000, 8).getOrThrow().snapshot!!
+        assertFalse(manual.plannedSets.single().unilateral!!.estimated)
+        assertNull(controller.advanceRest(46_000).getOrThrow())
+    }
+    @Test fun finishedEstimatedCorrectionPreservesMeasuredSide() {
+        val timed = timedController().advanceRest(46_000).getOrThrow()!!
+        val finished = FinishedWorkoutStore(app)
+        finished.finish(timed, "원암", 1)
+        assertTrue(finished.confirmOther("s", "set", "a", 9))
+        val corrected = finished.evidenceForSessions(setOf("s")).single().snapshot
+        assertEquals(12, corrected.plannedSets.single().performedReps)
+        assertEquals(12, corrected.plannedSets.single().unilateral!!.watchReps)
+        assertEquals(9, corrected.plannedSets.single().unilateral!!.otherReps)
+        assertEquals(SetRepSource.MANUAL, corrected.plannedSets.single().unilateral!!.otherRepSource)
+        assertTrue(ProgressionPlanStore(app).logs(corrected, 1).single().sets.single().progressionEligible)
+        assertFalse(finished.confirmOther("s", "set", "a", 7))
+    }
+    @Test fun oneArmOnlySettingAndUnknownLegacyDurationNeverArmTimer() {
+        OneArmSetting.setEnabled(app, true)
+        val store = SessionStore(app); assertTrue(store.saveActive(initial()))
+        val controller = PhoneSessionController(store) { _, _ -> }
+        controller.receiveCompletion(completion() + "|30000", 1_000).getOrThrow()
+        assertEquals(UnilateralStage.WATCH_SIDE_ONLY, store.loadActive().getOrThrow()!!.plannedSets.single().unilateral!!.stage)
+        assertNull(store.advanceOtherSide(999_999).getOrThrow())
+    }
+    @Test fun unknownLegacyDurationNeverArmsTimer() {
+        val controller = PhoneSessionController(SessionStore(app)) { _, _ -> }
+        OneArmSetting.setEnabled(app, false)
+        assertTrue(SessionStore(app).saveActive(initial()))
+        controller.receiveCompletion(completion(), 1_000).getOrThrow()
+        assertNull(SessionStore(app).advanceOtherSide(999_999).getOrThrow())
+    }
+
 }

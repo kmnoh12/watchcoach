@@ -84,7 +84,8 @@ internal class ProgressionPlanStore(private val context: Context) {
                     .firstOrNull { it.optString("sessionSetId") == set.setId } }
                 val analysis = analyses[SetIdentity.key(set.exerciseId, set.setIndex, set.setId, set.attemptId)]
                 // Matches the analyzer's existing adoption threshold; explicit manual input always wins.
-                val eligible = set.repSource == SetRepSource.MANUAL || analysis?.repConfidence?.let { it.isFinite() && it >= 0.72 } != false
+                val eligible = set.unilateral?.otherRepSource != SetRepSource.ESTIMATED &&
+                    (set.repSource == SetRepSource.MANUAL || analysis?.repConfidence?.let { it.isFinite() && it >= 0.72 } != false)
                 LoggedSet(set.weightKg, set.performedReps ?: 0, set.targetReps, set.setType == "WARMUP", set.completed,
                     set.performedReps != null, row?.getString("position")?.substringBefore(":")?.let { "$it:${set.setType}:${set.gripType}" }.orEmpty(),
                     maxOf(row?.optInt("upper") ?: 0, ProgressionDefaults.upper(set.pattern) ?: 10, set.targetReps),

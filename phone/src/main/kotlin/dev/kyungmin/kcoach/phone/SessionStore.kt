@@ -138,10 +138,9 @@ class SessionStore(private val context: Context) {
                             if (set !== edited) set else set.copy(
                                 weightKg = command.weightKg ?: set.weightKg,
                                 targetReps = if (!set.completed && command.reps >= 0) command.reps else set.targetReps,
-                                performedReps = if (set.completed && command.reps >= 0) command.reps else set.performedReps,
-                                repSource = if (set.completed && command.reps >= 0) SetRepSource.MANUAL else set.repSource,
-                                unilateral = if (set.completed && command.reps >= 0) set.unilateral?.copy(
-                                    watchReps = command.reps, watchRepSource = SetRepSource.MANUAL) else set.unilateral)
+                                performedReps = if (set.completed && command.reps >= 0 && set.unilateral?.estimated != true) command.reps else set.performedReps,
+                                repSource = if (set.completed && command.reps >= 0 && set.unilateral?.estimated != true) SetRepSource.MANUAL else set.repSource,
+                                unilateral = if (set.completed && command.reps >= 0) set.unilateral?.let { side -> if (side.estimated) side.confirmOther(command.reps) else side.copy(watchReps = command.reps, watchRepSource = SetRepSource.MANUAL) } else set.unilateral)
                         }
                         current.copy(plannedSets = sets, performedReps = if (editingCurrent) current.performedReps else
                             sets.filter { it.completed }.groupBy { it.exerciseId }
@@ -241,8 +240,8 @@ class SessionStore(private val context: Context) {
             val restStarted: Boolean
             if (set.completed) {
                 val sets = current.plannedSets.map {
-                    if (it === set) it.copy(performedReps = command.performedReps, repSource = SetRepSource.MANUAL,
-                        unilateral = it.unilateral?.copy(watchReps = command.performedReps, watchRepSource = SetRepSource.MANUAL)) else it
+                    if (it === set) it.copy(performedReps = if (it.unilateral?.estimated == true) it.performedReps else command.performedReps, repSource = if (it.unilateral?.estimated == true) it.repSource else SetRepSource.MANUAL,
+                        unilateral = it.unilateral?.let { side -> if (side.otherRepSource == SetRepSource.ESTIMATED) side.copy(otherReps = command.performedReps, otherRepSource = SetRepSource.MANUAL) else side.copy(watchReps = command.performedReps, watchRepSource = SetRepSource.MANUAL) }) else it
                 }
                 next = current.copy(plannedSets = sets, performedReps = sets.filter { it.completed }
                     .groupBy { it.exerciseId }.mapValues { (_, values) -> values.sumOf { it.performedReps ?: 0 } })
@@ -283,6 +282,15 @@ class SessionStore(private val context: Context) {
             }
             val restMs = (set?.restSeconds ?: 90) * 1_000L
             complete(current, event.copy(restEndAtMs = nowMs + restMs, repSource = SetRepSource.WATCH), completionId, if (current.paused) restMs else null)
+        }
+    }
+
+    fun advanceOtherSide(nowMs: Long): Result<WorkoutSnapshot?> = synchronized(lock) {
+        runCatching {
+            val current = read() ?: return@runCatching null
+            val next = UnilateralSetReducer.autoComplete(current, nowMs) ?: return@runCatching null
+            check(commit(next)) { "Failed to commit opposite-side timeout" }
+            read()
         }
     }
 

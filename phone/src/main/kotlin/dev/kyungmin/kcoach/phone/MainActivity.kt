@@ -1120,9 +1120,19 @@ class MainActivity : ComponentActivity() {
             footnote = ANALYSIS_ESTIMATE_NOTE,
             sessionId = result.sessionId,
         )
+        val estimated = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
+            ?.snapshot?.plannedSets?.filter { it.completed && it.unilateral?.estimated == true }.orEmpty()
         showStandalone(ComposeView(this).apply {
             setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { showRecords() },
-                summary = { dev.kyungmin.kcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) }) }
+                summary = { dev.kyungmin.kcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) },
+                estimatedSets = estimated.map { "${it.exerciseName} · ${it.setIndex + 1}세트" to requireNotNull(it.unilateral?.otherReps) },
+                confirmEstimate = { index, reps ->
+                    val set = estimated[index]
+                    if (FinishedWorkoutStore(this@MainActivity).confirmOther(result.sessionId, set.setId, set.attemptId, reps)) {
+                        history = ExerciseHistoryStore(this@MainActivity).load()
+                        showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
+                    }
+                }) }
         })
         visibleWorkoutResultSessionId = result.sessionId
     }
@@ -1846,6 +1856,7 @@ class MainActivity : ComponentActivity() {
                             weightText = formatActiveWeight(set.weightKg, workout.usePounds),
                             reps = if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
+                            estimated = set.unilateral?.otherRepSource == SetRepSource.ESTIMATED,
                             halfDone = !set.completed && set.unilateral?.holdsRest == true,
                             otherSideWorking = !set.completed && set.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING,
                             warmup = set.setType == SetType.WARMUP,
@@ -2014,9 +2025,11 @@ class MainActivity : ComponentActivity() {
                     SetField.REPS -> {
                         val reps = value.toIntOrNull()?.takeIf { it in 0..9_999 } ?: return@forEach
                         if (set.completed) {
-                            set.performedReps = reps
-                            set.repSource = SetRepSource.MANUAL
-                            set.unilateral = set.unilateral?.copy(watchReps = reps, watchRepSource = SetRepSource.MANUAL)
+                            if (set.unilateral?.estimated != true) {
+                                set.performedReps = reps
+                                set.repSource = SetRepSource.MANUAL
+                            }
+                            set.unilateral = set.unilateral?.let { side -> if (side.otherRepSource == SetRepSource.ESTIMATED) side.copy(otherReps = reps, otherRepSource = SetRepSource.MANUAL) else side.copy(watchReps = reps, watchRepSource = SetRepSource.MANUAL) }
                         } else set.targetReps = reps
                     }
                 }

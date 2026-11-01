@@ -100,4 +100,52 @@ class UnilateralSetTest {
             assertEquals(source, done.plannedSets.first().repSource)
         }
     }
+
+    private fun timed(duration: Long? = 30_000, policy: UnilateralFirstSidePolicy = UnilateralFirstSidePolicy.BOTH_SIDES) =
+        assertIs<SetCompletionResult.Applied>(WorkoutSessionReducer.completeSet(initial(),
+            SetCompletionEvent("s", "one_arm_dumbbell_row", 0, 12, 61_000, 1, SetRepSource.WATCH, "set", "a",
+                firstSideDurationMs = duration, completedAtMs = 1_000), policy)).snapshot
+
+    @Test fun `other side times out at first active duration plus fifteen seconds exactly once`() {
+        val s = timed()
+        assertNull(UnilateralSetReducer.autoComplete(s, 45_999))
+        val done = assertNotNull(UnilateralSetReducer.autoComplete(s, 46_000))
+        assertEquals(106_000, done.restEndAtMs)
+        val side = done.plannedSets.first().unilateral!!
+        assertEquals(12, side.otherReps)
+        assertEquals(SetRepSource.ESTIMATED, side.otherRepSource)
+        assertEquals(SetRepSource.WATCH, side.watchRepSource)
+        assertNull(UnilateralSetReducer.autoComplete(done, 100_000))
+        assertEquals(done, WorkoutSnapshotCodec.decode(WorkoutSnapshotCodec.encode(done)))
+        assertEquals(9, side.confirmOther(9).otherReps)
+        assertEquals(SetRepSource.MANUAL, side.confirmOther(9).otherRepSource)
+        assertFalse(side.confirmOther(9).estimated)
+        assertEquals(12, side.confirmOther(9).watchReps)
+    }
+    @Test fun `manual opposite completion and skip both cancel timeout`() {
+        for (action in listOf(UnilateralAction.COMPLETE_OTHER_SIDE, UnilateralAction.FINISH_WATCH_SIDE_ONLY)) {
+            val done = assertIs<SetCompletionResult.Applied>(action(timed(), action,
+                if (action == UnilateralAction.COMPLETE_OTHER_SIDE) 8 else null)).snapshot
+            assertNull(UnilateralSetReducer.autoComplete(done, 90_000))
+            assertNull(done.plannedSets.first().unilateral!!.otherStartedAtMs)
+            if (action == UnilateralAction.COMPLETE_OTHER_SIDE) {
+                assertEquals(8, done.plannedSets.first().unilateral!!.otherReps)
+                assertEquals(SetRepSource.MANUAL, done.plannedSets.first().unilateral!!.otherRepSource)
+            }
+        }
+    }
+    @Test fun `persisted active clock excludes pauses and legacy unknown duration waits`() {
+        val s = timed()
+        assertNull(UnilateralSetReducer.autoComplete(s.copy(paused = true, phase = WorkoutPhase.PAUSED), 100_000))
+        val resumed = s.copy(totalPausedMs = 20_000)
+        val restored = WorkoutSnapshotCodec.decode(WorkoutSnapshotCodec.encode(resumed))
+        assertNull(UnilateralSetReducer.autoComplete(restored, 65_999))
+        assertNotNull(UnilateralSetReducer.autoComplete(restored, 66_000))
+        assertNull(UnilateralSetReducer.autoComplete(timed(null), 999_999))
+        val legacy = UnilateralProgress.decode("OTHER_SIDE_WORKING,12,WATCH,")!!
+        assertNull(legacy.firstSideDurationMs)
+        assertFalse(legacy.estimated)
+        assertNull(UnilateralSetReducer.autoComplete(timed(policy = UnilateralFirstSidePolicy.WATCH_SIDE_ONLY), 999_999))
+    }
+
 }
