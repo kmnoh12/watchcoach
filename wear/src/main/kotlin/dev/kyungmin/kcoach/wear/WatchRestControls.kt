@@ -38,6 +38,7 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
 
     /** Layout height in design units; completion text stays 36 units across set layouts. */
     var completionHeightUnits = 78f
+    var completionTextScale = 1f
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.LEFT }
@@ -119,6 +120,7 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
                 label.typeface = Typeface.DEFAULT_BOLD; label.textAlign = Paint.Align.CENTER
                 label.textSize = 36f * height / completionHeightUnits
                 label.textSize *= minOf(1f, (width - 20f) / label.measureText(caption!!))
+                label.textSize *= completionTextScale
                 label.color = Color.rgb(4, 20, 14)
                 canvas.drawText(caption!!, cx, cy - (label.ascent() + label.descent()) / 2, label)
                 label.textAlign = Paint.Align.LEFT

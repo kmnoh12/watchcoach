@@ -260,6 +260,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
             place(jog, 48, if (otherSide) 210 else 190, 384, if (otherSide) 290 else 270)
             val buttonBottom = if (otherSide) 369 else 378
             restPause.completionHeightUnits = if (otherSide) 69f else 78f
+            restPause.completionTextScale = if (otherSide) .9f else 1f
             place(restPause, if (otherSide) 94 else 96, 300, if (otherSide) 207 else 336, buttonBottom)
             place(restSkip, 225, 300, 338, buttonBottom)
             return
