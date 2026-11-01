@@ -121,17 +121,23 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
     /** The icon and the label as one centred group: 24 + 8 + text width, on a line box 24 units high. */
     private fun layer(canvas: Canvas, k: Float, cy: Float, text: String, glyph: Icon, color: Int, face: Typeface, alpha: Float, scale: Float) {
         label.typeface = face; label.textSize = 24 * k; label.color = color
+        // Long captions must keep both the icon and text inside the button's padding.
+        val available = (width - 24 * k).coerceAtLeast(1f)
+        val wanted = 32 * k + label.measureText(text)
+        val fit = if (caption != null) minOf(1f, available / wanted) else 1f
+        val contentScale = k * fit
+        label.textSize = 24 * contentScale
         val textWidth = label.measureText(text)
-        val group = 24 * k + 8 * k + textWidth
+        val group = 32 * contentScale + textWidth
         val left = (width - group) / 2f
         val saved = canvas.save()
         canvas.scale(scale, scale, width / 2f, cy)
         val a = (255 * alpha).toInt().coerceIn(0, 255)
         label.alpha = a
         // line-height:1 puts the baseline 0.841 of the size below the top of the box.
-        canvas.drawText(text, left + 24 * k + 8 * k, cy - 12 * k + 0.841f * 24 * k, label)
+        canvas.drawText(text, left + 32 * contentScale, cy - 12 * contentScale + 0.841f * 24 * contentScale, label)
         icon.color = color; icon.alpha = a; icon.strokeWidth = 1.75f // in design units: the canvas is scaled to them below
-        canvas.translate(left, cy - 12 * k); canvas.scale(k, k)
+        canvas.translate(left, cy - 12 * contentScale); canvas.scale(contentScale, contentScale)
         glyph.draw(canvas, icon)
         canvas.restoreToCount(saved)
     }

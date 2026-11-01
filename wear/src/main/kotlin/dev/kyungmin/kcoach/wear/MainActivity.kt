@@ -685,9 +685,11 @@ class MainActivity : Activity() {
         face.setTiming = setTiming
         face.jog.accent = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
         face.primary(if (resting || setTiming) 2 else if (active) 0 else 1)
+        val otherSideWorking = active && !resting && !paused && runtimePhase == "OTHER_SIDE_WORKING"
+        face.oppositeSideLayout(otherSideWorking)
         face.homeLayout(!active && !complete)
         face.value.maxLines = if (complete) 2 else 1
-        face.showDivider = measuring
+        face.showDivider = measuring && !setTiming
         face.invalidate()
         listOf(face.target, face.heartRate, face.bpm).forEach { it.visibility = if (measuring) View.VISIBLE else View.GONE }
         face.title.visibility = if (resting) View.GONE else View.VISIBLE
@@ -753,8 +755,9 @@ class MainActivity : Activity() {
                 face.restPause.caption = "반대손"; face.restSkip.caption = "휴식"
                 listOf(face.restPause, face.restSkip).forEach { it.visibility = View.VISIBLE; it.isEnabled = controls; it.alpha = if (controls) 1f else .4f }
             }
-            if (!resting && !paused && runtimePhase == "OTHER_SIDE_WORKING") {
+            if (otherSideWorking) {
                 face.setSubtitle("반대손 · 직접 기록", WatchWorkoutFace.SOFT, medium = true)
+                face.hint.text = "폰에서 횟수 기록"
                 face.restSkip.caption = "반대손 건너뛰기"
                 face.restSkip.visibility = View.VISIBLE
                 face.restSkip.isEnabled = workoutControls.supportsControls() && setId.isNotBlank() && attemptId.isNotBlank()
@@ -763,13 +766,13 @@ class MainActivity : Activity() {
             }
             if (setTiming) {
                 val left = (clockLeft(now) + 999) / 1000
-                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 54f)
+                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 30f)
                 face.value.setTextColor(WatchWorkoutFace.SAGE)
                 face.target.visibility = View.GONE
                 face.setSubtitle(if (runtimePhase == "OTHER_SIDE_WORKING") "반대손 · 직접 기록" else "세트 진행 중", WatchWorkoutFace.SOFT, medium = true)
                 face.subtitle.alpha = 1f
                 face.jog.visibility = View.VISIBLE; face.jog.isEnabled = !paused
-                face.hint.text = "위로 · 횟수 기록"
+                face.hint.text = if (otherSideWorking) "폰에서 횟수 기록" else "위로 · 횟수 기록"
                 face.applyRestMorph()
             }
             if (paused && !restPaused) face.hint.text = "폰에서 계속할 수 있어요"

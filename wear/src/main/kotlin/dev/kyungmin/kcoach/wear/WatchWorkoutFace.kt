@@ -143,7 +143,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     /** Puts the rest screen into the state [restMorph] describes; the pivots follow the line box of the time (centre 216, 126). */
     fun applyRestMorph() {
         if (mode != 2) return
-        val p = restMorph
+        val p = if (setTiming) 0f else restMorph
         val side = minOf(width, height); val scale = side / 432f
         val offsetX = (width - side) / 2f; val offsetY = (height - side) / 2f
         val shrink = 1f - .148f * p
@@ -152,7 +152,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
             it.scaleX = shrink; it.scaleY = shrink; it.translationY = 12f * scale * p
             if (it.width > 0) { it.pivotX = offsetX + 216f * scale - it.left; it.pivotY = offsetY + 126f * scale - it.top }
         }
-        subtitle.alpha = if (setTiming) 1f else p; subtitle.translationY = 6f * scale * (1f - p)
+        subtitle.alpha = if (setTiming) 1f else p; subtitle.translationY = if (setTiming) 0f else 6f * scale * (1f - p)
         jog.alpha = 1f - .65f * p; jog.isEnabled = p < .5f
         chevronDown.alpha = 1f - p
         restPause.resume = p
@@ -179,13 +179,24 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         this.mode = mode
         when (mode) {
             // Design 4a: a 108-unit bold time whose line box starts at 72, so the baseline is 72 + 0.841 x 108.
-            2 -> listOf(value, valueGhost).forEach { place(it, 44, 64, 388, 200); baseline(it, 162.8f); it.letterSpacing = -3f / 108f; it.typeface = Typeface.DEFAULT_BOLD }
+            2 -> listOf(value, valueGhost).forEach {
+                place(it, 44, if (setTiming) 142 else 64, 388, if (setTiming) 214 else 200)
+                baseline(it, if (setTiming) 198f else 162.8f)
+                it.letterSpacing = -3f / 108f; it.typeface = Typeface.DEFAULT_BOLD
+            }
             1 -> listOf(value, valueGhost).forEach { place(it, 44, 120, 388, 300); baseline(it, null); it.letterSpacing = 0f; it.typeface = medium }
             else -> listOf(value, valueGhost).forEach { it.letterSpacing = -4f / 176f; it.typeface = medium }
         }
         // The rest label ("휴식 · 일시정지") has its line box at 70 with a 22-unit size.
-        baseline(subtitle, if (mode == 2) 88.5f else 134.5f)
+        baseline(subtitle, if (mode == 2 && !setTiming) 88.5f else 134.5f)
+        place(jog, 48, if (setTiming) 216 else 182, 384, if (setTiming) 296 else 262)
         if (mode != 2) resetRestMorph()
+    }
+
+    /** The opposite arm has one wide action, centred inside the round screen. */
+    fun oppositeSideLayout(otherSide: Boolean) {
+        if (otherSide) place(restSkip, 96, if (setTiming) 306 else 280, 336, if (setTiming) 356 else 350)
+        else place(restSkip, 227, 280, 365, 350)
     }
 
     /**
