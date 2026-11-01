@@ -737,7 +737,7 @@ class MainActivity : Activity() {
             }
             if (!resting && !paused && runtimePhase == "OTHER_SIDE_WORKING") {
                 face.setSubtitle("반대손 · 직접 기록", WatchWorkoutFace.SOFT, medium = true)
-                face.restSkip.caption = "여기서 끝내기"
+                face.restSkip.caption = "반대손 건너뛰기"
                 face.restSkip.visibility = View.VISIBLE
                 face.restSkip.isEnabled = workoutControls.supportsControls() && setId.isNotBlank() && attemptId.isNotBlank()
                 face.restSkip.alpha = if (face.restSkip.isEnabled) 1f else .4f

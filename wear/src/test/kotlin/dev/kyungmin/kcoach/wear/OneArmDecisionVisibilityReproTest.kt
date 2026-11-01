@@ -124,7 +124,7 @@ class OneArmDecisionVisibilityReproTest {
             assertEquals(View.GONE, (field(controller.get(), "setDoneLayer") as View).visibility)
             assertNull(field(controller.get(), "sideDecisionKey"))
             assertEquals(View.VISIBLE, face.restSkip.visibility)
-            assertEquals("여기서 끝내기", face.restSkip.caption)
+            assertEquals("반대손 건너뛰기", face.restSkip.caption)
             assertEquals(View.GONE, face.restPause.visibility)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(180_000))
             fun requests() = generateSequence { shadowOf(app).nextStartedService }.filter {

@@ -370,7 +370,7 @@ private fun ExercisePage(
                     )
                 }
                 if (set.otherSideWorking && !model.isPreview && !model.paused) {
-                    TextAction("여기서 끝내기", KColors.Soft, Modifier.fillMaxWidth()) {
+                    TextAction("반대손 건너뛰기", KColors.Soft, Modifier.fillMaxWidth()) {
                         actions.onFinishWatchSideOnly(exerciseIndex, setIndex)
                     }
                 }
