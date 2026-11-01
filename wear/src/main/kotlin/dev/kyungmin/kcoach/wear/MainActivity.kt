@@ -784,7 +784,7 @@ class MainActivity : Activity() {
                 face.goal.text = (weightKg?.takeIf { it > 0 }?.let { "${Moment.kg(it)}kg × " } ?: "") + "${targetReps}회"
                 face.goal.visibility = View.VISIBLE
                 face.target.visibility = View.GONE
-                face.setSubtitle(if (runtimePhase == "OTHER_SIDE_WORKING") "반대손" else "", WatchWorkoutFace.SOFT, medium = true)
+                face.setSubtitle("", WatchWorkoutFace.SOFT, medium = true)
                 face.subtitle.alpha = 1f
                 face.value.visibility = View.INVISIBLE
                 face.jog.centerLabel = face.value.text.toString()

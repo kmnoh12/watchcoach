@@ -256,11 +256,11 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     /** Timed manual sets have one wide completion action; the opposite arm adds a separate skip. */
     fun oppositeSideLayout(otherSide: Boolean) {
         if (setTiming) {
-            place(goal, 40, if (otherSide) 140 else 116, 392, if (otherSide) 202 else 184)
-            place(jog, 48, if (otherSide) 210 else 190, 384, if (otherSide) 290 else 270)
+            place(goal, 40, 116, 392, 184)
+            place(jog, 48, 190, 384, 270)
             val buttonBottom = if (otherSide) 369 else 378
             restPause.completionHeightUnits = if (otherSide) 69f else 78f
-            restPause.completionTextScale = if (otherSide) .9f else 1f
+            restPause.completionTextScale = if (otherSide) .81f else 1f
             place(restPause, if (otherSide) 94 else 96, 300, if (otherSide) 207 else 336, buttonBottom)
             place(restSkip, 225, 300, 338, buttonBottom)
             return

@@ -24,6 +24,7 @@ import java.time.Duration
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w216dp-h216dp-round-xhdpi")
 class WatchSetClockPreviewTest {
+    private var manualHeaderGeometry: List<Float>? = null
     private val app get() = RuntimeEnvironment.getApplication()
     private fun measure(root: View) {
         root.measure(View.MeasureSpec.makeMeasureSpec(432, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(432, View.MeasureSpec.EXACTLY))
@@ -57,8 +58,17 @@ class WatchSetClockPreviewTest {
                 }
             }
         }
+        val headerGeometry = listOf(face.title, face.goal, face.jog).flatMap {
+            listOf(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat())
+        } + face.goal.textSize
+        if (name == "setclock-manual-45s") {
+            manualHeaderGeometry = headerGeometry
+            assertEquals(1f, face.restPause.completionTextScale)
+        }
         if (name == "setclock-other-side") {
-            assertEquals("반대손", face.subtitle.text.toString())
+            assertEquals("Opposite-side header must match manual-set geometry", manualHeaderGeometry, headerGeometry)
+            assertEquals("", face.subtitle.text.toString())
+            assertEquals(.81f, face.restPause.completionTextScale)
             assertEquals(View.VISIBLE, face.subtitle.visibility)
             assertEquals(1f, face.subtitle.alpha)
             assertEquals("건너뛰기", face.restSkip.caption)
