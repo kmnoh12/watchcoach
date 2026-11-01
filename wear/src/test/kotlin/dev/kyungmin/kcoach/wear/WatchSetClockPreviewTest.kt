@@ -24,6 +24,7 @@ import java.time.Duration
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w216dp-h216dp-round-xhdpi")
 class WatchSetClockPreviewTest {
+    private var manualButtonCenterY = 0f
     private var manualHeaderGeometry: List<Float>? = null
     private val app get() = RuntimeEnvironment.getApplication()
     private fun measure(root: View) {
@@ -63,6 +64,7 @@ class WatchSetClockPreviewTest {
         } + face.goal.textSize
         if (name == "setclock-manual-45s") {
             manualHeaderGeometry = headerGeometry
+            manualButtonCenterY = (face.restPause.top + face.restPause.bottom) / 2f + face.restPause.translationY
             assertEquals(1f, face.restPause.completionTextScale)
         }
         if (name.startsWith("setclock-first-set-")) {
@@ -76,16 +78,21 @@ class WatchSetClockPreviewTest {
             assertEquals(78, face.restPause.height)
             assertEquals(78f, face.restPause.completionHeightUnits)
             assertEquals(1f, face.restPause.completionTextScale)
+            assertEquals(0f, face.restPause.translationY)
         }
         if (name == "setclock-other-side") {
             assertEquals(94, face.restPause.left)
             assertEquals(207, face.restPause.right)
-            assertEquals(300, face.restPause.top)
+            assertEquals(295, face.restPause.top)
             assertEquals(69, face.restPause.height)
             assertEquals(225, face.restSkip.left)
             assertEquals(338, face.restSkip.right)
-            assertEquals(300, face.restSkip.top)
+            assertEquals(295, face.restSkip.top)
             assertEquals(69, face.restSkip.height)
+            listOf(face.restPause, face.restSkip).forEach {
+                assertEquals("Button rows must share the manual action centre", manualButtonCenterY,
+                    (it.top + it.bottom) / 2f + it.translationY, 0f)
+            }
             assertEquals("Opposite-side header must match manual-set geometry", manualHeaderGeometry, headerGeometry)
             assertEquals("", face.subtitle.text.toString())
             assertEquals(.81f, face.restPause.completionTextScale)
@@ -193,6 +200,8 @@ class WatchSetClockPreviewTest {
             assertEquals(0f, face.value.translationY)
             assertEquals(View.GONE, face.goal.visibility)
             assertNull(face.restPause.caption)
+            assertEquals(0f, face.restPause.translationY)
+            assertEquals(0f, face.restSkip.translationY)
             assertEquals("10초", face.jog.centerLabel)
             assertEquals(1f, face.jog.labelOpacity)
             assertEquals(0f, face.jog.translationY)
