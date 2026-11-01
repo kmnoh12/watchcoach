@@ -36,6 +36,9 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
     var caption: String? = null
         set(value) { if (field == value) return; field = value; contentDescription = describe(); invalidate() }
 
+    /** Layout height in design units; completion text stays 36 units across set layouts. */
+    var completionHeightUnits = 78f
+
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
     private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.LEFT }
     private val icon = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL_AND_STROKE; strokeJoin = Paint.Join.ROUND; strokeCap = Paint.Cap.ROUND }
@@ -114,7 +117,7 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
         } else if (caption != null) {
             if (caption == "완료") {
                 label.typeface = Typeface.DEFAULT_BOLD; label.textAlign = Paint.Align.CENTER
-                label.textSize = 36f * height / 78f
+                label.textSize = 36f * height / completionHeightUnits
                 label.textSize *= minOf(1f, (width - 20f) / label.measureText(caption!!))
                 label.color = Color.rgb(4, 20, 14)
                 canvas.drawText(caption!!, cx, cy - (label.ascent() + label.descent()) / 2, label)
