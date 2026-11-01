@@ -64,6 +64,8 @@ data class SetUi(
     val insight: String? = null,
     /** The same set last time, e.g. "5×25"; shown small under the set number. */
     val previous: String? = null,
+    /** One-arm set: the watch arm is done and the other arm is pending, shown as a half-opacity check. */
+    val halfDone: Boolean = false,
 )
 
 enum class SetField { WEIGHT, REPS }

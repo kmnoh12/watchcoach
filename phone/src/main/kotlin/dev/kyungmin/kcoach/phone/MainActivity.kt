@@ -1846,6 +1846,7 @@ class MainActivity : ComponentActivity() {
                             weightText = formatActiveWeight(set.weightKg, workout.usePounds),
                             reps = if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
+                            halfDone = !set.completed && set.unilateral?.holdsRest == true,
                             warmup = set.setType == SetType.WARMUP,
                             grip = set.gripType,
                             restSeconds = effectiveRestSeconds(routineExercise, setIndex),
