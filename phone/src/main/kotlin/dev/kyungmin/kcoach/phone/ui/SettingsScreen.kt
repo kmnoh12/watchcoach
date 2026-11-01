@@ -64,6 +64,8 @@ fun SettingsScreen(
     onPersonalizationChange: (Boolean) -> Unit = {},
     swipeDelete: Boolean = true,
     onSwipeDeleteChange: (Boolean) -> Unit = {},
+    oneArmOnly: Boolean = false,
+    onOneArmOnlyChange: (Boolean) -> Unit = {},
     onProgressionChange: (ProgressionSettings) -> Unit = {},
 ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = KColors.Accent, onPrimary = KColors.OnAccent,
@@ -79,6 +81,8 @@ fun SettingsScreen(
             PersonalizationSection(personalization, onPersonalizationChange)
             Spacer(Modifier.height(16.dp))
             SwipeDeleteSection(swipeDelete, onSwipeDeleteChange)
+            Spacer(Modifier.height(16.dp))
+            OneArmSection(oneArmOnly, onOneArmOnlyChange)
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = actions.profile, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
                 Text("내 운동 프로필 · 워치 착용", color = KColors.White)
@@ -104,6 +108,21 @@ private fun PersonalizationSection(enabled: Boolean, onChange: (Boolean) -> Unit
             Text("측정 보정 적용", color = KColors.White, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
             Text("보정한 운동은 내 기준으로 횟수를 세요. 끄면 일반 기준으로 측정해요", color = KColors.Soft, fontSize = 12.sp)
+        }
+        Spacer(Modifier.width(12.dp))
+        SquareSwitch(on) { on = it; onChange(it) }
+    }
+}
+
+@Composable
+private fun OneArmSection(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    var on by remember { mutableStateOf(enabled) }
+    Row(Modifier.fillMaxWidth().clip(KShape.Panel).border(0.5.dp, GROUP_BORDER, KShape.Panel).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("원암 운동 한 손만 하기", color = KColors.White, fontSize = 16.sp)
+            Spacer(Modifier.height(3.dp))
+            Text("끄면 첫 손 완료 후 반대손을 직접 기록해요", color = KColors.Soft, fontSize = 12.sp)
         }
         Spacer(Modifier.width(12.dp))
         SquareSwitch(on) { on = it; onChange(it) }

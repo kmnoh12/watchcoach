@@ -66,6 +66,7 @@ data class SetUi(
     val previous: String? = null,
     /** One-arm set: the watch arm is done and the other arm is pending, shown as a half-opacity check. */
     val halfDone: Boolean = false,
+    val otherSideWorking: Boolean = false,
 )
 
 enum class SetField { WEIGHT, REPS }
@@ -78,6 +79,7 @@ interface WorkoutActions {
     fun onEditValue(exerciseIndex: Int, setIndex: Int, field: SetField, value: String, applyAll: Boolean)
     fun onEditFinished()
     fun onToggleSet(exerciseIndex: Int, setIndex: Int)
+    fun onFinishWatchSideOnly(exerciseIndex: Int, setIndex: Int) {}
     fun onSetMenu(exerciseIndex: Int, setIndex: Int)
     fun onAddSet(exerciseIndex: Int)
     fun onRemoveSet(exerciseIndex: Int, setIndex: Int)

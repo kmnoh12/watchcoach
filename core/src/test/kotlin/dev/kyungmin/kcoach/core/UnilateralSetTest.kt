@@ -67,4 +67,37 @@ class UnilateralSetTest {
         val manual = first(source = SetRepSource.MANUAL)
         assertEquals(manual, WorkoutSessionReducer.confirmReps(manual, "one_arm_dumbbell_row", 0, 8, "set", "a"))
     }
+
+    @Test fun `global both sides policy enters manual other arm and explicit skip preserves unknown reps`() {
+        for (source in listOf(SetRepSource.WATCH, SetRepSource.MANUAL)) {
+            val other = assertIs<SetCompletionResult.Applied>(WorkoutSessionReducer.completeSet(initial(),
+                SetCompletionEvent("s", "one_arm_dumbbell_row", 0, 12, 61_000, 1, source, "set", "a"),
+                UnilateralFirstSidePolicy.BOTH_SIDES)).snapshot
+            assertEquals(UnilateralStage.OTHER_SIDE_WORKING, other.plannedSets.first().unilateral?.stage)
+            assertEquals(0L, other.restEndAtMs)
+            assertFalse(other.plannedSets.first().completed)
+            assertIs<SetCompletionResult.Duplicate>(WorkoutSessionReducer.completeSet(other,
+                SetCompletionEvent("s", "one_arm_dumbbell_row", 0, 12, 99_000, 2, source, "set", "a"),
+                UnilateralFirstSidePolicy.WATCH_SIDE_ONLY))
+            val done = assertIs<SetCompletionResult.Applied>(action(other, UnilateralAction.FINISH_WATCH_SIDE_ONLY)).snapshot
+            assertEquals(UnilateralStage.WATCH_SIDE_ONLY, done.plannedSets.first().unilateral?.stage)
+            assertEquals(12, done.plannedSets.first().performedReps)
+            assertNull(done.plannedSets.first().unilateral?.otherReps)
+            assertEquals(65_000L, done.restEndAtMs)
+        }
+    }
+
+    @Test fun `global watch side only policy starts rest at first completion for either source`() {
+        for (source in listOf(SetRepSource.WATCH, SetRepSource.MANUAL)) {
+            val done = assertIs<SetCompletionResult.Applied>(WorkoutSessionReducer.completeSet(initial(),
+                SetCompletionEvent("s", "one_arm_dumbbell_row", 0, 12, 61_000, 1, source, "set", "a"),
+                UnilateralFirstSidePolicy.WATCH_SIDE_ONLY)).snapshot
+            assertEquals(UnilateralStage.WATCH_SIDE_ONLY, done.plannedSets.first().unilateral?.stage)
+            assertTrue(done.plannedSets.first().completed)
+            assertNull(done.plannedSets.first().unilateral?.otherReps)
+            assertEquals(12, done.plannedSets.first().performedReps)
+            assertEquals(61_000L, done.restEndAtMs)
+            assertEquals(source, done.plannedSets.first().repSource)
+        }
+    }
 }

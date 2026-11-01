@@ -16,7 +16,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.time.Duration
 
-/** Regression coverage for visible, explicit side decisions and their two minute safety timeout. */
+/** New automatic other-arm flow plus recovery of legacy AWAITING snapshots. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], qualifiers = "w216dp-h216dp-round-xhdpi")
 class OneArmDecisionVisibilityReproTest {
@@ -38,7 +38,7 @@ class OneArmDecisionVisibilityReproTest {
     private fun field(activity: MainActivity, name: String): Any? = MainActivity::class.java
         .getDeclaredField(name).apply { isAccessible = true }.get(activity)
 
-    @Test fun automaticFinishMustExposeSideQuestionBeforeItsDecisionClockRuns() {
+    @Test fun legacyAwaitingSnapshotExposesQuestionBeforeItsDecisionClockRuns() {
         WatchWorkoutOutbox(app).receivePhoneHello(listOf("1", "phone", "0", "WORKOUT_CONTROL_V1"))
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         try {
@@ -110,6 +110,29 @@ class OneArmDecisionVisibilityReproTest {
                 it.getStringExtra(WearWorkoutService.EXTRA_COMMAND) == "WORKOUT_CONTROL_SUBMIT"
             }.map { WatchWorkoutControl.decode(it.getStringExtra("payload")!!) }.toList()
             assertEquals(listOf(WatchWorkoutAction.START_OTHER_SIDE), requests.map { it.action })
+        } finally { controller.pause().stop().destroy() }
+    }
+
+    @Test fun automaticOtherSideWaitsWithoutQuestionOrTimeoutAndOffersExplicitSkip() {
+        WatchWorkoutOutbox(app).receivePhoneHello(listOf("1", "phone", "0", "WORKOUT_CONTROL_V1"))
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        try {
+            state(true, "WORKING")
+            state(false, "READY")
+            state(false, "OTHER_SIDE_WORKING")
+            val face = field(controller.get(), "face") as WatchWorkoutFace
+            assertEquals(View.GONE, (field(controller.get(), "setDoneLayer") as View).visibility)
+            assertNull(field(controller.get(), "sideDecisionKey"))
+            assertEquals(View.VISIBLE, face.restSkip.visibility)
+            assertEquals("여기서 끝내기", face.restSkip.caption)
+            assertEquals(View.GONE, face.restPause.visibility)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(180_000))
+            fun requests() = generateSequence { shadowOf(app).nextStartedService }.filter {
+                it.getStringExtra(WearWorkoutService.EXTRA_COMMAND) == "WORKOUT_CONTROL_SUBMIT"
+            }.map { WatchWorkoutControl.decode(it.getStringExtra("payload")!!) }.toList()
+            assertTrue("Unobserved opposite arm cannot be completed by inactivity", requests().isEmpty())
+            face.restSkip.onClick?.invoke()
+            assertEquals(listOf(WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY), requests().map { it.action })
         } finally { controller.pause().stop().destroy() }
     }
 }

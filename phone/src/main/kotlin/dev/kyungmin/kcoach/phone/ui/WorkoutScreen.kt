@@ -369,6 +369,11 @@ private fun ExercisePage(
                         onMore = { actions.onSetMenu(exerciseIndex, setIndex) },
                     )
                 }
+                if (set.otherSideWorking && !model.isPreview && !model.paused) {
+                    TextAction("여기서 끝내기", KColors.Soft, Modifier.fillMaxWidth()) {
+                        actions.onFinishWatchSideOnly(exerciseIndex, setIndex)
+                    }
+                }
                 if (setIndex < exercise.sets.lastIndex) {
                     SetRestRow(set, onClick = { actions.onSetRest(exerciseIndex, setIndex) })
                 }

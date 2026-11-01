@@ -46,6 +46,7 @@ object WorkoutSessionReducer {
     fun completeSet(
         snapshot: WorkoutSnapshot,
         event: SetCompletionEvent,
+        firstSidePolicy: UnilateralFirstSidePolicy = UnilateralFirstSidePolicy.ASK,
     ): SetCompletionResult {
         if (event.sessionId != snapshot.sessionId) {
             return SetCompletionResult.Rejected(snapshot, "unknown_session")
@@ -75,11 +76,18 @@ object WorkoutSessionReducer {
         if (unilateral?.holdsRest == true) return SetCompletionResult.Duplicate(snapshot)
         if (unilateral?.stage == UnilateralStage.WATCH_SIDE_WORKING) {
             if (event.reps > 9_999) return SetCompletionResult.Rejected(snapshot, "invalid_unilateral_reps")
+            if (firstSidePolicy == UnilateralFirstSidePolicy.WATCH_SIDE_ONLY) {
+                return completeSet(snapshot.copy(plannedSets = snapshot.plannedSets.map {
+                    if (it === completedSet) it.copy(unilateral = UnilateralProgress(
+                        UnilateralStage.WATCH_SIDE_ONLY, event.reps, event.repSource)) else it
+                }), event)
+            }
             return SetCompletionResult.Applied(snapshot.copy(
                 exerciseIndex = completedSet.exerciseIndex,
                 setIndex = completedSet.setIndex,
                 plannedSets = snapshot.plannedSets.map { if (it === completedSet) it.copy(
-                    unilateral = UnilateralProgress(UnilateralStage.AWAITING_OTHER_SIDE, event.reps, event.repSource)) else it },
+                    unilateral = UnilateralProgress(if (firstSidePolicy == UnilateralFirstSidePolicy.BOTH_SIDES)
+                        UnilateralStage.OTHER_SIDE_WORKING else UnilateralStage.AWAITING_OTHER_SIDE, event.reps, event.repSource)) else it },
                 restEndAtMs = 0, pausedRestRemainingMs = 0,
                 lastSequence = maxOf(snapshot.lastSequence, event.sequence)))
         }

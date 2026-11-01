@@ -1544,7 +1544,7 @@ class MainActivity : ComponentActivity() {
         otherSideSheet = null
     }
 
-    /** First arm done: keep the choice in step with the phone's authoritative snapshot. */
+    /** Legacy AWAITING snapshots only. New completions apply the global preference atomically in SessionStore. */
     private fun askOtherSide(snapshot: WorkoutSnapshot) {
         val set = snapshot.plannedSets.firstOrNull {
             !it.completed && it.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.AWAITING_OTHER_SIDE
@@ -1847,6 +1847,7 @@ class MainActivity : ComponentActivity() {
                             reps = if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
                             halfDone = !set.completed && set.unilateral?.holdsRest == true,
+                            otherSideWorking = !set.completed && set.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING,
                             warmup = set.setType == SetType.WARMUP,
                             grip = set.gripType,
                             restSeconds = effectiveRestSeconds(routineExercise, setIndex),
@@ -2027,6 +2028,17 @@ class MainActivity : ComponentActivity() {
         override fun onEditFinished() {
             // Persists and, while working, re-sends the current set target to the watch.
             workout()?.let { saveWorkoutChanges(it) }
+        }
+
+        override fun onFinishWatchSideOnly(exerciseIndex: Int, setIndex: Int) {
+            val workout = workout()?.takeIf { activeWorkout === it } ?: return
+            val set = exercise(exerciseIndex)?.sets?.getOrNull(setIndex) ?: return
+            PhoneSessionController(sessionStore, ::sendWear).unilateralAction(workout.sessionId, set.setId, set.attemptId,
+                dev.kyungmin.kcoach.core.UnilateralAction.FINISH_WATCH_SIDE_ONLY, System.currentTimeMillis())
+                .onSuccess { if (it.ack.status != dev.kyungmin.kcoach.core.WatchWorkoutControlStatus.APPLIED)
+                    Toast.makeText(this@MainActivity, "운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(this@MainActivity, "선택을 적용하지 못했어요", Toast.LENGTH_SHORT).show() }
+            refreshActiveSession()
         }
 
         override fun onToggleSet(exerciseIndex: Int, setIndex: Int) {

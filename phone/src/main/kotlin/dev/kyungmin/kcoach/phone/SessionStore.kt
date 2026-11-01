@@ -256,7 +256,7 @@ class SessionStore(private val context: Context) {
                         UnilateralAction.COMPLETE_OTHER_SIDE, nowMs, command.performedReps)
                 else WorkoutSessionReducer.completeSet(current, SetCompletionEvent(command.sessionId,
                     command.exerciseId, command.setIndex, command.performedReps, Math.addExact(nowMs, restMs), 0,
-                    SetRepSource.MANUAL, command.setId, command.attemptId))
+                    SetRepSource.MANUAL, command.setId, command.attemptId), OneArmSetting.policy(context))
                 if (result !is SetCompletionResult.Applied) return@runCatching answer(ManualSetStatus.REJECTED)
                 next = if (current.paused && result.snapshot.phase == WorkoutPhase.RESTING) result.snapshot.copy(paused = true, phase = WorkoutPhase.PAUSED,
                     restEndAtMs = 0, pausedRestRemainingMs = restMs) else result.snapshot
@@ -346,7 +346,7 @@ class SessionStore(private val context: Context) {
     }
 
     private fun complete(current: WorkoutSnapshot, event: SetCompletionEvent, completionId: String? = null, pausedRestMs: Long? = null): SetCompletionResult {
-        val reduced = WorkoutSessionReducer.completeSet(current, event)
+        val reduced = WorkoutSessionReducer.completeSet(current, event, OneArmSetting.policy(context))
         val result = if (reduced is SetCompletionResult.Applied && reduced.snapshot.phase == WorkoutPhase.RESTING && pausedRestMs != null) {
             reduced.copy(snapshot = reduced.snapshot.copy(paused = true, phase = WorkoutPhase.PAUSED, restEndAtMs = 0, pausedRestRemainingMs = pausedRestMs))
         } else reduced

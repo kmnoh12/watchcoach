@@ -284,7 +284,7 @@ class MainActivity : Activity() {
     private fun buildUi(): View {
         face = WatchWorkoutFace(this)
         face.action.setOnClickListener { openFinishedWorkout() }
-        face.restSkip.onClick = { if (runtimePhase == SIDE_PHASE) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY) else requestWorkoutControl() }
+        face.restSkip.onClick = { if (runtimePhase in setOf(SIDE_PHASE, "OTHER_SIDE_WORKING")) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY) else requestWorkoutControl() }
         face.restPause.onClick = { if (runtimePhase == SIDE_PHASE) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.START_OTHER_SIDE) else toggleRestPause() }
         face.jog.onStep = { delta -> adjustRest(delta) }
         face.hint.setOnClickListener { if (runtimePhase == "START_DIRECTION_WAITING") bypassStartDirection() else if (face.noticeAction != null) face.noticeAction?.invoke() }
@@ -726,7 +726,7 @@ class MainActivity : Activity() {
                 face.applyRestMorph()
             }
             if (awaitingSide) {
-                // First arm done: wait for a choice, with a two minute safety timeout.
+                // Recovery of legacy AWAITING snapshots only; new sessions follow the phone's global preference.
                 val controls = workoutControls.supportsControls() && setId.isNotBlank() && attemptId.isNotBlank()
                 face.setSubtitle("한쪽 완료", WatchWorkoutFace.SOFT, medium = true)
                 face.value.text = "반대손"; face.size(face.value, 40f)
@@ -734,6 +734,14 @@ class MainActivity : Activity() {
                 face.hint.text = if (controls) "선택해 주세요 · 2분 후 휴식" else "폰에서 선택"
                 face.restPause.caption = "반대손"; face.restSkip.caption = "휴식"
                 listOf(face.restPause, face.restSkip).forEach { it.visibility = View.VISIBLE; it.isEnabled = controls; it.alpha = if (controls) 1f else .4f }
+            }
+            if (!resting && !paused && runtimePhase == "OTHER_SIDE_WORKING") {
+                face.setSubtitle("반대손 · 직접 기록", WatchWorkoutFace.SOFT, medium = true)
+                face.restSkip.caption = "여기서 끝내기"
+                face.restSkip.visibility = View.VISIBLE
+                face.restSkip.isEnabled = workoutControls.supportsControls() && setId.isNotBlank() && attemptId.isNotBlank()
+                face.restSkip.alpha = if (face.restSkip.isEnabled) 1f else .4f
+                // No inactivity completion: an unobserved arm must be explicitly recorded or skipped.
             }
             if (paused && !restPaused) face.hint.text = "폰에서 계속할 수 있어요"
             face.layoutCount(); face.layoutMetrics()
@@ -936,7 +944,9 @@ class MainActivity : Activity() {
     }
 
     private fun sendSideDecision(action: dev.kyungmin.kcoach.core.WatchWorkoutAction) {
-        if (runtimePhase != SIDE_PHASE || workoutControls.pending().isNotEmpty() || !workoutControls.supportsControls() ||
+        val allowed = runtimePhase == SIDE_PHASE || runtimePhase == "OTHER_SIDE_WORKING" &&
+            action == dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY
+        if (!allowed || workoutControls.pending().isNotEmpty() || !workoutControls.supportsControls() ||
             sessionId.isBlank() || setId.isBlank() || attemptId.isBlank()) return
         handler.removeCallbacks(sideDecisionTimeout)
         val request = dev.kyungmin.kcoach.core.WatchWorkoutControl(java.util.UUID.randomUUID().toString(), action, sessionId, setId, attemptId)

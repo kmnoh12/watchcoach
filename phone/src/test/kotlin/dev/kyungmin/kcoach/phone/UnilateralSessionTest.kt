@@ -32,10 +32,10 @@ class UnilateralSessionTest {
         assertEquals(0L, snapshot.restEndAtMs)
         val sync = WearSync.parse(sent.single { it.first == WearSync.PATH_COMMAND }.second)
         assertEquals("SYNC", sync[1])
-        assertEquals(UnilateralStage.AWAITING_OTHER_SIDE, UnilateralProgress.decode(sync[24])!!.stage)
+        assertEquals(UnilateralStage.OTHER_SIDE_WORKING, UnilateralProgress.decode(sync[24])!!.stage)
         assertTrue(sent.any { it.first == WearSync.PATH_SET_ACK })
         assertNull(store.advanceAfterRest(999_999).getOrThrow())
-        assertEquals(UnilateralStage.AWAITING_OTHER_SIDE, restoreWorkoutRoutine(snapshot, null).exercises[0].sets[0].unilateral!!.stage)
+        assertEquals(UnilateralStage.OTHER_SIDE_WORKING, restoreWorkoutRoutine(snapshot, null).exercises[0].sets[0].unilateral!!.stage)
     }
     @Test fun manualCompletionAlsoHoldsAndSecondManualCompletionRecordsActualOppositeCount() {
         val store = SessionStore(app); assertTrue(store.saveActive(initial()))
@@ -44,7 +44,7 @@ class UnilateralSessionTest {
         val first = manual("first", 12)
         assertFalse(first.restStarted)
         assertEquals(ManualSetStatus.APPLIED, first.ack.status)
-        assertEquals(WatchWorkoutControlStatus.APPLIED, store.applyWatchControl(command(WatchWorkoutAction.START_OTHER_SIDE), 2_000).getOrThrow().ack.status)
+        assertEquals(WatchWorkoutControlStatus.DUPLICATE, store.applyWatchControl(command(WatchWorkoutAction.START_OTHER_SIDE), 2_000).getOrThrow().ack.status)
         val final = manual("other", 9)
         assertTrue(final.restStarted)
         assertEquals(9, final.snapshot!!.plannedSets.single().unilateral!!.otherReps)
@@ -61,8 +61,8 @@ class UnilateralSessionTest {
         val before = store.loadActive().getOrThrow()!!.restRev
         val start = command(WatchWorkoutAction.START_OTHER_SIDE)
         assertEquals(start, WatchWorkoutControl.decode(start.encode()))
-        assertEquals(WatchWorkoutControlStatus.APPLIED, store.applyWatchControl(start, 2_000).getOrThrow().ack.status)
-        assertTrue(store.loadActive().getOrThrow()!!.restRev > before)
+        assertEquals(WatchWorkoutControlStatus.DUPLICATE, store.applyWatchControl(start, 2_000).getOrThrow().ack.status)
+        assertEquals(before, store.loadActive().getOrThrow()!!.restRev)
         controller.receiveCompletion(completion(), 3_000).getOrThrow()
         assertEquals(UnilateralStage.OTHER_SIDE_WORKING, store.loadActive().getOrThrow()!!.plannedSets.single().unilateral!!.stage)
         val done = command(WatchWorkoutAction.COMPLETE_OTHER_SIDE, reps = 8)

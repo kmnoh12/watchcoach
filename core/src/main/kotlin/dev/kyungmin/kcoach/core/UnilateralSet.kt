@@ -3,6 +3,8 @@ package dev.kyungmin.kcoach.core
 /** First always means the watch-wearing arm, not necessarily the left arm. */
 enum class UnilateralStage { WATCH_SIDE_WORKING, AWAITING_OTHER_SIDE, OTHER_SIDE_WORKING, WATCH_SIDE_ONLY, BOTH_COMPLETE }
 enum class UnilateralAction { START_OTHER_SIDE, FINISH_WATCH_SIDE_ONLY, COMPLETE_OTHER_SIDE }
+/** ASK is retained for callers restoring the legacy explicit-choice flow. */
+enum class UnilateralFirstSidePolicy { ASK, BOTH_SIDES, WATCH_SIDE_ONLY }
 
 data class UnilateralProgress(
     val stage: UnilateralStage = UnilateralStage.WATCH_SIDE_WORKING,
@@ -67,7 +69,7 @@ object UnilateralExercises {
 }
 
 object UnilateralSetReducer {
-    /** Explicit user intent is mandatory. A repeated sensor completion can never finish the other arm. */
+    /** The global setting authorizes starting the other arm; only explicit completion may record that arm. */
     fun apply(snapshot: WorkoutSnapshot, sessionId: String, setId: String, attemptId: String,
               action: UnilateralAction, nowMs: Long, otherReps: Int? = null): SetCompletionResult {
         fun reject(reason: String) = SetCompletionResult.Rejected(snapshot, reason)
@@ -87,7 +89,8 @@ object UnilateralSetReducer {
             UnilateralAction.COMPLETE_OTHER_SIDE -> UnilateralStage.BOTH_COMPLETE
         }
         val expected = if (action == UnilateralAction.COMPLETE_OTHER_SIDE) UnilateralStage.OTHER_SIDE_WORKING else UnilateralStage.AWAITING_OTHER_SIDE
-        if (progress.stage != expected || action != UnilateralAction.COMPLETE_OTHER_SIDE && otherReps != null)
+        val skipOther = action == UnilateralAction.FINISH_WATCH_SIDE_ONLY && progress.stage == UnilateralStage.OTHER_SIDE_WORKING
+        if (progress.stage != expected && !skipOther || action != UnilateralAction.COMPLETE_OTHER_SIDE && otherReps != null)
             return reject("invalid_unilateral_transition")
         // A complete press confirms the suggested matching count; it is manual evidence, never a sensor count.
         val updated = progress.copy(stage = stage, otherReps = if (stage == UnilateralStage.BOTH_COMPLETE) otherReps ?: progress.watchReps else null)
