@@ -129,11 +129,12 @@ internal class ChevronView(context: Context, private val up: Boolean) : View(con
  */
 internal class JogBar(context: Context) : View(context) {
     var accent = WatchWorkoutFace.YELLOW
+    var stopwatch = false
     var centerLabel = "10초"
         set(value) {
             if (field == value) return
             field = value
-            contentDescription = if (value == "10초") "휴식 시간 10초 조절" else "남은 시간 $value · 10초 조절"
+            contentDescription = if (stopwatch) "버틴 시간 $value" else if (value == "10초") "휴식 시간 10초 조절" else "남은 시간 $value · 10초 조절"
             invalidate()
         }
     var labelOpacity = 1f
@@ -153,6 +154,7 @@ internal class JogBar(context: Context) : View(context) {
     private fun u() = width / 336f // the bar is 336 design units wide (design 4a)
 
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (stopwatch) return false
         // A paused rest does not take ten-second steps.
         if (!isEnabled) return false
         when (e.actionMasked) {
@@ -202,8 +204,8 @@ internal class JogBar(context: Context) : View(context) {
         glyph.textSize = 46 * k
         // A line-height:1 box of size S centred on the bar puts the baseline 0.841 S below its top: 15.7 units under the centre.
         val gy = cy + 15.7f * k
-        glyph.textAlign = Paint.Align.LEFT; canvas.drawText("−", 26 * k, gy, glyph)
-        glyph.textAlign = Paint.Align.RIGHT; canvas.drawText("+", width - 26 * k, gy, glyph)
+        glyph.textAlign = Paint.Align.LEFT; if (!stopwatch) canvas.drawText("−", 26 * k, gy, glyph)
+        glyph.textAlign = Paint.Align.RIGHT; if (!stopwatch) canvas.drawText("+", width - 26 * k, gy, glyph)
         val active = abs(offset) > 1f
         knob.color = if (active) accent else WatchWorkoutFace.CONTROL
         label.color = if (active) Color.rgb(36, 26, 0) else if (centerLabel != "10초") WatchWorkoutFace.SAGE else WatchWorkoutFace.WHITE

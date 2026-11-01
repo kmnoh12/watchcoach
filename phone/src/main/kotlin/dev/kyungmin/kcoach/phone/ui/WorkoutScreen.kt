@@ -178,6 +178,9 @@ fun ActiveWorkoutScreen(
             }
             RecordBanner(model.recordBanner)
             val setClockLeft = model.pausedSetClockMs ?: model.setClockEndAtMs?.let { (it - now).coerceAtLeast(0) }
+            model.holdElapsedMs?.let { elapsed ->
+                SetClockBar(elapsed + if (model.paused) 0 else (now - model.holdReadAtMs).coerceAtLeast(0), model.paused, {}, stopwatch = true)
+            }
             if (setClockLeft != null) {
                 SetClockBar(setClockLeft, model.paused, actions::onAdjustSetClock)
             }
@@ -198,6 +201,7 @@ fun ActiveWorkoutScreen(
                 val target = editing
                 WorkoutKeypad(
                     field = target?.field ?: SetField.REPS,
+                    seconds = target?.let { model.exercises.getOrNull(it.exerciseIndex)?.hold } == true,
                     applyAll = applyAll,
                     usePounds = model.usePounds,
                     onDigit = { c ->
@@ -327,11 +331,11 @@ private fun ExercisePage(
         Row(verticalAlignment = Alignment.Bottom) {
             Text("목표 ", color = KColors.Accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             FlipText(exercise.targetReps.toString(), 14.sp, KColors.Accent)
-            Text("회", color = KColors.Accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(if (exercise.hold) "초" else "회", color = KColors.Accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.weight(1f))
             Text("수행 ", color = if (exercise.performedReps > 0) KColors.Sage else KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             FlipText(exercise.performedReps.toString(), 14.sp, if (exercise.performedReps > 0) KColors.Sage else KColors.Muted)
-            Text("회", color = if (exercise.performedReps > 0) KColors.Sage else KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(if (exercise.hold) "초" else "회", color = if (exercise.performedReps > 0) KColors.Sage else KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
         if (exercise.volumeTarget > 0) {
             Spacer(Modifier.height(10.dp))
@@ -346,7 +350,7 @@ private fun ExercisePage(
             }
         }
         Spacer(Modifier.height(12.dp))
-        SetHeader(exercise.weighted, model.usePounds)
+        SetHeader(exercise.weighted, model.usePounds, exercise.hold)
         exercise.sets.forEachIndexed { setIndex, set ->
             androidx.compose.runtime.key(set.uid) {
                 val requester = remember { BringIntoViewRequester() }
@@ -412,11 +416,11 @@ private fun ExercisePage(
 private val SetWeights = listOf(0.8f, 1.25f, 1.15f, 0.8f, 0.45f)
 
 @Composable
-private fun SetHeader(weighted: Boolean, usePounds: Boolean) {
+private fun SetHeader(weighted: Boolean, usePounds: Boolean, hold: Boolean = false) {
     Row(Modifier.fillMaxWidth().height(30.dp), verticalAlignment = Alignment.CenterVertically) {
         HeaderCell("세트", SetWeights[0])
         if (weighted) HeaderCell(if (usePounds) "LB" else "KG", SetWeights[1])
-        HeaderCell("회", SetWeights[2])
+        HeaderCell(if (hold) "시간(초)" else "회", SetWeights[2])
         HeaderCell("완료", SetWeights[3])
         Spacer(Modifier.weight(SetWeights[4]))
     }
@@ -446,7 +450,7 @@ private fun SetRow(
         ) {
             Cell(set.label, Modifier.weight(SetWeights[0]), if (isCurrent) KColors.Sage else KColors.Muted, null, onLabel, sub = set.previous)
             if (weighted) Cell(set.weightText, Modifier.weight(SetWeights[1]), KColors.White, editingField == SetField.WEIGHT, onWeight)
-            Cell(set.reps?.toString() ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps, sub = if (set.estimated) "추정" else null)
+            Cell(set.reps?.let { if (set.hold) dev.kyungmin.kcoach.core.HoldExercise.time(it) else it.toString() } ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps, sub = if (set.estimated) "추정" else null)
             CheckCell(set.completed, half = set.halfDone, modifier = Modifier.weight(SetWeights[3]).padding(horizontal = 4.dp).height(40.dp).clickable { onCheck() }, highlighted = isCurrent)
             Box(Modifier.weight(SetWeights[4]).clickable { onMore() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 18.dp) }
         }

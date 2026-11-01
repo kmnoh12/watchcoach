@@ -8,20 +8,22 @@ data class LoggedSet(
     val bodyWeightKg: Double? = null, val load: ProgressionLoad = ProgressionLoad.EXTERNAL,
     val progressionEligible: Boolean = true,
     val completedDurationMs: Long? = null,
+    val durationSeconds: Int? = null,
+    val targetDurationSeconds: Int? = null,
 )
 
 /** What was actually done for one exercise in one session. */
 data class ExerciseLog(val exerciseId: String, val epochDay: Long, val sets: List<LoggedSet>, val sessionId: String? = null, val startedAtMs: Long = 0, val routineId: String? = null, val exerciseIndex: Int = -1, val equipment: String = "") {
-    val volumeKg: Double get() = sets.filter { it.completed && it.repsEntered }.sumOf { (it.weightKg ?: 0.0) * it.reps }
-    val totalReps: Int get() = sets.filter { it.completed && it.repsEntered }.sumOf { it.reps }
-    val topWeightKg: Double? get() = sets.filter { it.completed && it.repsEntered && it.reps > 0 }.mapNotNull { it.weightKg }.maxOrNull()
+    val volumeKg: Double get() = sets.filter { it.completed && it.repsEntered && it.durationSeconds == null }.sumOf { (it.weightKg ?: 0.0) * it.reps }
+    val totalReps: Int get() = sets.filter { it.completed && it.repsEntered && it.durationSeconds == null }.sumOf { it.reps }
+    val topWeightKg: Double? get() = sets.filter { it.completed && it.repsEntered && it.durationSeconds == null && it.reps > 0 }.mapNotNull { it.weightKg }.maxOrNull()
 }
 
 /** One line per log: `exerciseId<TAB>epochDay<TAB>weight:reps,weight:reps` (weight `-` = bodyweight). */
 object ExerciseHistoryCodec {
     fun encode(logs: List<ExerciseLog>): String = logs.joinToString("\n") { log ->
         val sets = log.sets.joinToString(",") {
-            "${it.weightKg?.toString() ?: "-"}:${it.reps}:${it.targetReps ?: "-"}:${it.isWarmup}:${it.completed}:${it.repsEntered}:${escape(it.positionKey)}:${it.upperReps ?: "-"}:${it.bodyWeightKg ?: "-"}:${it.load.name}:${it.progressionEligible}:${it.completedDurationMs ?: "-"}"
+            "${it.weightKg?.toString() ?: "-"}:${it.reps}:${it.targetReps ?: "-"}:${it.isWarmup}:${it.completed}:${it.repsEntered}:${escape(it.positionKey)}:${it.upperReps ?: "-"}:${it.bodyWeightKg ?: "-"}:${it.load.name}:${it.progressionEligible}:${it.completedDurationMs ?: "-"}:${it.durationSeconds ?: "-"}:${it.targetDurationSeconds ?: "-"}"
         }
         "${log.exerciseId}\t${log.epochDay}\t$sets\t${log.sessionId.orEmpty()}\t${log.startedAtMs}\t${escape(log.routineId.orEmpty())}\t${log.exerciseIndex}\t${escape(log.equipment)}"
     }
@@ -39,7 +41,7 @@ object ExerciseHistoryCodec {
             LoggedSet(c[0].toDoubleOrNull(), c[1].toIntOrNull() ?: return@mapNotNull null,
                 c.getOrNull(2)?.toIntOrNull(), c.getOrNull(3)?.toBoolean() ?: false,
                 c.getOrNull(4)?.toBoolean() ?: true, c.getOrNull(5)?.toBoolean() ?: true,
-                c.getOrNull(6)?.let(::unescape).orEmpty(), c.getOrNull(7)?.toIntOrNull(), c.getOrNull(8)?.toDoubleOrNull(), c.getOrNull(9)?.let { ProgressionLoad.valueOf(it) } ?: ProgressionLoad.EXTERNAL, c.getOrNull(10)?.toBoolean() ?: true, c.getOrNull(11)?.toLongOrNull()?.takeIf { it >= 0 })
+                c.getOrNull(6)?.let(::unescape).orEmpty(), c.getOrNull(7)?.toIntOrNull(), c.getOrNull(8)?.toDoubleOrNull(), c.getOrNull(9)?.let { ProgressionLoad.valueOf(it) } ?: ProgressionLoad.EXTERNAL, c.getOrNull(10)?.toBoolean() ?: true, c.getOrNull(11)?.toLongOrNull()?.takeIf { it >= 0 }, c.getOrNull(12)?.toIntOrNull()?.takeIf { it >= 0 }, c.getOrNull(13)?.toIntOrNull()?.takeIf { it >= 0 })
         }
         if (sets.isEmpty()) null else ExerciseLog(parts[0], day, sets, parts.getOrNull(3)?.takeIf { it.isNotBlank() }, parts.getOrNull(4)?.toLongOrNull() ?: 0,
             parts.getOrNull(5)?.let(::unescape)?.takeIf { it.isNotEmpty() }, parts.getOrNull(6)?.toIntOrNull() ?: -1, parts.getOrNull(7)?.let(::unescape).orEmpty())
@@ -63,7 +65,7 @@ class ExerciseHistory(logs: List<ExerciseLog> = emptyList()) {
     /** The single heaviest set ever logged, with the day it happened. */
     fun heaviestSet(exerciseId: String): Pair<Long, LoggedSet>? =
         byExercise[exerciseId].orEmpty()
-            .flatMap { log -> log.sets.filter { it.completed && it.repsEntered && it.weightKg != null && it.reps > 0 }.map { log.epochDay to it } }
+            .flatMap { log -> log.sets.filter { it.completed && it.repsEntered && it.durationSeconds == null && it.weightKg != null && it.reps > 0 }.map { log.epochDay to it } }
             .maxByOrNull { it.second.weightKg!! }
 
     /** New logs replace only their own session; legacy logs retain day-based replacement. */

@@ -18,6 +18,7 @@ internal fun restoreWorkoutRoutine(snapshot: WorkoutSnapshot, template: WorkoutR
             bodyCategory = first.bodyCategory.ifBlank { original?.bodyCategory ?: "기타" },
             equipment = if (first.exerciseId in setOf("weighted_dip", "weighted_pull_up")) "기타" else first.equipment.ifBlank { original?.equipment ?: "기타" },
             favorite = original?.favorite ?: false, pattern = first.pattern.ifBlank { original?.pattern.orEmpty() },
+            kind = first.exerciseKind,
             family = first.family.ifBlank { original?.family.orEmpty() },
         )
         RoutineExercise(definition, sets.map { saved ->
@@ -25,7 +26,8 @@ internal fun restoreWorkoutRoutine(snapshot: WorkoutSnapshot, template: WorkoutR
                 saved.gripType, saved.rpe, saved.restOverrideSeconds, saved.performedReps, saved.repSource,
                 setId = saved.setId.ifBlank { dev.kyungmin.kcoach.core.SetIdentity.migratedId(snapshot.sessionId, saved.exerciseIndex, saved.setIndex) },
                 attemptId = saved.attemptId.ifBlank { dev.kyungmin.kcoach.core.SetIdentity.migratedId(snapshot.sessionId, saved.exerciseIndex, saved.setIndex, true) },
-                identityRequired = saved.identityRequired, unilateral = saved.unilateral)
+                identityRequired = saved.identityRequired, unilateral = saved.unilateral,
+                targetDurationSeconds = saved.targetDurationSeconds, durationSeconds = saved.durationSeconds)
         }.toMutableList(), if (first.exerciseName.isNotBlank()) first.exerciseRestSeconds else template?.exercises?.getOrNull(index)?.restSeconds ?: first.exerciseRestSeconds)
     }.toMutableList()
     return WorkoutRoutine(snapshot.routineId,

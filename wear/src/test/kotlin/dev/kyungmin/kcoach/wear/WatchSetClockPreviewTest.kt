@@ -46,7 +46,7 @@ class WatchSetClockPreviewTest {
             assertEquals("Countdown must use the shared control", face.value.text.toString(), face.jog.centerLabel)
             assertEquals(View.INVISIBLE, face.value.visibility)
             assertEquals("Goal must be fully visible", 0, face.goal.layout.getEllipsisCount(0))
-            assertEquals("40kg × 12회", face.goal.text.toString())
+            assertEquals(if (name.startsWith("setclock-hold-")) "40kg × 0:30" else "40kg × 12회", face.goal.text.toString())
             assertEquals("완료", face.restPause.caption)
             assertEquals(View.VISIBLE, face.jog.visibility)
             assertEquals(View.GONE, face.hint.visibility)
@@ -256,4 +256,28 @@ class WatchSetClockPreviewTest {
         morph.currentPlayTime = 400; shot(root, "rest-for-comparison")
         controller.pause().stop().destroy()
     }
+    @Test fun renderHoldStopwatchAndCompletion() {
+        val (controller, root) = start()
+        try {
+            for (seconds in listOf(0, 18, 45)) {
+                state("plate_pinch", "플레이트 핀치", "WORKING", running = true) {
+                    putExtra("holdExercise", true); putExtra("holdTargetSeconds", 30)
+                    putExtra("holdElapsedMs", seconds * 1000L); putExtra("manualRequired", true)
+                }
+                shot(root, "setclock-hold-${seconds}s")
+                val face = descendants(root).filterIsInstance<WatchWorkoutFace>().first()
+                assertEquals("0:%02d".format(seconds), face.jog.centerLabel)
+                assertTrue(face.jog.stopwatch)
+                tapJog(face.jog, .9f)
+                assertTrue(requests().isEmpty())
+            }
+            val face = descendants(root).filterIsInstance<WatchWorkoutFace>().first()
+            face.restPause.performClick()
+            assertEquals(dev.kyungmin.kcoach.core.WatchWorkoutAction.COMPLETE_MANUAL_SET, requests().single().action)
+            state("plate_pinch", "플레이트 핀치", "RESTING", false, true, System.currentTimeMillis() + 60_000L)
+            idle(500); shot(root, "setclock-hold-rest")
+            assertFalse(face.setTiming)
+        } finally { controller.pause().stop().destroy() }
+    }
+
 }

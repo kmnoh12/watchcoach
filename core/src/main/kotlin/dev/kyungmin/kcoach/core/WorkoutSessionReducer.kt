@@ -65,6 +65,7 @@ object WorkoutSessionReducer {
                 snapshot.plannedSets.none { it.exerciseId == event.exerciseId } -> "wrong_exercise"
                 else -> "invalid_set_index"
             })
+        if (SetClock.isHold(completedSet) && event.repSource != SetRepSource.MANUAL) return SetCompletionResult.Rejected(snapshot, "hold_requires_manual_completion")
         val completionKey = SetIdentity.completionKey(snapshot.sessionId, completedSet)
         if (completedSet.completed) return SetCompletionResult.Duplicate(snapshot)
         if (snapshot.lastCompletedSetKey == completionKey) return SetCompletionResult.Duplicate(snapshot)
@@ -100,8 +101,10 @@ object WorkoutSessionReducer {
         val updatedSets = snapshot.plannedSets.map { set ->
             if (set === completedSet) {
                 set.copy(
-                    performedReps = event.reps,
-                    repSource = event.repSource,
+                    performedReps = if (SetClock.isHold(set)) 0 else event.reps,
+                    repSource = if (SetClock.isHold(set)) SetRepSource.MANUAL else event.repSource,
+                    durationSeconds = if (SetClock.isHold(set) && set.workingStartedAtMs > 0) (SetClock.elapsed(snapshot, set,
+                        event.completedAtMs ?: (event.restEndAtMs - set.restSeconds * 1000L)) / 1000).toInt() else set.durationSeconds,
                     completed = true,
                     completedDurationMs = if (set.workingStartedAtMs > 0) SetClock.elapsed(snapshot, set,
                         event.completedAtMs ?: (event.restEndAtMs - set.restSeconds * 1000L)) else set.completedDurationMs,
@@ -112,7 +115,7 @@ object WorkoutSessionReducer {
         }
         val maxSetIndex = matchingSets.maxOf { it.setIndex }
         val updatedReps = snapshot.performedReps.toMutableMap().apply {
-            this[event.exerciseId] = (this[event.exerciseId] ?: 0) + event.reps
+            this[event.exerciseId] = (this[event.exerciseId] ?: 0) + if (SetClock.isHold(completedSet)) 0 else event.reps
         }
         return SetCompletionResult.Applied(
             snapshot.copy(

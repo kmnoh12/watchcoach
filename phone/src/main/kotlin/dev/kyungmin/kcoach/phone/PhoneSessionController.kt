@@ -66,7 +66,7 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
         when (edit) {
             is PhonePlanEdit.AddSet -> {
                 val source = exercise(edit.exerciseIndex).last()
-                val added = source.copy(setIndex = source.setIndex + 1, completed = false,
+                val added = source.copy(setIndex = source.setIndex + 1, completed = false, durationSeconds = null,
                     performedReps = null, repSource = null, workingStartedAtMs = 0, workingPausedAtStartMs = 0, completedDurationMs = null, setTimerLimitMs = null, setTimerAdjustmentMs = 0, unilateral = UnilateralExercises.initial(source.exerciseId), setType = "NORMAL", rpe = null,
                     setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true)
                 sets.add(sets.indexOf(source) + 1, added)
@@ -74,7 +74,7 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
             is PhonePlanEdit.DuplicateSet -> {
                 val source = exercise(edit.exerciseIndex).single { it.setIndex == edit.setIndex }
                 val insertion = source.setIndex + 1
-                val copy = source.copy(setIndex = insertion, completed = false, performedReps = null,
+                val copy = source.copy(setIndex = insertion, completed = false, durationSeconds = null, performedReps = null,
                     repSource = null, rpe = null, workingStartedAtMs = 0, workingPausedAtStartMs = 0, completedDurationMs = null, setTimerLimitMs = null, setTimerAdjustmentMs = 0, unilateral = UnilateralExercises.initial(source.exerciseId),
                     setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true)
                 sets.add(sets.indexOf(source) + 1, copy)

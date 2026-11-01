@@ -45,12 +45,14 @@ fun WorkoutKeypad(
     onDone: () -> Unit,
     onToggleAll: () -> Unit,
     onToggleUnit: () -> Unit,
+    seconds: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth().background(KColors.Bg).padding(horizontal = 6.dp, vertical = 6.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Segmented(listOf("전체" to applyAll, "1세트" to !applyAll), onToggleAll)
             Box(Modifier.weight(1f))
+            if (seconds && field == SetField.REPS) Text("초", color = KColors.Sage)
             if (field == SetField.WEIGHT) Segmented(listOf("kg" to !usePounds, "lb" to usePounds), onToggleUnit)
         }
         KeyRow {

@@ -30,9 +30,9 @@ object WorkoutComparison {
         snapshot.plannedSets.filter { it.completed && it.setType == "NORMAL" }.groupBy(WorkoutCondition::of)
 
     fun totals(sets: List<PlannedSetSnapshot>): WorkoutSetTotals = WorkoutSetTotals(sets.size,
-        sets.takeIf { it.all { set -> set.performedReps != null } }?.sumOf { it.performedReps!!.toLong() },
-        sets.takeIf { it.all { set -> set.performedReps != null && set.weightKg != null } }
-            ?.sumOf { it.performedReps!! * it.weightKg!! }?.takeIf { it.isFinite() },
+        sets.filter { it.exerciseKind != ExerciseKind.HOLD }.let { reps -> reps.takeIf { it.all { set -> set.performedReps != null } }?.sumOf { it.performedReps!!.toLong() } },
+        sets.filter { it.exerciseKind != ExerciseKind.HOLD }.let { reps -> reps.takeIf { it.all { set -> set.performedReps != null && set.weightKg != null } }
+            ?.sumOf { it.performedReps!! * it.weightKg!! } }?.takeIf { it.isFinite() },
     )
 
     /** Equal timestamps do not establish order, even when session IDs differ. */

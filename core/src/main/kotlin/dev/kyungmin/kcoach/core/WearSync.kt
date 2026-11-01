@@ -164,13 +164,17 @@ object WearSync {
 
     fun withSetClock(payload: String, snapshot: WorkoutSnapshot, nowMs: Long, enabled: Boolean = true): String {
         val fields = parse(payload).toMutableList()
-        while (fields.size < 28) fields.add("")
+        while (fields.size < 31) fields.add("")
         val remaining = SetClock.remainingMs(snapshot, nowMs, enabled)
         val target = WorkoutSessionReducer.nextPendingSet(snapshot)
         fields[25] = remaining?.let { if (snapshot.paused) it else nowMs + it }?.toString().orEmpty()
         fields[26] = (target?.unilateral?.firstSideDurationMs?.plus(15_000L)
             ?: target?.setTimerLimitMs ?: 0L).plus(target?.setTimerAdjustmentMs ?: 0).coerceAtLeast(1).toString()
         fields[27] = snapshot.paused.toString()
+        fields[28] = target?.exerciseKind?.name.orEmpty()
+        fields[29] = target?.targetDurationSeconds?.toString().orEmpty()
+        val elapsed = SetClock.holdElapsedMs(snapshot, nowMs)
+        fields[30] = elapsed?.let { if (snapshot.paused) it else nowMs - it }?.toString().orEmpty()
         return fields.joinToString("|")
     }
 

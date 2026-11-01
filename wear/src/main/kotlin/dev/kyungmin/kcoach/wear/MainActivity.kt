@@ -75,6 +75,10 @@ class MainActivity : Activity() {
     private var reps = 0
     private var heartRate = 0
     private var runtimePhase = "IDLE"
+    private var holdExercise = false
+    private var holdTargetSeconds = 30
+    private var holdElapsedMs = -1L
+    private fun holdTime(now: Long) = (holdElapsedMs + if (paused) 0 else (now - setClockReceivedAt).coerceAtLeast(0)).coerceAtLeast(0)
     private var setClockRemaining = -1L
     private var setClockTotal = 1L
     private var setClockReceivedAt = 0L
@@ -216,6 +220,9 @@ class MainActivity : Activity() {
         setId = intent.getStringExtra("setId").orEmpty()
         attemptId = intent.getStringExtra("attemptId").orEmpty()
         manualRequired = intent.getBooleanExtra("manualRequired", false)
+        holdExercise = intent.getBooleanExtra("holdExercise", false)
+        holdTargetSeconds = intent.getIntExtra("holdTargetSeconds", 30)
+        holdElapsedMs = intent.getLongExtra("holdElapsedMs", -1L)
         setClockRemaining = intent.getLongExtra("setClockRemaining", -1L)
         setClockTotal = intent.getLongExtra("setClockTotal", 1L).coerceAtLeast(1)
         setClockReceivedAt = System.currentTimeMillis()
@@ -531,6 +538,7 @@ class MainActivity : Activity() {
 
     /** Rest time in ten second steps, from the bar, its ends, or the bezel. */
     private fun adjustRest(delta: Int) {
+        if (holdExercise && !resting) return
         if (!resting && setClockRemaining >= 0 && !paused) {
             if (!timedSetControls()) return
             val request = dev.kyungmin.kcoach.core.WatchWorkoutControl(java.util.UUID.randomUUID().toString(),
@@ -691,7 +699,7 @@ class MainActivity : Activity() {
         val leavingSetClock = face.setTiming && resting
         if (leavingSetClock) face.prepareSetRestMorph()
         else if (!resting) face.clearSetRestMorph()
-        val setTiming = active && !resting && setClockRemaining >= 0
+        val setTiming = active && !resting && (setClockRemaining >= 0 || holdExercise && holdElapsedMs >= 0)
         face.setTiming = setTiming
         face.jog.accent = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
         face.primary(if (resting || setTiming) 2 else if (active) 0 else 1)
@@ -716,6 +724,7 @@ class MainActivity : Activity() {
         face.value.setTextColor(WatchWorkoutFace.SAGE)
         listOf(face.jog, face.restPause, face.restSkip, face.goal).forEach { it.visibility = View.GONE }
         face.value.visibility = View.VISIBLE
+        face.jog.stopwatch = setTiming && holdExercise
         face.jog.centerLabel = "10초"
         face.hint.visibility = View.VISIBLE; face.subtitle.visibility = View.VISIBLE
         listOf(face.restPause, face.restSkip).forEach { it.caption = null; it.isEnabled = true; it.alpha = 1f }
@@ -778,10 +787,10 @@ class MainActivity : Activity() {
                 // No inactivity completion: an unobserved arm must be explicitly recorded or skipped.
             }
             if (setTiming) {
-                val left = (clockLeft(now) + 999) / 1000
+                val left = if (holdExercise) holdTime(now) / 1000 else (clockLeft(now) + 999) / 1000
                 face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 18f)
                 face.value.setTextColor(WatchWorkoutFace.SAGE)
-                face.goal.text = (weightKg?.takeIf { it > 0 }?.let { "${Moment.kg(it)}kg × " } ?: "") + "${targetReps}회"
+                face.goal.text = (weightKg?.takeIf { it > 0 }?.let { "${Moment.kg(it)}kg × " } ?: "") + if (holdExercise) dev.kyungmin.kcoach.core.HoldExercise.time(holdTargetSeconds) else "${targetReps}회"
                 face.goal.visibility = View.VISIBLE
                 face.target.visibility = View.GONE
                 face.setSubtitle("", WatchWorkoutFace.SOFT, medium = true)
@@ -839,7 +848,7 @@ class MainActivity : Activity() {
         shadowText.text = "보정 비교 · ${shadowCount}회"; recordShadowFrameCommit()
 
         // Pages: the editor above and the heart-rate page below, while measuring and during a rest that is not paused.
-        val editable = active && !paused && !sessionId.startsWith("calibration-") && setId.isNotBlank() && attemptId.isNotBlank() && runtimePhase != "CAPTURE_RECOVERY_REQUIRED"
+        val editable = active && !holdExercise && !paused && !sessionId.startsWith("calibration-") && setId.isNotBlank() && attemptId.isNotBlank() && runtimePhase != "CAPTURE_RECOVERY_REQUIRED"
         pager.topEnabled = editable
         pager.bottomEnabled = active && !paused && !sessionId.startsWith("calibration-")
         face.chevronUp.visibility = if (pager.topEnabled) View.VISIBLE else View.GONE
@@ -875,7 +884,9 @@ class MainActivity : Activity() {
         }
         if (!active) face.heart.show(0)
         restRing.timerColor = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
-        if (setTiming) {
+        if (setTiming && holdExercise) {
+            restRing.setProgress((holdTime(now).toFloat() / (holdTargetSeconds.coerceAtLeast(1) * 1000L)).coerceIn(0f, 1f)); restRing.visibility = View.VISIBLE
+        } else if (setTiming) {
             val end = now + clockLeft(now)
             restRing.setWindow(end - setClockTotal, end); restRing.visibility = View.VISIBLE
         } else if (resting && restEnd(now) > now) {

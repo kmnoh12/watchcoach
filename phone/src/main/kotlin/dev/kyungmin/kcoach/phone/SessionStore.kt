@@ -154,7 +154,7 @@ class SessionStore(private val context: Context) {
                     if (target?.setId != command.setId || target.attemptId != command.attemptId || !SetClock.isManual(target))
                         return@runCatching rejected(WatchWorkoutControlStatus.STALE)
                     val result = WorkoutSessionReducer.completeSet(current, SetCompletionEvent(current.sessionId, target.exerciseId,
-                        target.setIndex, target.targetReps, nowMs + target.restSeconds * 1000L, 0, SetRepSource.ESTIMATED,
+                        target.setIndex, if (SetClock.isHold(target)) 0 else target.targetReps, nowMs + target.restSeconds * 1000L, 0, if (SetClock.isHold(target)) SetRepSource.MANUAL else SetRepSource.ESTIMATED,
                         target.setId, target.attemptId, completedAtMs = nowMs))
                     (result as? SetCompletionResult.Applied)?.snapshot ?: return@runCatching rejected(WatchWorkoutControlStatus.REJECTED)
                 }

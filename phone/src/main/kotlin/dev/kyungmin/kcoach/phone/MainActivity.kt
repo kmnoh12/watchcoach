@@ -132,6 +132,8 @@ import dev.kyungmin.kcoach.core.WearSync
 import dev.kyungmin.kcoach.core.KCoachEventMarker
 import dev.kyungmin.kcoach.core.KCoachEventTrace
 import dev.kyungmin.kcoach.core.CaptureState
+import dev.kyungmin.kcoach.core.ExerciseKind
+import dev.kyungmin.kcoach.core.HoldExercise
 import dev.kyungmin.kcoach.core.PlannedSetSnapshot
 import dev.kyungmin.kcoach.core.WorkoutPhase
 import dev.kyungmin.kcoach.core.WorkoutSnapshot
@@ -779,7 +781,7 @@ class MainActivity : ComponentActivity() {
             RoutineRowUi(
                 key = index,
                 name = item.exercise.name,
-                subtitle = "${item.exercise.muscles} · ${item.sets.workSetCount()}세트 · 총 ${item.sets.sumOf { it.targetReps }}회",
+                subtitle = "${item.exercise.muscles} · ${item.sets.workSetCount()}세트 · 총 ${if (item.exercise.kind == ExerciseKind.HOLD) item.sets.sumOf { it.targetDurationSeconds ?: 30 }.toString() + "초" else item.sets.sumOf { it.targetReps }.toString() + "회"}",
                 thumbnail = { exerciseAnimationView(item.exercise, 58, compact = true) },
                 doneSets = active?.takeIf { it.routine === routine }?.let { item.sets.completedWorkSetCount() },
                 plannedSets = item.sets.workSetCount(),
@@ -838,7 +840,7 @@ class MainActivity : ComponentActivity() {
             RoutineRowUi(
                 key = index,
                 name = item.exercise.name,
-                subtitle = "${item.exercise.muscles} · ${item.sets.workSetCount()}세트 · 총 ${item.sets.sumOf { it.targetReps }}회",
+                subtitle = "${item.exercise.muscles} · ${item.sets.workSetCount()}세트 · 총 ${if (item.exercise.kind == ExerciseKind.HOLD) item.sets.sumOf { it.targetDurationSeconds ?: 30 }.toString() + "초" else item.sets.sumOf { it.targetReps }.toString() + "회"}",
                 thumbnail = { exerciseAnimationView(item.exercise, 58, compact = true) },
             )
         }
@@ -1373,7 +1375,7 @@ class MainActivity : ComponentActivity() {
         )
         val workout = ActiveWorkout(
             routine = routine.copy(exercises = routine.exercises.map { item ->
-                item.copy(sets = item.sets.map { it.copy(completed = false, performedReps = null, repSource = null, unilateral = null, setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true) }.toMutableList())
+                item.copy(sets = item.sets.map { it.copy(completed = false, durationSeconds = null, performedReps = null, repSource = null, unilateral = null, setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true) }.toMutableList())
             }.toMutableList()),
             exerciseIndex = safeExerciseIndex,
             setIndex = safeSetIndex,
@@ -1412,7 +1414,7 @@ class MainActivity : ComponentActivity() {
     private fun prepareRoutineForWatch(routine: WorkoutRoutine) {
         if (calibrationSessionId != null || routine.exercises.none { it.sets.isNotEmpty() }) return
         val prepared = ActiveWorkout(routine = routine.copy(exercises = routine.exercises.map { item ->
-            item.copy(sets = item.sets.map { it.copy(completed = false, performedReps = null, repSource = null, unilateral = null,
+            item.copy(sets = item.sets.map { it.copy(completed = false, durationSeconds = null, performedReps = null, repSource = null, unilateral = null,
                 setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(),
                 identityRequired = true) }.toMutableList())
         }.toMutableList()))
@@ -1786,7 +1788,7 @@ class MainActivity : ComponentActivity() {
         val performed = last.sets.filter { it.completed && it.repsEntered }
         if (performed.isEmpty()) return null
         val lastLine = "지난번 " + performed.take(4).joinToString(" · ") { set ->
-            if (set.weightKg == null) "${set.reps}회" else "${formatActiveWeight(set.weightKg, workout.usePounds)}×${set.reps}"
+            if (set.durationSeconds != null) (set.weightKg?.let { "${formatActiveWeight(it, workout.usePounds)}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(set.durationSeconds))) else if (set.weightKg == null) "${set.reps}회" else "${formatActiveWeight(set.weightKg, workout.usePounds)}×${set.reps}"
         } + if (performed.size > 4) " …" else ""
         return HistoryUi(lastLine, (last.volumeKg * volumeUnit(workout)).toInt(), null, null, false)
     }
@@ -1797,7 +1799,7 @@ class MainActivity : ComponentActivity() {
         if (item.sets.any { it.completed }) return
         item.sets.clear()
         last.sets.forEach { item.sets += PlannedSet(it.weightKg, it.targetReps ?: it.reps,
-            setType = if (it.isWarmup) SetType.WARMUP else SetType.NORMAL) }
+            setType = if (it.isWarmup) SetType.WARMUP else SetType.NORMAL, targetDurationSeconds = it.targetDurationSeconds) }
     }
 
     private fun buildWorkoutModel(workout: ActiveWorkout): WorkoutUiModel {
@@ -1806,7 +1808,7 @@ class MainActivity : ComponentActivity() {
             val exercise = workout.routine.exercises.getOrNull(target.exerciseIndex)
             val setLabel = exercise?.sets?.workSetLabel(target.setIndex)?.let { if (it == "W") "웜업" else "${it}세트" }.orEmpty()
             val weight = target.weightKg?.let { "${formatActiveWeight(it, workout.usePounds)}${if (workout.usePounds) "lb" else "kg"} × " }.orEmpty()
-            "다음: ${target.exerciseName} $setLabel · $weight${target.targetReps}회"
+            "다음: ${target.exerciseName} $setLabel · $weight${if (target.exerciseKind == ExerciseKind.HOLD) HoldExercise.time(target.targetDurationSeconds ?: 30) else "${target.targetReps}회"}"
         }
         val clockNow = System.currentTimeMillis()
         val clockSnapshot = if (activeWorkout === workout) sessionStore.loadActive().getOrNull()?.takeIf { it.sessionId == workout.sessionId } else null
@@ -1823,6 +1825,8 @@ class MainActivity : ComponentActivity() {
             swipeDelete = SwipeDeleteSetting.isEnabled(this),
             setClockEndAtMs = clockRemaining?.takeIf { clockSnapshot?.paused == false }?.plus(clockNow),
             pausedSetClockMs = clockRemaining?.takeIf { clockSnapshot?.paused == true },
+            holdElapsedMs = clockSnapshot?.let { dev.kyungmin.kcoach.core.SetClock.holdElapsedMs(it, clockNow) },
+            holdReadAtMs = clockNow,
             restStartAtMs = activeRestStartAtMs,
             restEndAtMs = activeRestEndAtMs,
             pausedRestRemainingMs = pausedRestRemainingMs,
@@ -1846,20 +1850,22 @@ class MainActivity : ComponentActivity() {
                     muscles = routineExercise.exercise.muscles,
                     weighted = routineExercise.exercise.equipment != "맨몸",
                     restSeconds = routineExercise.restSeconds,
-                    targetReps = routineExercise.sets.sumOf { it.targetReps },
-                    performedReps = routineExercise.sets.filter { it.completed }.sumOf { it.performedReps ?: 0 },
+                    hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
+                    targetReps = routineExercise.sets.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.targetDurationSeconds ?: 30 else it.targetReps },
+                    performedReps = routineExercise.sets.filter { it.completed }.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.durationSeconds ?: 0 else it.performedReps ?: 0 },
                     completedWorkSets = routineExercise.sets.completedWorkSetCount(),
                     workSetCount = routineExercise.sets.workSetCount(),
                     currentSetIndex = currentSet,
                     volumeDone = (routineExercise.sets.filter { it.completed }.sumOf { (it.weightKg ?: 0.0) * (it.performedReps ?: 0) } * volumeUnit(workout)).toInt(),
-                    volumeTarget = (routineExercise.sets.sumOf { (it.weightKg ?: 0.0) * it.targetReps } * volumeUnit(workout)).toInt(),
+                    volumeTarget = if (routineExercise.exercise.kind == ExerciseKind.HOLD) 0 else (routineExercise.sets.sumOf { (it.weightKg ?: 0.0) * it.targetReps } * volumeUnit(workout)).toInt(),
                     history = historyUi(routineExercise, workout),
                     sets = routineExercise.sets.mapIndexed { setIndex, set ->
                         SetUi(
                             uid = System.identityHashCode(set),
                             label = routineExercise.sets.workSetLabel(setIndex),
                             weightText = formatActiveWeight(set.weightKg, workout.usePounds),
-                            reps = if (set.completed) set.performedReps else set.targetReps,
+                            hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
+                            reps = if (routineExercise.exercise.kind == ExerciseKind.HOLD) { if (set.completed) set.durationSeconds else set.targetDurationSeconds ?: 30 } else if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
                             estimated = set.repSource == SetRepSource.ESTIMATED || set.unilateral?.otherRepSource == SetRepSource.ESTIMATED,
                             halfDone = !set.completed && set.unilateral?.holdsRest == true,
@@ -1873,7 +1879,7 @@ class MainActivity : ComponentActivity() {
                                 ?.let { SetInsight.describe(it.tempoConsistency, it.lateDrift) },
                             previous = history.last(routineExercise.exercise.id)?.sets?.getOrNull(setIndex)?.let { last ->
                                 val weight = last.weightKg
-                                if (weight == null) "${last.reps}회" else "${formatActiveWeight(weight, workout.usePounds)}×${last.reps}"
+                                if (last.durationSeconds != null) (weight?.let { "${formatActiveWeight(it, workout.usePounds)}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(last.durationSeconds))) else if (weight == null) "${last.reps}회" else "${formatActiveWeight(weight, workout.usePounds)}×${last.reps}"
                             },
                         )
                     },
@@ -2029,7 +2035,9 @@ class MainActivity : ComponentActivity() {
                     }
                     SetField.REPS -> {
                         val reps = value.toIntOrNull()?.takeIf { it in 0..9_999 } ?: return@forEach
-                        if (set.completed) {
+                        if (routineExercise.exercise.kind == ExerciseKind.HOLD) {
+                            if (set.completed) set.durationSeconds = reps else set.targetDurationSeconds = reps
+                        } else if (set.completed) {
                             if (set.unilateral?.estimated != true) {
                                 set.performedReps = reps
                                 set.repSource = SetRepSource.MANUAL
@@ -2085,6 +2093,7 @@ class MainActivity : ComponentActivity() {
                 val current = workout.performedRepsByExercise[routineExercise.exercise.id] ?: 0
                 workout.performedRepsByExercise[routineExercise.exercise.id] =
                     (current - (plannedSet.performedReps ?: 0)).coerceAtLeast(0)
+                plannedSet.durationSeconds = null
                 plannedSet.performedReps = null
                 plannedSet.repSource = null
                 plannedSet.attemptId = java.util.UUID.randomUUID().toString()
@@ -2128,8 +2137,8 @@ class MainActivity : ComponentActivity() {
                 return
             }
             beginWorkoutEdit(workout)
-            val source = routineExercise.sets.lastOrNull() ?: newRoutineExercise(routineExercise.exercise).sets.single()
-            routineExercise.sets += PlannedSet(source.weightKg, source.targetReps, gripType = source.gripType, restSeconds = source.restSeconds)
+            val source = routineExercise.sets.lastOrNull() ?: newRoutineExercise(routineExercise.exercise).sets.first()
+            routineExercise.sets += PlannedSet(source.weightKg, source.targetReps, gripType = source.gripType, restSeconds = source.restSeconds, targetDurationSeconds = source.targetDurationSeconds)
             if (!persistActiveWorkout(workout)) return
             if (activeWorkout === workout) resyncActiveWorkoutToWatch(workout)
             bumpWorkoutUi()
@@ -2370,13 +2379,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestSetCompletion(workout: ActiveWorkout, exercise: RoutineExercise, setIndex: Int, set: PlannedSet) {
+        if (exercise.exercise.kind == ExerciseKind.HOLD && workout.paused) return
         val revision = sessionStore.manualSetRevision(workout.sessionId, set.setId, set.attemptId).getOrNull() ?: return
         // A check tap just completes the set at its target; the actual count is edited in the set row afterwards.
-        val count = set.unilateral?.takeIf { it.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING }?.watchReps ?: set.targetReps
+        val count = if (exercise.exercise.kind == ExerciseKind.HOLD) 0 else set.unilateral?.takeIf { it.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING }?.watchReps ?: set.targetReps
         completeWorkoutSet(workout, exercise, setIndex, set, count, revision)
     }
 
     private fun requestAllSetsCompletion(workout: ActiveWorkout, exercise: RoutineExercise) {
+        if (exercise.exercise.kind == ExerciseKind.HOLD) {
+            Toast.makeText(this, "시간 운동은 스톱워치로 한 세트씩 완료해 주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
         // Bulk completion has no side intent; it must not bypass the unilateral decision boundary.
         if (exercise.exercise.id in dev.kyungmin.kcoach.core.UnilateralExercises.ids || exercise.sets.any { it.unilateral != null }) {
             Toast.makeText(this, "원암 운동은 한쪽씩 완료해 주세요", Toast.LENGTH_SHORT).show()
@@ -2587,7 +2601,7 @@ class MainActivity : ComponentActivity() {
             val rpeNotes = mapOf("10" to "더는 못 해요", "9.5" to "1개 정도 더 할 수 있을 것 같아요", "9" to "확실히 1개 더 할 수 있어요", "8.5" to "아마 2개 더 할 수 있어요", "8" to "확실히 2개 더 할 수 있어요", "7" to "꽤 할 만했어요", "6" to "웜업 정도예요")
             SetSheet(
                 title = setLabel,
-                subtitle = "${routineExercise.exercise.name} · ${set.targetReps}회",
+                subtitle = "${routineExercise.exercise.name} · ${if (routineExercise.exercise.kind == ExerciseKind.HOLD) HoldExercise.time(set.targetDurationSeconds ?: 30) else "${set.targetReps}회"}",
                 groups = listOf(
                     SegGroup(
                         "세트 종류",
@@ -2760,13 +2774,14 @@ class MainActivity : ComponentActivity() {
 
         val record = ExerciseRecordUi(
             name = routineExercise.exercise.name,
+            hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
             muscles = routineExercise.exercise.muscles,
-            targetTotal = routineExercise.sets.sumOf { it.targetReps },
-            performed = active?.performedRepsByExercise?.get(routineExercise.exercise.id) ?: 0,
+            targetTotal = routineExercise.sets.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.targetDurationSeconds ?: 30 else it.targetReps },
+            performed = if (routineExercise.exercise.kind == ExerciseKind.HOLD) routineExercise.sets.sumOf { it.durationSeconds ?: 0 } else active?.performedRepsByExercise?.get(routineExercise.exercise.id) ?: 0,
             sets = routineExercise.sets.mapIndexed { setIndex, set ->
                 RecordSetUi(
                     setIndex,
-                    set.targetReps,
+                    if (routineExercise.exercise.kind == ExerciseKind.HOLD) set.durationSeconds ?: set.targetDurationSeconds ?: 30 else set.targetReps,
                     active != null && setIndex < active.completedSets && active.routine === routine && active.exerciseIndex > index,
                 )
             },
@@ -2776,7 +2791,7 @@ class MainActivity : ComponentActivity() {
                     date = LocalDate.ofEpochDay(log.epochDay).let { "${it.monthValue}월 ${it.dayOfMonth}일" },
                     lines = log.sets.mapIndexed { i, set ->
                         val weight = set.weightKg
-                        "${i + 1}  ${if (weight == null) "" else cleanWeight(weight) + "kg × "}${set.reps}회"
+                        "${i + 1}  ${if (weight == null) "" else cleanWeight(weight) + "kg × "}${set.durationSeconds?.let(HoldExercise::time) ?: "${set.reps}회"}"
                     }.take(5).joinToString("\n"),
                 )
             },
@@ -2918,7 +2933,7 @@ class MainActivity : ComponentActivity() {
             myRecord = listOf(
                 "● 나의 기록" to "이 운동이 포함된 루틴 ${matching.size}개\n계획된 총 세트 ${plannedSets}세트\n\n최근 루틴\n${matching.firstOrNull()?.name ?: "아직 기록 없음"}",
                 "● 최근 목표" to (matching.firstOrNull()?.exercises?.firstOrNull { it.exercise.id == exercise.id }?.sets?.firstOrNull()?.let { set ->
-                    "${set.weightKg?.let { cleanWeight(it) + "kg" } ?: if (exercise.equipment == "맨몸") "체중" else "무게 미정"} · ${set.targetReps}회"
+                    "${set.weightKg?.let { cleanWeight(it) + "kg" } ?: if (exercise.equipment == "맨몸") "체중" else "무게 미정"} · ${if (exercise.kind == ExerciseKind.HOLD) HoldExercise.time(set.targetDurationSeconds ?: 30) else "${set.targetReps}회"}"
                 } ?: "기록이 쌓이면 표시돼요."),
             ),
             stats = listOf(
@@ -3154,6 +3169,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showCustomExerciseDialog(onSelect: (ExerciseDefinition) -> Unit, onReturn: () -> Unit) {
+        showSheet { dismiss ->
+            SheetOptions("기록 방식", listOf(
+                SheetItem(KIcon.Plus, "횟수 운동") { dismiss(); showCustomExerciseName(ExerciseKind.RESISTANCE, onSelect, onReturn) },
+                SheetItem(KIcon.Plus, "시간 운동") { dismiss(); showCustomExerciseName(ExerciseKind.HOLD, onSelect, onReturn) },
+            ))
+        }
+    }
+
+    private fun showCustomExerciseName(kind: ExerciseKind, onSelect: (ExerciseDefinition) -> Unit, onReturn: () -> Unit) {
         showPopup { dismiss ->
             InputDialog("커스텀 운동 추가", "운동 이름", dismiss) { name ->
                 if (name.isNotEmpty()) {
@@ -3163,6 +3187,7 @@ class MainActivity : ComponentActivity() {
                         muscles = "사용자 정의",
                         bodyCategory = "전체",
                         equipment = "커스텀",
+                        kind = kind,
                     )
                     if (!saveRoutineLibrary(customExercises = customExercises() + custom)) return@InputDialog
                     WorkoutData.catalog += custom
@@ -3460,6 +3485,9 @@ class MainActivity : ComponentActivity() {
                     targetReps = set.targetReps,
                     weightKg = set.weightKg,
                     completed = set.completed,
+                    exerciseKind = exercise.exercise.kind,
+                    targetDurationSeconds = if (exercise.exercise.kind == ExerciseKind.HOLD) set.targetDurationSeconds ?: 30 else null,
+                    durationSeconds = set.durationSeconds,
                     setType = set.setType.storageValue,
                     exerciseName = exercise.exercise.name,
                     restSeconds = set.restSeconds ?: exercise.restSeconds,
@@ -3604,6 +3632,8 @@ class MainActivity : ComponentActivity() {
             if (exercise.exercise.id != savedSet.exerciseId) return@forEach
             if (savedSet.exerciseName.isNotBlank()) exercise.restSeconds = savedSet.exerciseRestSeconds
             exercise.sets.getOrNull(savedSet.setIndex)?.apply {
+                targetDurationSeconds = savedSet.targetDurationSeconds
+                durationSeconds = savedSet.durationSeconds
                 targetReps = savedSet.targetReps
                 weightKg = savedSet.weightKg
                 unilateral = savedSet.unilateral

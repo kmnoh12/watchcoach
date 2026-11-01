@@ -23,6 +23,8 @@ data class WorkoutUiModel(
     val swipeDelete: Boolean = true,
     val setClockEndAtMs: Long? = null,
     val pausedSetClockMs: Long? = null,
+    val holdElapsedMs: Long? = null,
+    val holdReadAtMs: Long = 0,
 )
 
 data class ExerciseUi(
@@ -41,6 +43,7 @@ data class ExerciseUi(
     val volumeDone: Int,
     val volumeTarget: Int,
     val history: HistoryUi?,
+    val hold: Boolean = false,
 )
 
 /** What last time looked like and what to try next, for one exercise. */
@@ -70,6 +73,7 @@ data class SetUi(
     val halfDone: Boolean = false,
     val otherSideWorking: Boolean = false,
     val estimated: Boolean = false,
+    val hold: Boolean = false,
 )
 
 enum class SetField { WEIGHT, REPS }

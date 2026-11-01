@@ -62,6 +62,7 @@ internal class RoutineLibraryStore(
                 put("exercise", encodeExercise(item.exercise)); put("restSeconds", item.restSeconds)
                 put("sets", JSONArray(item.sets.map { set -> JSONObject().apply {
                     put("weightKg", set.weightKg ?: JSONObject.NULL); put("targetReps", set.targetReps)
+                    put("targetDurationSeconds", set.targetDurationSeconds ?: JSONObject.NULL)
                     put("setType", set.setType.storageValue); put("gripType", set.gripType)
                     put("rpe", set.rpe ?: JSONObject.NULL); put("restSeconds", set.restSeconds ?: JSONObject.NULL)
                     put("setId", set.setId); put("attemptId", set.attemptId); put("identityRequired", set.identityRequired)
@@ -93,6 +94,7 @@ internal class RoutineLibraryStore(
                                 restSeconds = if (set.isNull("restSeconds")) null else set.getInt("restSeconds"),
                                 setId = set.requiredString("setId"), attemptId = set.requiredString("attemptId"),
                                 identityRequired = set.getBoolean("identityRequired"),
+                                targetDurationSeconds = if (set.isNull("targetDurationSeconds")) null else set.getInt("targetDurationSeconds"),
                             )
                         }.toMutableList(), item.getInt("restSeconds")).also {
                             if (it.restSeconds == 90) it.restSeconds = ExerciseDefaults.restSeconds(it.exercise)
@@ -108,6 +110,7 @@ internal class RoutineLibraryStore(
     private fun encodeExercise(exercise: ExerciseDefinition) = JSONObject().apply {
         put("id", exercise.id); put("name", exercise.name); put("muscles", exercise.muscles)
         put("bodyCategory", exercise.bodyCategory); put("equipment", exercise.equipment)
+        put("kind", exercise.kind.name)
         put("favorite", exercise.favorite); put("pattern", exercise.pattern); put("family", exercise.family)
     }
 
@@ -115,6 +118,7 @@ internal class RoutineLibraryStore(
         value.requiredString("id"), value.requiredString("name"), value.getString("muscles"),
         value.getString("bodyCategory"), value.getString("equipment"), value.getBoolean("favorite"),
         value.getString("pattern"), value.getString("family"),
+        kind = value.optString("kind").takeIf { it.isNotEmpty() }?.let { dev.kyungmin.kcoach.core.ExerciseKind.valueOf(it) } ?: dev.kyungmin.kcoach.core.HoldExercise.kind(value.getString("id")),
     ).let { if (it.id in setOf("weighted_dip", "weighted_pull_up")) it.copy(equipment = "기타") else it }
 
     private fun JSONObject.requiredString(key: String) = getString(key).also { require(it.isNotBlank()) }

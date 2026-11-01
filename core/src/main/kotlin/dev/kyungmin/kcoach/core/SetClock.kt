@@ -3,7 +3,14 @@ package dev.kyungmin.kcoach.core
 /** Active-time clock shared by manual sets and the unobserved arm. Phone alone claims completion. */
 object SetClock {
     const val MAX_LIMIT_MS = 300_000L
-    fun isManual(set: PlannedSetSnapshot) = set.setType != "WARMUP" && set.unilateral == null &&
+    fun isHold(set: PlannedSetSnapshot) = set.exerciseKind == ExerciseKind.HOLD
+    fun holdElapsedMs(snapshot: WorkoutSnapshot, nowMs: Long): Long? {
+        if (snapshot.restEndAtMs > 0 || snapshot.pausedRestRemainingMs > 0) return null
+        if (snapshot.phase != WorkoutPhase.WORKING && !snapshot.paused) return null
+        val set = WorkoutSessionReducer.nextPendingSet(snapshot) ?: return null
+        return if (isHold(set) && set.workingStartedAtMs > 0) elapsed(snapshot, set, nowMs) else null
+    }
+    fun isManual(set: PlannedSetSnapshot) = isHold(set) || set.setType != "WARMUP" && set.unilateral == null &&
         ExerciseTrackingProfiles.resolve(set.exerciseId, set.exerciseName).mode == TrackingMode.MANUAL_REQUIRED
 
     fun elapsed(snapshot: WorkoutSnapshot, set: PlannedSetSnapshot, nowMs: Long): Long =
@@ -22,7 +29,7 @@ object SetClock {
                 it.exerciseId == candidate.exerciseId && (candidate.setId.isNotBlank() || it.setIndex == candidate.setIndex) }
             if (previous != null && candidate.workingStartedAtMs == 0L) candidate.copy(
                 workingStartedAtMs = previous.workingStartedAtMs, workingPausedAtStartMs = previous.workingPausedAtStartMs,
-                completedDurationMs = previous.completedDurationMs, setTimerLimitMs = previous.setTimerLimitMs,
+                completedDurationMs = previous.completedDurationMs, durationSeconds = candidate.durationSeconds ?: previous.durationSeconds, setTimerLimitMs = previous.setTimerLimitMs,
                 setTimerAdjustmentMs = previous.setTimerAdjustmentMs) else candidate
         }
         val sets = merged.mapIndexed { index, candidate ->
@@ -30,7 +37,7 @@ object SetClock {
             if ((isManual(set) || set.unilateral != null) && index == targetIndex && snapshot.phase == WorkoutPhase.WORKING && !snapshot.paused) {
                 if (set.workingStartedAtMs == 0L) set = set.copy(workingStartedAtMs = nowMs,
                     workingPausedAtStartMs = snapshot.totalPausedMs, completedDurationMs = null, setTimerAdjustmentMs = 0)
-                if (enabled && isManual(set) && set.setTimerLimitMs == null) {
+                if (enabled && isManual(set) && !isHold(set) && set.setTimerLimitMs == null) {
                     val prior = merged.filter { it.exerciseIndex == set.exerciseIndex && it.exerciseId == set.exerciseId &&
                         it.setIndex < set.setIndex && it.completed && it.setType != "WARMUP" }.maxByOrNull { it.setIndex }
                     val previousSessionDuration = if (prior == null) history.recent(set.exerciseId, Int.MAX_VALUE)
@@ -41,7 +48,7 @@ object SetClock {
                         ?: defaultLimitMs(set.targetReps))
                 }
             }
-            if (!enabled && isManual(set)) set = set.copy(setTimerLimitMs = null)
+            if (isHold(set) || !enabled && isManual(set)) set = set.copy(setTimerLimitMs = null)
             set
         }
         return snapshot.copy(plannedSets = sets)
@@ -58,7 +65,7 @@ object SetClock {
                 (snapshot.totalPausedMs - side.pausedAtOtherStartMs).coerceAtLeast(0)).coerceAtLeast(0)
             return (limit + set.setTimerAdjustmentMs - active).coerceAtLeast(0)
         }
-        if (!enabled || !isManual(set) || set.workingStartedAtMs == 0L) return null
+        if (!enabled || !isManual(set) || isHold(set) || set.workingStartedAtMs == 0L) return null
         return ((set.setTimerLimitMs ?: return null) + set.setTimerAdjustmentMs - elapsed(snapshot, set, nowMs)).coerceAtLeast(0)
     }
 

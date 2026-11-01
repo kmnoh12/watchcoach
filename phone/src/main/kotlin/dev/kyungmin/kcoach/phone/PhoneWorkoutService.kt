@@ -154,8 +154,18 @@ class PhoneWorkoutService : Service() {
                     .onSuccess { if (it != null) publishSessionChanged(this@PhoneWorkoutService) }
                     .onFailure { Log.e("KCoachEvent", "background rest transition failed", it) }
                 val snapshot = sessionStore.loadActive().getOrNull()
+                val elapsed = snapshot?.let { dev.kyungmin.kcoach.core.SetClock.holdElapsedMs(it, System.currentTimeMillis()) }
+                if (elapsed != null && !snapshot.paused) {
+                    val set = dev.kyungmin.kcoach.core.WorkoutSessionReducer.nextPendingSet(snapshot)!!
+                    val key = "${snapshot.sessionId}:${set.setId}:${set.attemptId}"
+                    val buzz = getSharedPreferences("hold-target-haptic", MODE_PRIVATE)
+                    if (elapsed >= (set.targetDurationSeconds ?: 30) * 1000L && buzz.getString("attempt", "") != key) {
+                        buzz.edit().putString("attempt", key).apply()
+                        getSystemService(android.os.Vibrator::class.java)?.vibrate(android.os.VibrationEffect.createOneShot(120, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                    }
+                }
                 val resting = snapshot?.phase == WorkoutPhase.RESTING && !snapshot.paused
-                handler.postDelayed(this, if (resting || snapshot?.let { dev.kyungmin.kcoach.core.SetClock.remainingMs(it, System.currentTimeMillis()) != null } == true || snapshot?.plannedSets?.any { it.unilateral?.holdsRest == true } == true) 250L else HEARTBEAT_INTERVAL_MS)
+                handler.postDelayed(this, if (elapsed != null || resting || snapshot?.let { dev.kyungmin.kcoach.core.SetClock.remainingMs(it, System.currentTimeMillis()) != null } == true || snapshot?.plannedSets?.any { it.unilateral?.holdsRest == true } == true) 250L else HEARTBEAT_INTERVAL_MS)
             }
         }
         restTicker = tick

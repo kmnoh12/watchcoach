@@ -64,4 +64,36 @@ class SetClockServiceTest {
             assertEquals(-1L, field(service, "setClockValue"))
         } finally { owner.destroy() }
     }
+    @Test fun holdTargetBuzzesOnceAndNeverCompletesOrCountsReps() {
+        var owner = Robolectric.buildService(WearWorkoutService::class.java).create()
+        try {
+            var service = owner.get()
+            service.onStartCommand(command("START", 1).putExtra("exerciseId", "custom_hold")
+                .putExtra("holdExercise", true).putExtra("holdTargetSeconds", 30)
+                .putExtra("holdClockValue", System.currentTimeMillis() - 29_000), 0, 1)
+            assertTrue(state().getBooleanExtra("manualRequired", false))
+            assertFalse(field(service, "setClockFinished") as Boolean)
+            service.onStartCommand(command("PAUSE", 2), 0, 2)
+            (field(service, "setClockTicker") as Runnable).run()
+            assertFalse(field(service, "setClockFinished") as Boolean)
+            service.onStartCommand(command("RESUME", 3).putExtra("holdExercise", true).putExtra("holdTargetSeconds", 30)
+                .putExtra("holdClockValue", System.currentTimeMillis() - 45_000).putExtra("setClockValue", -1L), 0, 3)
+            (field(service, "setClockTicker") as Runnable).run()
+            assertTrue(field(service, "setClockFinished") as Boolean)
+            assertTrue(state().getBooleanExtra("running", false))
+            assertEquals(0, state().getIntExtra("reps", -1))
+            val vibration = org.robolectric.Shadows.shadowOf(service.getSystemService(android.os.Vibrator::class.java))
+            assertTrue(vibration.isVibrating)
+            assertEquals(120L, vibration.milliseconds)
+            owner.destroy()
+            owner = Robolectric.buildService(WearWorkoutService::class.java).create()
+            service = owner.get()
+            service.onStartCommand(Intent().putExtra("command", "REQUEST_STATE"), 0, 4)
+            assertTrue(state().getBooleanExtra("holdExercise", false))
+            assertTrue(state().getLongExtra("holdElapsedMs", 0) >= 45_000)
+            assertTrue(field(service, "setClockFinished") as Boolean)
+            assertTrue(state().getBooleanExtra("manualRequired", false))
+        } finally { owner.destroy() }
+    }
+
 }

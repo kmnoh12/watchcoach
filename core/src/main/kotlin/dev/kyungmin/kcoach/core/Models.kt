@@ -3,6 +3,7 @@ package dev.kyungmin.kcoach.core
 enum class ExerciseKind {
     RESISTANCE,
     INCLINE_TREADMILL,
+    HOLD,
 }
 
 enum class RepSource {

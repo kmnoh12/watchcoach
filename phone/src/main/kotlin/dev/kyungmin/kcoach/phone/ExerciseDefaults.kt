@@ -48,6 +48,8 @@ internal object ExerciseDefaults {
 
     fun newExercise(exercise: ExerciseDefinition, profile: WorkoutProfile? = null,
         history: List<ExerciseLog> = emptyList()): RoutineExercise {
+        if (exercise.kind == dev.kyungmin.kcoach.core.ExerciseKind.HOLD) return RoutineExercise(exercise,
+            MutableList(3) { PlannedSet(startingWeight(exercise, profile), 0, targetDurationSeconds = 30) }, restSeconds(exercise))
         val last = history.filter { it.exerciseId == exercise.id &&
             (it.equipment == exercise.equipment || it.equipment.isEmpty() ||
                 (exercise.id in setOf("weighted_dip", "weighted_pull_up") && it.equipment == "맨몸")) }

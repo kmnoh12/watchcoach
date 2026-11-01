@@ -120,6 +120,7 @@ class ExerciseRecordUi(
     val restSeconds: Int,
     val recent: List<RecentLogUi>,
     val best: List<Pair<String, String>>,
+    val hold: Boolean = false,
 )
 
 class RecentLogUi(val date: String, val lines: String)
@@ -152,9 +153,9 @@ fun ExerciseRecordScreen(record: ExerciseRecordUi, back: () -> Unit, openInfo: (
         Text(record.muscles, color = KColors.Muted, fontSize = 14.sp)
         Spacer(Modifier.height(12.dp))
         Row {
-            Text("횟수 ${record.targetTotal}회", color = KColors.Accent, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+            Text(if (record.hold) "목표 ${record.targetTotal}초" else "횟수 ${record.targetTotal}회", color = KColors.Accent, fontSize = 18.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.width(22.dp))
-            Text("${record.performed}회", color = KColors.Muted, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+            Text("${record.performed}${if (record.hold) "초" else "회"}", color = KColors.Muted, fontSize = 18.sp, fontWeight = FontWeight.Medium)
         }
         Spacer(Modifier.height(22.dp))
         Row(verticalAlignment = Alignment.CenterVertically) { KIcon(KIcon.Forward, KColors.Muted, size = 18.dp); Spacer(Modifier.width(6.dp)); Text("메모", color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium) }
@@ -163,14 +164,14 @@ fun ExerciseRecordScreen(record: ExerciseRecordUi, back: () -> Unit, openInfo: (
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("세트", color = KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Text("회", color = KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Text(if (record.hold) "시간" else "회", color = KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Text("완료", color = KColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Box(Modifier.width(42.dp), contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 20.dp) }
         }
         record.sets.forEach { set ->
             Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${set.index + 1}", color = KColors.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
-                Text("${set.reps}", color = KColors.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                Text(if (record.hold) dev.kyungmin.kcoach.core.HoldExercise.time(set.reps) else "${set.reps}", color = KColors.White, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                 Box(Modifier.weight(1f)) { if (set.completed) KIcon(KIcon.Check, KColors.Accent, size = 20.dp) }
                 Box(Modifier.width(42.dp), contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 20.dp) }
             }

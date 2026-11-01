@@ -77,8 +77,10 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
                 Column(Modifier.weight(1f)) {
                     TextButton(onClick = { expanded = if (expanded == id) null else id }) { Text(sets.first().exerciseName, color = KColors.White, fontSize = 18.sp) }
                     val volume = WorkoutComparison.totals(sets).volumeKgReps
-                    Text("${sets.size}세트 · ${volume?.let { n(it) + " kg" } ?: "볼륨 미확인"}", color = KColors.Muted, fontSize = 13.sp)
-                    val changes = WorkoutComparison.compare(read.record.snapshot, read.previous?.snapshot).filter { it.condition.exerciseId == id }
+                    if (sets.first().exerciseKind == dev.kyungmin.kcoach.core.ExerciseKind.HOLD) {
+                        Text("${sets.size}세트 · ${dev.kyungmin.kcoach.core.HoldExercise.time(sets.sumOf { it.durationSeconds ?: 0 })}", color = KColors.Muted, fontSize = 13.sp)
+                    } else Text("${sets.size}세트 · ${volume?.let { n(it) + " kg" } ?: "볼륨 미확인"}", color = KColors.Muted, fontSize = 13.sp)
+                    val changes = if (sets.first().exerciseKind == dev.kyungmin.kcoach.core.ExerciseKind.HOLD) emptyList() else WorkoutComparison.compare(read.record.snapshot, read.previous?.snapshot).filter { it.condition.exerciseId == id }
                     if (changes.any { it.condition.missingFields.isNotEmpty() }) Text("기구·수행 조건 일부 미입력 · 입력이 같은 범위의 비교예요", color = KColors.Muted, fontSize = 12.sp)
                     changes.forEach { change ->
                         Text(change.volumeChange?.let { "같은 수행 조건의 지난 기록 대비 ${if (it >= 0) "+" else ""}${n(it)} kg · 일반 세트" }
@@ -92,7 +94,7 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
                     }
                 }
             }
-            if (expanded == id) sets.forEach { set -> Text("${set.setIndex + 1}세트 · ${if (set.setType == "WARMUP") "웜업 · " else ""}${set.weightKg?.let(::n) ?: "중량 미입력"} kg × ${set.performedReps?.toString() ?: "횟수 미입력"}회", color = KColors.Soft, fontSize = 14.sp) }
+            if (expanded == id) sets.forEach { set -> Text("${set.setIndex + 1}세트 · ${if (set.setType == "WARMUP") "웜업 · " else ""}${dev.kyungmin.kcoach.core.HoldExercise.record(set)}", color = KColors.Soft, fontSize = 14.sp) }
         }
         val removed = read.previous?.snapshot?.plannedSets?.filter { it.completed }?.map { it.exerciseId }?.toSet().orEmpty() - done.map { it.exerciseId }.toSet()
         if (removed.isNotEmpty()) Text("지난 기록에서 빠진 운동 · " + read.previous!!.snapshot.plannedSets.filter { it.exerciseId in removed }.distinctBy { it.exerciseId }.joinToString { it.exerciseName }, color = KColors.Muted, fontSize = 12.sp)

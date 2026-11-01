@@ -33,6 +33,8 @@ data class PlannedSet(
     var attemptId: String = java.util.UUID.randomUUID().toString(),
     var identityRequired: Boolean = true,
     var unilateral: dev.kyungmin.kcoach.core.UnilateralProgress? = null,
+    var targetDurationSeconds: Int? = null,
+    var durationSeconds: Int? = null,
 )
 
 fun List<PlannedSet>.workSetLabel(index: Int): String {
@@ -63,6 +65,7 @@ fun MutableList<PlannedSet>.duplicateAfter(index: Int): PlannedSet? {
         setType = source.setType,
         gripType = source.gripType,
         restSeconds = source.restSeconds,
+        targetDurationSeconds = source.targetDurationSeconds,
     )
     add(index + 1, copy)
     return copy
@@ -79,6 +82,7 @@ data class ExerciseDefinition(
     val pattern: String = "",
     /** Exercises of the same family (all lat pulldown grips) are folded into one row in the library. */
     val family: String = "",
+    val kind: dev.kyungmin.kcoach.core.ExerciseKind = dev.kyungmin.kcoach.core.HoldExercise.kind(id),
 )
 
 data class RoutineExercise(

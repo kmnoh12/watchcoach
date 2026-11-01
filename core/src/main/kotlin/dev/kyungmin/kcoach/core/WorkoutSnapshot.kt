@@ -54,6 +54,9 @@ data class PlannedSetSnapshot(
     val completedDurationMs: Long? = null,
     val setTimerLimitMs: Long? = null,
     val setTimerAdjustmentMs: Long = 0,
+    val exerciseKind: ExerciseKind = HoldExercise.kind(exerciseId),
+    val targetDurationSeconds: Int? = if (exerciseKind == ExerciseKind.HOLD) 30 else null,
+    val durationSeconds: Int? = null,
 )
 
 data class WorkoutSnapshot(
@@ -101,6 +104,8 @@ data class WorkoutSnapshot(
             }
             require((it.setId.isBlank() && it.attemptId.isBlank() && !it.identityRequired) ||
                 (it.setId.matches(Regex("[A-Za-z0-9._-]{1,160}")) && it.attemptId.matches(Regex("[A-Za-z0-9._-]{1,160}")))) { "Invalid set identity" }
+            require(it.targetDurationSeconds == null || it.targetDurationSeconds in 0..9_999) { "Invalid hold target" }
+            require(it.durationSeconds == null || it.durationSeconds >= 0) { "Negative hold duration" }
             require(it.performedReps == null || it.performedReps >= 0) { "Negative set reps" }
             require(it.restSeconds >= 0) { "Negative set rest" }
             require(it.exerciseRestSeconds >= 0 && (it.restOverrideSeconds == null || it.restOverrideSeconds >= 0)) { "Negative rest setting" }
@@ -112,7 +117,7 @@ data class WorkoutSnapshot(
     }
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 9
+        const val CURRENT_SCHEMA_VERSION = 10
         internal const val MAX_COLLECTION_SIZE = 10_000
     }
 }
@@ -156,6 +161,8 @@ object WorkoutSnapshotCodec {
                 data.writeLong(set.workingStartedAtMs); data.writeLong(set.workingPausedAtStartMs)
                 data.writeLong(set.completedDurationMs ?: -1); data.writeLong(set.setTimerLimitMs ?: -1)
                 data.writeLong(set.setTimerAdjustmentMs)
+                data.writeString(set.exerciseKind.name)
+                data.writeInt(set.targetDurationSeconds ?: -1); data.writeInt(set.durationSeconds ?: -1)
             }
             data.writeInt(snapshot.performedReps.size)
             snapshot.performedReps.toSortedMap().forEach { (exerciseId, reps) ->
@@ -227,6 +234,8 @@ object WorkoutSnapshotCodec {
                     .let { set -> if (schemaVersion >= 9) set.copy(workingStartedAtMs = data.readLong(),
                         workingPausedAtStartMs = data.readLong(), completedDurationMs = data.readLong().takeIf { it >= 0 },
                         setTimerLimitMs = data.readLong().takeIf { it >= 0 }, setTimerAdjustmentMs = data.readLong()) else set }
+                    .let { set -> if (schemaVersion >= 10) set.copy(exerciseKind = ExerciseKind.valueOf(data.readString()),
+                        targetDurationSeconds = data.readInt().takeIf { it >= 0 }, durationSeconds = data.readInt().takeIf { it >= 0 }) else set.copy(exerciseKind = ExerciseKind.RESISTANCE, targetDurationSeconds = null) }
             }
             val performedReps = buildMap {
                 repeat(data.readCount("performed reps")) {

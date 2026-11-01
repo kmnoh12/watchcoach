@@ -16,6 +16,21 @@ internal class ProgressionPlanStore(private val context: Context) {
         val edit = prefs.edit()
         val changes = mutableListOf<() -> Unit>()
         routine.exercises.forEachIndexed { index, item ->
+            if (item.exercise.kind == ExerciseKind.HOLD) {
+                val source = history.filter { it.routineId == routine.id && it.exerciseIndex == index && it.exerciseId == item.exercise.id }
+                    .maxWithOrNull(compareBy<ExerciseLog> { it.epochDay }.thenBy { it.startedAtMs })
+                if (source != null) {
+                    val key = "hold:${routine.id}:$index:${item.exercise.id}"
+                    val token = ExerciseHistoryCodec.encode(listOf(source))
+                    if (prefs.getString(key, null) != token) {
+                        val work = source.sets.filter { !it.isWarmup }
+                        val met = HoldExercise.nextTarget(work, 30) > 30
+                        edit.putString(key, token)
+                        changes += { if (met) item.sets.filter { !it.completed && it.setType != SetType.WARMUP }.forEach { it.targetDurationSeconds = ((it.targetDurationSeconds ?: 30) + 5).coerceAtMost(9_999) } }
+                    }
+                }
+                return@forEachIndexed
+            }
             val key = "plan:${routine.id}:$index:${item.exercise.id}"
             val saved = prefs.getString(key, null)?.let(::JSONObject)
             val signature = item.sets.joinToString("|") { "${it.setId}:${it.setType}:${it.gripType}" }
@@ -89,7 +104,7 @@ internal class ProgressionPlanStore(private val context: Context) {
                 LoggedSet(set.weightKg, set.performedReps ?: 0, set.targetReps, set.setType == "WARMUP", set.completed,
                     set.performedReps != null, row?.getString("position")?.substringBefore(":")?.let { "$it:${set.setType}:${set.gripType}" }.orEmpty(),
                     maxOf(row?.optInt("upper") ?: 0, ProgressionDefaults.upper(set.pattern) ?: 10, set.targetReps),
-                    row?.let { if (it.isNull("bodyWeight")) null else it.getDouble("bodyWeight") }, load(set.exerciseId, set.exerciseName, set.pattern, set.equipment, sets.map { it.weightKg }), eligible, set.completedDurationMs)
+                    row?.let { if (it.isNull("bodyWeight")) null else it.getDouble("bodyWeight") }, load(set.exerciseId, set.exerciseName, set.pattern, set.equipment, sets.map { it.weightKg }), eligible, set.completedDurationMs, set.durationSeconds, set.targetDurationSeconds)
             }, snapshot.sessionId, snapshot.startedAtMs, snapshot.routineId, index, sets.first().equipment)
         }
     }

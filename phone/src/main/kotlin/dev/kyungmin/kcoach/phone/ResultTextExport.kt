@@ -51,7 +51,7 @@ internal object ResultTextExport {
                 val type = SetType.entries.firstOrNull { it.storageValue == set.setType }
                 val label = if (set.setType == "NORMAL") "${index + 1}세트" else "${index + 1}세트 (${type?.displayName ?: set.setType})"
                 val load = set.weightKg?.let { "${weight(it)} $unit" } ?: "중량 미입력"
-                val reps = set.performedReps?.let { "${it}회" } ?: "횟수 미입력"
+                val reps = if (set.exerciseKind == dev.kyungmin.kcoach.core.ExerciseKind.HOLD) set.durationSeconds?.let(dev.kyungmin.kcoach.core.HoldExercise::time) ?: "시간 미입력" else set.performedReps?.let { "${it}회" } ?: "횟수 미입력"
                 appendLine("$label · $load × $reps${set.rpe?.takeIf { it.isNotBlank() }?.let { " · RPE $it" }.orEmpty()}")
             }
         }
