@@ -37,25 +37,23 @@ class WatchSetClockPreviewTest {
         root.draw(Canvas(bitmap))
         val face = descendants(root).filterIsInstance<WatchWorkoutFace>().first()
         if (name.startsWith("setclock-") && face.setTiming) {
-            val top = face.value.top + face.value.baseline + face.value.paint.fontMetrics.ascent
             val subtitleBottom = face.subtitle.top + face.subtitle.baseline + face.subtitle.paint.fontMetrics.descent
-            assertTrue("Timer must sit below the subtitle", top > subtitleBottom)
-            val bottom = face.value.top + face.value.baseline + face.value.paint.fontMetrics.descent
-            assertTrue("Timer must clear completion buttons", bottom < face.restPause.top)
-            assertTrue("Goal must sit above countdown", face.goal.bottom < face.value.top)
-            assertEquals("Countdown must be fully visible", 0, face.value.layout.getEllipsisCount(0))
+            assertTrue("Control must sit below the subtitle", face.jog.top > subtitleBottom)
+            assertTrue("Control must clear completion buttons", face.jog.bottom < face.restPause.top)
+            assertTrue("Goal must sit above countdown", face.goal.bottom < face.jog.top)
+            assertEquals("Countdown must use the shared control", face.value.text.toString(), face.jog.centerLabel)
+            assertEquals(View.INVISIBLE, face.value.visibility)
+            assertEquals("Goal must be fully visible", 0, face.goal.layout.getEllipsisCount(0))
             assertEquals("40kg × 12회", face.goal.text.toString())
             assertEquals("완료", face.restPause.caption)
-            assertEquals(View.GONE, face.jog.visibility)
+            assertEquals(View.VISIBLE, face.jog.visibility)
             assertEquals(View.GONE, face.hint.visibility)
             assertEquals(View.GONE, face.bpm.visibility)
             assertEquals(View.GONE, face.heartRate.visibility)
-            assertEquals(View.VISIBLE, face.minus.visibility)
-            assertEquals(View.VISIBLE, face.plus.visibility)
             for (button in listOf(face.restPause, face.restSkip).filter { it.visibility == View.VISIBLE }) {
                 for (x in listOf(button.left, button.right)) for (y in listOf(button.top, button.bottom)) {
                     val radius = face.width / 2f
-                    assertTrue("Buttons must stay inside the round screen", (x-radius)*(x-radius)+(y-radius)*(y-radius) < radius*radius)
+                    assertTrue("Buttons must stay clear of the round ring", (x-radius)*(x-radius)+(y-radius)*(y-radius) < (radius-12f)*(radius-12f))
                 }
             }
         }
@@ -108,6 +106,15 @@ class WatchSetClockPreviewTest {
         return controller to root
     }
 
+    private fun tapJog(jog: JogBar, fraction: Float) {
+        // Exercise the actual shared bar's hit regions, rather than calling its callback.
+        val x = jog.width * fraction
+        for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+            val event = android.view.MotionEvent.obtain(0, 0, action, x, jog.height / 2f, 0)
+            jog.dispatchTouchEvent(event); event.recycle()
+        }
+    }
+
     private fun requests() = generateSequence { shadowOf(app).nextStartedService }.filter {
         it.getStringExtra(WearWorkoutService.EXTRA_COMMAND) == "WORKOUT_CONTROL_SUBMIT"
     }.map { dev.kyungmin.kcoach.core.WatchWorkoutControl.decode(it.getStringExtra("payload")!!) }.toList()
@@ -119,8 +126,9 @@ class WatchSetClockPreviewTest {
             state("leg_press", "레그 프레스", "WORKING", running = true) {
                 putExtra("manualRequired", true); putExtra("setClockRemaining", 45_000L)
             }
+            measure(root)
             assertTrue(face.restPause.isEnabled)
-            face.minus.performClick(); face.plus.performClick(); face.restPause.performClick()
+            tapJog(face.jog, .1f); tapJog(face.jog, .9f); face.restPause.performClick()
             val commands = requests()
             assertEquals(org.robolectric.shadows.ShadowLog.getLogsForTag("WatchMainActivity").toString(), listOf(-10, 10), commands.take(2).map { it.deltaSeconds })
             assertEquals(dev.kyungmin.kcoach.core.WatchWorkoutAction.COMPLETE_MANUAL_SET, commands.last().action)
@@ -140,9 +148,9 @@ class WatchSetClockPreviewTest {
             state("leg_press", "레그 프레스", "WORKING", running = true) {
                 putExtra("manualRequired", true); putExtra("setClockRemaining", 45_000L); putExtra("paired", false)
             }
-            assertFalse(face.restPause.isEnabled); assertFalse(face.plus.isEnabled); assertFalse(face.minus.isEnabled)
+            assertFalse(face.restPause.isEnabled); assertFalse(face.jog.isEnabled)
             assertEquals(.4f, face.restPause.alpha)
-            face.restPause.onClick(); face.plus.onClick()
+            face.restPause.onClick(); face.jog.onStep(10)
             assertTrue(requests().isEmpty())
         } finally { controller.pause().stop().destroy() }
     }
@@ -161,6 +169,9 @@ class WatchSetClockPreviewTest {
             assertEquals(0f, face.value.translationY)
             assertEquals(View.GONE, face.goal.visibility)
             assertNull(face.restPause.caption)
+            assertEquals("10초", face.jog.centerLabel)
+            assertEquals(1f, face.jog.labelOpacity)
+            assertEquals(0f, face.jog.translationY)
         } finally {
             controller.pause().stop().destroy()
             android.provider.Settings.Global.putFloat(app.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
@@ -198,6 +209,11 @@ class WatchSetClockPreviewTest {
         assertTrue("Must capture a genuine intermediate frame: ${face.setRestProgress}", face.setRestProgress > 0f && face.setRestProgress < 1f)
         shot(root, "set-to-rest-100ms")
         morph.currentPlayTime = 200; shot(root, "set-to-rest-200ms")
+        val timerInk = android.graphics.RectF(0f, face.value.baseline + face.value.paint.fontMetrics.ascent,
+            face.value.width.toFloat(), face.value.baseline + face.value.paint.fontMetrics.descent)
+        face.value.matrix.mapRect(timerInk)
+        timerInk.offset(face.value.left.toFloat(), face.value.top.toFloat())
+        assertTrue("Growing time must clear the ten-second label", timerInk.bottom < face.jog.top + face.jog.translationY)
         morph.currentPlayTime = 400; shot(root, "rest-for-comparison")
         controller.pause().stop().destroy()
     }

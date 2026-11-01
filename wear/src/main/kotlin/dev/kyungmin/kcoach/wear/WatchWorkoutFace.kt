@@ -42,9 +42,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     val clock = label(13f, WHITE, 116, 42, 316, 72)
     val title = label(17f, WHITE, 63, 74, 369, 110, true).apply { maxLines = 1 }
     val subtitle = label(11f, MUTED, 52, 72, 380, 142)
-    val goal = label(23f, WHITE, 40, 158, 392, 220, true).apply { visibility = GONE }
-    val minus = RestPill(context, false).also { positions[it] = android.graphics.Rect(96, 232, 150, 286); addView(it, LayoutParams(1, 1)); it.caption = "−"; it.visibility = GONE }
-    val plus = RestPill(context, false).also { positions[it] = android.graphics.Rect(282, 232, 336, 286); addView(it, LayoutParams(1, 1)); it.caption = "+"; it.visibility = GONE }
+    val goal = label(25f, WHITE, 40, 116, 392, 184, true).apply { visibility = GONE }
     val jog = JogBar(context).also { positions[it] = android.graphics.Rect(48, 182, 384, 262); addView(it, LayoutParams(1, 1)); it.visibility = GONE }
     /** Design 4a: the left button is "정지" (and "계속" while the rest is paused), the right one skips the rest. */
     val restPause = RestPill(context, false).also { positions[it] = android.graphics.Rect(67, 280, 205, 350); addView(it, LayoutParams(1, 1)); it.visibility = GONE }
@@ -130,6 +128,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         }
         applyRestMorph()
     }
+    private var setControlCenterY = 230f
     private var outgoing: android.graphics.Bitmap? = null
     private var setRestAnimator: android.animation.ValueAnimator? = null
     var setRestProgress = 1f
@@ -138,7 +137,8 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     fun prepareSetRestMorph() {
         clearSetRestMorph()
         if (Moment.reducedMotion(context) || width == 0 || height == 0) return
-        val hidden = listOf(clock, value, valueGhost, minus, plus, chevronUp, chevronDown)
+        setControlCenterY = (jog.top + jog.bottom) / 2f * 432f / minOf(width, height)
+        val hidden = listOf(clock, value, valueGhost, jog, chevronUp, chevronDown)
         val visibilities = hidden.map { it.visibility }
         hidden.forEach { it.visibility = INVISIBLE }
         try {
@@ -188,6 +188,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
             listOf(value, valueGhost).forEach { it.setTextColor(SAGE); it.scaleX = 1f; it.scaleY = 1f; it.translationY = 0f }
             subtitle.alpha = 1f; subtitle.translationY = 0f
             restPause.resume = 0f; chevronDown.alpha = 1f
+            jog.labelOpacity = 1f; jog.translationY = 0f
             return
         }
         val p = if (setTiming) 0f else restMorph
@@ -201,15 +202,17 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         }
         subtitle.alpha = if (setTiming) 1f else p; subtitle.translationY = if (setTiming) 0f else 6f * scale * (1f - p)
         jog.alpha = 1f - .65f * p; jog.isEnabled = p < .5f
+        jog.translationY = 0f; jog.labelOpacity = 1f
         chevronDown.alpha = 1f - p
         restPause.resume = p
         if (setRestProgress < 1f) {
             val t = setRestProgress
-            value.scaleX = (16f / 54f + (1f - 16f / 54f) * t) * shrink
+            value.scaleX = (18f / 54f + (1f - 18f / 54f) * t) * shrink
             value.scaleY = value.scaleX
-            value.translationY += (259f - 126f) * scale * (1f - t)
+            value.translationY += (setControlCenterY - 126f) * scale * (1f - (t * 2f).coerceAtMost(1f))
             value.setTextColor(blend(SAGE, YELLOW, t))
-            jog.alpha = (1f - .65f * p) * ((t - .85f) / .15f).coerceIn(0f, 1f)
+            jog.translationY = (setControlCenterY - 222f) * scale * (1f - t)
+            jog.labelOpacity = ((t - .25f) / .5f).coerceIn(0f, 1f)
         }
         listOf(restPause, restSkip).forEach { it.alpha = (if (it.isEnabled) 1f else .4f) * ((setRestProgress - .45f) / .55f).coerceIn(0f, 1f) }
     }
@@ -236,7 +239,8 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         when (mode) {
             // Design 4a: a 108-unit bold time whose line box starts at 72, so the baseline is 72 + 0.841 x 108.
             2 -> listOf(value, valueGhost).forEach {
-                place(it, 44, if (setTiming) 232 else 64, 388, if (setTiming) 286 else 200)
+                place(it, 146, 196, 286, 264)
+                if (!setTiming) place(it, 44, 64, 388, 200)
                 baseline(it, if (setTiming) null else 162.8f)
                 it.letterSpacing = -3f / 108f; it.typeface = Typeface.DEFAULT_BOLD
             }
@@ -245,16 +249,21 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         }
         // The rest label ("휴식 · 일시정지") has its line box at 70 with a 22-unit size.
         baseline(subtitle, if (mode == 2 && !setTiming) 88.5f else 134.5f)
-        place(jog, 48, if (setTiming) 216 else 182, 384, if (setTiming) 296 else 262)
+        place(jog, 48, if (setTiming) 190 else 182, 384, if (setTiming) 270 else 262)
         if (mode != 2) resetRestMorph()
     }
 
     /** Timed manual sets have one wide completion action; the opposite arm adds a separate skip. */
     fun oppositeSideLayout(otherSide: Boolean) {
-        place(restPause, if (setTiming && !otherSide) 96 else 67, if (setTiming) 306 else 280,
-            if (setTiming && !otherSide) 336 else 205, if (setTiming) 370 else 350)
-        if (setTiming) { place(restSkip, 227, 306, 365, 370); return }
-        if (otherSide) place(restSkip, 96, if (setTiming) 306 else 280, 336, if (setTiming) 356 else 350)
+        if (setTiming) {
+            place(goal, 40, if (otherSide) 140 else 116, 392, if (otherSide) 202 else 184)
+            place(jog, 48, if (otherSide) 210 else 190, 384, if (otherSide) 290 else 270)
+            place(restPause, if (otherSide) 94 else 96, 300, if (otherSide) 207 else 336, 378)
+            place(restSkip, 225, 300, 338, 378)
+            return
+        }
+        place(restPause, 67, 280, 205, 350)
+        if (otherSide) place(restSkip, 96, 280, 336, 350)
         else place(restSkip, 227, 280, 365, 350)
     }
 

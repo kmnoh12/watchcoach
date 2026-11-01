@@ -129,6 +129,15 @@ internal class ChevronView(context: Context, private val up: Boolean) : View(con
  */
 internal class JogBar(context: Context) : View(context) {
     var accent = WatchWorkoutFace.YELLOW
+    var centerLabel = "10초"
+        set(value) {
+            if (field == value) return
+            field = value
+            contentDescription = if (value == "10초") "휴식 시간 10초 조절" else "남은 시간 $value · 10초 조절"
+            invalidate()
+        }
+    var labelOpacity = 1f
+        set(value) { if (field == value) return; field = value; invalidate() }
     var onStep: (Int) -> Unit = {}
     private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = WatchWorkoutFace.CARD }
     private val knob = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -197,11 +206,12 @@ internal class JogBar(context: Context) : View(context) {
         glyph.textAlign = Paint.Align.RIGHT; canvas.drawText("+", width - 26 * k, gy, glyph)
         val active = abs(offset) > 1f
         knob.color = if (active) accent else WatchWorkoutFace.CONTROL
-        label.color = if (active) Color.rgb(36, 26, 0) else WatchWorkoutFace.WHITE
+        label.color = if (active) Color.rgb(36, 26, 0) else if (centerLabel != "10초") WatchWorkoutFace.SAGE else WatchWorkoutFace.WHITE
+        label.alpha = (255 * labelOpacity).toInt().coerceIn(0, 255)
         label.textSize = 36 * k
         val cx = width / 2f + offset
         canvas.drawRoundRect(RectF(cx - 70 * k, cy - 34 * k, cx + 70 * k, cy + 34 * k), 17 * k, 17 * k, knob)
-        canvas.drawText("10초", cx, cy + 12.3f * k, label)
+        canvas.drawText(centerLabel, cx, cy + 12.3f * k, label)
     }
 }
 

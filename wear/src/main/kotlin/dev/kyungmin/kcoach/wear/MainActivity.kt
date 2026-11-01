@@ -294,8 +294,6 @@ class MainActivity : Activity() {
         face.action.setOnClickListener { openFinishedWorkout() }
         face.restSkip.onClick = { if (face.setTiming && !timedSetControls()) Unit else if (runtimePhase in setOf(SIDE_PHASE, "OTHER_SIDE_WORKING")) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY) else requestWorkoutControl() }
         face.restPause.onClick = { if (face.setTiming) completeTimedSet() else if (runtimePhase == SIDE_PHASE) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.START_OTHER_SIDE) else toggleRestPause() }
-        face.minus.onClick = { adjustRest(-10) }
-        face.plus.onClick = { adjustRest(10) }
         face.jog.onStep = { delta -> adjustRest(delta) }
         face.hint.setOnClickListener { if (runtimePhase == "START_DIRECTION_WAITING") bypassStartDirection() else if (face.noticeAction != null) face.noticeAction?.invoke() }
         editPage = EditPageView(this).apply {
@@ -716,7 +714,9 @@ class MainActivity : Activity() {
         face.hint.text = ""; face.hint.setTextColor(WatchWorkoutFace.MUTED); face.noticeAction = null
         face.size(face.value, if (active) 88f else 24f)
         face.value.setTextColor(WatchWorkoutFace.SAGE)
-        listOf(face.jog, face.restPause, face.restSkip, face.goal, face.minus, face.plus).forEach { it.visibility = View.GONE }
+        listOf(face.jog, face.restPause, face.restSkip, face.goal).forEach { it.visibility = View.GONE }
+        face.value.visibility = View.VISIBLE
+        face.jog.centerLabel = "10초"
         face.hint.visibility = View.VISIBLE; face.subtitle.visibility = View.VISIBLE
         listOf(face.restPause, face.restSkip).forEach { it.caption = null; it.isEnabled = true; it.alpha = 1f }
         val awaitingSide = active && !resting && !paused && runtimePhase == SIDE_PHASE
@@ -779,16 +779,17 @@ class MainActivity : Activity() {
             }
             if (setTiming) {
                 val left = (clockLeft(now) + 999) / 1000
-                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 16f)
+                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 18f)
                 face.value.setTextColor(WatchWorkoutFace.SAGE)
                 face.goal.text = (weightKg?.takeIf { it > 0 }?.let { "${Moment.kg(it)}kg × " } ?: "") + "${targetReps}회"
                 face.goal.visibility = View.VISIBLE
                 face.target.visibility = View.GONE
                 face.setSubtitle(if (runtimePhase == "OTHER_SIDE_WORKING") "반대손" else "", WatchWorkoutFace.SOFT, medium = true)
                 face.subtitle.alpha = 1f
-                face.jog.visibility = View.GONE
+                face.value.visibility = View.INVISIBLE
+                face.jog.centerLabel = face.value.text.toString()
                 val controls = timedSetControls()
-                listOf(face.minus, face.plus, face.restPause).forEach {
+                listOf(face.jog, face.restPause).forEach {
                     it.visibility = View.VISIBLE; it.isEnabled = controls; it.alpha = if (controls) 1f else .4f
                 }
                 face.restPause.caption = "완료"

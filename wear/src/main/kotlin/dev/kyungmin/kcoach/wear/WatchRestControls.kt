@@ -112,7 +112,14 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
             canvas.drawText(caption!!, cx, cy - (label.ascent() + label.descent()) / 2, label)
             label.textAlign = Paint.Align.LEFT
         } else if (caption != null) {
-            if (action) layer(canvas, k, cy, caption!!, Icon.PLAY, Color.rgb(36, 26, 0), Typeface.DEFAULT_BOLD, 1f, 1f)
+            if (caption == "완료") {
+                label.typeface = Typeface.DEFAULT_BOLD; label.textAlign = Paint.Align.CENTER
+                label.textSize = 36f * height / 78f
+                label.textSize *= minOf(1f, (width - 20f) / label.measureText(caption!!))
+                label.color = Color.rgb(4, 20, 14)
+                canvas.drawText(caption!!, cx, cy - (label.ascent() + label.descent()) / 2, label)
+                label.textAlign = Paint.Align.LEFT
+            } else if (action) layer(canvas, k, cy, caption!!, Icon.PLAY, Color.rgb(36, 26, 0), Typeface.DEFAULT_BOLD, 1f, 1f)
             else layer(canvas, k, cy, caption!!, Icon.SKIP, WatchWorkoutFace.WHITE, medium, 1f, 1f)
         } else if (skip) {
             layer(canvas, k, cy, "건너뛰기", Icon.SKIP, WatchWorkoutFace.WHITE, medium, 1f, 1f)
