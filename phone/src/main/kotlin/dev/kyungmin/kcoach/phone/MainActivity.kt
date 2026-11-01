@@ -1129,7 +1129,7 @@ class MainActivity : ComponentActivity() {
                 confirmEstimate = { index, reps ->
                     val set = estimated[index]
                     if (FinishedWorkoutStore(this@MainActivity).confirmOther(result.sessionId, set.setId, set.attemptId, reps)) {
-                        history = ExerciseHistoryStore(this@MainActivity).load()
+                        historyCache = null
                         showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
                     }
                 }) }
