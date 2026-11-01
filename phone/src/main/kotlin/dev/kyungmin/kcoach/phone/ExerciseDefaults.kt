@@ -8,6 +8,8 @@ internal object ExerciseDefaults {
     private val compound = setOf("chest_press", "row", "vertical_pull", "shoulder_press", "squat",
         "hinge", "leg_press", "push_up", "dip", "hip", "pullover")
 
+    private val cableSmallMuscle = setOf("curl", "triceps_pushdown", "triceps_extension", "rear_delt", "front_raise", "rotation", "chest_fly")
+
     fun restSeconds(exercise: ExerciseDefinition): Int = if (exercise.pattern in compound) 120 else 105
 
     fun startingWeight(exercise: ExerciseDefinition, profile: WorkoutProfile? = null): Double? {
@@ -25,15 +27,20 @@ internal object ExerciseDefaults {
                 "curl", "triceps_extension", "rotation" -> 10.0
                 else -> 20.0
             }
+            // A cable lateral raise always starts at 5 kg for everyone; body-based scaling would only make it heavier.
+            exercise.equipment == "케이블" && exercise.pattern == "lateral_raise" -> return 5.0
+            exercise.equipment == "케이블" && exercise.pattern in cableSmallMuscle -> 10.0
             exercise.equipment in setOf("머신", "핀 머신", "케이블") -> when (exercise.pattern) {
                 "leg_press" -> 60.0
-                "squat", "hinge", "row", "vertical_pull", "chest_press", "hip", "shrug" -> 30.0
+                "squat", "hinge", "hip" -> 30.0
                 "rotation", "lateral_raise", "front_raise", "rear_delt" -> 10.0
                 else -> 20.0
             }
             else -> 10.0
         }
-        val gender = if (profile?.gender == "FEMALE") 0.65 else 1.0
+        // Upper-body machine and cable work starts at about half the men's weight for women (20 kg -> 10, 10 kg -> 5).
+        val upperMachine = exercise.equipment in setOf("머신", "핀 머신", "케이블") && exercise.pattern !in setOf("leg_press", "squat", "hinge", "hip")
+        val gender = if (profile?.gender == "FEMALE") (if (upperMachine) 0.5 else 0.65) else 1.0
         val age = when (profile?.ageYears) { in 1..17 -> 0.75; in 60..120 -> 0.8; else -> 1.0 }
         val body = ((profile?.weightKg ?: 75.0) / 75.0).coerceIn(0.6, 1.4)
         return ProgressionDefaults.roundWeight(base * gender * age * body, exercise.equipment)

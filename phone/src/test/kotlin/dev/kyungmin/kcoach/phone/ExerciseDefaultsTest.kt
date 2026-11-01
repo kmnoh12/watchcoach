@@ -24,10 +24,22 @@ class ExerciseDefaultsTest {
         assertEquals(60.0, ExerciseDefaults.startingWeight(exercise("leg_press"))!!, 0.0)
         assertEquals(30.0, ExerciseDefaults.startingWeight(exercise("row", "바벨"))!!, 0.0)
         assertEquals(4.0, ExerciseDefaults.startingWeight(exercise("lateral_raise", "덤벨"))!!, 0.0)
-        assertEquals(20.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile(gender = "FEMALE"))!!, 0.0)
-        assertEquals(25.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile(ageYears = 65))!!, 0.0)
-        assertEquals(20.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile(weightKg = 50.0, weightMeasuredOn = "2026-10-30"))!!, 0.0)
-        assertEquals(30.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile())!!, 0.0)
+        assertEquals(10.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile(gender = "FEMALE"))!!, 0.0)
+        assertEquals(15.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile(ageYears = 65))!!, 0.0)
+        assertEquals(15.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile(weightKg = 50.0, weightMeasuredOn = "2026-10-30"))!!, 0.0)
+        assertEquals(20.0, ExerciseDefaults.startingWeight(exercise("row"), WorkoutProfile())!!, 0.0)
+    }
+
+    @Test fun cableStartsLightForSmallMusclesAndLateralRaiseIsAlwaysFiveKilos() {
+        val female = WorkoutProfile(gender = "FEMALE")
+        val heavyMan = WorkoutProfile(weightKg = 100.0, weightMeasuredOn = "2026-10-30")
+        assertEquals(5.0, ExerciseDefaults.startingWeight(exercise("lateral_raise", "케이블"))!!, 0.0)
+        assertEquals(5.0, ExerciseDefaults.startingWeight(exercise("lateral_raise", "케이블"), female)!!, 0.0)
+        assertEquals(5.0, ExerciseDefaults.startingWeight(exercise("lateral_raise", "케이블"), heavyMan)!!, 0.0)
+        assertEquals(10.0, ExerciseDefaults.startingWeight(exercise("curl", "케이블"))!!, 0.0)
+        assertEquals(5.0, ExerciseDefaults.startingWeight(exercise("curl", "케이블"), female)!!, 0.0)
+        assertEquals(10.0, ExerciseDefaults.startingWeight(exercise("triceps_pushdown", "케이블"))!!, 0.0)
+        assertEquals(60.0, ExerciseDefaults.startingWeight(exercise("leg_press"))!!, 0.0)
     }
 
     @Test fun onlyBodyweightStartsWithoutExternalWeightAndWeightedDipIsFixed() {
