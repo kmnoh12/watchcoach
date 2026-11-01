@@ -292,8 +292,10 @@ class MainActivity : Activity() {
     private fun buildUi(): View {
         face = WatchWorkoutFace(this)
         face.action.setOnClickListener { openFinishedWorkout() }
-        face.restSkip.onClick = { if (runtimePhase in setOf(SIDE_PHASE, "OTHER_SIDE_WORKING")) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY) else requestWorkoutControl() }
-        face.restPause.onClick = { if (runtimePhase == SIDE_PHASE) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.START_OTHER_SIDE) else toggleRestPause() }
+        face.restSkip.onClick = { if (face.setTiming && !timedSetControls()) Unit else if (runtimePhase in setOf(SIDE_PHASE, "OTHER_SIDE_WORKING")) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY) else requestWorkoutControl() }
+        face.restPause.onClick = { if (face.setTiming) completeTimedSet() else if (runtimePhase == SIDE_PHASE) sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.START_OTHER_SIDE) else toggleRestPause() }
+        face.minus.onClick = { adjustRest(-10) }
+        face.plus.onClick = { adjustRest(10) }
         face.jog.onStep = { delta -> adjustRest(delta) }
         face.hint.setOnClickListener { if (runtimePhase == "START_DIRECTION_WAITING") bypassStartDirection() else if (face.noticeAction != null) face.noticeAction?.invoke() }
         editPage = EditPageView(this).apply {
@@ -373,6 +375,12 @@ class MainActivity : Activity() {
     private fun trackSetEnd(intent: Intent) {
         // A side decision takes priority over the ordinary completion announcement.
         if (runtimePhase == SIDE_PHASE || runtimePhase == "OTHER_SIDE_WORKING") {
+            workingSet = null
+            hideSetDone(immediate = true)
+            return
+        }
+        if (::face.isInitialized && face.setTiming && !paused && (resting || !running)) {
+            lastFinishedSetNumber = workingSet?.setNumber ?: setIndex + 1
             workingSet = null
             hideSetDone(immediate = true)
             return
@@ -526,6 +534,7 @@ class MainActivity : Activity() {
     /** Rest time in ten second steps, from the bar, its ends, or the bezel. */
     private fun adjustRest(delta: Int) {
         if (!resting && setClockRemaining >= 0 && !paused) {
+            if (!timedSetControls()) return
             val request = dev.kyungmin.kcoach.core.WatchWorkoutControl(java.util.UUID.randomUUID().toString(),
                 dev.kyungmin.kcoach.core.WatchWorkoutAction.SET_ADJUST, sessionId, setId, attemptId, deltaSeconds = delta)
             startServiceSafely(Intent(this, WearWorkoutService::class.java).putExtra(WearWorkoutService.EXTRA_COMMAND, "WORKOUT_CONTROL_SUBMIT")
@@ -681,12 +690,15 @@ class MainActivity : Activity() {
         if (measuring) { lastWorkingReps = count ?: reps; lastWorkingWeight = weightKg }
         if (resting && !wasResting) restEditSegment = 1
         wasResting = resting
+        val leavingSetClock = face.setTiming && resting
+        if (leavingSetClock) face.prepareSetRestMorph()
+        else if (!resting) face.clearSetRestMorph()
         val setTiming = active && !resting && setClockRemaining >= 0
         face.setTiming = setTiming
         face.jog.accent = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
         face.primary(if (resting || setTiming) 2 else if (active) 0 else 1)
         val otherSideWorking = active && !resting && !paused && runtimePhase == "OTHER_SIDE_WORKING"
-        face.oppositeSideLayout(otherSideWorking)
+        face.oppositeSideLayout(otherSideWorking || setTiming && runtimePhase == "OTHER_SIDE_WORKING")
         face.homeLayout(!active && !complete)
         face.value.maxLines = if (complete) 2 else 1
         face.showDivider = measuring && !setTiming
@@ -704,7 +716,8 @@ class MainActivity : Activity() {
         face.hint.text = ""; face.hint.setTextColor(WatchWorkoutFace.MUTED); face.noticeAction = null
         face.size(face.value, if (active) 88f else 24f)
         face.value.setTextColor(WatchWorkoutFace.SAGE)
-        listOf(face.jog, face.restPause, face.restSkip).forEach { it.visibility = View.GONE }
+        listOf(face.jog, face.restPause, face.restSkip, face.goal, face.minus, face.plus).forEach { it.visibility = View.GONE }
+        face.hint.visibility = View.VISIBLE; face.subtitle.visibility = View.VISIBLE
         listOf(face.restPause, face.restSkip).forEach { it.caption = null; it.isEnabled = true; it.alpha = 1f }
         val awaitingSide = active && !resting && !paused && runtimePhase == SIDE_PHASE
         // The rest buttons need the phone to apply them, also while the rest is paused.
@@ -766,13 +779,25 @@ class MainActivity : Activity() {
             }
             if (setTiming) {
                 val left = (clockLeft(now) + 999) / 1000
-                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 30f)
+                face.value.text = "%d:%02d".format(left / 60, left % 60); face.size(face.value, 16f)
                 face.value.setTextColor(WatchWorkoutFace.SAGE)
+                face.goal.text = (weightKg?.takeIf { it > 0 }?.let { "${Moment.kg(it)}kg × " } ?: "") + "${targetReps}회"
+                face.goal.visibility = View.VISIBLE
                 face.target.visibility = View.GONE
-                face.setSubtitle(if (runtimePhase == "OTHER_SIDE_WORKING") "반대손 · 직접 기록" else "세트 진행 중", WatchWorkoutFace.SOFT, medium = true)
+                face.setSubtitle(if (runtimePhase == "OTHER_SIDE_WORKING") "반대손" else "", WatchWorkoutFace.SOFT, medium = true)
                 face.subtitle.alpha = 1f
-                face.jog.visibility = View.VISIBLE; face.jog.isEnabled = !paused
-                face.hint.text = if (otherSideWorking) "폰에서 횟수 기록" else "위로 · 횟수 기록"
+                face.jog.visibility = View.GONE
+                val controls = timedSetControls()
+                listOf(face.minus, face.plus, face.restPause).forEach {
+                    it.visibility = View.VISIBLE; it.isEnabled = controls; it.alpha = if (controls) 1f else .4f
+                }
+                face.restPause.caption = "완료"
+                if (runtimePhase == "OTHER_SIDE_WORKING") {
+                    face.restSkip.caption = "건너뛰기"; face.restSkip.visibility = View.VISIBLE
+                    face.restSkip.isEnabled = controls; face.restSkip.alpha = if (controls) 1f else .4f
+                }
+                face.hint.visibility = View.GONE
+                face.heart.show(0); face.heartRate.visibility = View.GONE; face.bpm.visibility = View.GONE
                 face.applyRestMorph()
             }
             if (paused && !restPaused) face.hint.text = "폰에서 계속할 수 있어요"
@@ -901,6 +926,19 @@ class MainActivity : Activity() {
     private fun draftKey() = "$sessionId:$setId:$attemptId"
     private fun displayedCount(): Int? = getSharedPreferences("manual-count-drafts", MODE_PRIVATE).getString(draftKey(), null)?.toIntOrNull()
         ?: if (manualRequired && manualStatus.isBlank()) null else reps
+
+    private fun timedSetControls() = paired && !paused && !resting && sessionId.isNotBlank() &&
+        setId.isNotBlank() && attemptId.isNotBlank() && workoutControls.supportsControls() &&
+        workoutControls.pending().isEmpty() && manualStatus !in setOf("PENDING", "CONFLICT", "STALE", "NO_SESSION", "REJECTED")
+
+    private fun completeTimedSet() {
+        if (!face.setTiming || !timedSetControls()) return
+        val action = if (runtimePhase == "OTHER_SIDE_WORKING") dev.kyungmin.kcoach.core.WatchWorkoutAction.COMPLETE_OTHER_SIDE
+            else dev.kyungmin.kcoach.core.WatchWorkoutAction.COMPLETE_MANUAL_SET
+        val request = dev.kyungmin.kcoach.core.WatchWorkoutControl(java.util.UUID.randomUUID().toString(), action, sessionId, setId, attemptId)
+        startServiceSafely(Intent(this, WearWorkoutService::class.java).putExtra(WearWorkoutService.EXTRA_COMMAND, "WORKOUT_CONTROL_SUBMIT")
+            .putExtra("payload", request.encode()))
+    }
 
     private fun finishCurrentSet() {
         if (paused || resting || setId.isBlank() || attemptId.isBlank() || manualStatus in setOf("PENDING", "STALE", "NO_SESSION", "REJECTED")) return

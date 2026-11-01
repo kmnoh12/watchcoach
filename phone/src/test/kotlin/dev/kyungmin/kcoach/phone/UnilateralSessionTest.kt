@@ -75,6 +75,25 @@ class UnilateralSessionTest {
         val stale = start.copy(commandId = "old", attemptId = "old")
         assertEquals(WatchWorkoutControlStatus.REJECTED, store.applyWatchControl(stale, 99_000).getOrThrow().ack.status)
     }
+    @Test fun watchSuggestedCompletionIsEstimatedUntilPhoneConfirms() {
+        val store = SessionStore(app); assertTrue(store.saveActive(initial()))
+        PhoneSessionController(store) { _, _ -> }.receiveCompletion(completion(), 1_000).getOrThrow()
+        val request = command(WatchWorkoutAction.COMPLETE_OTHER_SIDE)
+        val result = store.applyWatchControl(request, 4_000).getOrThrow()
+        val set = result.snapshot!!.plannedSets.single()
+        assertEquals(UnilateralStage.BOTH_COMPLETE, set.unilateral!!.stage)
+        assertEquals(12, set.unilateral!!.otherReps)
+        assertEquals(SetRepSource.ESTIMATED, set.unilateral!!.otherRepSource)
+        assertEquals(64_000L, result.snapshot!!.restEndAtMs)
+        assertEquals(WatchWorkoutControlStatus.DUPLICATE, store.applyWatchControl(request, 5_000).getOrThrow().ack.status)
+        val finished = FinishedWorkoutStore(app)
+        finished.finish(result.snapshot!!, "원암", 3)
+        assertTrue(finished.confirmOther("s", "set", "a", 9))
+        val confirmed = finished.evidenceForSessions(setOf("s")).single().snapshot.plannedSets.single()
+        assertEquals(9, confirmed.unilateral!!.otherReps)
+        assertEquals(SetRepSource.MANUAL, confirmed.unilateral!!.otherRepSource)
+    }
+
     @Test fun phoneFacadeFinishesOnlyFirstArmAndKeepsOppositeCountUnknown() {
         val store = SessionStore(app); assertTrue(store.saveActive(initial()))
         val controller = PhoneSessionController(store) { _, _ -> }

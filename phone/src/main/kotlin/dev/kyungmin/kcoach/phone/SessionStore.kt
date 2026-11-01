@@ -147,6 +147,17 @@ class SessionStore(private val context: Context) {
                                 .mapValues { (_, values) -> values.sumOf { it.performedReps ?: 0 } })
                     }
                 }
+                WatchWorkoutAction.COMPLETE_MANUAL_SET -> {
+                    if (current?.sessionId != command.sessionId || current.paused || current.phase != WorkoutPhase.WORKING)
+                        return@runCatching rejected(WatchWorkoutControlStatus.STALE)
+                    val target = WorkoutSessionReducer.nextPendingSet(current)
+                    if (target?.setId != command.setId || target.attemptId != command.attemptId || !SetClock.isManual(target))
+                        return@runCatching rejected(WatchWorkoutControlStatus.STALE)
+                    val result = WorkoutSessionReducer.completeSet(current, SetCompletionEvent(current.sessionId, target.exerciseId,
+                        target.setIndex, target.targetReps, nowMs + target.restSeconds * 1000L, 0, SetRepSource.ESTIMATED,
+                        target.setId, target.attemptId, completedAtMs = nowMs))
+                    (result as? SetCompletionResult.Applied)?.snapshot ?: return@runCatching rejected(WatchWorkoutControlStatus.REJECTED)
+                }
                 WatchWorkoutAction.SET_ADJUST -> {
                     if (current?.sessionId != command.sessionId) return@runCatching rejected(WatchWorkoutControlStatus.STALE)
                     val target = WorkoutSessionReducer.nextPendingSet(current)
@@ -160,7 +171,11 @@ class SessionStore(private val context: Context) {
                     val result = UnilateralSetReducer.apply(current, command.sessionId, command.setId, command.attemptId,
                         UnilateralAction.valueOf(command.action.name), nowMs, command.reps.takeIf { it >= 0 })
                     when (result) {
-                        is SetCompletionResult.Applied -> result.snapshot
+                        is SetCompletionResult.Applied -> if (command.action == WatchWorkoutAction.COMPLETE_OTHER_SIDE && command.reps < 0)
+                            result.snapshot.copy(plannedSets = result.snapshot.plannedSets.map { set ->
+                                if (set.setId == command.setId && set.attemptId == command.attemptId)
+                                    set.copy(unilateral = set.unilateral?.copy(otherRepSource = SetRepSource.ESTIMATED)) else set
+                            }) else result.snapshot
                         is SetCompletionResult.Duplicate -> return@runCatching rejected(WatchWorkoutControlStatus.DUPLICATE)
                         is SetCompletionResult.Rejected -> return@runCatching rejected(WatchWorkoutControlStatus.REJECTED)
                     }

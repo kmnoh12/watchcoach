@@ -27,6 +27,28 @@ class SetClockSessionTest {
         phase = WorkoutPhase.WORKING, restEndAtMs = 0, pausedRestRemainingMs = 0, paused = false, startedAtMs = 1000,
         pausedSinceMs = 0, totalPausedMs = 0, lastSequence = 0, lastCompletedSetKey = null, captureStates = emptyMap())
     private fun store() = SessionStore(app).also { assertTrue(it.saveActive(snapshot())) }
+    @Test fun watchCompleteUsesEstimatedTargetAndIsIdempotent() {
+        val store = store()
+        val command = WatchWorkoutControl("done", WatchWorkoutAction.COMPLETE_MANUAL_SET, "manual-clock", "second", "b")
+        assertEquals(command, WatchWorkoutControl.decode(command.encode()))
+        val result = store.applyWatchControl(command, 90_000).getOrThrow()
+        assertEquals(WatchWorkoutControlStatus.APPLIED, result.ack.status)
+        val set = result.snapshot!!.plannedSets[1]
+        assertEquals(10, set.performedReps)
+        assertEquals(SetRepSource.ESTIMATED, set.repSource)
+        assertEquals(WorkoutPhase.RESTING, result.snapshot!!.phase)
+        assertEquals(WatchWorkoutControlStatus.DUPLICATE, store.applyWatchControl(command, 90_001).getOrThrow().ack.status)
+        assertEquals(WatchWorkoutControlStatus.STALE, store.applyWatchControl(command.copy(commandId = "late"), 90_002).getOrThrow().ack.status)
+    }
+
+    @Test fun watchCompleteRejectsPausedAndWrongAttempt() {
+        val store = store()
+        val command = WatchWorkoutControl("wrong", WatchWorkoutAction.COMPLETE_MANUAL_SET, "manual-clock", "second", "old")
+        assertEquals(WatchWorkoutControlStatus.STALE, store.applyWatchControl(command, 70_000).getOrThrow().ack.status)
+        store.setPaused("manual-clock", true, 71_000).getOrThrow()
+        assertEquals(WatchWorkoutControlStatus.STALE, store.applyWatchControl(command.copy(commandId = "paused", attemptId = "b"), 72_000).getOrThrow().ack.status)
+    }
+
     @Test fun serviceControllerRestoresClockClaimsOnceAndSendsRest() {
         store()
         val sent = mutableListOf<String>()

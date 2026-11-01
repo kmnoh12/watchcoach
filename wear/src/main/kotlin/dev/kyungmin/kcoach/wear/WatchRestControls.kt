@@ -92,7 +92,8 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
     override fun onDetachedFromWindow() { pressAnimator?.cancel(); super.onDetachedFromWindow() }
 
     override fun onDraw(canvas: Canvas) {
-        val k = width / WIDTH_UNITS
+        val sign = caption in setOf("−", "+")
+        val k = if (sign) width / 54f else minOf(width / WIDTH_UNITS, height / 70f)
         val cx = width / 2f; val cy = height / 2f
         val scale = 1f - .07f * pressed
         // A press multiplies every colour by 0.8 at full strength, like CSS brightness(.8).
@@ -102,9 +103,15 @@ internal class RestPill(context: Context, private val skip: Boolean) : View(cont
         canvas.save()
         canvas.scale(scale, scale, cx, cy)
         val action = caption != null && !skip
-        fill.color = if (action) WatchWorkoutFace.YELLOW else if (skip) WatchWorkoutFace.CARD else blend(WatchWorkoutFace.CARD, WatchWorkoutFace.YELLOW, resume)
-        canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), 20 * k, 20 * k, fill)
-        if (caption != null) {
+        fill.color = if (caption == "완료") WatchWorkoutFace.SAGE else if (sign) WatchWorkoutFace.CARD else if (action) WatchWorkoutFace.YELLOW else if (skip) WatchWorkoutFace.CARD else blend(WatchWorkoutFace.CARD, WatchWorkoutFace.YELLOW, resume)
+        if (!sign) canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), 20 * k, 20 * k, fill)
+        if (sign) {
+            fill.color = WatchWorkoutFace.CARD
+            canvas.drawCircle(cx, cy, minOf(cx, cy), fill)
+            label.textAlign = Paint.Align.CENTER; label.textSize = 32 * k; label.color = WatchWorkoutFace.SAGE
+            canvas.drawText(caption!!, cx, cy - (label.ascent() + label.descent()) / 2, label)
+            label.textAlign = Paint.Align.LEFT
+        } else if (caption != null) {
             if (action) layer(canvas, k, cy, caption!!, Icon.PLAY, Color.rgb(36, 26, 0), Typeface.DEFAULT_BOLD, 1f, 1f)
             else layer(canvas, k, cy, caption!!, Icon.SKIP, WatchWorkoutFace.WHITE, medium, 1f, 1f)
         } else if (skip) {

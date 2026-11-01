@@ -42,6 +42,9 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     val clock = label(13f, WHITE, 116, 42, 316, 72)
     val title = label(17f, WHITE, 63, 74, 369, 110, true).apply { maxLines = 1 }
     val subtitle = label(11f, MUTED, 52, 72, 380, 142)
+    val goal = label(23f, WHITE, 40, 158, 392, 220, true).apply { visibility = GONE }
+    val minus = RestPill(context, false).also { positions[it] = android.graphics.Rect(96, 232, 150, 286); addView(it, LayoutParams(1, 1)); it.caption = "−"; it.visibility = GONE }
+    val plus = RestPill(context, false).also { positions[it] = android.graphics.Rect(282, 232, 336, 286); addView(it, LayoutParams(1, 1)); it.caption = "+"; it.visibility = GONE }
     val jog = JogBar(context).also { positions[it] = android.graphics.Rect(48, 182, 384, 262); addView(it, LayoutParams(1, 1)); it.visibility = GONE }
     /** Design 4a: the left button is "정지" (and "계속" while the rest is paused), the right one skips the rest. */
     val restPause = RestPill(context, false).also { positions[it] = android.graphics.Rect(67, 280, 205, 350); addView(it, LayoutParams(1, 1)); it.visibility = GONE }
@@ -68,7 +71,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         // Design baselines: top + 0.841 x size for the sheet's line-height:1 text.
         baselines[clock] = 63.9f; baselines[title] = 100.6f; baselines[subtitle] = 134.5f
         baselines[hint] = 392f
-        fitting += listOf(value, valueGhost, hint, subtitle)
+        fitting += listOf(goal, value, valueGhost, hint, subtitle)
     }
     var showDivider = true
     init { setBackgroundColor(Color.BLACK); setWillNotDraw(false) }
@@ -127,6 +130,44 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         }
         applyRestMorph()
     }
+    private var outgoing: android.graphics.Bitmap? = null
+    private var setRestAnimator: android.animation.ValueAnimator? = null
+    var setRestProgress = 1f
+        private set
+
+    fun prepareSetRestMorph() {
+        clearSetRestMorph()
+        if (Moment.reducedMotion(context) || width == 0 || height == 0) return
+        val hidden = listOf(clock, value, valueGhost, minus, plus, chevronUp, chevronDown)
+        val visibilities = hidden.map { it.visibility }
+        hidden.forEach { it.visibility = INVISIBLE }
+        try {
+            outgoing = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888).also { super.dispatchDraw(Canvas(it)) }
+        } finally {
+            hidden.forEachIndexed { i, v -> v.visibility = visibilities[i] }
+        }
+        setRestProgress = 0f
+        setRestAnimator = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 400
+            addUpdateListener { setRestProgress = it.animatedValue as Float; applyRestMorph(); invalidate() }
+            start()
+        }
+    }
+
+    fun clearSetRestMorph() {
+        setRestAnimator?.cancel(); setRestAnimator = null
+        outgoing?.recycle(); outgoing = null; setRestProgress = 1f
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        outgoing?.takeIf { setRestProgress < 1f }?.let {
+            canvas.drawBitmap(it, 0f, 0f, Paint().apply { alpha = (255 * (1f - 4f * setRestProgress).coerceAtLeast(0f)).toInt() })
+        }
+    }
+
+    override fun onDetachedFromWindow() { clearSetRestMorph(); super.onDetachedFromWindow() }
+
     /**
      * 0 while the rest runs, 1 once it is paused (design 4-1). The time shrinks to 85 % and turns white, the
      * "정지" button becomes the yellow "계속", the label fades in, the ten-second bar dims and the heart arrow goes.
@@ -143,6 +184,12 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     /** Puts the rest screen into the state [restMorph] describes; the pivots follow the line box of the time (centre 216, 126). */
     fun applyRestMorph() {
         if (mode != 2) return
+        if (setTiming) {
+            listOf(value, valueGhost).forEach { it.setTextColor(SAGE); it.scaleX = 1f; it.scaleY = 1f; it.translationY = 0f }
+            subtitle.alpha = 1f; subtitle.translationY = 0f
+            restPause.resume = 0f; chevronDown.alpha = 1f
+            return
+        }
         val p = if (setTiming) 0f else restMorph
         val side = minOf(width, height); val scale = side / 432f
         val offsetX = (width - side) / 2f; val offsetY = (height - side) / 2f
@@ -156,6 +203,15 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         jog.alpha = 1f - .65f * p; jog.isEnabled = p < .5f
         chevronDown.alpha = 1f - p
         restPause.resume = p
+        if (setRestProgress < 1f) {
+            val t = setRestProgress
+            value.scaleX = (16f / 54f + (1f - 16f / 54f) * t) * shrink
+            value.scaleY = value.scaleX
+            value.translationY += (259f - 126f) * scale * (1f - t)
+            value.setTextColor(blend(SAGE, YELLOW, t))
+            jog.alpha = (1f - .65f * p) * ((t - .85f) / .15f).coerceIn(0f, 1f)
+        }
+        listOf(restPause, restSkip).forEach { it.alpha = (if (it.isEnabled) 1f else .4f) * ((setRestProgress - .45f) / .55f).coerceIn(0f, 1f) }
     }
 
     /** Back to the plain state when the screen is not the rest screen. */
@@ -180,8 +236,8 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         when (mode) {
             // Design 4a: a 108-unit bold time whose line box starts at 72, so the baseline is 72 + 0.841 x 108.
             2 -> listOf(value, valueGhost).forEach {
-                place(it, 44, if (setTiming) 142 else 64, 388, if (setTiming) 214 else 200)
-                baseline(it, if (setTiming) 198f else 162.8f)
+                place(it, 44, if (setTiming) 232 else 64, 388, if (setTiming) 286 else 200)
+                baseline(it, if (setTiming) null else 162.8f)
                 it.letterSpacing = -3f / 108f; it.typeface = Typeface.DEFAULT_BOLD
             }
             1 -> listOf(value, valueGhost).forEach { place(it, 44, 120, 388, 300); baseline(it, null); it.letterSpacing = 0f; it.typeface = medium }
@@ -193,8 +249,11 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         if (mode != 2) resetRestMorph()
     }
 
-    /** The opposite arm has one wide action, centred inside the round screen. */
+    /** Timed manual sets have one wide completion action; the opposite arm adds a separate skip. */
     fun oppositeSideLayout(otherSide: Boolean) {
+        place(restPause, if (setTiming && !otherSide) 96 else 67, if (setTiming) 306 else 280,
+            if (setTiming && !otherSide) 336 else 205, if (setTiming) 370 else 350)
+        if (setTiming) { place(restSkip, 227, 306, 365, 370); return }
         if (otherSide) place(restSkip, 96, if (setTiming) 306 else 280, 336, if (setTiming) 356 else 350)
         else place(restSkip, 227, 280, 365, 350)
     }

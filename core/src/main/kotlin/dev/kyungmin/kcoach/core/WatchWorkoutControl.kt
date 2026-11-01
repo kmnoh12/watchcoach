@@ -1,6 +1,6 @@
 package dev.kyungmin.kcoach.core
 
-enum class WatchWorkoutAction { START_PREPARED, NEXT_SET, SET_ADJUST, REST_ADJUST, REST_PAUSE, REST_RESUME, EDIT_SET, START_OTHER_SIDE, FINISH_WATCH_SIDE_ONLY, COMPLETE_OTHER_SIDE }
+enum class WatchWorkoutAction { START_PREPARED, NEXT_SET, COMPLETE_MANUAL_SET, SET_ADJUST, REST_ADJUST, REST_PAUSE, REST_RESUME, EDIT_SET, START_OTHER_SIDE, FINISH_WATCH_SIDE_ONLY, COMPLETE_OTHER_SIDE }
 enum class WatchWorkoutControlStatus { APPLIED, DUPLICATE, STALE, BUSY, NO_PLAN, REJECTED }
 
 data class WatchWorkoutOffer(val sessionId: String, val routineName: String, val exerciseName: String,
