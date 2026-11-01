@@ -3018,7 +3018,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 WorkoutData.catalog.removeAll { it.id !in WorkoutData.builtInExerciseIds }
-                WorkoutData.catalog.addAll(saved.customExercises)
+                WorkoutData.catalog.addAll(saved.customExercises.filter { it.id !in WorkoutData.retiredExerciseReplacements })
                 // Keep inline definitions usable too, without inventing a new ID.
                 saved.routines.flatMap { it.exercises }.forEach { item ->
                     if (WorkoutData.catalog.none { it.id == item.exercise.id }) WorkoutData.catalog += item.exercise
