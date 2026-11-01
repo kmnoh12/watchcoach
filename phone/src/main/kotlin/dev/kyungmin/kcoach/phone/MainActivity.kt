@@ -1537,24 +1537,58 @@ class MainActivity : ComponentActivity() {
     }
 
     private var otherSideAskedKey: String? = null
+    private var otherSideSheet: Overlay? = null
 
-    /** First arm done: ask once per set whether the other arm follows. The watch ends the question after three seconds. */
+    private fun dismissOtherSideSheet() {
+        if (otherSideSheet != null && overlays.current === otherSideSheet) overlays.dismiss()
+        otherSideSheet = null
+    }
+
+    /** First arm done: keep the choice in step with the phone's authoritative snapshot. */
     private fun askOtherSide(snapshot: WorkoutSnapshot) {
         val set = snapshot.plannedSets.firstOrNull {
             !it.completed && it.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.AWAITING_OTHER_SIDE
         }
-        if (set == null) { otherSideAskedKey = null; return }
-        val key = "${set.setId}|${set.attemptId}"
+        if (set == null) { otherSideAskedKey = null; dismissOtherSideSheet(); return }
+        val key = "${snapshot.sessionId}|${set.setId}|${set.attemptId}"
         if (key == otherSideAskedKey) return
         otherSideAskedKey = key
-        showChoiceSheet("반대손 측정", listOf("start" to "반대손 측정", "rest" to "휴식")) { value ->
-            val action = if (value == "start") dev.kyungmin.kcoach.core.UnilateralAction.START_OTHER_SIDE
-                else dev.kyungmin.kcoach.core.UnilateralAction.FINISH_WATCH_SIDE_ONLY
-            PhoneSessionController(sessionStore, ::sendWear)
-                .unilateralAction(snapshot.sessionId, set.setId, set.attemptId, action, System.currentTimeMillis())
-                .onFailure { Log.e(EVENT_TAG, "other side choice failed", it) }
-            refreshActiveSession()
+        dismissOtherSideSheet()
+        val sheet = Overlay(true) { dismiss ->
+            ChoiceSheet("반대손 측정", listOf("start" to "반대손 측정", "rest" to "휴식")) { value ->
+                dismiss()
+                chooseOtherSide(snapshot.sessionId, set.setId, set.attemptId, value)
+            }
         }
+        otherSideSheet = sheet
+        overlays.show(sheet)
+    }
+
+    private fun chooseOtherSide(sessionId: String, setId: String, attemptId: String, value: String) {
+        dismissOtherSideSheet()
+        val latest = sessionStore.loadActive().getOrNull()
+        val set = latest?.takeIf { it.sessionId == sessionId }?.plannedSets?.singleOrNull {
+            it.setId == setId && it.attemptId == attemptId
+        }
+        if (latest == null || set == null || set.completed ||
+            set.unilateral?.stage != dev.kyungmin.kcoach.core.UnilateralStage.AWAITING_OTHER_SIDE ||
+            latest.paused || latest.phase != WorkoutPhase.WORKING) {
+            Toast.makeText(this, "운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
+            refreshActiveSession()
+            return
+        }
+        val action = if (value == "start") dev.kyungmin.kcoach.core.UnilateralAction.START_OTHER_SIDE
+            else dev.kyungmin.kcoach.core.UnilateralAction.FINISH_WATCH_SIDE_ONLY
+        PhoneSessionController(sessionStore, ::sendWear)
+            .unilateralAction(sessionId, setId, attemptId, action, System.currentTimeMillis())
+            .onSuccess {
+                if (it.ack.status != dev.kyungmin.kcoach.core.WatchWorkoutControlStatus.APPLIED)
+                    Toast.makeText(this, "운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                Log.e(EVENT_TAG, "other side choice failed", it)
+                Toast.makeText(this, "선택을 적용하지 못했어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
+            }
+        refreshActiveSession()
     }
 
     private fun refreshActiveSession() {

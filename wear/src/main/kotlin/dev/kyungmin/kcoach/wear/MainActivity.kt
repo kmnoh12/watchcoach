@@ -245,6 +245,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        sideDecisionVisible = true
         // Refresh the live workout phase after returning to the screen.
         startServiceSafely(Intent(this, WearWorkoutService::class.java).putExtra(WearWorkoutService.EXTRA_COMMAND, "QUERY"))
         updateScreenPolicy()
@@ -255,6 +256,8 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        sideDecisionVisible = false
+        handler.removeCallbacks(sideDecisionTimeout)
         otaCoordinator.detach(this)
         handler.removeCallbacks(clockTicker)
         super.onPause()
@@ -272,6 +275,7 @@ class MainActivity : Activity() {
         handler.removeCallbacks(clockTicker)
         unsubscribeUpdates?.invoke()
         handler.removeCallbacks(restUiTicker)
+        handler.removeCallbacks(sideDecisionTimeout)
         runCatching { unregisterReceiver(runtimeStateReceiver) }
         emulatorBridge.stop()
         super.onDestroy()
@@ -359,6 +363,12 @@ class MainActivity : Activity() {
      * phone moved to rest) and shows screen 3, or 7/8 when the phone reports a record for that set.
      */
     private fun trackSetEnd(intent: Intent) {
+        // A side decision takes priority over the ordinary completion announcement.
+        if (runtimePhase == SIDE_PHASE || runtimePhase == "OTHER_SIDE_WORKING") {
+            workingSet = null
+            hideSetDone(immediate = true)
+            return
+        }
         val calibration = sessionId.startsWith("calibration-")
         val previous = workingSet
         if (running && !resting && !paused && !calibration && setId.isNotBlank()) {
@@ -716,12 +726,12 @@ class MainActivity : Activity() {
                 face.applyRestMorph()
             }
             if (awaitingSide) {
-                // First arm done: three seconds to start the other arm, otherwise the rest begins.
+                // First arm done: wait for a choice, with a two minute safety timeout.
                 val controls = workoutControls.supportsControls() && setId.isNotBlank() && attemptId.isNotBlank()
                 face.setSubtitle("한쪽 완료", WatchWorkoutFace.SOFT, medium = true)
                 face.value.text = "반대손"; face.size(face.value, 40f)
                 face.target.visibility = View.GONE
-                face.hint.text = if (controls) "3초 후 휴식" else "폰에서 선택"
+                face.hint.text = if (controls) "선택해 주세요 · 2분 후 휴식" else "폰에서 선택"
                 face.restPause.caption = "반대손"; face.restSkip.caption = "휴식"
                 listOf(face.restPause, face.restSkip).forEach { it.visibility = View.VISIBLE; it.isEnabled = controls; it.alpha = if (controls) 1f else .4f }
             }
@@ -903,15 +913,26 @@ class MainActivity : Activity() {
 
     private val sideDecisionTimeout = Runnable { sendSideDecision(dev.kyungmin.kcoach.core.WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY) }
     private var sideDecisionKey: String? = null
+    private var sideDecisionDeadlineMs = 0L
+    private var sideDecisionVisible = false
 
-    /** Starts the three second countdown once per set; leaving the question stops it. */
+    /** Start only when the question is exposed in the foreground, once per attempt. */
     private fun armSideDecision(waiting: Boolean) {
-        if (!waiting) { handler.removeCallbacks(sideDecisionTimeout); sideDecisionKey = null; return }
+        if (!waiting) {
+            handler.removeCallbacks(sideDecisionTimeout); sideDecisionKey = null; sideDecisionDeadlineMs = 0L
+            return
+        }
+        if (!sideDecisionVisible) return
         val key = "$sessionId|$setId|$attemptId"
-        if (key == sideDecisionKey) return
-        sideDecisionKey = key
+        if (key != sideDecisionKey) {
+            sideDecisionKey = key
+            sideDecisionDeadlineMs = android.os.SystemClock.uptimeMillis() + SIDE_DECISION_MS
+            pager.show(0)
+            buzzOnce()
+        }
         handler.removeCallbacks(sideDecisionTimeout)
-        handler.postDelayed(sideDecisionTimeout, SIDE_DECISION_MS)
+        if (workoutControls.pending().isEmpty()) handler.postDelayed(sideDecisionTimeout,
+            (sideDecisionDeadlineMs - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0L))
     }
 
     private fun sendSideDecision(action: dev.kyungmin.kcoach.core.WatchWorkoutAction) {
@@ -1161,4 +1182,4 @@ class MainActivity : Activity() {
 private const val WORKING_BRIGHTNESS = 0.1f
 
 private const val SIDE_PHASE = "AWAITING_OTHER_SIDE"
-private const val SIDE_DECISION_MS = 3_000L
+private const val SIDE_DECISION_MS = 120_000L
