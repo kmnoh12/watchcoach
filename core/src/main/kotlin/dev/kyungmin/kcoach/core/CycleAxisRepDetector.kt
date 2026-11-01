@@ -158,11 +158,11 @@ class CycleAxisRepDetector(
             val floor = if (gyroSource) GYRO_AMPLITUDE_FLOOR else DYN_AMPLITUDE_FLOOR
             if (p95 < floor) continue
             for (sign in intArrayOf(1, -1)) {
-                val peaks = findPeaks(projected, from, sign, p95)
+                val peaks = findSourcePeaks(projected, from, sign, p95, gyroSource)
                 if (peaks.isEmpty()) continue
                 val candidate = candidate(peaks, p95, floor, gyroSource, sign) ?: continue
                 if (countOnReturn) {
-                    val opposite = findPeaks(projected, from, -sign, p95)
+                    val opposite = findSourcePeaks(projected, from, -sign, p95, gyroSource)
                     candidate.oppositeNs = LongArray(opposite.size) { times[opposite[it]] }
                 }
                 if (locked && (gyroSource != lockedGyro || sign != lockedSign)) continue
@@ -236,6 +236,23 @@ class CycleAxisRepDetector(
             smoothed[i] = running / minOf(i + 1, PROJECTION_SMOOTH)
         }
         return smoothed
+    }
+
+    /**
+     * Return-counting only: subtracting the window mean can turn a still lead-in into an opposite-sign plateau.
+     * Do not let that plateau establish the lift/return order. Confirm onset from the unprojected signal using
+     * the existing source amplitude floor, then admit peaks from that point onward. No frozen v1 constants or
+     * peak selection for countOnReturn=false are changed; movement after onset retains the existing rules.
+     */
+    private fun findSourcePeaks(p: DoubleArray, base: Int, sign: Int, p95: Double, gyroSource: Boolean): IntArray {
+        val peaks = findPeaks(p, base, sign, p95)
+        if (!countOnReturn) return peaks
+        val source = if (gyroSource) gyro else dyn
+        val floor = if (gyroSource) GYRO_AMPLITUDE_FLOOR else DYN_AMPLITUDE_FLOOR
+        val onset = (0 until count).firstOrNull { i ->
+            source.sumOf { it.data[i] * it.data[i] } >= floor * floor
+        } ?: return IntArray(0)
+        return peaks.filter { it >= onset }.toIntArray()
     }
 
     /** Returns indices into the full history; [base] is the history index of p[0]. */
