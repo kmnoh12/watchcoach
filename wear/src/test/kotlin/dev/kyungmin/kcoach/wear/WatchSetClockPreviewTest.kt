@@ -65,7 +65,23 @@ class WatchSetClockPreviewTest {
             manualHeaderGeometry = headerGeometry
             assertEquals(1f, face.restPause.completionTextScale)
         }
+        if (name.startsWith("setclock-manual-") && face.setTiming) {
+            assertEquals(108, face.restPause.left)
+            assertEquals(324, face.restPause.right)
+            assertEquals(290, face.restPause.top)
+            assertEquals(78, face.restPause.height)
+            assertEquals(78f, face.restPause.completionHeightUnits)
+            assertEquals(1f, face.restPause.completionTextScale)
+        }
         if (name == "setclock-other-side") {
+            assertEquals(94, face.restPause.left)
+            assertEquals(207, face.restPause.right)
+            assertEquals(300, face.restPause.top)
+            assertEquals(69, face.restPause.height)
+            assertEquals(225, face.restSkip.left)
+            assertEquals(338, face.restSkip.right)
+            assertEquals(300, face.restSkip.top)
+            assertEquals(69, face.restSkip.height)
             assertEquals("Opposite-side header must match manual-set geometry", manualHeaderGeometry, headerGeometry)
             assertEquals("", face.subtitle.text.toString())
             assertEquals(.81f, face.restPause.completionTextScale)
@@ -198,6 +214,11 @@ class WatchSetClockPreviewTest {
             putExtra("manualRequired", true); putExtra("setClockRemaining", 8_000L); putExtra("setClockTotal", 70_000L)
         }
         idle(300); shot(root, "setclock-manual-8s")
+        state("leg_press", "레그 프레스", "WORKING", running = true) {
+            putExtra("manualRequired", true); putExtra("setIndex", 0)
+            putExtra("setClockRemaining", 45_000L); putExtra("setClockTotal", 70_000L)
+        }
+        idle(300); shot(root, "setclock-manual-first-set-45s")
         state("leg_press", "레그 프레스", "WORKING", running = true) {
             putExtra("manualRequired", true)
         }
