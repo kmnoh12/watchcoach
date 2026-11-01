@@ -3010,6 +3010,13 @@ class MainActivity : ComponentActivity() {
             if (saved != null) {
                 routines.clear()
                 routines.addAll(saved.routines)
+                routines.forEach { routine ->
+                    routine.exercises.replaceAll { item ->
+                        WorkoutData.retiredExerciseReplacements[item.exercise.id]
+                            ?.let { id -> WorkoutData.catalog.firstOrNull { it.id == id } }
+                            ?.let { item.copy(exercise = it) } ?: item
+                    }
+                }
                 WorkoutData.catalog.removeAll { it.id !in WorkoutData.builtInExerciseIds }
                 WorkoutData.catalog.addAll(saved.customExercises)
                 // Keep inline definitions usable too, without inventing a new ID.

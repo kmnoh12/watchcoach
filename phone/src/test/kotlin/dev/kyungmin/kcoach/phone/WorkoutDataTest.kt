@@ -227,4 +227,11 @@ class WorkoutDataTest {
         assertEquals(1, adjustedIndexAfterMove(current = 0, from = 2, to = 0))
         assertEquals(2, adjustedIndexAfterMove(current = 1, from = 2, to = 0))
     }
+
+    @Test fun retiredExercisesPointAtLiveCatalogEntries() {
+        WorkoutData.retiredExerciseReplacements.forEach { (old, new) ->
+            assertFalse("$old is retired", old in WorkoutData.builtInExerciseIds)
+            assertTrue("$new must exist", new in WorkoutData.builtInExerciseIds)
+        }
+    }
 }

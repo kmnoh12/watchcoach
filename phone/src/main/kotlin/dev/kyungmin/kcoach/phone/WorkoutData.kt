@@ -801,6 +801,14 @@ object WorkoutData {
 
     val builtInExerciseIds: Set<String> = catalog.map { it.id }.toSet()
 
+    /** Exercises dropped from the catalog in 0.2.21 whose old definitions still sit in saved routines, mapped to the nearest current one. */
+    val retiredExerciseReplacements: Map<String, String> = mapOf(
+        "wide_lat_pull_down" to "lat_pull_down", "close_lat_pull_down" to "v_bar_lat_pulldown",
+        "machine_row_pin" to "seated_row", "high_row_plate" to "high_row_machine",
+        "chest_supported_tbar_row" to "machine_tbar_row", "preacher_curl_machine" to "preacher_curl",
+        "triceps_dip" to "chest_dip",
+    )
+
     private fun ex(id: String) = checkNotNull(catalog.find { it.id == id })
 
     private fun sets(vararg values: Pair<Double?, Int>) =

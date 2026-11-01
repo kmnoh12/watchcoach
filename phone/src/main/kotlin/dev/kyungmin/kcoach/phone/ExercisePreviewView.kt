@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
+import android.graphics.drawable.GradientDrawable
+import android.view.ViewOutlineProvider
 import android.util.LruCache
 import android.widget.ImageView
 import java.nio.ByteBuffer
@@ -81,7 +83,9 @@ class ExercisePreviewView(context: Context, private val exerciseId: String) : Im
 
     init {
         scaleType = ScaleType.CENTER_CROP
-        setBackgroundColor(ExercisePreviews.backgroundColor())
+        background = GradientDrawable().apply { setColor(ExercisePreviews.backgroundColor()); cornerRadius = 12f * context.resources.displayMetrics.density }
+        outlineProvider = ViewOutlineProvider.BACKGROUND
+        clipToOutline = true
         ExercisePreviews.firstFrame(context, exerciseId)?.let { setImageBitmap(it) }
     }
 
