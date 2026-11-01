@@ -96,6 +96,28 @@ class ProgressionPlanStoreTest {
         ProgressionPlanStore(context).prefill(r).getOrThrow()
         assertEquals(8, r.exercises[0].sets[1].targetReps)
     }
+    @Test fun largeJumpTargetsSurviveReopeningAndAdvanceThroughTwentyBeforeRaising() {
+        val r = routine()
+        r.exercises[0].sets.removeAt(0)
+        r.exercises[0].sets[0].weightKg = 10.0
+        r.exercises[0].sets[0].targetReps = 10
+        ProgressionIncrementStore(context).save("bench", 5.0).getOrThrow()
+        for (reps in 10..19) {
+            record(r, "s$reps", reps.toLong())
+            ProgressionPlanStore(context).prefill(r).getOrThrow()
+            assertEquals(10.0, r.exercises[0].sets[0].weightKg!!, 0.0)
+            assertEquals(reps + 1, r.exercises[0].sets[0].targetReps)
+            ProgressionPlanStore(context).prefill(r).getOrThrow()
+            assertEquals(reps + 1, r.exercises[0].sets[0].targetReps)
+        }
+        record(r, "first-twenty", 20)
+        ProgressionPlanStore(context).prefill(r).getOrThrow()
+        assertEquals(10.0, r.exercises[0].sets[0].weightKg!!, 0.0)
+        record(r, "second-twenty", 21)
+        ProgressionPlanStore(context).prefill(r).getOrThrow()
+        assertEquals(15.0, r.exercises[0].sets[0].weightKg!!, 0.0)
+    }
+
     @Test fun settingsAndExerciseSpecificIncrementSurviveNewStore() {
         assertEquals(ProgressionSettings(), ProgressionSettingsStore(context).load().getOrThrow())
         ProgressionSettingsStore(context).save(ProgressionSettings(false, ProgressionSpeed.SLOW)).getOrThrow()

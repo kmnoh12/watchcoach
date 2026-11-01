@@ -31,10 +31,10 @@ class ProgressionTargetsTest {
         assertEquals(85.0, result.weightKg)
         assertEquals(6, result.targetReps)
     }
-    @Test fun curlTwelveToSix() {
-        val p = plan(20.0 to 12, pattern = "curl")
+    @Test fun curlWithSmallStepStillUsesTwelveToSix() {
+        val p = plan(40.0 to 12, pattern = "curl")
         val result = next(p, log(p, 1), log(p, 2))!!.single()
-        assertEquals(25.0, result.weightKg)
+        assertEquals(45.0, result.weightKg)
         assertEquals(6, result.targetReps)
     }
     @Test fun pyramidOnlyRaisesTheHeaviestGroupAndPreservesWarmup() {
@@ -73,8 +73,8 @@ class ProgressionTargetsTest {
         assertEquals(listOf(70.0, 60.0), next(current, log(current, 1), log(differentMain, 2), log(current, 3))!!.map { it.weightKg })
     }
     @Test fun assistanceMainIsLightestAndExcludesWarmup() {
-        val old = plan(5.0 to 10, 20.0 to 10, 20.0 to 10, warmup = true, load = ProgressionLoad.ASSISTANCE)
-        val current = plan(5.0 to 10, 20.0 to 10, 30.0 to 8, warmup = true, load = ProgressionLoad.ASSISTANCE)
+        val old = plan(5.0 to 20, 20.0 to 20, 20.0 to 20, warmup = true, load = ProgressionLoad.ASSISTANCE)
+        val current = plan(5.0 to 20, 20.0 to 20, 30.0 to 8, warmup = true, load = ProgressionLoad.ASSISTANCE)
         assertEquals(listOf(5.0, 15.0, 30.0), next(current, log(old, 1), log(current, 2))!!.map { it.weightKg })
         val differentMain = old.copy(sets = old.sets.mapIndexed { i, s -> if (i == 2) s.copy(weightKg = 15.0) else s })
         assertEquals(listOf(5.0, 20.0, 30.0), next(current, log(current, 1), log(differentMain, 2), log(current, 3))!!.map { it.weightKg })
@@ -131,17 +131,17 @@ class ProgressionTargetsTest {
     @Test fun bodyweightAndAssistanceUseTheCorrectDirection() {
         val bw = plan(null to 8, load = ProgressionLoad.BODYWEIGHT)
         assertEquals(9, next(bw, log(bw))!!.single().targetReps)
-        val assisted = plan(20.0 to 10, load = ProgressionLoad.ASSISTANCE)
+        val assisted = plan(20.0 to 20, load = ProgressionLoad.ASSISTANCE)
         assertEquals(15.0, next(assisted, log(assisted), speed = ProgressionSpeed.FAST)!!.single().weightKg)
     }
-    @Test fun explicitConfirmationStillBlocksAndNoRatioLimitApplies() {
+    @Test fun pendingConfirmationBlocksAndLargeKnownStepExtendsReps() {
         val p = plan(20.0 to 12, pattern = "curl")
         assertEquals(20.0, next(p, log(p), speed = ProgressionSpeed.FAST, increment = IncrementCandidate(10.0, true))!!.single().weightKg)
-        assertEquals(30.0, next(p, log(p), speed = ProgressionSpeed.FAST, increment = IncrementCandidate(10.0, false))!!.single().weightKg)
+        assertEquals(13, next(p, log(p), speed = ProgressionSpeed.FAST, increment = IncrementCandidate(10.0, false))!!.single().targetReps)
     }
     @Test fun machineDefaultsUseFiveOrObservedStepsAndConfirmedValueWins() {
         for (equipment in listOf("머신", "케이블", "핀 머신")) {
-            val p = plan(20.0 to 10).let { it.copy(key = it.key.copy(equipment = equipment)) }
+            val p = plan(20.0 to 20).let { it.copy(key = it.key.copy(equipment = equipment)) }
             for (weights in listOf(emptyList(), listOf(20.0, 20.0))) {
                 val increment = ProgressionDefaults.increment(equipment, weights)
                 assertEquals(IncrementCandidate(5.0, false), increment)
@@ -164,7 +164,7 @@ class ProgressionTargetsTest {
         assertEquals(54.0, ProgressionDefaults.nextWeight(54.0, increment, false))
         assertEquals(35.0, ProgressionDefaults.nextWeight(45.0, increment, true))
         assertEquals(27.0, ProgressionDefaults.nextWeight(27.0, increment, true))
-        val p = plan(35.0 to 10).let { it.copy(key = it.key.copy(equipment = "머신")) }
+        val p = plan(35.0 to 20).let { it.copy(key = it.key.copy(equipment = "머신")) }
         assertEquals(45.0, next(p, log(p, 1), log(p, 2), increment = increment)!!.single().weightKg)
         assertEquals(36.0, ProgressionDefaults.nextWeight(35.0,
             ProgressionDefaults.increment("머신", listOf(27.0, 35.0, 45.0, 54.0), 1.0), false))
@@ -199,6 +199,57 @@ class ProgressionTargetsTest {
         assertEquals(75.0, next(p, log(p, 1), missing, log(p, 3))!!.single().weightKg)
         val raised = p.copy(sets = p.sets.map { it.copy(weightKg = 75.0) })
         assertEquals(75.0, next(raised, log(p, 1), log(raised, 2))!!.single().weightKg)
+    }
+    @Test fun largeRelativeStepsExtendTheCeilingAndAdvanceOneRepAtATime() {
+        for ((weight, reps) in listOf(5.0 to 12, 10.0 to 10, 10.0 to 12)) {
+            val p = plan(weight to reps, pattern = "curl")
+            val result = next(p, log(p, 1), log(p, 2))!!.single()
+            assertEquals(weight, result.weightKg)
+            assertEquals(reps + 1, result.targetReps)
+            assertEquals(20, result.upperReps)
+        }
+        val dumbbell = plan(4.0 to 12, pattern = "lateral_raise").let { it.copy(key = it.key.copy(equipment = "덤벨")) }
+        assertEquals(13, next(dumbbell, log(dumbbell), increment = ProgressionDefaults.increment("덤벨"))!!.single().targetReps)
+    }
+    @Test fun twentyRepsStillRequiresTheConfiguredStreakBeforeRaising() {
+        val p = plan(5.0 to 20, pattern = "curl")
+        assertEquals(5.0, next(p, log(p))!!.single().weightKg)
+        assertEquals(10.0, next(p, log(p, 1), log(p, 2))!!.single().weightKg)
+        assertEquals(5.0, next(p, log(p, 1, listOf(19)), log(p, 2))!!.single().weightKg)
+        val assisted = p.copy(load = ProgressionLoad.ASSISTANCE)
+        assertEquals(0.0, next(assisted, log(assisted, 1), log(assisted, 2))!!.single().weightKg)
+    }
+    @Test fun exactFifteenPercentAndHeavyCompoundKeepTheirOriginalCeilings() {
+        for ((weight, step) in listOf(20.0 to 3.0, 60.0 to 5.0)) {
+            val p = plan(weight to 10)
+            val result = next(p, log(p, 1), log(p, 2), increment = IncrementCandidate(step, false, confirmed = true))!!.single()
+            assertEquals(weight + step, result.weightKg)
+            assertEquals(10, result.upperReps)
+        }
+        val p = plan(20.0 to 10)
+        assertEquals(11, next(p, log(p), increment = IncrementCandidate(3.01, false, confirmed = true))!!.single().targetReps)
+    }
+    @Test fun explicitCeilingsAreOnlyExtendedAndConfirmedStepsUseTheSameRatio() {
+        for (upper in listOf(8, 25)) {
+            val p = plan(10.0 to 12, pattern = "curl", upper = upper)
+            assertEquals(maxOf(upper, 20), next(p, log(p), increment = IncrementCandidate(5.0, false, confirmed = true))!!.single().upperReps)
+        }
+        val p = plan(10.0 to 12, pattern = "curl")
+        assertEquals(11.0, next(p, log(p, 1), log(p, 2), increment = IncrementCandidate(1.0, false, confirmed = true))!!.single().weightKg)
+        // The smallest recorded gap is 1 kg, but the actual next stage from 10 is 15.
+        val stages = ProgressionDefaults.increment("머신", listOf(9.0, 10.0, 15.0))
+        assertEquals(13, next(p, log(p), increment = stages)!!.single().targetReps)
+        val smallStage = ProgressionDefaults.increment("머신", listOf(10.0, 11.0, 15.0))
+        assertEquals(11.0, next(p, log(p, 1), log(p, 2), increment = smallStage)!!.single().weightKg)
+    }
+    @Test fun bodyweightAndWarmupsDoNotAcquireAnExpandedCeiling() {
+        val p = plan(4.0 to 10, load = ProgressionLoad.BODYWEIGHT)
+        assertEquals(10, next(p, log(p))!!.single().upperReps)
+        assertEquals(10, next(p, log(p))!!.single().targetReps)
+        val warmup = plan(5.0 to 12, 10.0 to 12, pattern = "curl", warmup = true)
+        assertEquals(listOf(12, 20), next(warmup, log(warmup))!!.map { it.upperReps })
+        val zero = plan(0.0 to 10)
+        assertEquals(5.0, next(zero, log(zero), speed = ProgressionSpeed.FAST)!!.single().weightKg)
     }
     @Test fun estimatesOnlyUseTwoToTen() {
         assertNull(EstimatedOneRepMax.epley(70.0, 1))

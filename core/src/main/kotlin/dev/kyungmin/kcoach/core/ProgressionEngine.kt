@@ -27,8 +27,16 @@ class ProgressionEngine {
         val latest = comparable.firstOrNull() ?: return null
         val targets = plan.sets.mapIndexed { i, set ->
             val previous = latest.sets[i]
-            set.copy(weightKg = previous.weightKg, targetReps = previous.targetReps ?: set.targetReps,
-                upperReps = set.upperReps ?: previous.upperReps ?: maxOf(defaultUpper, set.targetReps))
+            val upper = set.upperReps ?: previous.upperReps ?: maxOf(defaultUpper, set.targetReps)
+            val weight = previous.weightKg
+            val nextWeight = weight?.let { ProgressionDefaults.nextWeight(it, increment, plan.load == ProgressionLoad.ASSISTANCE) }
+            // Compare the actual hardware stage (including snapping), in either load direction.
+            // Confirming a step confirms availability, not that a large relative jump is easy.
+            val largeJump = plan.load != ProgressionLoad.BODYWEIGHT && !increment.needsConfirmation &&
+                weight != null && weight > 0.0 && nextWeight != null &&
+                kotlin.math.abs(nextWeight - weight) > weight * 0.15
+            set.copy(weightKg = weight, targetReps = previous.targetReps ?: set.targetReps,
+                upperReps = if (largeJump && !set.isWarmup) maxOf(upper, 20) else upper)
         }.toMutableList()
         val groups = targets.indices.filter { !targets[it].isWarmup }.groupBy { targets[it].weightKg }
             .entries.sortedByDescending { if (plan.load == ProgressionLoad.ASSISTANCE) -(it.key ?: 0.0) else it.key ?: 0.0 }
