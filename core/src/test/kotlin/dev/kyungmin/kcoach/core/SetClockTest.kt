@@ -18,9 +18,9 @@ class SetClockTest {
         val first = SetClock.prepare(initial(), null, 1000, true)
         return next(complete(first, 1000 + duration), 1000 + duration)
     }
-    @Test fun firstSetWaitsAndSixtySecondFirstSetGivesSeventyThenEighty() {
+    @Test fun firstSetStartsAtDefaultAndActualDurationGivesSeventyThenEighty() {
         val first = SetClock.prepare(initial(), null, 1000, true)
-        assertNull(SetClock.remainingMs(first, 999_999))
+        assertEquals(35_000L, SetClock.remainingMs(first, 1000))
         val second = second()
         assertEquals(70_000L, SetClock.remainingMs(second, 61_000))
         assertNull(SetClock.autoComplete(second, 130_999, true))
@@ -63,19 +63,34 @@ class SetClockTest {
         assertNull(SetClock.remainingMs(SetClock.prepare(second(), second(), 61_000, false), 999_999))
     }
     @Test fun warmupsAndSensorSetsDoNotArmAndExerciseChangeResetsBaseline() {
-        assertNull(SetClock.remainingMs(SetClock.prepare(initial().copy(plannedSets = initial().plannedSets.map {
+        assertEquals(35_000L, SetClock.remainingMs(SetClock.prepare(initial().copy(plannedSets = initial().plannedSets.map {
             if (it.setIndex == 0) it.copy(completed = true, completedDurationMs = 60_000, setType = "WARMUP") else it
         }, setIndex = 1), null, 61_000, true), 61_000))
         assertNull(SetClock.remainingMs(SetClock.prepare(initial("barbell_biceps_curl"), null, 1000, true), 999_999))
         val changed = second().copy(plannedSets = second().plannedSets.map { if (it.setIndex == 1)
             it.copy(exerciseIndex = 1, exerciseId = "leg_press", workingStartedAtMs = 0, setTimerLimitMs = null) else it }, exerciseIndex = 1, setIndex = 1)
-        assertNull(SetClock.remainingMs(SetClock.prepare(changed, null, 61_000, true), 61_000))
+        assertEquals(35_000L, SetClock.remainingMs(SetClock.prepare(changed, null, 61_000, true), 61_000))
         val warm = second().copy(plannedSets = second().plannedSets.map { it.copy(setType = "WARMUP") })
         assertNull(SetClock.autoComplete(warm, 999_999, true))
     }
     @Test fun automaticAnalysisCannotConfirmAnUnknownManualCount() {
         val done = SetClock.autoComplete(second(), 131_000, true)!!
         assertEquals(done, WorkoutSessionReducer.confirmReps(done, "leg_press", 1, 0, "set1", "attempt1"))
+    }
+    @Test fun defaultsClampAndMissingTargetsUseTenReps() {
+        assertEquals(35_000L, SetClock.defaultLimitMs(0))
+        assertEquals(35_000L, SetClock.defaultLimitMs(-1))
+        assertEquals(20_000L, SetClock.defaultLimitMs(1))
+        assertEquals(90_000L, SetClock.defaultLimitMs(Int.MAX_VALUE))
+    }
+    @Test fun historyDurationRoundTripsAndLegacyRecordsFallBack() {
+        val log = ExerciseLog("leg_press", 1, listOf(LoggedSet(null, 10, completedDurationMs = 42_000)), "old")
+        val restored = ExerciseHistoryCodec.decode(ExerciseHistoryCodec.encode(listOf(log)))
+        assertEquals(log, restored.single())
+        val prepared = SetClock.prepare(initial(), null, 1000, true, ExerciseHistory(restored))
+        assertEquals(52_000L, SetClock.remainingMs(prepared, 1000))
+        val legacy = ExerciseHistory(ExerciseHistoryCodec.decode("leg_press\t1\t-:10"))
+        assertEquals(35_000L, SetClock.remainingMs(SetClock.prepare(initial(), null, 1000, true, legacy), 1000))
     }
     @Test fun oppositeArmKeepsFifteenSecondsAndIgnoresManualSwitch() {
         val s = initial("one_arm_dumbbell_row").let { it.copy(plannedSets = it.plannedSets.map { set ->

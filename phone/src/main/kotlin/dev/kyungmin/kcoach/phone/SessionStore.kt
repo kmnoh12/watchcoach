@@ -402,7 +402,7 @@ class SessionStore(private val context: Context) {
     private fun commit(incoming: WorkoutSnapshot, completionId: String? = null, manualCommand: ManualSetCommand? = null,
         watchCommand: WatchWorkoutControl? = null, watchAck: WatchWorkoutControlAck? = null): Boolean {
         val old = prefs.getString(KEY_ACTIVE_SNAPSHOT, null)?.let { runCatching { WorkoutSnapshotCodec.decode(it) }.getOrNull() }?.takeIf { it.sessionId == incoming.sessionId }
-        val candidate = SetClock.prepare(incoming, old, System.currentTimeMillis(), ManualAutoFinishSetting.isEnabled(context))
+        val candidate = SetClock.prepare(incoming, old, System.currentTimeMillis(), ManualAutoFinishSetting.isEnabled(context), ExerciseHistoryStore(context).load())
         val changed = old?.let { it.restEndAtMs != candidate.restEndAtMs || it.paused != candidate.paused ||
             it.pausedRestRemainingMs != candidate.pausedRestRemainingMs || it.watchRestSeq != candidate.watchRestSeq } ?: (candidate.restEndAtMs > 0 || candidate.paused)
         // A different next set while resting must also bump the revision, or the watch drops the resync as a duplicate.

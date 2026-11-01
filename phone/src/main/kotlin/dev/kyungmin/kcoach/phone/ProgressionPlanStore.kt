@@ -89,7 +89,7 @@ internal class ProgressionPlanStore(private val context: Context) {
                 LoggedSet(set.weightKg, set.performedReps ?: 0, set.targetReps, set.setType == "WARMUP", set.completed,
                     set.performedReps != null, row?.getString("position")?.substringBefore(":")?.let { "$it:${set.setType}:${set.gripType}" }.orEmpty(),
                     maxOf(row?.optInt("upper") ?: 0, ProgressionDefaults.upper(set.pattern) ?: 10, set.targetReps),
-                    row?.let { if (it.isNull("bodyWeight")) null else it.getDouble("bodyWeight") }, load(set.exerciseId, set.exerciseName, set.pattern, set.equipment, sets.map { it.weightKg }), eligible)
+                    row?.let { if (it.isNull("bodyWeight")) null else it.getDouble("bodyWeight") }, load(set.exerciseId, set.exerciseName, set.pattern, set.equipment, sets.map { it.weightKg }), eligible, set.completedDurationMs)
             }, snapshot.sessionId, snapshot.startedAtMs, snapshot.routineId, index, sets.first().equipment)
         }
     }

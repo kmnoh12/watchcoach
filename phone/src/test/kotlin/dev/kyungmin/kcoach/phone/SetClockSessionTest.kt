@@ -14,6 +14,7 @@ class SetClockSessionTest {
     private val app get() = RuntimeEnvironment.getApplication()
     @org.junit.Before fun reset() {
         app.getSharedPreferences("workout-session", 0).edit().clear().commit()
+        app.getSharedPreferences("exercise-history", 0).edit().clear().commit()
         app.getSharedPreferences("ui-settings", 0).edit().putBoolean("manualAutoFinish", true).commit()
     }
     @org.junit.After fun restoreSetting() {
@@ -27,6 +28,33 @@ class SetClockSessionTest {
         phase = WorkoutPhase.WORKING, restEndAtMs = 0, pausedRestRemainingMs = 0, paused = false, startedAtMs = 1000,
         pausedSinceMs = 0, totalPausedMs = 0, lastSequence = 0, lastCompletedSetKey = null, captureStates = emptyMap())
     private fun store() = SessionStore(app).also { assertTrue(it.saveActive(snapshot())) }
+    @Test fun firstSetActualActiveTimePersistsAndSeedsNextSession() {
+        val firstPlan = snapshot().copy(setIndex = 0, plannedSets = listOf(
+            PlannedSetSnapshot(0, "leg_press", 0, 10, null, false, setId = "first", attemptId = "a"),
+            PlannedSetSnapshot(0, "leg_press", 1, 10, null, false, setId = "second", attemptId = "b")))
+        val store = SessionStore(app)
+        assertTrue(store.saveActive(firstPlan))
+        val first = store.loadActive().getOrThrow()!!
+        val started = first.plannedSets.first().workingStartedAtMs
+        assertEquals(35_000L, SetClock.remainingMs(first, started))
+        store.setPaused(first.sessionId, true, started + 5_000).getOrThrow()
+        store.setPaused(first.sessionId, false, started + 15_000).getOrThrow()
+        val result = store.applyWatchControl(WatchWorkoutControl("first-done", WatchWorkoutAction.COMPLETE_MANUAL_SET,
+            first.sessionId, "first", "a"), started + 32_000).getOrThrow()
+        assertEquals(WatchWorkoutControlStatus.APPLIED, result.ack.status)
+        val done = SessionStore(app).loadActive().getOrThrow()!!
+        assertEquals(22_000L, done.plannedSets.first().completedDurationMs)
+        val second = SetClock.prepare(WorkoutSessionReducer.advanceAfterRest(done, done.restEndAtMs)!!,
+            done, done.restEndAtMs, true)
+        assertEquals(32_000L, second.plannedSets[1].setTimerLimitMs)
+        FinishedWorkoutStore(app).finish(done, "레그 프레스", 1)
+        assertEquals(22_000L, ExerciseHistoryStore(app).load().last("leg_press")!!.sets.first().completedDurationMs)
+        assertTrue(SessionStore(app).clearActive(done.sessionId))
+        val nextStore = SessionStore(app)
+        assertTrue(nextStore.saveActive(firstPlan.copy(sessionId = "next-day")))
+        val next = SessionStore(app).loadActive().getOrThrow()!!
+        assertEquals(32_000L, next.plannedSets.first().setTimerLimitMs)
+    }
     @Test fun watchCompleteUsesEstimatedTargetAndIsIdempotent() {
         val store = store()
         val command = WatchWorkoutControl("done", WatchWorkoutAction.COMPLETE_MANUAL_SET, "manual-clock", "second", "b")

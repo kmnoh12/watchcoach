@@ -7,6 +7,7 @@ data class LoggedSet(
     val positionKey: String = "", val upperReps: Int? = null,
     val bodyWeightKg: Double? = null, val load: ProgressionLoad = ProgressionLoad.EXTERNAL,
     val progressionEligible: Boolean = true,
+    val completedDurationMs: Long? = null,
 )
 
 /** What was actually done for one exercise in one session. */
@@ -20,7 +21,7 @@ data class ExerciseLog(val exerciseId: String, val epochDay: Long, val sets: Lis
 object ExerciseHistoryCodec {
     fun encode(logs: List<ExerciseLog>): String = logs.joinToString("\n") { log ->
         val sets = log.sets.joinToString(",") {
-            "${it.weightKg?.toString() ?: "-"}:${it.reps}:${it.targetReps ?: "-"}:${it.isWarmup}:${it.completed}:${it.repsEntered}:${escape(it.positionKey)}:${it.upperReps ?: "-"}:${it.bodyWeightKg ?: "-"}:${it.load.name}:${it.progressionEligible}"
+            "${it.weightKg?.toString() ?: "-"}:${it.reps}:${it.targetReps ?: "-"}:${it.isWarmup}:${it.completed}:${it.repsEntered}:${escape(it.positionKey)}:${it.upperReps ?: "-"}:${it.bodyWeightKg ?: "-"}:${it.load.name}:${it.progressionEligible}:${it.completedDurationMs ?: "-"}"
         }
         "${log.exerciseId}\t${log.epochDay}\t$sets\t${log.sessionId.orEmpty()}\t${log.startedAtMs}\t${escape(log.routineId.orEmpty())}\t${log.exerciseIndex}\t${escape(log.equipment)}"
     }
@@ -38,7 +39,7 @@ object ExerciseHistoryCodec {
             LoggedSet(c[0].toDoubleOrNull(), c[1].toIntOrNull() ?: return@mapNotNull null,
                 c.getOrNull(2)?.toIntOrNull(), c.getOrNull(3)?.toBoolean() ?: false,
                 c.getOrNull(4)?.toBoolean() ?: true, c.getOrNull(5)?.toBoolean() ?: true,
-                c.getOrNull(6)?.let(::unescape).orEmpty(), c.getOrNull(7)?.toIntOrNull(), c.getOrNull(8)?.toDoubleOrNull(), c.getOrNull(9)?.let { ProgressionLoad.valueOf(it) } ?: ProgressionLoad.EXTERNAL, c.getOrNull(10)?.toBoolean() ?: true)
+                c.getOrNull(6)?.let(::unescape).orEmpty(), c.getOrNull(7)?.toIntOrNull(), c.getOrNull(8)?.toDoubleOrNull(), c.getOrNull(9)?.let { ProgressionLoad.valueOf(it) } ?: ProgressionLoad.EXTERNAL, c.getOrNull(10)?.toBoolean() ?: true, c.getOrNull(11)?.toLongOrNull()?.takeIf { it >= 0 })
         }
         if (sets.isEmpty()) null else ExerciseLog(parts[0], day, sets, parts.getOrNull(3)?.takeIf { it.isNotBlank() }, parts.getOrNull(4)?.toLongOrNull() ?: 0,
             parts.getOrNull(5)?.let(::unescape)?.takeIf { it.isNotEmpty() }, parts.getOrNull(6)?.toIntOrNull() ?: -1, parts.getOrNull(7)?.let(::unescape).orEmpty())

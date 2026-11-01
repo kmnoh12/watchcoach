@@ -65,7 +65,11 @@ class WatchSetClockPreviewTest {
             manualHeaderGeometry = headerGeometry
             assertEquals(1f, face.restPause.completionTextScale)
         }
-        if (name.startsWith("setclock-manual-") && face.setTiming) {
+        if (name.startsWith("setclock-first-set-")) {
+            assertTrue("First sets must show the set clock", face.setTiming)
+            assertEquals(manualHeaderGeometry, headerGeometry)
+        }
+        if ((name.startsWith("setclock-manual-") || name.startsWith("setclock-first-set-")) && face.setTiming) {
             assertEquals(108, face.restPause.left)
             assertEquals(324, face.restPause.right)
             assertEquals(290, face.restPause.top)
@@ -89,12 +93,6 @@ class WatchSetClockPreviewTest {
             assertEquals(1f, face.subtitle.alpha)
             assertEquals("건너뛰기", face.restSkip.caption)
             assertTrue(face.restPause.right < face.restSkip.left)
-        }
-        if (name == "setclock-manual-first-set-no-clock") {
-            assertFalse(face.setTiming)
-            assertEquals("—", face.value.text.toString())
-            assertEquals("2세트 · 40kg · 직접 기록", face.subtitle.text.toString())
-            assertEquals("위로 · 횟수 기록", face.hint.text.toString())
         }
         if (name == "rest-for-comparison") {
             assertFalse(face.setTiming)
@@ -218,11 +216,12 @@ class WatchSetClockPreviewTest {
             putExtra("manualRequired", true); putExtra("setIndex", 0)
             putExtra("setClockRemaining", 45_000L); putExtra("setClockTotal", 70_000L)
         }
-        idle(300); shot(root, "setclock-manual-first-set-45s")
+        idle(300); shot(root, "setclock-first-set-history-45s")
         state("leg_press", "레그 프레스", "WORKING", running = true) {
-            putExtra("manualRequired", true)
+            putExtra("manualRequired", true); putExtra("setIndex", 0)
+            putExtra("setClockRemaining", 41_000L); putExtra("setClockTotal", 41_000L)
         }
-        idle(300); shot(root, "setclock-manual-first-set-no-clock")
+        idle(300); shot(root, "setclock-first-set-default-41s")
         state("single_arm_cable_reverse_fly", "원암 케이블 리버스 플라이", "OTHER_SIDE_WORKING", running = false) {
             putExtra("setClockRemaining", 38_000L); putExtra("setClockTotal", 55_000L)
         }

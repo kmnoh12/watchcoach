@@ -10,7 +10,11 @@ object SetClock {
         ((if (snapshot.paused) snapshot.pausedSinceMs else nowMs) - set.workingStartedAtMs -
             (snapshot.totalPausedMs - set.workingPausedAtStartMs).coerceAtLeast(0)).coerceAtLeast(0)
 
-    fun prepare(snapshot: WorkoutSnapshot, old: WorkoutSnapshot?, nowMs: Long, enabled: Boolean): WorkoutSnapshot {
+    fun defaultLimitMs(targetReps: Int): Long = ((targetReps.takeIf { it > 0 } ?: 10).toLong() * 3_000L + 5_000L)
+        .coerceIn(20_000L, 90_000L)
+
+    fun prepare(snapshot: WorkoutSnapshot, old: WorkoutSnapshot?, nowMs: Long, enabled: Boolean,
+        history: ExerciseHistory = ExerciseHistory()): WorkoutSnapshot {
         val targetIndex = snapshot.plannedSets.indexOf(WorkoutSessionReducer.nextPendingSet(snapshot))
         // UI plans omit clock metadata. Merge by attempt before deriving the preceding duration.
         val merged = snapshot.plannedSets.map { candidate ->
@@ -29,7 +33,12 @@ object SetClock {
                 if (enabled && isManual(set) && set.setTimerLimitMs == null) {
                     val prior = merged.filter { it.exerciseIndex == set.exerciseIndex && it.exerciseId == set.exerciseId &&
                         it.setIndex < set.setIndex && it.completed && it.setType != "WARMUP" }.maxByOrNull { it.setIndex }
-                    set = set.copy(setTimerLimitMs = prior?.completedDurationMs?.let { (it + 10_000L).coerceAtMost(MAX_LIMIT_MS) })
+                    val previousSessionDuration = if (prior == null) history.recent(set.exerciseId, Int.MAX_VALUE)
+                        .firstOrNull { it.sessionId != snapshot.sessionId }
+                        ?.sets?.firstOrNull { !it.isWarmup }?.takeIf { it.completed }?.completedDurationMs else null
+                    val duration = prior?.completedDurationMs ?: previousSessionDuration
+                    set = set.copy(setTimerLimitMs = duration?.let { (it + 10_000L).coerceAtMost(MAX_LIMIT_MS) }
+                        ?: defaultLimitMs(set.targetReps))
                 }
             }
             if (!enabled && isManual(set)) set = set.copy(setTimerLimitMs = null)
