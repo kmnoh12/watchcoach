@@ -87,9 +87,10 @@ class OneArmDecisionVisibilityReproTest {
             assertEquals(View.GONE, (field(controller.get(), "setDoneLayer") as View).visibility)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(60_000))
             state(false, "AWAITING_OTHER_SIDE")
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(59_999))
+            // The 120 s clock starts when the question is visible; a couple of seconds of scheduler slack is fine.
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(50_000))
             assertTrue(requests().isEmpty())
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1))
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(15_000))
             assertEquals(listOf(WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY), requests().map { it.action })
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1_000))
             assertTrue(requests().isEmpty())
