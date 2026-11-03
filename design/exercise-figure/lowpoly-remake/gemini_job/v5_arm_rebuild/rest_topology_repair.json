@@ -1,0 +1,67 @@
+{
+  "vertices_unchanged": true,
+  "weights_unchanged": true,
+  "original_files_unchanged": true,
+  "triangles_before": 1738,
+  "triangles_after": 1738,
+  "repairs": [
+    {
+      "removed": [
+        [
+          58,
+          399,
+          59
+        ],
+        [
+          58,
+          59,
+          43
+        ]
+      ],
+      "replacement": [
+        [
+          58,
+          399,
+          43
+        ],
+        [
+          399,
+          59,
+          43
+        ]
+      ],
+      "edge_vertex": 399,
+      "surface_offset_m": 7.382266282152993e-09
+    },
+    {
+      "removed": [
+        [
+          84,
+          424,
+          42
+        ],
+        [
+          84,
+          42,
+          52
+        ]
+      ],
+      "replacement": [
+        [
+          84,
+          424,
+          52
+        ],
+        [
+          424,
+          42,
+          52
+        ]
+      ],
+      "edge_vertex": 424,
+      "surface_offset_m": 1.1821179683647614e-09
+    }
+  ],
+  "all_edges_two_faces": true,
+  "minimum_area_m2": 3.9376629438342414e-07
+}
