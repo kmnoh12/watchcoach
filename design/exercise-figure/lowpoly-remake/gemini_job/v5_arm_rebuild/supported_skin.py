@@ -34,16 +34,24 @@ ids=np.flatnonzero(mask);rest_frames={}
 for side in 'lr':
  u,l,h=[ni[p+'_'+side] for p in ['upperarm','lowerarm','hand']];rest_frames[side]=triangle_frame(*R[[u,l,h],:3,3])
 
-def deform(pal,baseline,state,upper_frame="plane"):
+def deform(pal,baseline,state,upper_frame="plane",protraction_deg=0.):
  posed=pal.copy();report={};twists={}
  for side in 'lr':
   u,l,h=[ni[p+'_'+side] for p in ['upperarm','lowerarm','hand']];old_s,old_e,old_w=R[[u,l,h],:3,3];s0,e0,w0=Rnew[[u,l,h],:3,3]
   oldposed=[apply(pal[k],v) for k,v in zip([u,l,h],[old_s,old_e,old_w])];oldframe=triangle_frame(*oldposed,previous=state.get('frame_'+side,rest_frames[side]));state['frame_'+side]=oldframe
   motion=oldframe@rest_frames[side].T;rest_pole=e0-s0-unit(w0-s0)*((e0-s0)@unit(w0-s0));pole=motion@rest_pole
-  s=apply(pal[ni['clavicle_'+side]],s0);w=apply(pal[h],w0);L1=np.linalg.norm(e0-s0);L2=np.linalg.norm(w0-e0);c=apply(pal[ni['clavicle_'+side]],Rnew[ni['clavicle_'+side],:3,3]);original_s=s.copy();s,e,p=shoulder_arm(c,s,w,L1,L2,pole,state.get('pole_'+side));state['pole_'+side]=p;clav_rot=swing(original_s-c,s-c);posed[ni['clavicle_'+side]]=transform(clav_rot,c,c)@pal[ni['clavicle_'+side]]
+  s=apply(pal[ni['clavicle_'+side]],s0);w=apply(pal[h],w0);L1=np.linalg.norm(e0-s0);L2=np.linalg.norm(w0-e0);c=apply(pal[ni['clavicle_'+side]],Rnew[ni['clavicle_'+side],:3,3]);original_s=s.copy()
+  # Isolated kinematic diagnostic. The source clavicle is otherwise nearly
+  # torso-fixed throughout bench flexion; preserve its length and the grip.
+  active_protraction=0.
+  if protraction_deg:
+   body_rotation=rigid_rotation(pal[ni['spine_03'],:3,:3])
+   from clavicle_protraction import protract
+   s,active_protraction=protract(c,s,oldposed[1]-oldposed[0],old_e-old_s,body_rotation,protraction_deg,side)
+  s,e,p=shoulder_arm(c,s,w,L1,L2,pole,state.get('pole_'+side));state['pole_'+side]=p;clav_rot=swing(original_s-c,s-c);posed[ni['clavicle_'+side]]=transform(clav_rot,c,c)@pal[ni['clavicle_'+side]]
   source_rot=motion if upper_frame=="plane" else rigid_rotation(pal[u,:3,:3]);ru=swing(source_rot@(e0-s0),e-s,p)@source_rot;rl=swing(ru@(w0-e0),w-e,p)@ru;posed[u]=transform(ru,s0,s);posed[l]=transform(rl,e0,e)
   axis=unit(w-e);ref=unit(np.cross(e0-s0,w0-e0));angle,held=continuous_twist(axis,rl@ref,rigid_rotation(pal[h,:3,:3])@ref,state.get('twist_'+side));state['twist_'+side]=angle;twists[side]=(axis,angle,e,e0,w0,l)
-  report[side]={'elbow':e.tolist(),'twist_deg':math.degrees(angle),'palm_held':held,'upper_length_error_mm':float(abs(np.linalg.norm(e-s)-L1)*1000),'lower_length_error_mm':float(abs(np.linalg.norm(w-e)-L2)*1000)}
+  report[side]={'elbow':e.tolist(),'protraction_input_deg':active_protraction,'shoulder_shift_mm':float(np.linalg.norm(s-original_s)*1000),'twist_deg':math.degrees(angle),'palm_held':held,'upper_length_error_mm':float(abs(np.linalg.norm(e-s)-L1)*1000),'lower_length_error_mm':float(abs(np.linalg.norm(w-e)-L2)*1000)}
  out=baseline.astype(float).copy()
  for i in ids:
   pp=posed.copy()

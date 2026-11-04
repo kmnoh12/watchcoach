@@ -5,7 +5,7 @@ import bpy,numpy as np
 from mathutils.bvhtree import BVHTree
 D=Path(__file__).resolve().parent;sys.path.insert(0,str(D))
 from material_contact import triangle_intersects
-parser=argparse.ArgumentParser();parser.add_argument('--upper-frame',choices=['plane','source'],default='plane');parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support']);options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+parser=argparse.ArgumentParser();parser.add_argument('--upper-frame',choices=['plane','source'],default='plane');parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support','guide_protraction']);options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT=D/(options.case or ('guide_source_suite' if options.upper_frame=='source' else 'guide_suite'));manifest=json.loads((OUT/'manifest.json').read_text());base=json.loads((OUT/'base.json').read_text())
 T=np.array(base['triangles']).reshape(-1,3);V=np.array(base['rest']).reshape(-1,3);N=len(V)
 names=base['bone_names'];J=np.array(base['joints']);W=np.array(base['weights'])

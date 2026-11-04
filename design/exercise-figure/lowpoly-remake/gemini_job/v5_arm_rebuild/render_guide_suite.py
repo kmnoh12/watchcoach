@@ -4,7 +4,7 @@ import sys,json,argparse
 import bpy,numpy as np
 from mathutils import Vector,Matrix
 D=Path(__file__).resolve().parent
-parser=argparse.ArgumentParser();parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support'],default='guide_suite');options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+parser=argparse.ArgumentParser();parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support','guide_protraction'],default='guide_suite');options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT=D/options.case;REVIEW=OUT/'review';REVIEW.mkdir(exist_ok=True)
 base=json.loads((OUT/'base.json').read_text());T=np.array(base['triangles']).reshape(-1,3);N=base['vertices'];names=base['bone_names']
 manifest=json.loads((OUT/'manifest.json').read_text());audit=json.loads((OUT/'surface_audit.json').read_text())
