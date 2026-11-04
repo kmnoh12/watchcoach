@@ -12,12 +12,12 @@ class Attribute { constructor(array){this.array=array;} setUsage(){} }
 const tinyBase={vertices:3,rest:[0,0,0,1,0,0,0,1,0],triangles:[0,1,2],bone_names:['pelvis'],joints:[[0,0,0,0],[0,0,0,0],[0,0,0,0]],weights:[[1,0,0,0],[1,0,0,0],[1,0,0,0]]};
 const tinyClip={machine:'bench',acts:[0,.2,1],tris:[0,1,2],frames:[[0,0,0,1,0,0,0,1,0],[0,0,0,1,0,0,0,1.2,0],[0,0,0,1,0,0,0,2,0]]};
 const clone = x => JSON.parse(JSON.stringify(x));
-function harness({review=true,base=tinyBase,clip=tinyClip,meta={id:'bench',acts:[0,.2,1],frames:3},fail=false}={}){
+function harness({review=true,base=tinyBase,clip=tinyClip,meta={id:'bench',acts:[0,.2,1],frames:3},fail=false,directory='v5-guide'}={}){
  const requests=[]; let binaryCalls=0;
  const ctx={console:{warn(){}}, Float32Array, Map, Set, Number, Math,
   THREE:{BufferGeometry:Geometry,BufferAttribute:Attribute,DynamicDrawUsage:1},
-  GUIDE_REVIEW:review,guideManifest:new Map([['bench',meta]]),guideBasePromise:undefined,guideErrors:new Set(),humanCache:{},
-  fetch:async path=>{requests.push(path);if(path==='v5-guide/base.json')return{ok:true,json:async()=>base};if(path==='v5-guide/bench.json')return{ok:!fail,json:async()=>clip};return{ok:true,json:async()=>tinyClip};},
+  GUIDE_REVIEW:review,GUIDE_DIRECTORY:directory,GUIDE_FRONT:directory==='v5-guide-front',guideManifest:new Map([['bench',meta]]),guideBasePromise:undefined,guideErrors:new Set(),humanCache:{},
+  fetch:async path=>{requests.push(path);if(path===directory+'/base.json')return{ok:true,json:async()=>base};if(path===directory+'/bench.json')return{ok:!fail,json:async()=>clip};return{ok:true,json:async()=>tinyClip};},
   fetchHumanBinary:async()=>{binaryCalls++;return {format:'legacy'};}
  };
  vm.createContext(ctx);vm.runInContext(phase+points+'\nglobalThis.api={validatePointCache,pointHuman,fetchGuideBase,fetchGuideHuman,fetchHuman};',ctx);
@@ -29,6 +29,7 @@ test('valid review uses exact source samples and independent geometry storage',a
  r.geom.attributes.position.array[0]=123;assert.equal(r.frames[0][0],0);
  assert.equal(await h.fetchHuman('bench'),r);
 });
+test('front moderation selects only the fixed front-review directory',async()=>{const h=harness({directory:'v5-guide-front'});const r=await h.fetchHuman('bench');assert.equal(r.frontModerated,true);assert.ok(h.requests.includes('v5-guide-front/bench.json'));assert.equal(h.binaryCalls,0);});
 test('default viewer performs no review fetch',async()=>{const h=harness({review:false});assert.equal((await h.fetchHuman('bench')).format,'legacy');assert.equal(h.requests.length,0);});
 test('unlisted exercise stays on existing model',async()=>{const h=harness();assert.equal((await h.fetchHuman('other')).format,'legacy');assert.equal(h.requests.length,0);});
 test('failed review fetch falls back and records visible error state',async()=>{const h=harness({fail:true});assert.equal((await h.fetchHuman('bench')).format,'legacy');assert.equal(h.ctx.guideErrors.has('bench'),true);});

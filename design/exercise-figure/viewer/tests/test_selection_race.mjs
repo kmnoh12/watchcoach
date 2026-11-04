@@ -10,7 +10,7 @@ class Box{constructor(){this.min={x:0};this.max={x:1};}setFromObject(){return th
 class Mesh{constructor(geom){this.geom=geom;}}
 function harness({slowModel=false}={}){
  const slow=deferred(),entered=deferred();let touchedOld=false;
- const ctx={THREE:{Box3:Box,Vector3:V,Mesh,MeshLambertMaterial:class{}},showRequest:0,GUIDE_REVIEW:true,guideErrors:new Set(),cache:{},shown:[],act:0,humanOn:true,
+ const ctx={THREE:{Box3:Box,Vector3:V,Mesh,MeshLambertMaterial:class{}},showRequest:0,GUIDE_REVIEW:true,GUIDE_FRONT:false,guideErrors:new Set(),cache:{},shown:[],act:0,humanOn:true,
  world:{clear(){},add(){}},humanBtn:{classList:{toggle(){}},hidden:true},humanList:new Set(['first','second']),
  modelsEl:{textContent:''},kname:x=>x,baseOf:x=>x,
  document:{getElementById:()=>({style:{}})},setAct(){},setView(){},pose(){},

@@ -153,6 +153,8 @@ let humanList = new Set(), humanOn = true;
 try { humanOn = localStorage.getItem("humanOn") !== "0"; } catch (e) {}
 const humanCache = {};
 const GUIDE_REVIEW = new URLSearchParams(location.search).get("human") === "v5-guide";
+const GUIDE_FRONT = GUIDE_REVIEW && new URLSearchParams(location.search).get("front") === "moderate";
+const GUIDE_DIRECTORY = GUIDE_FRONT ? "v5-guide-front" : "v5-guide";
 let guideManifest = null, guideBasePromise;
 const guideErrors = new Set();
 const BONE_NAMES = ["pelvis", "spine_03", "neck_01"];   // bones the first view reads (see the q-view block below)
@@ -163,7 +165,7 @@ async function loadHumanList() {
   humanList = new Set(lists.flat());
   if (GUIDE_REVIEW) {
     try {
-      const r = await fetch("v5-guide/manifest.json", { cache: "no-store" });
+      const r = await fetch(`${GUIDE_DIRECTORY}/manifest.json`, { cache: "no-store" });
       if (!r.ok) throw Error("guide manifest unavailable");
       const m = await r.json();
       if (!Array.isArray(m.clips) || m.clips.some(c => typeof c.id !== "string" || !Number.isInteger(c.frames) || c.frames < 1)) throw Error("invalid guide manifest");
@@ -272,7 +274,7 @@ function pointHuman(d, base = null) {
 }
 function fetchGuideBase() {
   if (!guideBasePromise) guideBasePromise = (async () => {
-    const r = await fetch("v5-guide/base.json", { cache: "no-store" }); if (!r.ok) throw Error("guide base unavailable");
+    const r = await fetch(`${GUIDE_DIRECTORY}/base.json`, { cache: "no-store" }); if (!r.ok) throw Error("guide base unavailable");
     const d = await r.json();
     validatePointCache({ acts: [0], frames: [d.rest], tris: d.triangles }, d.vertices);
     if (!Array.isArray(d.bone_names) || !d.bone_names.length || !Array.isArray(d.joints) || !Array.isArray(d.weights) || d.joints.length !== d.vertices || d.weights.length !== d.vertices) throw Error("invalid guide skin");
@@ -286,11 +288,11 @@ function fetchGuideBase() {
 }
 async function fetchGuideHuman(machine) {
   const meta = guideManifest && guideManifest.get(machine); if (!meta) return null;
-  const [r, base] = await Promise.all([fetch(`v5-guide/${encodeURIComponent(machine)}.json`, { cache: "no-store" }), fetchGuideBase()]);
+  const [r, base] = await Promise.all([fetch(`${GUIDE_DIRECTORY}/${encodeURIComponent(machine)}.json`, { cache: "no-store" }), fetchGuideBase()]);
   if (!r.ok) throw Error("guide motion unavailable");
   const d = await r.json();
   if (d.machine !== machine || d.frames?.length !== meta.frames || !Array.isArray(meta.acts) || !Array.isArray(d.acts) || d.acts.length !== meta.acts.length || d.acts.some((a,i) => a !== meta.acts[i])) throw Error("guide motion/manifest mismatch");
-  return { ...pointHuman(d, base), reviewGuide: true };
+  return { ...pointHuman(d, base), reviewGuide: true, frontModerated: GUIDE_FRONT };
 }
 async function fetchHuman(machine) {
   if (humanCache[machine]) return humanCache[machine];
@@ -455,7 +457,7 @@ async function show(models, keepCam = false) {
   document.getElementById("empty").style.display = shown.length ? "none" : "flex";
   if (!shown.length && models.length) document.getElementById("empty").textContent = "이 기구는 아직 3D 모델이 없어";
   modelsEl.textContent = loaded.map(kname).join(" + ") + (shown.length ? `  ·  ${shown.reduce((s, m) => s + m.faces, 0)}면` : "");
-  if (GUIDE_REVIEW && shown.length === 1) modelsEl.textContent += shown[0].human?.reviewGuide ? " · V5 동작 확인 중" : guideErrors.has(humanKey) ? " · 검토본 오류, 기존 모델 표시" : " · 기존 모델 표시";
+  if (GUIDE_REVIEW && shown.length === 1) modelsEl.textContent += shown[0].human?.reviewGuide ? (shown[0].human.frontModerated ? " · V5 앞쪽 완화 비교 중" : " · V5 동작 확인 중") : guideErrors.has(humanKey) ? " · 검토본 오류, 기존 모델 표시" : " · 기존 모델 표시";
   if (!keepCam) setView("q");
 }
 
