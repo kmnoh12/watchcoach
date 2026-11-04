@@ -97,3 +97,23 @@ The user clarified: “면끼리 절대겹치지마라 이런게아님 그냥 �
 The assistant acknowledged that the earlier overly strict collision gate displaced the user's actual visual goal. Reuse the useful guide and compare simple FRONT-only moderation in actual repeated viewer playback. Pay particular attention to the front upper-biceps/axilla junction, not rear deltoid. Preserve rest, fingers/grip and general stable silhouette; do not impose additional idealized tissue requirements.
 
 Current orientation/contact candidate improved a near180deg backfold but still leaves a sharp INNER ridge, so it must not be preferred merely because its 65-sample exact new-pair gate passes. `guide_front_axilla/` .5 front-only DQ/LBS candidate is a simpler previously rejected trial worth VISUAL comparison now: 12 mirrored front points only, bench max8.49mm change, no original model/weight edit. Its few new triangle pairs are NOT an automatic failure under the user's corrected criterion.
+
+## Latest: USER-directed chestward reduction about 2cm
+
+The user rejected the visible .5 DQ/LBS view and explicitly requested: “돌출을 한 2센치줄이면어떨까 이두볼륨은 살리되 지금처럼 가슴까지 튀어나온 과장만줄이게”. Acceptance is visual stable replay, not zero face overlap.
+
+Mapped the EXACT live user camera to the displayed mesh using own-app CDP debugger camera/point readout. This identified the visible medial/anterior biceps PEAK as original vertex142 and its mirror. The previous six-point crease blend excluded142, explaining the unchanged visible spike. Captures/projections: `guide_front_axilla/browser_review/current_view.json`, `current_bounds.json`, `front_target_labels.png`.
+
+Implemented `front_biceps_visual.py`, `build_front_visual.py`, `test_front_biceps_visual.py`. Move only the medial/chestward protrusion OUTWARD in the upper-arm cross-plane, not radially toward the bone. Original anterior muscle thickness is retained to <0.5mm at the peak, with rest + deeply bent pose exact. Smooth activation depends on forward arm elevation +elbow extension; Gaussian rest-space falloff centers on142/mirror. Max relief20mm, capped to avoid crossing the arm axis. Actual bench peak20.000008mm; maximum adjacent stored-frame correction change3.50mm. Exactly9 points change across bench:118,138,142,174,178,317,321,353,357. Other862 points exact, including rear shoulder and fingers. Squat unchanged; deadlift max20mm in forward extended posture; curl <=0.20mm; pullup <=0.15mm.
+
+Five NEW narrow tests PASSED: original rest/bent exact, actual visible peak20mm, chestward-only direction with anterior thickness/axial length retained, outside/rear exact, no mutation.26 Node loader/race tests PASSED after adding the FIXED `front=moderate` review-directory branch. Do not rerun old checks without a relevant change.
+
+`guide_front_visual/` is now the source for `publish_guide_suite.py --front`. Current URL is still `http://127.0.0.1:8765/?human=v5-guide&front=moderate`; baseline `?human=v5-guide` and default remain unchanged. Local publisher preflights every clip, source phases and topology, then copies only localhost review data +canonical HTML. No Android production installation /full265 adoption.
+
+Current user's camera was preserved: published static JSON first; then own-app CDP debugger invoked the EXISTING strict `fetchGuideHuman` loader and swapped the current review mesh at phase1. DOM marker `data-visual-review-version=front-chestward-20mm` confirmed refresh. The change persists in disk/HTTP, not merely temporary page memory. Actual same-camera screenshots: `guide_front_axilla/browser_review/before_20mm.png` and `after_20mm.png`.
+
+Native CUA wrapper returns `browser.user is unavailable`; the documented DIRECT API works: `reviewBrowser = await agent.browsers.get("2")`, then `reviewBrowser.tabs.*` and returned tab Playwright/CDP. Current review tab was created with that direct API. Preserve the user's camera; no new Chrome profile/proxy needed.
+
+Local commit224992c5 saves the2cm implementation. A Python stdin encoding error prevented the earlier long checkpoint append; this shell-written note corrects the record. The actual corrective build, five tests, local publish and browser update succeeded before that unrelated documentation error.
+
+Goal remains ACTIVE. The2cm change is a current visual comparison, not proof every pose /all265 exercises are finished. Continue actual replay and major-exercise visuals; do NOT return to rear-shoulder shrink, zero-intersection gating, or broad FEM. The older orientation/contact candidate remains a diagnostic with a visibly sharp INNER ridge, and must not replace the user's desired simple visual correction merely for a better collision count.
