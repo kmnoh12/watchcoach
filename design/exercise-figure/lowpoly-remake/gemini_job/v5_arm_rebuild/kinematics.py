@@ -42,6 +42,44 @@ def two_bone(shoulder,wrist,upper_length,lower_length,pole,previous_pole=None):
     if max(abs(np.linalg.norm(e-s)-L1),abs(np.linalg.norm(w-e)-L2))>2e-8:raise PoseError('IK length invariant failed')
     return e,candidate
 
+def shoulder_arm(attachment,shoulder,wrist,upper_length,lower_length,pole,previous_pole=None):
+    """Reach with a rotating clavicle and two fixed-length arm segments.
+
+    Keep an already feasible shoulder exactly fixed. Otherwise choose its
+    nearest position on the clavicle sphere that permits the arm to reach.
+    This is a geometric candidate, not an anatomical shoulder-limit model.
+    An unreachable three-link chain raises rather than stretching a segment.
+    """
+    c,s,w=_v(attachment),_v(shoulder),_v(wrist)
+    a,b=float(upper_length),float(lower_length)
+    if not np.isfinite([a,b]).all() or min(a,b)<=0:raise PoseError('Invalid bone lengths')
+    clavicle=float(np.linalg.norm(s-c))
+    if clavicle<1e-12:raise PoseError('Zero-length clavicle')
+    low,high=abs(a-b),a+b
+    distance=float(np.linalg.norm(w-s))
+    if low<=distance<=high:
+        e,p=two_bone(s,w,a,b,pole,previous_pole)
+        return s.copy(),e,p
+    radius=high if distance>high else low
+    axis=w-c;d=float(np.linalg.norm(axis));tol=1e-9*max(1.,clavicle+high)
+    if d<tol or d>clavicle+radius+tol or d<abs(clavicle-radius)-tol:
+        raise PoseError('Grip target unreachable at fixed clavicle and arm lengths')
+    axis/=d
+    x=(clavicle*clavicle-radius*radius+d*d)/(2*d)
+    height=math.sqrt(max(0.,clavicle*clavicle-x*x))
+    radial=s-c-axis*((s-c)@axis)
+    if np.linalg.norm(radial)<1e-8:
+        radial=_v(pole).copy();radial-=axis*(radial@axis)
+    if np.linalg.norm(radial)<1e-8 and previous_pole is not None:
+        radial=_v(previous_pole).copy();radial-=axis*(radial@axis)
+    if np.linalg.norm(radial)<1e-8:
+        radial=np.eye(3)[np.argmin(abs(axis))];radial-=axis*(radial@axis)
+    corrected=c+axis*x+normalize(radial)*height
+    if abs(np.linalg.norm(corrected-c)-clavicle)>2e-8:
+        raise PoseError('Clavicle length invariant failed')
+    e,p=two_bone(corrected,w,a,b,pole,previous_pole)
+    return corrected,e,p
+
 def swing(a,b,antiparallel_axis=None):
     """Shortest rotation, with a stable explicit axis at 180 degrees."""
     a,b=normalize(a),normalize(b);c=float(np.clip(a@b,-1,1));v=np.cross(a,b)

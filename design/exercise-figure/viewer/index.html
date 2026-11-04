@@ -152,12 +152,25 @@ let act = 0;
 let humanList = new Set(), humanOn = true;
 try { humanOn = localStorage.getItem("humanOn") !== "0"; } catch (e) {}
 const humanCache = {};
+const GUIDE_REVIEW = new URLSearchParams(location.search).get("human") === "v5-guide";
+let guideManifest = null, guideBasePromise;
+const guideErrors = new Set();
 const BONE_NAMES = ["pelvis", "spine_03", "neck_01"];   // bones the first view reads (see the q-view block below)
 async function loadHumanList() {
   const lists = await Promise.all(["human_bin", "human"].map(async dir => {
     try { const r = await fetch(`${dir}/index.json?t=${Date.now()}`, { cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
   }));
   humanList = new Set(lists.flat());
+  if (GUIDE_REVIEW) {
+    try {
+      const r = await fetch("v5-guide/manifest.json", { cache: "no-store" });
+      if (!r.ok) throw Error("guide manifest unavailable");
+      const m = await r.json();
+      if (!Array.isArray(m.clips) || m.clips.some(c => typeof c.id !== "string" || !Number.isInteger(c.frames) || c.frames < 1)) throw Error("invalid guide manifest");
+      guideManifest = new Map(m.clips.map(c => [c.id, c]));
+      for (const key of guideManifest.keys()) humanList.add(key);
+    } catch (e) { console.warn("guide review unavailable", e); }
+  }
 }
 function halfFloat(h) {
   const s = h & 32768 ? -1 : 1, e = h >> 10 & 31, m = h & 1023;
@@ -240,18 +253,55 @@ async function fetchHumanBinary(machine) {
   g.setAttribute("position", pos); g.setIndex(new THREE.BufferAttribute(base.tris, 1)); h.geom = g;
   return h;
 }
+function validatePointCache(d, expectedVertices = null) {
+  validatePhases(d.acts);
+  if (!Array.isArray(d.frames) || d.frames.length !== d.acts.length || !Array.isArray(d.frames[0]) || !d.frames[0].length || d.frames[0].length % 3) throw Error("invalid human frame count");
+  const stride = d.frames[0].length, vertices = stride / 3;
+  if (expectedVertices !== null && vertices !== expectedVertices) throw Error("human model/clip mismatch");
+  if (!Array.isArray(d.tris) || !d.tris.length || d.tris.length % 3 || d.tris.some(i => !Number.isInteger(i) || i < 0 || i >= vertices)) throw Error("invalid human triangles");
+  for (const f of d.frames) if (!Array.isArray(f) || f.length !== stride || f.some(x => typeof x !== "number" || !Number.isFinite(Math.fround(x)))) throw Error("invalid human positions");
+  return vertices;
+}
+function pointHuman(d, base = null) {
+  validatePointCache(d, base ? base.points.length / 3 : null);
+  if (base && (d.tris.length !== base.tris.length || d.tris.some((v, i) => v !== base.tris[i]))) throw Error("human topology mismatch");
+  const frames = d.frames.map(f => new Float32Array(f));
+  const g = new THREE.BufferGeometry(), pos = new THREE.BufferAttribute(frames[0].slice(), 3); pos.setUsage(THREE.DynamicDrawUsage);
+  g.setAttribute("position", pos); g.setIndex(d.tris);
+  return { acts: d.acts, frames, geom: g, base, fit_ms: d.fit_ms, format: "point-cache" };
+}
+function fetchGuideBase() {
+  if (!guideBasePromise) guideBasePromise = (async () => {
+    const r = await fetch("v5-guide/base.json", { cache: "no-store" }); if (!r.ok) throw Error("guide base unavailable");
+    const d = await r.json();
+    validatePointCache({ acts: [0], frames: [d.rest], tris: d.triangles }, d.vertices);
+    if (!Array.isArray(d.bone_names) || !d.bone_names.length || !Array.isArray(d.joints) || !Array.isArray(d.weights) || d.joints.length !== d.vertices || d.weights.length !== d.vertices) throw Error("invalid guide skin");
+    for (let v = 0; v < d.vertices; v++) {
+      const j = d.joints[v], w = d.weights[v];
+      if (!Array.isArray(j) || !Array.isArray(w) || j.length !== 4 || w.length !== 4 || j.some(x => !Number.isInteger(x) || x < 0 || x >= d.bone_names.length) || w.some(x => !Number.isFinite(x) || x < 0) || Math.abs(w.reduce((a,b) => a+b, 0) - 1) > 1e-4) throw Error("invalid guide skin weights");
+    }
+    return { points: new Float32Array(d.rest), tris: d.triangles, names: d.bone_names, joints: d.joints.flat(), weights: d.weights.flat(), bones: d.bone_names.length };
+  })().catch(e => { guideBasePromise = null; throw e; });
+  return guideBasePromise;
+}
+async function fetchGuideHuman(machine) {
+  const meta = guideManifest && guideManifest.get(machine); if (!meta) return null;
+  const [r, base] = await Promise.all([fetch(`v5-guide/${encodeURIComponent(machine)}.json`, { cache: "no-store" }), fetchGuideBase()]);
+  if (!r.ok) throw Error("guide motion unavailable");
+  const d = await r.json();
+  if (d.machine !== machine || d.frames?.length !== meta.frames || !Array.isArray(meta.acts) || !Array.isArray(d.acts) || d.acts.length !== meta.acts.length || d.acts.some((a,i) => a !== meta.acts[i])) throw Error("guide motion/manifest mismatch");
+  return { ...pointHuman(d, base), reviewGuide: true };
+}
 async function fetchHuman(machine) {
   if (humanCache[machine]) return humanCache[machine];
+  if (GUIDE_REVIEW) {
+    try { const h = await fetchGuideHuman(machine); if (h) return (humanCache[machine] = h); }
+    catch (e) { guideErrors.add(machine); console.warn("guide review fallback", machine, e); }
+  }
   try { const h = await fetchHumanBinary(machine); if (h) return (humanCache[machine] = h); } catch (e) { console.warn("human binary fallback", machine, e); }
   const r = await fetch(`human/${encodeURIComponent(machine)}.json?t=${Date.now()}`); if (!r.ok) return null;
   const d = await r.json();
-  validatePhases(d.acts);
-  if (!Array.isArray(d.frames) || d.frames.length !== d.acts.length) throw Error("invalid human frame count");
-  const g = new THREE.BufferGeometry();
-  const pos = new THREE.BufferAttribute(new Float32Array(d.frames[0]), 3); pos.setUsage(THREE.DynamicDrawUsage);
-  g.setAttribute("position", pos); g.setIndex(d.tris);
-  const frames = d.frames.map(f => new Float32Array(f));
-  return (humanCache[machine] = { acts: d.acts, frames, geom: g, fit_ms: d.fit_ms });
+  return (humanCache[machine] = pointHuman(d));
 }
 function poseHuman(m, a) {
   const h = m.human; if (!h) return;
@@ -374,9 +424,12 @@ function qViewDir(human) {
 
 const humanBtn = document.getElementById("humanBtn");
 humanBtn.onclick = () => { humanOn = !humanOn; try { localStorage.setItem("humanOn", humanOn ? "1" : "0"); } catch (e) {} for (const m of shown) if (m.humanMesh) m.humanMesh.visible = humanOn; humanBtn.classList.toggle("on", humanOn); humanBtn.textContent = humanOn ? "사람 끄기" : "사람 보기"; };
+let showRequest = 0;
 async function show(models, keepCam = false) {
+  const request = ++showRequest;
   const loaded = [];
   for (const n of models) { cache[n] = cache[n] || await fetchModel(n); if (cache[n]) loaded.push(n); }
+  if (request !== showRequest) return;
   world.clear(); shown = [];
   let x = 0;
   loaded.forEach((n, i) => {
@@ -391,6 +444,7 @@ async function show(models, keepCam = false) {
   const humanKey = shown.length === 1 ? (humanList.has(shown[0].name) ? shown[0].name : (shown[0].name.includes("~") ? null : baseOf(shown[0].name))) : null;
   if (humanKey && humanList.has(humanKey)) {
     const h = await fetchHuman(humanKey);
+    if (request !== showRequest) return;
     if (h) {
       const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x5aa9e6, flatShading: true }));
       mesh.frustumCulled = false; mesh.visible = humanOn; shown[0].human = h; shown[0].humanMesh = mesh; shown[0].group.add(mesh);
@@ -401,6 +455,7 @@ async function show(models, keepCam = false) {
   document.getElementById("empty").style.display = shown.length ? "none" : "flex";
   if (!shown.length && models.length) document.getElementById("empty").textContent = "이 기구는 아직 3D 모델이 없어";
   modelsEl.textContent = loaded.map(kname).join(" + ") + (shown.length ? `  ·  ${shown.reduce((s, m) => s + m.faces, 0)}면` : "");
+  if (GUIDE_REVIEW && shown.length === 1) modelsEl.textContent += shown[0].human?.reviewGuide ? " · V5 동작 확인 중" : guideErrors.has(humanKey) ? " · 검토본 오류, 기존 모델 표시" : " · 기존 모델 표시";
   if (!keepCam) setView("q");
 }
 
