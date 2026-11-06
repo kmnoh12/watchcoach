@@ -152,7 +152,6 @@ fun ActiveWorkoutScreen(
     Box(Modifier.fillMaxSize().background(KColors.Bg)) {
         Column(Modifier.fillMaxSize()) {
             TopBar(model, now, actions)
-            LivePanel(liveTitle, liveTelemetry, Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Spacer(Modifier.height(8.dp))
             HorizontalPager(
                 state = pager,
@@ -172,6 +171,8 @@ fun ActiveWorkoutScreen(
                     },
                     keypadOpen = editing != null,
                     animationView = animationView,
+                    liveTitle = liveTitle,
+                    liveTelemetry = liveTelemetry,
                     actions = actions,
                     onOpenEditor = ::openEditor,
                     onRemoveSet = { setIndex ->
@@ -314,6 +315,8 @@ private fun ExercisePage(
     onEditValueChange: (TextFieldValue) -> Unit,
     keypadOpen: Boolean,
     animationView: (Int) -> View,
+    liveTitle: LiveLine,
+    liveTelemetry: LiveLine,
     actions: WorkoutActions,
     onOpenEditor: (EditTarget) -> Unit,
     onRemoveSet: (Int) -> Unit,
@@ -324,11 +327,16 @@ private fun ExercisePage(
     val scroll = rememberScrollState()
     val imageHeight by animateDpAsState(if (keypadOpen) 92.dp else 190.dp, Motion.panel(), label = "image")
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp)) {
-        AndroidView(
-            factory = { animationView(exerciseIndex) },
-            modifier = Modifier.fillMaxWidth().height(imageHeight).clip(KShape.Control),
-            onRelease = ::stopAnimatedImages,
-        )
+        Box(Modifier.fillMaxWidth().height(imageHeight)) {
+            AndroidView(
+                factory = { animationView(exerciseIndex) },
+                modifier = Modifier.fillMaxSize().clip(KShape.Control),
+                onRelease = ::stopAnimatedImages,
+            )
+            if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
+                LivePanel(liveTitle, liveTelemetry, Modifier.align(Alignment.BottomEnd).padding(6.dp))
+            }
+        }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(exercise.name, color = KColors.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))

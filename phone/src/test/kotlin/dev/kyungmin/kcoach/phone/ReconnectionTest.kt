@@ -135,7 +135,7 @@ class ReconnectionTest {
         val workout = MainActivity::class.java.getDeclaredMethod("restoreActiveWorkout").apply { isAccessible = true }.invoke(activity)
         MainActivity::class.java.getDeclaredField("activeWorkout").apply { isAccessible = true }.set(activity, workout)
         val line = dev.kyungmin.kcoach.phone.ui.LiveLine("", "test")
-        MainActivity::class.java.getDeclaredField("activeLiveStatus").apply { isAccessible = true }.set(activity, line)
+        MainActivity::class.java.getDeclaredField("wearLiveStatus").apply { isAccessible = true }.set(activity, line)
         val receive = MainActivity::class.java.getDeclaredMethod("handleLivePayload", String::class.java).apply { isAccessible = true }
         receive.invoke(activity, WearSync.liveState("reconnect-session", "external_rotation", "외회전", 0, 6, 10, 5.0, 100, "WORKING", true))
         assertTrue(line.text.contains("6/10"))

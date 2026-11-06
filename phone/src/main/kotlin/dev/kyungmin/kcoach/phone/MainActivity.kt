@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import dev.kyungmin.kcoach.phone.ui.CalibrationActions
 import dev.kyungmin.kcoach.phone.ui.CalibrationButtonUi
 import dev.kyungmin.kcoach.phone.ui.LiveLine
+import dev.kyungmin.kcoach.phone.ui.LivePanelText
 import dev.kyungmin.kcoach.phone.ui.CalibrationScreen
 import dev.kyungmin.kcoach.phone.ui.CalibrationUi
 import dev.kyungmin.kcoach.phone.ui.ResultSectionUi
@@ -227,6 +228,7 @@ class MainActivity : ComponentActivity() {
     private var lastWearLiveSessionId = ""
     private var lastWearLiveTitle = ""
     private var lastWearLiveTelemetry = ""
+    private var lastWearLiveHeadline = false
     private var detailTransitionRunning = false
     private var workoutComposeView: ComposeView? = null
     private var workoutComposeWorkout: ActiveWorkout? = null
@@ -1651,6 +1653,7 @@ class MainActivity : ComponentActivity() {
             lastWearLiveTitle.isNotBlank() && lastWearLiveTelemetry.isNotBlank()
         val tag = if (cached) WATCH_PANEL_TELEMETRY else WATCH_PANEL_CONNECTION
         val title = LiveLine(if (cached) lastWearLiveTitle else "Watch8 연결 확인 중", tag)
+        title.headline = cached && lastWearLiveHeadline
         val telemetry = LiveLine(if (cached) lastWearLiveTelemetry else "워치 운동 상태 수신 대기 중", tag)
         if (!cached) telemetry.setTextColor(muted)
         activeLiveStatus = telemetry
@@ -2308,31 +2311,20 @@ class MainActivity : ComponentActivity() {
             telemetrySequence = sequence
         }
 
-        val weightText = weight?.let { " · ${cleanWeight(it)}kg" } ?: ""
-        // While resting the watch already points at the next set, so the title carries only the exercise.
-        val firstLine = (if (phase == "RESTING") exerciseName else "$exerciseName · 세트 ${observed.setIndex + 1}") +
-            if (personalizedTracking) " · 개인보정 적용" else ""
-        val secondLine = when (phase) {
-            "POSITIONING" -> "측정 준비 중 · 손목 안정 확인"
-            "PREPARING" -> "손목 안정 확인 · 흔들림 없이 2.5초 유지"
-            "START_DIRECTION_WAITING" -> "준비 손목 방향 확인 · 2초 유지 또는 워치에서 직접 시작"
-            "WORKING_START_CONFIRMED" -> "시작 손목 방향 확인 · ${reps}/${targetReps}회$weightText · ${heartRateText(heartRate)}"
-            "WORKING_START_BYPASSED" -> "직접 시작 · 방향 미확인 · ${reps}/${targetReps}회$weightText · ${heartRateText(heartRate)}"
-            "RESTING" -> "${observed.setIndex}세트 종료 · 다음 세트: ${observed.setIndex + 1}세트$weightText · ${targetReps}회 · ${heartRateText(heartRate)}"
-            "SET_COMPLETE" -> "세트 완료 · ${reps}회$weightText · ${heartRateText(heartRate)}"
-            else -> "${reps}/${targetReps}회$weightText · ${heartRateText(heartRate)}"
-        }
+        val live = LivePanelText.of(phase, reps, targetReps, heartRate)
         lastWearLiveSessionId = sessionId
-        lastWearLiveTitle = firstLine
-        lastWearLiveTelemetry = secondLine
+        lastWearLiveTitle = live.title
+        lastWearLiveTelemetry = live.detail
+        lastWearLiveHeadline = live.headline
         activeLiveStatus?.apply {
-            text = secondLine
+            text = live.detail
             tag = WATCH_PANEL_TELEMETRY
             setTextColor(green)
         }
         restHeartStatus?.text = if (heartRate in 20..240) "워치 심박수  ${heartRate} bpm" else "워치 심박수 측정 대기"
         wearLiveStatus?.apply {
-            text = firstLine
+            text = live.title
+            headline = live.headline
             tag = WATCH_PANEL_TELEMETRY
             setTextColor(green)
         }

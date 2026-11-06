@@ -41,7 +41,8 @@ class ActiveSetRowTest {
         } as WorkoutActions
         compose.setContent {
             val context = LocalContext.current
-            ActiveWorkoutScreen(model, actions, LiveLine("워치 연결됨", "title"), LiveLine("", "telemetry")) { View(context) }
+            val live = LivePanelText.of("WORKING_START_CONFIRMED", 7, 10, 112)
+            ActiveWorkoutScreen(model, actions, LiveLine(live.title, "t").also { it.headline = live.headline }, LiveLine(live.detail, "t")) { View(context) }
         }
         compose.mainClock.advanceTimeBy(600)
         compose.waitForIdle()
