@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -52,6 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -162,6 +165,7 @@ fun ActiveWorkoutScreen(
                     model = model,
                     exerciseIndex = page,
                     editing = editing?.takeIf { it.exerciseIndex == page },
+                    resting = (rest.resting && rest.leftMs > 0) || rest.pausedRest,
                     editValue = editValue,
                     onEditValueChange = { incoming ->
                         push(SetValueEdit.accept(editValue, incoming, decimals = editing?.field == SetField.WEIGHT))
@@ -305,6 +309,7 @@ private fun ExercisePage(
     model: WorkoutUiModel,
     exerciseIndex: Int,
     editing: EditTarget?,
+    resting: Boolean,
     editValue: TextFieldValue,
     onEditValueChange: (TextFieldValue) -> Unit,
     keypadOpen: Boolean,
@@ -372,6 +377,8 @@ private fun ExercisePage(
                         weighted = exercise.weighted,
                         isCurrent = !model.isPreview && (if (model.restingSet != null) model.restingSet == (exerciseIndex to setIndex)
                             else exerciseIndex == model.exerciseIndex && setIndex == exercise.currentSetIndex && !set.completed),
+                        active = !model.isPreview && !resting && model.restingSet == null &&
+                            exerciseIndex == model.exerciseIndex && setIndex == exercise.currentSetIndex && !set.completed,
                         editingField = editing?.takeIf { it.setIndex == setIndex }?.field,
                         editValue = editValue,
                         onEditValueChange = onEditValueChange,
@@ -436,11 +443,14 @@ private fun androidx.compose.foundation.layout.RowScope.HeaderCell(text: String,
     Text(text, color = KColors.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(weight), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
 
+private const val ACTIVE_SET_GROW = 1.5f
+
 @Composable
 private fun SetRow(
     set: SetUi,
     weighted: Boolean,
     isCurrent: Boolean,
+    active: Boolean,
     editingField: SetField?,
     editValue: TextFieldValue,
     onEditValueChange: (TextFieldValue) -> Unit,
@@ -450,19 +460,21 @@ private fun SetRow(
     onCheck: () -> Unit,
     onMore: () -> Unit,
 ) {
-    Box(Modifier.fillMaxWidth().height(46.dp).background(KColors.Bg)) {
+    // The set being worked on swells to 1.5x, and shrinks back as soon as its rest starts.
+    val grow by animateFloatAsState(if (active) ACTIVE_SET_GROW else 1f, Motion.panel(), label = "activeSet")
+    Box(Modifier.fillMaxWidth().height(46.dp * grow).background(KColors.Bg).testTag("setRow-${set.label}")) {
         Row(
             Modifier.fillMaxSize().padding(vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Cell(set.label, Modifier.weight(SetWeights[0]), if (isCurrent) KColors.Sage else KColors.Muted, null, onLabel, sub = set.previous)
-            if (weighted) Cell(set.weightText, Modifier.weight(SetWeights[1]), KColors.White, editingField == SetField.WEIGHT, onWeight, editValue = editValue, onEditValueChange = onEditValueChange)
-            Cell(set.reps?.let { if (set.hold) dev.kyungmin.kcoach.core.HoldExercise.time(it) else it.toString() } ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps, sub = if (set.estimated) "추정" else null, editValue = editValue, onEditValueChange = onEditValueChange)
-            CheckCell(set.completed, half = set.halfDone, modifier = Modifier.weight(SetWeights[3]).padding(horizontal = 4.dp).height(40.dp).clickable { onCheck() }, highlighted = isCurrent)
+            Cell(set.label, Modifier.weight(SetWeights[0]), if (isCurrent) KColors.Sage else KColors.Muted, null, onLabel, sub = set.previous, grow = grow)
+            if (weighted) Cell(set.weightText, Modifier.weight(SetWeights[1]), KColors.White, editingField == SetField.WEIGHT, onWeight, editValue = editValue, onEditValueChange = onEditValueChange, grow = grow)
+            Cell(set.reps?.let { if (set.hold) dev.kyungmin.kcoach.core.HoldExercise.time(it) else it.toString() } ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps, sub = if (set.estimated) "추정" else null, editValue = editValue, onEditValueChange = onEditValueChange, grow = grow)
+            CheckCell(set.completed, half = set.halfDone, modifier = Modifier.weight(SetWeights[3]).padding(horizontal = 4.dp).height(40.dp * grow).clickable { onCheck() }, highlighted = isCurrent, grow = grow)
             Box(Modifier.weight(SetWeights[4]).clickable { onMore() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 18.dp) }
         }
         if (isCurrent) {
-            Box(Modifier.align(Alignment.CenterStart).width(2.dp).height(20.dp)
+            Box(Modifier.align(Alignment.CenterStart).width(2.dp).height(20.dp * grow)
                 .clip(RoundedCornerShape(1.dp)).background(KColors.Sage))
         }
     }
@@ -478,6 +490,7 @@ private fun Cell(
     sub: String? = null,
     editValue: TextFieldValue? = null,
     onEditValueChange: (TextFieldValue) -> Unit = {},
+    grow: Float = 1f,
 ) {
     val fill by animateColorAsState(
         when (editing) {
@@ -489,16 +502,16 @@ private fun Cell(
         label = "cell",
     )
     Box(
-        modifier.padding(horizontal = 4.dp).height(40.dp)
+        modifier.padding(horizontal = 4.dp).height(40.dp * grow)
             .clip(KShape.Control)
             .background(fill)
             .then(if (editing == true) Modifier else Modifier.clickable { onClick() }),
         contentAlignment = Alignment.Center,
     ) {
         if (editing == true && editValue != null) {
-            SetValueField(editValue, onEditValueChange, SetValueLook.Cell)
+            SetValueField(editValue, onEditValueChange, SetValueLook.Cell, fontSize = SetValueLook.Cell.fontSize * grow)
         } else {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.graphicsLayer { scaleX = grow; scaleY = grow }, horizontalAlignment = Alignment.CenterHorizontally) {
                 FlipText(text, 15.sp, color)
                 if (sub != null) Text(sub, color = KColors.Faint, fontSize = 9.sp, maxLines = 1)
             }

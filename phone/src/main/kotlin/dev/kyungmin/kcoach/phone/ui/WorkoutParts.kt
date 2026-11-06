@@ -77,7 +77,7 @@ fun FlipText(
 
 /** Completion box: border/fill fade and a check that draws itself in. */
 @Composable
-fun CheckCell(checked: Boolean, modifier: Modifier = Modifier, highlighted: Boolean = true, half: Boolean = false) {
+fun CheckCell(checked: Boolean, modifier: Modifier = Modifier, highlighted: Boolean = true, half: Boolean = false, grow: Float = 1f) {
     val progress by animateFloatAsState(if (checked || half) 1f else 0f, tween(260, easing = Motion.UiEasing), label = "check")
     val border by animateColorAsState(if (checked && highlighted) KColors.Sage else Color.Transparent, Motion.ui(), label = "checkBorder")
     val checkColor by animateColorAsState(if (highlighted) KColors.Sage else KColors.Soft, Motion.ui(), label = "checkColor")
@@ -88,7 +88,7 @@ fun CheckCell(checked: Boolean, modifier: Modifier = Modifier, highlighted: Bool
             .border(1.5.dp, border, KShape.Control),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.size(18.dp)) {
+        Canvas(Modifier.size(18.dp * grow)) {
             if (progress <= 0f) return@Canvas
             val p1 = Offset(size.width * 0.12f, size.height * 0.55f)
             val p2 = Offset(size.width * 0.42f, size.height * 0.82f)
@@ -103,7 +103,7 @@ fun CheckCell(checked: Boolean, modifier: Modifier = Modifier, highlighted: Bool
                     lineTo(p2.x + (p3.x - p2.x) * b, p2.y + (p3.y - p2.y) * b)
                 }
             }
-            drawPath(path, checkColor, alpha = if (half && !checked) 0.5f else 1f, style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round))
+            drawPath(path, checkColor, alpha = if (half && !checked) 0.5f else 1f, style = Stroke(width = 2.6.dp.toPx() * grow, cap = StrokeCap.Round))
         }
     }
 }

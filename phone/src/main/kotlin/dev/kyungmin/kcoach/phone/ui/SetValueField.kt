@@ -77,6 +77,7 @@ fun SetValueField(
     look: SetValueLook,
     modifier: Modifier = Modifier,
     autoFocus: Boolean = false,
+    fontSize: TextUnit = look.fontSize,
 ) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (autoFocus) focus.requestFocus() }
@@ -87,7 +88,7 @@ fun SetValueField(
                 onValueChange = onValueChange,
                 modifier = modifier.fillMaxWidth().focusRequester(focus),
                 singleLine = true,
-                textStyle = TextStyle(color = look.ink, fontSize = look.fontSize, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                textStyle = TextStyle(color = look.ink, fontSize = fontSize, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
                 cursorBrush = SolidColor(look.ink),
             )
         }
