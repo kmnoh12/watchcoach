@@ -19,7 +19,7 @@ class PreviewClockTest {
         val now = System.currentTimeMillis()
         val model = WorkoutUiModel("어깨전문", preview, paused, now - 33_000, 0, if (paused) now else 0,
             0, listOf(ExerciseUi("external_rotation", "케이블 익스터널 로테이션", "어깨", true,
-                45, 50, 0, 0, 2, 0, emptyList(), 0, 250, null)), false, 0, 0, 0, null)
+                45, 50, 0, 0, 2, 0, emptyList(), 0, 250, null)), 0, 0, 0, null)
         val actions = java.lang.reflect.Proxy.newProxyInstance(WorkoutActions::class.java.classLoader,
             arrayOf(WorkoutActions::class.java)) { proxy, method, args ->
             when (method.name) {

@@ -181,7 +181,7 @@ class PerformedRepsTest {
         MainActivity::class.java.getDeclaredField("activeWorkout").apply { isAccessible = true }.set(activity, active)
         val actions = MainActivity::class.java.getDeclaredField("workoutActions").apply { isAccessible = true }
             .get(activity) as dev.kyungmin.kcoach.phone.ui.WorkoutActions
-        actions.onEditValue(0, 0, dev.kyungmin.kcoach.phone.ui.SetField.REPS, "4", false)
+        actions.onEditValue(0, 0, dev.kyungmin.kcoach.phone.ui.SetField.REPS, "4")
         MainActivity::class.java.getDeclaredMethod("persistActiveWorkout", active.javaClass).apply { isAccessible = true }.invoke(activity, active)
         val saved = SessionStore(app).loadActive().getOrThrow()!!
         assertEquals(10, saved.plannedSets.first().targetReps)

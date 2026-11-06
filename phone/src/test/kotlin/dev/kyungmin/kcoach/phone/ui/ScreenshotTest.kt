@@ -188,7 +188,7 @@ class ScreenshotTest {
             history = HistoryUi("지난번 45×10 · 50×10 · 50×9", 1840, "55kg로 올리기", "모든 작업 세트를 목표 횟수까지 채웠어요", true),
         )
         return WorkoutUiModel(
-            "등·이두", false, false, now - 21 * 60_000L, 0L, 0L, 0, listOf(ex), false,
+            "등·이두", false, false, now - 21 * 60_000L, 0L, 0L, 0, listOf(ex),
             if (resting) now - 20_000L else 0L, if (resting) now + 70_000L else 0L, 0L, "다음 랫풀다운 3세트",
             restingSet = if (resting) 0 to 1 else null,
         )

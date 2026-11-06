@@ -77,7 +77,7 @@ fun ActiveWorkoutScreen(
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EditTarget?>(null) }
     var editValue by remember { mutableStateOf(TextFieldValue()) }
-    var applyAll by remember { mutableStateOf(false) }
+    var lastEdit by remember { mutableStateOf<EditTarget?>(null) }
     var restExpanded by remember { mutableStateOf(false) }
 
     val now by produceState(System.currentTimeMillis(), model.restEndAtMs, model.paused, model.isPreview) {
@@ -113,29 +113,33 @@ fun ActiveWorkoutScreen(
         val exercise = model.exercises.getOrNull(target.exerciseIndex) ?: return
         val set = exercise.sets.getOrNull(target.setIndex) ?: return
         editing = target
+        lastEdit = target
         editValue = SetValueEdit.selectAll(
             if (target.field == SetField.WEIGHT) set.weightText.takeIf { it != "-" }.orEmpty() else set.reps?.toString().orEmpty(),
         )
-    }
-
-    fun fieldsOf(exerciseIndex: Int): List<EditTarget> {
-        val exercise = model.exercises.getOrNull(exerciseIndex) ?: return emptyList()
-        return exercise.sets.indices.flatMap { setIndex ->
-            if (exercise.weighted) listOf(EditTarget(exerciseIndex, setIndex, SetField.WEIGHT), EditTarget(exerciseIndex, setIndex, SetField.REPS))
-            else listOf(EditTarget(exerciseIndex, setIndex, SetField.REPS))
-        }
     }
 
     fun push(value: TextFieldValue) {
         val target = editing ?: return
         val changed = value.text != editValue.text
         editValue = value
-        if (changed) actions.onEditValue(target.exerciseIndex, target.setIndex, target.field, value.text, applyAll)
+        if (changed) actions.onEditValue(target.exerciseIndex, target.setIndex, target.field, value.text)
     }
 
     fun closeEditor() {
         if (editing != null) actions.onEditFinished()
         editing = null
+    }
+
+    // Switching kg and lb rewrites the digits being edited, so the value follows the model.
+    val editedPounds = editing?.let { model.exercises.getOrNull(it.exerciseIndex)?.usePounds }
+    LaunchedEffect(editedPounds) {
+        val target = editing ?: return@LaunchedEffect
+        if (target.field == SetField.WEIGHT) {
+            model.exercises.getOrNull(target.exerciseIndex)?.sets?.getOrNull(target.setIndex)?.let { set ->
+                editValue = SetValueEdit.selectAll(set.weightText.takeIf { it != "-" }.orEmpty())
+            }
+        }
     }
 
     BackHandler(enabled = editing != null || restExpanded) {
@@ -190,52 +194,50 @@ fun ActiveWorkoutScreen(
             if (setClockLeft != null) {
                 SetClockBar(setClockLeft, model.paused, actions::onAdjustSetClock)
             }
-            RestBar(
-                rest = rest,
-                idleSeconds = current?.restSeconds ?: 0,
-                paused = model.paused,
-                onExpand = { closeEditor(); restExpanded = true },
-                onAdjust = actions::onAdjustRest,
-                onTogglePause = actions::onTogglePause,
-                onStop = { if (rest.resting) actions.onSkipRest() else actions.onStop() },
-            )
+            if (editing != null) {
+                RestStrip(rest, current?.restSeconds ?: 0, onExpand = { closeEditor(); restExpanded = true })
+            } else {
+                RestBar(
+                    rest = rest,
+                    idleSeconds = current?.restSeconds ?: 0,
+                    paused = model.paused,
+                    onExpand = { closeEditor(); restExpanded = true },
+                    onAdjust = actions::onAdjustRest,
+                    onTogglePause = actions::onTogglePause,
+                    onStop = { if (rest.resting) actions.onSkipRest() else actions.onStop() },
+                )
+            }
             AnimatedVisibility(
                 visible = editing != null,
                 enter = slideInVertically(Motion.panel()) { it },
                 exit = slideOutVertically(Motion.panel()) { it },
             ) {
-                val target = editing
+                val target = editing ?: lastEdit
+                val exercise = target?.let { model.exercises.getOrNull(it.exerciseIndex) }
+                val set = target?.let { exercise?.sets?.getOrNull(it.setIndex) }
                 WorkoutKeypad(
+                    setName = set?.label?.let { if (it == "W") "웜업" else "${it}세트" }.orEmpty(),
                     field = target?.field ?: SetField.REPS,
-                    seconds = target?.let { model.exercises.getOrNull(it.exerciseIndex)?.hold } == true,
-                    applyAll = applyAll,
-                    usePounds = model.usePounds,
+                    seconds = exercise?.hold == true,
+                    usePounds = exercise?.usePounds == true,
+                    alreadyDone = set?.completed == true,
+                    value = editValue,
+                    onValueChange = { incoming -> push(SetValueEdit.accept(editValue, incoming, decimals = target?.field == SetField.WEIGHT)) },
+                    onRulerPick = { push(SetValueEdit.selectAll(it)) },
                     onDigit = { c -> push(SetValueEdit.type(editValue, c)) },
                     onBackspace = { push(SetValueEdit.backspace(editValue)) },
-                    onDelta = { delta ->
-                        val value = ((editValue.text.toDoubleOrNull() ?: 0.0) + delta).coerceAtLeast(0.0)
-                        push(SetValueEdit.selectAll(if (target?.field == SetField.WEIGHT) cleanNumber(value) else value.toInt().toString()))
-                    },
-                    onPrevious = {
-                        val all = fieldsOf(target?.exerciseIndex ?: model.exerciseIndex)
-                        val i = all.indexOf(target)
-                        if (i > 0) { actions.onEditFinished(); openEditor(all[i - 1]) }
-                    },
-                    onNext = {
-                        val all = fieldsOf(target?.exerciseIndex ?: model.exerciseIndex)
-                        val i = all.indexOf(target)
-                        if (i in 0 until all.lastIndex) { actions.onEditFinished(); openEditor(all[i + 1]) }
-                    },
-                    onDone = {
-                        val t = target
-                        closeEditor()
-                        if (t != null) {
-                            val set = model.exercises.getOrNull(t.exerciseIndex)?.sets?.getOrNull(t.setIndex)
-                            if (set != null && !set.completed) actions.onToggleSet(t.exerciseIndex, t.setIndex)
+                    onUnit = { if (target != null) actions.onToggleUnit(target.exerciseIndex) },
+                    onClose = ::closeEditor,
+                    onGo = {
+                        val t = editing
+                        if (t?.field == SetField.WEIGHT) {
+                            actions.onEditFinished()
+                            openEditor(t.copy(field = SetField.REPS))
+                        } else {
+                            closeEditor()
+                            if (t != null && set != null && !set.completed) actions.onToggleSet(t.exerciseIndex, t.setIndex)
                         }
                     },
-                    onToggleAll = { applyAll = !applyAll },
-                    onToggleUnit = actions::onToggleUnit,
                 )
             }
         }
@@ -340,7 +342,7 @@ private fun ExercisePage(
         }
         if (exercise.volumeTarget > 0) {
             Spacer(Modifier.height(10.dp))
-            VolumeBar(exercise.volumeDone, exercise.volumeTarget, if (model.usePounds) "lb" else "kg", exercise.history?.lastVolume)
+            VolumeBar(exercise.volumeDone, exercise.volumeTarget, if (exercise.usePounds) "lb" else "kg", exercise.history?.lastVolume)
         }
         exercise.history?.let { history ->
             Spacer(Modifier.height(6.dp))
@@ -351,7 +353,7 @@ private fun ExercisePage(
             }
         }
         Spacer(Modifier.height(12.dp))
-        SetHeader(exercise.weighted, model.usePounds, exercise.hold)
+        SetHeader(exercise.weighted, exercise.usePounds, exercise.hold)
         exercise.sets.forEachIndexed { setIndex, set ->
             androidx.compose.runtime.key(set.uid) {
                 val requester = remember { BringIntoViewRequester() }
@@ -494,7 +496,7 @@ private fun Cell(
         contentAlignment = Alignment.Center,
     ) {
         if (editing == true && editValue != null) {
-            SetValueField(editValue, onEditValueChange)
+            SetValueField(editValue, onEditValueChange, SetValueLook.Cell)
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 FlipText(text, 15.sp, color)

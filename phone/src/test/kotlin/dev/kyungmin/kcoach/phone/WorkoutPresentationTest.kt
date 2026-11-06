@@ -46,7 +46,7 @@ class WorkoutPresentationTest {
         try {
             val actions = MainActivity::class.java.getDeclaredField("workoutActions").apply { isAccessible = true }
                 .get(activity.get()) as WorkoutActions
-            actions.onEditValue(0, 0, SetField.WEIGHT, "7.5", false)
+            actions.onEditValue(0, 0, SetField.WEIGHT, "7.5")
             actions.onEditFinished()
             val saved = SessionStore(app).loadActive().getOrThrow()!!.plannedSets.single()
             assertEquals(7.5, saved.weightKg!!, 0.0)
@@ -164,10 +164,10 @@ class WorkoutPresentationTest {
                 assertEquals(before.pausedRestRemainingMs, model.pausedRestRemainingMs)
             }
             actions.onPageSettled(0)
-            actions.onEditValue(0, 0, SetField.REPS, "8", false)
+            actions.onEditValue(0, 0, SetField.REPS, "8")
             actions.onEditFinished()
             actions.onPageSettled(1)
-            actions.onEditValue(1, 0, SetField.WEIGHT, "12.5", false)
+            actions.onEditValue(1, 0, SetField.WEIGHT, "12.5")
             actions.onEditFinished()
             val edited = SessionStore(app).loadActive().getOrThrow()!!
             assertEquals(12.5, edited.plannedSets.last().weightKg!!, 0.0)
@@ -177,6 +177,16 @@ class WorkoutPresentationTest {
             assertEquals(before.pausedRestRemainingMs, edited.pausedRestRemainingMs)
             assertEquals(0, edited.exerciseIndex)
             assertEquals(pending, PhoneCommandOutbox(app).pending())
+            actions.onToggleUnit(1)
+            val inPounds = build.invoke(instance, workout) as dev.kyungmin.kcoach.phone.ui.WorkoutUiModel
+            assertEquals("Only the chosen exercise switches", listOf(false, true), inPounds.exercises.take(2).map { it.usePounds })
+            assertEquals("27.6", inPounds.exercises[1].sets[0].weightText)
+            actions.onEditValue(1, 0, SetField.WEIGHT, "110")
+            actions.onEditFinished()
+            assertEquals("Storage stays in kilograms", 49.9, SessionStore(app).loadActive().getOrThrow()!!.plannedSets.last().weightKg!!, 0.01)
+            actions.onToggleUnit(1)
+            actions.onEditValue(1, 0, SetField.WEIGHT, "12.5")
+            actions.onEditFinished()
             if (pause) actions.onTogglePause()
             actions.onSkipRest()
             val started = SessionStore(app).loadActive().getOrThrow()!!

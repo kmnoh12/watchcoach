@@ -33,7 +33,7 @@ class WorkoutSetHighlightTest {
         )
         val model = WorkoutUiModel("팔 루틴", preview, false, now, 0, 0, 0,
             listOf(ExerciseUi("dumbbell_curl", "덤벨 컬", "이두", true, 60, 16, 0,
-                if (preview) 0 else 1, 2, if (preview) 0 else 1, sets, 0, 160, null)), false,
+                if (preview) 0 else 1, 2, if (preview) 0 else 1, sets, 0, 160, null)),
             if (resting) now else 0, if (resting) now + 60_000 else 0, 0, null,
             restingSet = if (resting) 0 to 0 else null)
         val actions = java.lang.reflect.Proxy.newProxyInstance(WorkoutActions::class.java.classLoader,

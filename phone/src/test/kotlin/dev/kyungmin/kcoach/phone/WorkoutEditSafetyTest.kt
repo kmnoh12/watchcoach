@@ -47,7 +47,7 @@ class WorkoutEditSafetyTest {
         val activity = controller.get()
         try {
             for (value in listOf("-1", "NaN", "Infinity", "-Infinity", "1e999", "bad")) {
-                actions(activity).onEditValue(0, 0, SetField.WEIGHT, value, true)
+                actions(activity).onEditValue(0, 0, SetField.WEIGHT, value)
                 actions(activity).onEditFinished()
                 assertEquals(20.0, routine(activity).exercises[0].sets[0].weightKg!!, 0.0)
                 // The save after an edit may fill blank display metadata with defaults; the sets themselves must not change.
@@ -63,8 +63,8 @@ class WorkoutEditSafetyTest {
         val controller = Robolectric.buildActivity(MainActivity::class.java).create()
         val activity = controller.get()
         try {
-            actions(activity).onEditValue(0, 0, SetField.WEIGHT, "25", false)
-            actions(activity).onEditValue(0, 0, SetField.REPS, "12", false)
+            actions(activity).onEditValue(0, 0, SetField.WEIGHT, "25")
+            actions(activity).onEditValue(0, 0, SetField.REPS, "12")
             // Simulate a service commit between Activity observation and save.
             val service = SessionStore(app)
             val current = service.loadActive().getOrThrow()!!
@@ -97,7 +97,7 @@ class WorkoutEditSafetyTest {
         val controller = Robolectric.buildActivity(MainActivity::class.java).create()
         val activity = controller.get()
         try {
-            actions(activity).onEditValue(0, 0, SetField.WEIGHT, "25", false)
+            actions(activity).onEditValue(0, 0, SetField.WEIGHT, "25")
             routine(activity).exercises[0].sets[0].weightKg = Double.POSITIVE_INFINITY
             actions(activity).onEditFinished()
             assertEquals(20.0, routine(activity).exercises[0].sets[0].weightKg!!, 0.0)

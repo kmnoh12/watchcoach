@@ -52,6 +52,23 @@ data class RestClock(val resting: Boolean, val pausedRest: Boolean, val leftMs: 
 }
 
 /** Collapsed rest bar pinned above the keypad / bottom edge. Drag the handle up to expand. */
+/** While the keypad is open the rest panel gives its height to the digits and stays a single line. */
+@Composable
+fun RestStrip(rest: RestClock, idleSeconds: Int, onExpand: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(KColors.Surface).clickable { onExpand() }.padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("휴식", color = KColors.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text(
+            "${if (rest.resting || rest.pausedRest) rest.leftSeconds else idleSeconds}초",
+            color = if (rest.resting) KColors.Sage else KColors.Soft,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
 @Composable
 fun RestBar(
     rest: RestClock,

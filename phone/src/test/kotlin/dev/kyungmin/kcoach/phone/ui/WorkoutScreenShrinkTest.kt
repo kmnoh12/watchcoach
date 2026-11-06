@@ -24,7 +24,7 @@ class WorkoutScreenShrinkTest {
     )
     private fun model(names: List<Pair<String, String>>) = WorkoutUiModel(
         "테스트", false, false, 0L, 0L, 0L, 0,
-        names.map { exercise(it.first, it.second) }, false, 0L, 0L, 0L, null,
+        names.map { exercise(it.first, it.second) }, 0L, 0L, 0L, null,
     )
     private val actions = java.lang.reflect.Proxy.newProxyInstance(WorkoutActions::class.java.classLoader,
         arrayOf(WorkoutActions::class.java)) { proxy, method, args ->

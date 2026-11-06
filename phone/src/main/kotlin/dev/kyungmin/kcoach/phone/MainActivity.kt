@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
         var paused: Boolean = false,
         var pausedSinceMs: Long = 0L,
         var totalPausedMs: Long = 0L,
-        var usePounds: Boolean = false,
+        val poundExercises: MutableSet<String> = mutableSetOf(),
         var selectedEditSetIndex: Int = 0,
         var scrollY: Int = 0,
         val setIndexByExercise: MutableMap<String, Int> = mutableMapOf(),
@@ -196,7 +196,10 @@ class MainActivity : ComponentActivity() {
         var lastSequence: Long = 0L,
         var lastCompletedSetKey: String? = null,
         val captureStates: MutableMap<String, CaptureState> = mutableMapOf(),
-    )
+    ) {
+        /** Results and records carry one unit, so any exercise in pounds shows them in pounds. */
+        val usePounds: Boolean get() = poundExercises.isNotEmpty()
+    }
 
     private val bg = Color.rgb(0, 0, 0)
     private val surface = Color.rgb(14, 14, 13)
@@ -1658,7 +1661,13 @@ class MainActivity : ComponentActivity() {
     private fun effectiveRestSeconds(routineExercise: RoutineExercise, setIndex: Int): Int =
         routineExercise.sets.getOrNull(setIndex)?.restSeconds ?: routineExercise.restSeconds
 
-    private fun volumeUnit(workout: ActiveWorkout) = if (workout.usePounds) 2.20462 else 1.0
+    private fun usesPounds(workout: ActiveWorkout, exerciseId: String) = exerciseId in workout.poundExercises
+
+    private fun toggleExerciseUnit(workout: ActiveWorkout, exerciseId: String) {
+        if (!workout.poundExercises.remove(exerciseId)) workout.poundExercises += exerciseId
+    }
+
+    private fun volumeUnit(workout: ActiveWorkout, exerciseId: String) = if (usesPounds(workout, exerciseId)) 2.20462 else 1.0
 
     /** Remembers what was really done today, so the next session can compare and build on it. */
     private var newRecords = mutableListOf<RecordUi>()
@@ -1785,9 +1794,9 @@ class MainActivity : ComponentActivity() {
         val performed = last.sets.filter { it.completed && it.repsEntered }
         if (performed.isEmpty()) return null
         val lastLine = "지난번 " + performed.take(4).joinToString(" · ") { set ->
-            if (set.durationSeconds != null) (set.weightKg?.let { "${formatActiveWeight(it, workout.usePounds)}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(set.durationSeconds))) else if (set.weightKg == null) "${set.reps}회" else "${formatActiveWeight(set.weightKg, workout.usePounds)}×${set.reps}"
+            if (set.durationSeconds != null) (set.weightKg?.let { "${formatActiveWeight(it, usesPounds(workout, item.exercise.id))}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(set.durationSeconds))) else if (set.weightKg == null) "${set.reps}회" else "${formatActiveWeight(set.weightKg, workout.usePounds)}×${set.reps}"
         } + if (performed.size > 4) " …" else ""
-        return HistoryUi(lastLine, (last.volumeKg * volumeUnit(workout)).toInt(), null, null, false)
+        return HistoryUi(lastLine, (last.volumeKg * volumeUnit(workout, item.exercise.id)).toInt(), null, null, false)
     }
 
     /** Replaces the not-yet-started sets of an exercise with what was done last time. */
@@ -1804,7 +1813,7 @@ class MainActivity : ComponentActivity() {
         val nextText = next?.takeIf { it.exerciseId.isNotEmpty() }?.let { target ->
             val exercise = workout.routine.exercises.getOrNull(target.exerciseIndex)
             val setLabel = exercise?.sets?.workSetLabel(target.setIndex)?.let { if (it == "W") "웜업" else "${it}세트" }.orEmpty()
-            val weight = target.weightKg?.let { "${formatActiveWeight(it, workout.usePounds)}${if (workout.usePounds) "lb" else "kg"} × " }.orEmpty()
+            val weight = target.weightKg?.let { "${formatActiveWeight(it, usesPounds(workout, target.exerciseId))}${if (usesPounds(workout, target.exerciseId)) "lb" else "kg"} × " }.orEmpty()
             "다음: ${target.exerciseName} $setLabel · $weight${if (target.exerciseKind == ExerciseKind.HOLD) HoldExercise.time(target.targetDurationSeconds ?: 30) else "${target.targetReps}회"}"
         }
         val clockNow = System.currentTimeMillis()
@@ -1818,7 +1827,6 @@ class MainActivity : ComponentActivity() {
             totalPausedMs = workout.totalPausedMs,
             pausedSinceMs = workout.pausedSinceMs,
             exerciseIndex = workout.restingPageIndex ?: workout.exerciseIndex,
-            usePounds = workout.usePounds,
             swipeDelete = SwipeDeleteSetting.isEnabled(this),
             setClockEndAtMs = clockRemaining?.takeIf { clockSnapshot?.paused == false }?.plus(clockNow),
             pausedSetClockMs = clockRemaining?.takeIf { clockSnapshot?.paused == true },
@@ -1848,19 +1856,20 @@ class MainActivity : ComponentActivity() {
                     weighted = routineExercise.exercise.equipment != "맨몸",
                     restSeconds = routineExercise.restSeconds,
                     hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
+                    usePounds = usesPounds(workout, routineExercise.exercise.id),
                     targetReps = routineExercise.sets.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.targetDurationSeconds ?: 30 else it.targetReps },
                     performedReps = routineExercise.sets.filter { it.completed }.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.durationSeconds ?: 0 else it.performedReps ?: 0 },
                     completedWorkSets = routineExercise.sets.completedWorkSetCount(),
                     workSetCount = routineExercise.sets.workSetCount(),
                     currentSetIndex = currentSet,
-                    volumeDone = (routineExercise.sets.filter { it.completed }.sumOf { (it.weightKg ?: 0.0) * (it.performedReps ?: 0) } * volumeUnit(workout)).toInt(),
-                    volumeTarget = if (routineExercise.exercise.kind == ExerciseKind.HOLD) 0 else (routineExercise.sets.sumOf { (it.weightKg ?: 0.0) * it.targetReps } * volumeUnit(workout)).toInt(),
+                    volumeDone = (routineExercise.sets.filter { it.completed }.sumOf { (it.weightKg ?: 0.0) * (it.performedReps ?: 0) } * volumeUnit(workout, routineExercise.exercise.id)).toInt(),
+                    volumeTarget = if (routineExercise.exercise.kind == ExerciseKind.HOLD) 0 else (routineExercise.sets.sumOf { (it.weightKg ?: 0.0) * it.targetReps } * volumeUnit(workout, routineExercise.exercise.id)).toInt(),
                     history = historyUi(routineExercise, workout),
                     sets = routineExercise.sets.mapIndexed { setIndex, set ->
                         SetUi(
                             uid = System.identityHashCode(set),
                             label = routineExercise.sets.workSetLabel(setIndex),
-                            weightText = formatActiveWeight(set.weightKg, workout.usePounds),
+                            weightText = formatActiveWeight(set.weightKg, usesPounds(workout, routineExercise.exercise.id)),
                             hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
                             reps = if (routineExercise.exercise.kind == ExerciseKind.HOLD) { if (set.completed) set.durationSeconds else set.targetDurationSeconds ?: 30 } else if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
@@ -1876,7 +1885,7 @@ class MainActivity : ComponentActivity() {
                                 ?.let { SetInsight.describe(it.tempoConsistency, it.lateDrift) },
                             previous = history.last(routineExercise.exercise.id)?.sets?.getOrNull(setIndex)?.let { last ->
                                 val weight = last.weightKg
-                                if (last.durationSeconds != null) (weight?.let { "${formatActiveWeight(it, workout.usePounds)}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(last.durationSeconds))) else if (weight == null) "${last.reps}회" else "${formatActiveWeight(weight, workout.usePounds)}×${last.reps}"
+                                if (last.durationSeconds != null) (weight?.let { "${formatActiveWeight(it, usesPounds(workout, routineExercise.exercise.id))}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(last.durationSeconds))) else if (weight == null) "${last.reps}회" else "${formatActiveWeight(weight, usesPounds(workout, routineExercise.exercise.id))}×${last.reps}"
                             },
                         )
                     },
@@ -2010,11 +2019,10 @@ class MainActivity : ComponentActivity() {
             if (exerciseIndex != (workout.restingPageIndex ?: workout.exerciseIndex)) showWorkoutExercise(workout, exerciseIndex)
         }
 
-        override fun onEditValue(exerciseIndex: Int, setIndex: Int, field: SetField, value: String, applyAll: Boolean) {
+        override fun onEditValue(exerciseIndex: Int, setIndex: Int, field: SetField, value: String) {
             val workout = workout() ?: return
             val routineExercise = exercise(exerciseIndex) ?: return
-            val targets = if (applyAll) routineExercise.sets.filter { !it.completed } + listOfNotNull(routineExercise.sets.getOrNull(setIndex))
-            else listOfNotNull(routineExercise.sets.getOrNull(setIndex))
+            val targets = listOfNotNull(routineExercise.sets.getOrNull(setIndex))
             val weight = if (field == SetField.WEIGHT) {
                 val parsed = if (value.isBlank()) 0.0 else value.toDoubleOrNull()
                 if (parsed == null || !parsed.isFinite() || parsed < 0.0) {
@@ -2022,10 +2030,10 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this@MainActivity, "무게는 0 이상의 유한한 숫자로 입력해주세요", Toast.LENGTH_SHORT).show()
                     return
                 }
-                if (workout.usePounds) parsed / 2.20462 else parsed
+                if (usesPounds(workout, routineExercise.exercise.id)) parsed / 2.20462 else parsed
             } else null
             beginWorkoutEdit(workout)
-            targets.distinct().forEach { set ->
+            targets.forEach { set ->
                 when (field) {
                     SetField.WEIGHT -> {
                         set.weightKg = weight
@@ -2261,9 +2269,10 @@ class MainActivity : ComponentActivity() {
             if (activeWorkout != null) confirmStopWorkout()
         }
 
-        override fun onToggleUnit() {
+        override fun onToggleUnit(exerciseIndex: Int) {
             val workout = workout() ?: return
-            workout.usePounds = !workout.usePounds
+            val routineExercise = exercise(exerciseIndex) ?: return
+            toggleExerciseUnit(workout, routineExercise.exercise.id)
             bumpWorkoutUi()
         }
     }
@@ -2520,8 +2529,8 @@ class MainActivity : ComponentActivity() {
             SheetOptions(
                 routineExercise.exercise.name,
                 listOf(
-                    SheetItem(KIcon.Sliders, if (workout.usePounds) "킬로그램으로 단위 변경" else "파운드로 단위 변경") {
-                        workout.usePounds = !workout.usePounds
+                    SheetItem(KIcon.Sliders, if (usesPounds(workout, routineExercise.exercise.id)) "킬로그램으로 단위 변경" else "파운드로 단위 변경") {
+                        toggleExerciseUnit(workout, routineExercise.exercise.id)
                         dismiss()
                         showActiveWorkout()
                     },

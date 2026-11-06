@@ -10,7 +10,6 @@ data class WorkoutUiModel(
     val pausedSinceMs: Long,
     val exerciseIndex: Int,
     val exercises: List<ExerciseUi>,
-    val usePounds: Boolean,
     val restStartAtMs: Long,
     val restEndAtMs: Long,
     val pausedRestRemainingMs: Long,
@@ -44,6 +43,8 @@ data class ExerciseUi(
     val volumeTarget: Int,
     val history: HistoryUi?,
     val hold: Boolean = false,
+    /** This exercise shows and takes weights in pounds; storage stays in kilograms. */
+    val usePounds: Boolean = false,
 )
 
 /** What last time looked like and what to try next, for one exercise. */
@@ -83,7 +84,7 @@ interface WorkoutActions {
     fun onMenu()
     fun onExerciseInfo(exerciseIndex: Int)
     fun onPageSettled(exerciseIndex: Int)
-    fun onEditValue(exerciseIndex: Int, setIndex: Int, field: SetField, value: String, applyAll: Boolean)
+    fun onEditValue(exerciseIndex: Int, setIndex: Int, field: SetField, value: String)
     fun onEditFinished()
     fun onToggleSet(exerciseIndex: Int, setIndex: Int)
     fun onFinishWatchSideOnly(exerciseIndex: Int, setIndex: Int) {}
@@ -99,6 +100,6 @@ interface WorkoutActions {
     fun onSkipRest()
     fun onTogglePause()
     fun onStop()
-    fun onToggleUnit()
+    fun onToggleUnit(exerciseIndex: Int)
     fun onApplySuggestion(exerciseIndex: Int)
 }

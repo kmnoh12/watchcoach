@@ -8,6 +8,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -53,6 +54,27 @@ class SetValueFieldTest {
     }
 
     @Test
+    fun weightDialStopsOnWholeNumbersAndTheTwoAndAHalfMarks() {
+        assertEquals(52f, SetValueDial.snap(52.1f, weight = true), 0f)
+        assertEquals(52.5f, SetValueDial.snap(52.4f, weight = true), 0f)
+        assertEquals(57.5f, SetValueDial.snap(57.6f, weight = true), 0f)
+        assertEquals(53f, SetValueDial.snap(53.4f, weight = true), 0f)
+        assertEquals(0f, SetValueDial.snap(-0.4f, weight = true), 0f)
+    }
+
+    @Test
+    fun repsDialOnlyStopsOnWholeNumbers() {
+        assertEquals(53f, SetValueDial.snap(52.6f, weight = false), 0f)
+        assertEquals(52f, SetValueDial.snap(52.4f, weight = false), 0f)
+    }
+
+    @Test
+    fun numberRowTapsPickTheNearestFive() {
+        assertEquals(55f, SetValueDial.nearestFive(53.1f), 0f)
+        assertEquals(0f, SetValueDial.nearestFive(-3f), 0f)
+    }
+
+    @Test
     fun systemEditsOnlyLandWhenTheyAreNumbers() {
         val current = at("55", 2)
         assertEquals(at("55", 1), SetValueEdit.accept(current, at("55", 1), decimals = true))
@@ -68,7 +90,7 @@ class SetValueFieldTest {
         val now = System.currentTimeMillis()
         val sets = listOf(SetUi(1, "1", "55", 8, false, false, "", 60, false))
         val model = WorkoutUiModel("팔 루틴", false, false, now, 0, 0, 0,
-            listOf(ExerciseUi("dumbbell_curl", "덤벨 컬", "이두", true, 60, 16, 0, 0, 1, 0, sets, 0, 160, null)), false,
+            listOf(ExerciseUi("dumbbell_curl", "덤벨 컬", "이두", true, 60, 16, 0, 0, 1, 0, sets, 0, 160, null)),
             0, 0, 0, null)
         val actions = java.lang.reflect.Proxy.newProxyInstance(WorkoutActions::class.java.classLoader,
             arrayOf(WorkoutActions::class.java)) { proxy, method, args ->
@@ -91,17 +113,29 @@ class SetValueFieldTest {
         compose.mainClock.advanceTimeBy(600)
         compose.waitForIdle()
 
-        val field = compose.onNode(hasSetTextAction())
-        field.assertIsFocused()
-        assertEquals(TextRange(0, 2), field.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange])
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/set_value_selected.png")
+        val hero = compose.onNodeWithTag("setValueHero")
+        hero.assertIsFocused()
+        assertEquals(TextRange(0, 2), hero.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange])
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/keypad_selected.png")
 
-        field.performTextInputSelection(TextRange(1))
+        hero.performTextInputSelection(TextRange(1))
         compose.waitForIdle()
-        compose.onRoot().captureRoboImage("build/outputs/roborazzi/set_value_caret.png")
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/keypad_caret.png")
 
         compose.onNodeWithText("7").performClick()
         compose.waitForIdle()
         assertEquals(listOf("575"), edits)
+
+        // A tap on the number row lands on the printed 5 under the finger.
+        compose.onNodeWithTag("setValueRuler").performTouchInput { click(androidx.compose.ui.geometry.Offset(centerX + 90f, bottom - 5f)) }
+        compose.mainClock.advanceTimeBy(400)
+        compose.waitForIdle()
+        assertTrue(edits.last().toFloat() % 5f == 0f)
+
+        compose.onNodeWithText("다음 · 횟수").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        compose.onNodeWithText("1세트 완료").assertExists()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/keypad_reps.png")
     }
 }

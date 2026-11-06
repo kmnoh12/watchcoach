@@ -12,6 +12,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.text.TextRange
@@ -19,6 +20,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.awaitCancellation
 
@@ -55,10 +57,13 @@ object SetValueEdit {
     }
 }
 
-private val SetValueSelection = TextSelectionColors(
-    handleColor = KColors.White,
-    backgroundColor = KColors.OnAccent.copy(alpha = 0.24f),
-)
+val HeroFontSize = 46.sp
+
+/** The field sits on the sage cell or straight on black, so each place needs its own ink. */
+enum class SetValueLook(val ink: Color, val fontSize: TextUnit, val selection: TextSelectionColors) {
+    Cell(KColors.OnAccent, 18.sp, TextSelectionColors(handleColor = KColors.Bone, backgroundColor = KColors.OnAccent.copy(alpha = 0.24f))),
+    Hero(KColors.Sage, HeroFontSize, TextSelectionColors(handleColor = KColors.Sage, backgroundColor = KColors.Sage.copy(alpha = 0.35f))),
+}
 
 /**
  * The stock Android text field, so selection, caret and handles are the system's own.
@@ -66,18 +71,24 @@ private val SetValueSelection = TextSelectionColors(
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun SetValueField(value: TextFieldValue, onValueChange: (TextFieldValue) -> Unit, modifier: Modifier = Modifier) {
+fun SetValueField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    look: SetValueLook,
+    modifier: Modifier = Modifier,
+    autoFocus: Boolean = false,
+) {
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    CompositionLocalProvider(LocalTextSelectionColors provides SetValueSelection) {
+    LaunchedEffect(Unit) { if (autoFocus) focus.requestFocus() }
+    CompositionLocalProvider(LocalTextSelectionColors provides look.selection) {
         InterceptPlatformTextInput(interceptor = { _, _ -> awaitCancellation() }) {
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = modifier.fillMaxWidth().focusRequester(focus),
                 singleLine = true,
-                textStyle = TextStyle(color = KColors.OnAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
-                cursorBrush = SolidColor(KColors.OnAccent),
+                textStyle = TextStyle(color = look.ink, fontSize = look.fontSize, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                cursorBrush = SolidColor(look.ink),
             )
         }
     }
