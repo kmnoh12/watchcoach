@@ -301,12 +301,15 @@ class WearWorkoutService : Service(), SensorEventListener {
     private val pendingCaptureRetry = Runnable { retryPendingCaptures() }
 
     private var startupFailed = false
+    // Newest start request this instance has seen; stops are only valid against it.
+    private var lastStartId = 0
     override fun onCreate() {
         super.onCreate()
         try { createRuntime() } catch (error: RuntimeException) {
             startupFailed = true
             LocalExitDiagnostics.event("service-start-failed", sessionId, currentPhase(), lastCaptureTimestampNs, error)
-            stopSelf() // Never claim a healthy owner after an FGS/permission/sensor startup failure.
+            // Never claim a healthy owner after an FGS/permission/sensor startup failure. onCreate has no startId
+            // and a bare stopSelf() here would drop the queued foreground start, so onStartCommand does the stop.
         }
     }
     private fun createRuntime() {
@@ -320,15 +323,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         // Generic Wear emulators intentionally run the fake telemetry lane
         // without BODY_SENSORS/ACTIVITY_RECOGNITION, so use the manifest-declared
         // dataSync type only on that lane. Physical watches stay on health FGS.
-        if (isEmulator && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                buildNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, buildNotification())
-        }
+        enterForeground()
         if (isEmulator) emulatorBridge.start()
         restoreRuntime()
         retryDataCleanup()
@@ -341,8 +336,29 @@ class WearWorkoutService : Service(), SensorEventListener {
         replayWorkoutControls()
     }
 
+    private fun enterForeground() {
+        if (isEmulator && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                buildNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (startupFailed) return START_NOT_STICKY
+        // A foreground request can reach this same instance after an idle stop but before onDestroy, so onCreate
+        // alone cannot answer it. Android kills the app when any such request goes unanswered.
+        lastStartId = startId
+        try { enterForeground() } catch (error: RuntimeException) {
+            LocalExitDiagnostics.event("fgs-promote-refused", sessionId, currentPhase(), lastCaptureTimestampNs, error)
+        }
+        if (startupFailed) {
+            stopRuntimeService(startId)
+            return START_NOT_STICKY
+        }
         return try { handleStartCommand(intent, flags, startId) }
         catch (error: Exception) {
             LocalExitDiagnostics.event("command-deferred", sessionId, currentPhase(), lastCaptureTimestampNs, error)
@@ -2445,18 +2461,19 @@ class WearWorkoutService : Service(), SensorEventListener {
     }
 
     /** Sensors and foreground notification are removed once the session is over. */
-    private fun stopRuntimeService(startId: Int = 0) {
+    private fun stopRuntimeService(startId: Int = lastStartId) {
+        // Stop first: if Android already queued a newer start, this is refused and foreground must stay up for it.
+        if (startId <= 0 || startId != lastStartId || !stopSelfResult(startId)) return
         stopRestTicker()
         phoneWatchdog?.let(handler::removeCallbacks)
         phoneWatchdog = null
-        sensorManager.unregisterListener(this)
+        if (::sensorManager.isInitialized) sensorManager.unregisterListener(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
-        if (startId > 0) stopSelfResult(startId) else stopSelf()
     }
 
     private fun broadcastState(force: Boolean = false) {
