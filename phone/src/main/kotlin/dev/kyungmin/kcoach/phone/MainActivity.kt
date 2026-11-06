@@ -1400,9 +1400,9 @@ class MainActivity : ComponentActivity() {
                 activeLiveStatus?.text = "워치 앱 준비 완료 · 운동 시작"
             } else {
                 pendingWatchStartPayload = startPayload
-                activeLiveStatus?.text = "워치 연결 중 · 워치 앱을 열어 주세요"
+                activeLiveStatus?.text = "워치 앱을 열어 주세요"
                 wearLiveStatus?.apply {
-                    text = "워치 연결 중 · 워치 앱을 열어 주세요"
+                    text = "워치 연결 중"
                     setTextColor(amber)
                 }
                 syncWorkingSet(workout)

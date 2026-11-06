@@ -19,7 +19,7 @@ class LivePanelTextTest {
     }
 
     @Test fun preparationIsGuidanceWithoutAHeart() {
-        assertEquals(LivePanelText("측정 준비 중", "", "흔들림 없이 2.5초 유지", 0), LivePanelText.of("PREPARING", 0, 10, 98))
+        assertEquals(LivePanelText("측정 준비 중", "", "흔들림 없이 1.2초 유지", 0), LivePanelText.of("PREPARING", 0, 10, 98))
     }
 
     @Test fun plainStatusClearsTheLiveCount() {

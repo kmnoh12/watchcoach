@@ -69,7 +69,7 @@ data class LivePanelText(val title: String, val suffix: String, val detail: Stri
     companion object {
         fun of(phase: String, reps: Int, targetReps: Int, heartRate: Int): LivePanelText = when (phase) {
             "POSITIONING" -> LivePanelText("측정 준비 중", "", "손목 안정 확인", 0)
-            "PREPARING" -> LivePanelText("측정 준비 중", "", "흔들림 없이 2.5초 유지", 0)
+            "PREPARING" -> LivePanelText("측정 준비 중", "", "흔들림 없이 1.2초 유지", 0)
             "START_DIRECTION_WAITING" -> LivePanelText("손목 방향 확인", "", "2초 유지 또는 워치에서 직접 시작", 0)
             "RESTING" -> LivePanelText("휴식 중", "", "", heartRate)
             "SET_COMPLETE" -> LivePanelText("$reps", "회 완료", "", heartRate)
@@ -93,8 +93,8 @@ fun LivePanel(title: LiveLine, telemetry: LiveLine, modifier: Modifier = Modifie
             Text(
                 title.text,
                 color = title.color,
-                fontSize = if (counting) 32.sp else 12.sp,
-                lineHeight = if (counting) 34.sp else 16.sp,
+                fontSize = if (counting) 35.sp else 12.sp,
+                lineHeight = if (counting) 37.sp else 16.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

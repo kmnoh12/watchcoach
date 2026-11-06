@@ -26,10 +26,11 @@ data class StartPoseGateConfig(
     companion object {
         /**
          * A workout set waits for the wrist to hold still this long before the start buzz and counting.
-         * Five real Watch8 preparation captures reached a stable hold at 1.50-1.56 s with the
-         * 0.20 rad drift bound. This is a wrist setup gate, not posture recognition.
+         * Five real Watch8 preparation captures passed a 1.5 s hold within 60 ms of it, with the
+         * 0.20 rad drift bound, so the wait itself was the delay. This is a wrist setup gate, not
+         * posture recognition.
          */
-        const val WORKOUT_HOLD_MS = 1_500L
+        const val WORKOUT_HOLD_MS = 1_200L
 
         /** Paired calibration keeps its longer, camera-synchronised preparation hold. */
         const val PAIRED_CALIBRATION_HOLD_MS = 3_000L

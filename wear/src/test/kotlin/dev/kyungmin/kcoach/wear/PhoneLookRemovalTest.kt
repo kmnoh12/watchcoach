@@ -52,7 +52,7 @@ class PhoneLookRemovalTest {
                 .putExtra("session", "phone-look-removal").putExtra("exerciseId", "barbell_biceps_curl")
                 .putExtra("setId", "set-2").putExtra("attemptId", "attempt-2")
                 .putExtra("targetReps", 8).putExtra("commandRevision", 1L), 0, 1)
-            assertEquals(1_500L, StartPoseGateConfig.WORKOUT_HOLD_MS)
+            assertEquals(1_200L, StartPoseGateConfig.WORKOUT_HOLD_MS)
             if (afterRest) {
                 service.onStartCommand(Intent().putExtra("command", "REST")
                     .putExtra("session", "phone-look-removal").putExtra("exerciseId", "barbell_biceps_curl")
@@ -69,7 +69,7 @@ class PhoneLookRemovalTest {
                     .putExtra("targetReps", 8).putExtra("commandRevision", 3L), 0, 3)
             }
             assertEquals("PREPARING", phase())
-            repeat(65) { still() }
+            repeat(50) { still() }
             service.onStartCommand(Intent().putExtra("command", "QUERY"), 0, 2)
             assertEquals("PREPARING", phase())
             repeat(15) { still() }
