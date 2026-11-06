@@ -443,7 +443,7 @@ private fun androidx.compose.foundation.layout.RowScope.HeaderCell(text: String,
     Text(text, color = KColors.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(weight), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
 
-private const val ACTIVE_SET_GROW = 1.5f
+private const val ACTIVE_SET_GROW = 1.25f
 
 @Composable
 private fun SetRow(
@@ -460,11 +460,11 @@ private fun SetRow(
     onCheck: () -> Unit,
     onMore: () -> Unit,
 ) {
-    // The set being worked on swells to 1.5x, and shrinks back as soon as its rest starts.
+    // The set being worked on swells a little, and shrinks back as soon as its rest starts.
     val grow by animateFloatAsState(if (active) ACTIVE_SET_GROW else 1f, Motion.panel(), label = "activeSet")
-    Box(Modifier.fillMaxWidth().height(46.dp * grow).background(KColors.Bg).testTag("setRow-${set.label}")) {
+    Box(Modifier.fillMaxWidth().height(44.dp * grow).background(KColors.Bg).testTag("setRow-${set.label}")) {
         Row(
-            Modifier.fillMaxSize().padding(vertical = 3.dp),
+            Modifier.fillMaxSize().padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Cell(set.label, Modifier.weight(SetWeights[0]), if (isCurrent) KColors.Sage else KColors.Muted, null, onLabel, sub = set.previous, grow = grow)
@@ -544,16 +544,18 @@ private fun NextTargetRow(text: String, reason: String?, applicable: Boolean, on
 @Composable
 private fun SetRestRow(set: SetUi, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 12.dp, vertical = 2.dp),
+        Modifier.fillMaxWidth().height(14.dp).clickable { onClick() }.padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             if (set.insight != null) "${set.grip} · ${set.insight}" else set.grip,
             color = if (set.insight != null) KColors.Soft else KColors.Faint,
             fontSize = 11.sp,
+            lineHeight = 12.sp,
+            maxLines = 1,
             modifier = Modifier.weight(1f),
         )
-        Text("${set.restSeconds}초 ⏱", color = if (set.customRest) KColors.Accent else KColors.Faint, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        Text("${set.restSeconds}초 ⏱", color = if (set.customRest) KColors.Accent else KColors.Faint, fontSize = 11.sp, lineHeight = 12.sp, maxLines = 1, fontWeight = FontWeight.SemiBold)
     }
 }
 

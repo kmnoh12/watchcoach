@@ -50,23 +50,23 @@ class ActiveSetRowTest {
     @Test
     fun onlyTheSetBeingWorkedOnIsTaller() {
         show(resting = false)
-        compose.onNodeWithTag("setRow-2").assertHeightIsEqualTo(69.dp)
-        compose.onNodeWithTag("setRow-1").assertHeightIsEqualTo(46.dp)
-        compose.onNodeWithTag("setRow-3").assertHeightIsEqualTo(46.dp)
+        compose.onNodeWithTag("setRow-2").assertHeightIsEqualTo(55.dp)
+        compose.onNodeWithTag("setRow-1").assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("setRow-3").assertHeightIsEqualTo(44.dp)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/active_set.png")
     }
 
     @Test
     fun everySetIsNormalDuringRest() {
         show(resting = true)
-        compose.onNodeWithTag("setRow-1").assertHeightIsEqualTo(46.dp)
-        compose.onNodeWithTag("setRow-2").assertHeightIsEqualTo(46.dp)
+        compose.onNodeWithTag("setRow-1").assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag("setRow-2").assertHeightIsEqualTo(44.dp)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/active_set_rest.png")
     }
 
     @Test
     fun browsingARoutineHasNoActiveSet() {
         show(resting = false, preview = true)
-        compose.onNodeWithTag("setRow-2").assertHeightIsEqualTo(46.dp)
+        compose.onNodeWithTag("setRow-2").assertHeightIsEqualTo(44.dp)
     }
 }
