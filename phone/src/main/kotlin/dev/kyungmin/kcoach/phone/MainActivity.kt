@@ -226,9 +226,7 @@ class MainActivity : ComponentActivity() {
     private var pausedRestRemainingMs = 0L
     private var lastCompletedLiveKey: String? = null
     private var lastWearLiveSessionId = ""
-    private var lastWearLiveTitle = ""
-    private var lastWearLiveTelemetry = ""
-    private var lastWearLiveHeadline = false
+    private var lastWearLive: LivePanelText? = null
     private var detailTransitionRunning = false
     private var workoutComposeView: ComposeView? = null
     private var workoutComposeWorkout: ActiveWorkout? = null
@@ -1649,13 +1647,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildLivePanel(workout: ActiveWorkout): Pair<LiveLine, LiveLine> {
-        val cached = lastWearLiveSessionId == workout.sessionId &&
-            lastWearLiveTitle.isNotBlank() && lastWearLiveTelemetry.isNotBlank()
-        val tag = if (cached) WATCH_PANEL_TELEMETRY else WATCH_PANEL_CONNECTION
-        val title = LiveLine(if (cached) lastWearLiveTitle else "Watch8 연결 확인 중", tag)
-        title.headline = cached && lastWearLiveHeadline
-        val telemetry = LiveLine(if (cached) lastWearLiveTelemetry else "워치 운동 상태 수신 대기 중", tag)
-        if (!cached) telemetry.setTextColor(muted)
+        val cached = lastWearLive.takeIf { lastWearLiveSessionId == workout.sessionId }
+        val tag = if (cached != null) WATCH_PANEL_TELEMETRY else WATCH_PANEL_CONNECTION
+        val title = LiveLine("Watch8 연결 확인 중", tag)
+        cached?.let(title::show)
+        val telemetry = LiveLine(cached?.detail ?: "워치 운동 상태 수신 대기 중", tag)
+        if (cached == null) telemetry.setTextColor(muted)
         activeLiveStatus = telemetry
         wearLiveStatus = title
         return title to telemetry
@@ -2313,9 +2310,7 @@ class MainActivity : ComponentActivity() {
 
         val live = LivePanelText.of(phase, reps, targetReps, heartRate)
         lastWearLiveSessionId = sessionId
-        lastWearLiveTitle = live.title
-        lastWearLiveTelemetry = live.detail
-        lastWearLiveHeadline = live.headline
+        lastWearLive = live
         activeLiveStatus?.apply {
             text = live.detail
             tag = WATCH_PANEL_TELEMETRY
@@ -2323,8 +2318,7 @@ class MainActivity : ComponentActivity() {
         }
         restHeartStatus?.text = if (heartRate in 20..240) "워치 심박수  ${heartRate} bpm" else "워치 심박수 측정 대기"
         wearLiveStatus?.apply {
-            text = live.title
-            headline = live.headline
+            show(live)
             tag = WATCH_PANEL_TELEMETRY
             setTextColor(green)
         }

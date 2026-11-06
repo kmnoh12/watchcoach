@@ -138,7 +138,7 @@ class ReconnectionTest {
         MainActivity::class.java.getDeclaredField("wearLiveStatus").apply { isAccessible = true }.set(activity, line)
         val receive = MainActivity::class.java.getDeclaredMethod("handleLivePayload", String::class.java).apply { isAccessible = true }
         receive.invoke(activity, WearSync.liveState("reconnect-session", "external_rotation", "외회전", 0, 6, 10, 5.0, 100, "WORKING", true))
-        assertTrue(line.text.contains("6/10"))
+        assertEquals("6", line.text); assertEquals("/10회", line.suffix)
         val prior = line.text
         receive.invoke(activity, WearSync.liveState("reconnect-session", "external_rotation", "외회전", 1, 2, 8, 7.5, 100, "WORKING", true))
         assertEquals(prior, line.text)

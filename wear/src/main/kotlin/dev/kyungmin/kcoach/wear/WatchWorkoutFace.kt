@@ -1,5 +1,6 @@
 package dev.kyungmin.kcoach.wear
 
+import dev.kyungmin.kcoach.core.HeartZone
 import android.animation.Keyframe
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
@@ -385,22 +386,11 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         val PREVIOUS_SELECTED = Color.rgb(64, 62, 58)
         val SAGE_WASH = Color.rgb(15, 42, 34)
         val TRACK = Color.rgb(27, 27, 26)
-        /** Heart-rate zone colours, zone 1..5. The bands are a placeholder until a max heart rate is known. */
-        private val ZONES = intArrayOf(Color.rgb(124, 142, 156), Color.rgb(77, 163, 255), Color.rgb(79, 209, 139), ZONE_ORANGE, RED)
-        private const val ASSUMED_MAX_HEART_RATE = 185
-        fun zone(heartRate: Int): Int = when {
-            heartRate <= 0 -> 0
-            heartRate * 100 < ASSUMED_MAX_HEART_RATE * 50 -> 1
-            heartRate * 100 < ASSUMED_MAX_HEART_RATE * 60 -> 1
-            heartRate * 100 < ASSUMED_MAX_HEART_RATE * 70 -> 2
-            heartRate * 100 < ASSUMED_MAX_HEART_RATE * 80 -> 3
-            heartRate * 100 < ASSUMED_MAX_HEART_RATE * 90 -> 4
-            else -> 5
-        }
+        fun zone(heartRate: Int): Int = HeartZone.of(heartRate)
         /** Same 50–100% scale as the five existing bands; not a measured/personalised maximum. */
         fun zoneGaugeFraction(heartRate: Int): Float =
-            ((heartRate.toFloat() / ASSUMED_MAX_HEART_RATE - .5f) / .5f).coerceIn(0f, 1f)
-        fun zoneColor(heartRate: Int): Int = ZONES[(zone(heartRate).coerceAtLeast(1)) - 1]
+            ((heartRate.toFloat() / HeartZone.ASSUMED_MAX_HEART_RATE - .5f) / .5f).coerceIn(0f, 1f)
+        fun zoneColor(heartRate: Int): Int = HeartZone.color(heartRate)
     }
 }
 
