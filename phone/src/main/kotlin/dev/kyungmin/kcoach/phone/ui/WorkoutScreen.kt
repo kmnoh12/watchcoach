@@ -334,7 +334,7 @@ private fun ExercisePage(
                 onRelease = ::stopAnimatedImages,
             )
             if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
-                LivePanel(liveTitle, liveTelemetry, Modifier.align(Alignment.BottomEnd).padding(6.dp))
+                LivePanel(liveTitle, liveTelemetry, Modifier.align(Alignment.BottomEnd).padding(12.dp))
             }
         }
         Spacer(Modifier.height(10.dp))

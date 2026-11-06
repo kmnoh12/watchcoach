@@ -126,6 +126,11 @@ PYHASH
 }
 
 if [ "$BUILD_PHONE" = 1 ]; then
+    # viewer3d is git-ignored, so a fresh checkout or worktree silently builds without the 3D viewer.
+    if [ "$(unzip -l "$PHONE_APK" | grep -c 'assets/viewer3d/exercise_models.json')" = 0 ]; then
+        echo "폰 APK에 3D 뷰어 파일이 없어. phone/src/main/assets/viewer3d 를 채운 뒤 다시 빌드해." >&2
+        exit 1
+    fi
     cp "$PHONE_APK" "$WORK/kcoach-phone.apk"
     # A short file check for the previous MediaPipe/R8 initialization regression; no runtime test.
     python3 tools/verify_mediapipe_jni.py "$PHONE_APK" --mapping phone/build/outputs/mapping/ota/mapping.txt \
