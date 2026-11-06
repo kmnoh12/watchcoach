@@ -67,11 +67,11 @@ class SetEndServiceTest {
             start(service)
             repeat(12) {
                 rep(service)
-                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000))
+                shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(900))
             }
             assertEquals(12, field("reps").getInt(service))
             assertTrue(field("running").getBoolean(service))
-            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(2100))
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(2200))
             assertFalse(field("running").getBoolean(service))
             assertEquals("12", WearSync.parse(field("pendingCompletion").get(service) as String)[5])
         } finally { controller.destroy() }

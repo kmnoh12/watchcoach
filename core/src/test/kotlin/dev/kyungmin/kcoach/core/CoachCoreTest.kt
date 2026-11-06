@@ -1,6 +1,5 @@
 package dev.kyungmin.kcoach.core
 
-import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -39,17 +38,6 @@ class CoachCoreTest {
         assertTrue(update.cues.any { it is CoachCue.RecommendExtraRest })
     }
 
-    @Test
-    fun `incline estimate matches current MyMountain routine`() {
-        val result = InclineEnergyEstimator().estimateWalking(
-            weightKg = 72.0,
-            speedKmh = 4.0,
-            gradePercent = 13.0,
-            durationMinutes = 30.0,
-        )
-        assertTrue(abs(result.grossKilocalories - 278.4) < 1.0)
-        assertTrue(abs(result.activeKilocalories - 240.6) < 1.0)
-    }
 
     @Test
     fun `double progression adds load only after all sets hit top`() {

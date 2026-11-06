@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,22 +27,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
@@ -151,49 +148,6 @@ fun CalibrationScreen(
             Spacer(Modifier.height(6.dp))
         },
     )
-}
-
-// ---- My mountain -----------------------------------------------------------
-
-@Composable
-fun MyMountainScreen(back: () -> Unit, start: () -> Unit, finish: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(KColors.Bg).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp)) {
-        DetailHeader("마이마운틴", back)
-        Spacer(Modifier.height(28.dp))
-        Text("오늘 설정", color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(8.dp))
-        Text("경사, 속도, 시간은 매번 바꿀 수 있어요.", color = KColors.Muted, fontSize = 15.sp)
-        Spacer(Modifier.height(24.dp))
-        Row(Modifier.fillMaxWidth()) {
-            NumberCard("경사", "13", Modifier.weight(1f))
-            Spacer(Modifier.width(10.dp))
-            NumberCard("속도", "4.0", Modifier.weight(1f))
-            Spacer(Modifier.width(10.dp))
-            NumberCard("시간", "30", Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(28.dp))
-        WideButton("시작", KColors.Accent, KColors.OnAccent, 64, onClick = start)
-        Spacer(Modifier.height(12.dp))
-        WideButton("건너뛰기", KColors.SurfaceRaised, KColors.White, 56, onClick = finish)
-    }
-}
-
-@Composable
-private fun NumberCard(title: String, initial: String, modifier: Modifier) {
-    var value by remember { mutableStateOf(initial) }
-    Column(modifier.heightIn(min = 118.dp).clip(KShape.Control).background(KColors.Surface).padding(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 10.dp)) {
-        Text(title, color = KColors.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(12.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = { value = it },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            textStyle = TextStyle(color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium),
-            cursorBrush = SolidColor(KColors.Accent),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
 }
 
 // ---- Workout result --------------------------------------------------------

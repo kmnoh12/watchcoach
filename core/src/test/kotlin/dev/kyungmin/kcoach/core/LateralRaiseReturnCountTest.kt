@@ -26,9 +26,20 @@ class LateralRaiseReturnCountTest {
         assertTrue(events.first().endTimestampNs > liftPeaks.first() + 1_000_000_000L, "the first cue must come after the lift")
     }
 
+    @Test fun seatedRowsAreReportedOnTheReturnSoThePullAloneDoesNotCount() {
+        listOf("seated_row", "cable_seated_row", "seated_cable_row_close",
+            "single_arm_machine_seated_row", "single_arm_cable_seated_row").forEach { id ->
+            val pulls = mutableListOf<Long>()
+            val returns = mutableListOf<Long>()
+            val events = replay(id, reps = 6, pulls, returns)
+            assertEquals(6, events.size, id)
+            assertTrue(events.first().endTimestampNs > pulls.first() + 1_000_000_000L, "$id: the first cue must come after the pull")
+        }
+    }
+
     @Test fun otherCycleAxisExercisesStillReportTheirFirstPeak() {
         val none = mutableListOf<Long>()
-        val events = replay("cable_seated_row", reps = 6, none, none)
+        val events = replay("barbell_row", reps = 6, none, none)
         assertEquals(6, events.size)
     }
 

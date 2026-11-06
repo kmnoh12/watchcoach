@@ -1898,7 +1898,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             Log.i(CALIBRATION_TAG, "stage=CALIBRATION_RESULT session=$sessionId exerciseId=$exerciseId reps=$reps")
         }
         if (wasCalibration) sendLiveState("CALIBRATION_RESULT", false, force = true) else replayCompletion()
-        if (wasCalibration) vibrateCompleted()
+        if (wasCalibration) vibrateCompleted() else vibrateSetComplete()
         calibrationStage = null
         measurementReady = false
         measurementArmed = false
@@ -1946,7 +1946,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         val callbackNs = android.os.SystemClock.elapsedRealtimeNanos()
         reps += 1
         // Haptic before the synchronous checkpoint writes below. Vertical presses hold the cue back so it lands near the bottom.
-        // Exactly the target rep gets the triple pulse; reps past the target go back to the short tick.
+        // Exactly the target rep gets the double pulse; reps past the target go back to the short tick.
         val cueDelayMs = if (trackingProfile.family == dev.kyungmin.kcoach.core.MotionFamily.VERTICAL_PRESS_RETURN && turnaroundNs != null)
             dev.kyungmin.kcoach.core.RepCueDelay.delayMs(turnaroundNs, endNs) else 0L
         val atTarget = reps == targetReps
@@ -2580,7 +2580,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         if (!running && !force) return
         val vibrator = getSystemService(android.os.Vibrator::class.java) ?: return
         // Full strength and 100 ms: a 55 ms pulse barely spins the watch motor up, so it was hard to feel mid-set.
-        // The target pulse stays distinct as three pulses.
+        // The target pulse stays distinct as two long pulses.
         val amplitude = if (vibrator.hasAmplitudeControl()) REP_TICK_AMPLITUDE else VibrationEffect.DEFAULT_AMPLITUDE
         vibrator.vibrate(VibrationEffect.createOneShot(REP_TICK_MS, amplitude))
     }
@@ -2588,7 +2588,17 @@ class WearWorkoutService : Service(), SensorEventListener {
     private fun vibrateTargetReached(force: Boolean = false) {
         if (!running && !force) return
         val vibrator = getSystemService(android.os.Vibrator::class.java) ?: return
-        // Three long full-strength pulses (about 1.1 s), like an incoming call, so it cannot be missed mid-set.
+        // Two long full-strength pulses: the target is reached but the set can still go on.
+        val timings = longArrayOf(0L, 300L, 100L, 300L)
+        vibrator.vibrate(
+            if (vibrator.hasAmplitudeControl()) VibrationEffect.createWaveform(timings, intArrayOf(0, 255, 0, 255), -1)
+            else VibrationEffect.createWaveform(timings, -1),
+        )
+    }
+
+    private fun vibrateSetComplete() {
+        val vibrator = getSystemService(android.os.Vibrator::class.java) ?: return
+        // Three long full-strength pulses (about 1.1 s), like an incoming call: the set is over.
         val timings = longArrayOf(0L, 300L, 100L, 300L, 100L, 300L)
         vibrator.vibrate(
             if (vibrator.hasAmplitudeControl()) VibrationEffect.createWaveform(timings, intArrayOf(0, 255, 0, 255, 0, 255), -1)

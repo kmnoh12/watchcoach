@@ -11,13 +11,11 @@ import dev.kyungmin.kcoach.phone.ui.CalibrationButtonUi
 import dev.kyungmin.kcoach.phone.ui.LiveLine
 import dev.kyungmin.kcoach.phone.ui.CalibrationScreen
 import dev.kyungmin.kcoach.phone.ui.CalibrationUi
-import dev.kyungmin.kcoach.phone.ui.MyMountainScreen
 import dev.kyungmin.kcoach.phone.ui.ResultSectionUi
 import dev.kyungmin.kcoach.phone.ui.ResultUi
 import dev.kyungmin.kcoach.phone.ui.WorkoutResultScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
-import dev.kyungmin.kcoach.phone.ui.BigChoiceSheet
 import dev.kyungmin.kcoach.phone.ui.ChoiceSheet
 import dev.kyungmin.kcoach.phone.ui.ConfirmDialog
 import dev.kyungmin.kcoach.phone.ui.RecordBannerUi
@@ -161,7 +159,7 @@ import kotlin.math.max
 
 class MainActivity : ComponentActivity() {
     private enum class RootTab { HOME, RECORDS, STATS, CALIBRATION, MENU }
-    private enum class Screen { ROOT, ROUTINE, FREE, LIBRARY, EXERCISE_INFO, EXERCISE_RECORD, ACTIVE, REST, MY_MOUNTAIN }
+    private enum class Screen { ROOT, ROUTINE, FREE, LIBRARY, EXERCISE_INFO, EXERCISE_RECORD, ACTIVE, REST }
 
     private var visibleWorkoutResultSessionId: String? = null
     private val handledResultRequests = mutableSetOf<String>()
@@ -570,7 +568,7 @@ class MainActivity : ComponentActivity() {
         activeWorkout?.let { workout ->
             lastCompletedLiveKey = workout.lastCompletedSetKey
             if (!screenRestored) {
-                if (workout.exerciseIndex >= workout.routine.exercises.size) showMyMountainDecision()
+                if (workout.exerciseIndex >= workout.routine.exercises.size) finishWorkout()
                 else showActiveWorkout(forceRebuild = true)
             }
             sendWear(
@@ -674,7 +672,6 @@ class MainActivity : ComponentActivity() {
             Screen.EXERCISE_INFO -> returnFromExerciseInfo?.invoke() ?: showHome()
             Screen.EXERCISE_RECORD -> returnFromExerciseRecord?.invoke() ?: showHome()
             Screen.ACTIVE, Screen.REST -> leaveActiveWorkoutPage()
-            Screen.MY_MOUNTAIN -> showRecords()
         }
     }
 
@@ -798,7 +795,7 @@ class MainActivity : ComponentActivity() {
             menu = { index -> showExerciseMenu(routine, index, active, reload) },
             move = { from, to -> moveRoutineExercise(routine, from, to, active, announce = false) },
             moveFinished = { finishRoutineMove(routine) },
-            primary = { if (active != null) showMyMountainDecision() else startWorkout(routine) },
+            primary = { if (active != null) finishWorkout() else startWorkout(routine) },
             addExercise = {
                 openLibrary(
                     onSelect = {
@@ -1527,7 +1524,7 @@ class MainActivity : ComponentActivity() {
         if (activeWorkout === workout) {
             if (!persistActiveWorkout(workout)) return false
             if (workout.exerciseIndex >= workout.routine.exercises.size) {
-                showMyMountainDecision()
+                finishWorkout()
                 return true
             }
             syncWorkingSet(workout)
@@ -1621,7 +1618,7 @@ class MainActivity : ComponentActivity() {
         askOtherSide(snapshot)
         if (snapshot.exerciseIndex >= workout.routine.exercises.size &&
             currentScreen in setOf(Screen.ACTIVE, Screen.REST)) {
-            showMyMountainDecision()
+            finishWorkout()
             return
         }
         if (currentScreen == Screen.ACTIVE || currentScreen == Screen.REST) showActiveWorkout()
@@ -2703,7 +2700,7 @@ class MainActivity : ComponentActivity() {
             .apply()
     }
 
-    private fun showMyMountainDecision() {
+    private fun finishWorkout() {
         stopTicker()
         val completedWorkout = activeWorkout
         completedWorkout?.let { it.analyses.putAll(SetAnalysisStore(this).loadForSession(it.sessionId)) }
@@ -2733,32 +2730,7 @@ class MainActivity : ComponentActivity() {
         activeRestStartAtMs = 0L
         activeRestEndAtMs = 0L
         pausedRestRemainingMs = 0L
-        showSheet { dismiss ->
-            BigChoiceSheet(
-                eyebrow = "웨이트 완료", eyebrowColor = KColors.Accent,
-                title = "마이마운틴도 할까요?",
-                body = "오늘 컨디션에 따라 정해요.\n건너뛰어도 루틴은 완료로 기록돼요.",
-                bodyColor = KColors.Muted,
-                cancel = "건너뛰기", confirm = "시작",
-                dismiss = dismiss,
-                onCancel = { showWorkoutResult(lastWorkoutResult) },
-                onConfirm = { showMyMountain() },
-                filledButtons = true,
-            )
-        }
-    }
-
-    private fun showMyMountain() {
-        currentScreen = Screen.MY_MOUNTAIN
-        showStandalone(ComposeView(this).apply {
-            setContent {
-                MyMountainScreen(
-                    back = { onBackPressed() },
-                    start = { Toast.makeText(this@MainActivity, "워치가 연결되면 심박수와 함께 기록돼요", Toast.LENGTH_LONG).show() },
-                    finish = { showRecords() },
-                )
-            }
-        })
+        showWorkoutResult(lastWorkoutResult)
     }
 
     private fun showExerciseRecord(

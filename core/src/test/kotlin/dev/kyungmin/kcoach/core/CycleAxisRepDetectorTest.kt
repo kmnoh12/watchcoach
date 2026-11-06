@@ -76,7 +76,8 @@ class CycleAxisRepDetectorTest {
     @Test
     fun aRealSizedRowStrokeIsStillCountedFromGyroOrAcceleration() {
         assertEquals(10, count("cable_seated_row", obliqueSet(10, 2.3, 0.83)))
-        assertEquals(10, count("cable_seated_row", obliqueAcceleration(10, 2.3, 3.4)))
+        // Return counting needs the still lead-in every workout set has to tell the pull from the return on this weak signal.
+        assertEquals(10, count("cable_seated_row", withLeadingStill(obliqueAcceleration(10, 2.3, 3.4), 0.5)))
     }
 
     @Test

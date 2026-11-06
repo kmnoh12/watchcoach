@@ -241,11 +241,6 @@ class ScreenshotTest {
     }
 
     @Test
-    fun sheetBig() = overlayShot("sheet_big", true) { dismiss ->
-        BigChoiceSheet("▶", KColors.Accent, "운동을 시작할까요?", "워치 앱을 열어 두면 반복을 자동으로 세요.", KColors.Muted, "취소", "시작", dismiss, {}, {}, true)
-    }
-
-    @Test
     fun swipeRevealOpen() = shot("swipe_open") {
         androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.background(KColors.Bg).padding(16.dp)) {
             SwipeRevealDelete(enabled = true, onDelete = {}) {

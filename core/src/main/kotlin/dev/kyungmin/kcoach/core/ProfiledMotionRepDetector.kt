@@ -89,13 +89,18 @@ class ProfiledMotionRepDetector(
 
         /** A truncated opening press and the return that follows it are one rep when they are this close. */
         private const val OPENING_RESCUE_GAP_MS = 500L
+
+        /** The pull alone is half a rep: it must not reach the counter before the handle comes back. */
+        private val SEATED_ROWS = setOf("seated_row", "cable_seated_row", "seated_cable_row_close",
+            "single_arm_machine_seated_row", "single_arm_cable_seated_row")
     }
 
     private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION) ReturnToPoseRepDetector(profile.minimumRepMs) else null
     private val verticalCounter = if (profile.family == MotionFamily.VERTICAL_PRESS_RETURN) VerticalPressRepDetector(profile) else null
     private val translationCounter = if (profile.family == MotionFamily.TRANSLATION_PRESS_RETURN) TranslationPressRepDetector(profile) else null
     private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN)
-        CycleAxisRepDetector(countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe == MeasurementRecipe.LATERAL_RAISE) else null
+        CycleAxisRepDetector(countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe == MeasurementRecipe.LATERAL_RAISE ||
+            profile.exerciseId in SEATED_ROWS) else null
     private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
 
     private var lastTimestampNs = 0L

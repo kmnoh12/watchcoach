@@ -1,6 +1,5 @@
 package dev.kyungmin.kcoach.phone.ui
 
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -63,7 +62,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,7 +72,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
@@ -581,54 +578,4 @@ fun PickDialog(title: String, items: List<String>, dismiss: () -> Unit, onPick: 
         }
     }
     DialogButtons { TextAction("취소", KColors.Muted, dismiss) }
-}
-
-/** Large centred call-to-action used by the start guide and the "my mountain" prompt. */
-@Composable
-fun BigChoiceSheet(
-    eyebrow: String?,
-    eyebrowColor: Color,
-    title: String,
-    body: String,
-    bodyColor: Color,
-    cancel: String,
-    confirm: String,
-    dismiss: () -> Unit,
-    onCancel: () -> Unit,
-    onConfirm: () -> Unit,
-    filledButtons: Boolean,
-) {
-    Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (eyebrow == "▶") KIcon(KIcon.Play, eyebrowColor, size = 38.dp)
-        else if (eyebrow != null) Text(eyebrow, color = eyebrowColor, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(8.dp))
-        Text(title, color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(14.dp))
-        Text(body, color = bodyColor, fontSize = 16.sp, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(24.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            val cancelModifier = Modifier.weight(1f).height(if (filledButtons) 60.dp else 58.dp)
-            if (filledButtons) {
-                BigButton(cancel, KColors.SurfaceRaised, KColors.White, cancelModifier) { dismiss(); onCancel() }
-                BigButton(confirm, KColors.Accent, KColors.OnAccent, Modifier.weight(1f).height(60.dp)) { dismiss(); onConfirm() }
-            } else {
-                TextButton(cancel, cancelModifier) { dismiss(); onCancel() }
-                TextButton(confirm, Modifier.weight(1f).height(58.dp)) { dismiss(); onConfirm() }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BigButton(text: String, background: Color, content: Color, modifier: Modifier, onClick: () -> Unit) {
-    Box(modifier.clip(KShape.Control).background(background).pressable(onClick), contentAlignment = Alignment.Center) {
-        Text(text, color = content, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun TextButton(text: String, modifier: Modifier, onClick: () -> Unit) {
-    Box(modifier.pressable(onClick), contentAlignment = Alignment.Center) {
-        Text(text, color = KColors.Accent, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-    }
 }

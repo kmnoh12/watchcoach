@@ -360,6 +360,8 @@ class MainActivity : Activity() {
     private var shownSet: SetMoment? = null
     private var setDoneUntilMs = 0L
     private val setDoneEnd = Runnable { hideSetDone() }
+    private val preparationFlash = PreparationFlashGuard()
+    private val preparationFlashEnd = Runnable { updateUi() }
     private var preparationHoldMs = -1L
     private var preparationHoldTargetMs = -1L
     private var phoneCameraRecording = false
@@ -682,6 +684,10 @@ class MainActivity : Activity() {
     private fun renderUi() {
         if (!::face.isInitialized) return
         updateScreenPolicy()
+        val preparing = !resting && !paused && !sessionId.startsWith("calibration-") && runtimePhase in PreparationFlashGuard.PHASES
+        val holdMs = preparationFlash.holdMs(preparing, resting || running && !preparing, android.os.SystemClock.uptimeMillis())
+        handler.removeCallbacks(preparationFlashEnd)
+        if (holdMs > 0L) { handler.postDelayed(preparationFlashEnd, holdMs); return }
         val now = System.currentTimeMillis()
         val clockText = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
         face.clock.text = clockText
