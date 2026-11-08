@@ -27,7 +27,9 @@ def pack_motion(data, vertices):
     decoded = minimum+quantized.astype(np.float32)*scale
     error_mm = float(np.linalg.norm(decoded-points, axis=-1).max()*1000)
     assert error_mm < .1, f'Cache precision loss: {error_mm} mm'
-    blob = struct.pack('<4sIII', b'WGP1', len(acts), vertices, 0) + minimum.tobytes() + scale.tobytes() + acts.tobytes() + quantized.tobytes()
+    delta = np.diff(quantized.astype(np.int32), axis=0, prepend=np.zeros_like(quantized[:1], dtype=np.int32)).astype('<u2')   # wraps mod 65536, lossless
+    assert (np.cumsum(delta.astype(np.uint32), axis=0).astype('<u2') == quantized).all()
+    blob = struct.pack('<4sIII', b'WGP2', len(acts), vertices, 0) + minimum.tobytes() + scale.tobytes() + acts.tobytes() + delta.tobytes()
     assert len(blob) == 40+len(acts)*4+len(acts)*vertices*6
     return blob, error_mm
 
@@ -57,7 +59,7 @@ def main():
     (stage/'index.html').write_text((REPO/'tools/viewer3d/index.html').read_text())
     (stage/'exercise_models.json').write_text(json.dumps(models, ensure_ascii=False, separators=(',', ':')))
     (stage/'human_v5/base.json').write_text(json.dumps(base, separators=(',', ':')))
-    report = dict(revision='v5-app-20261109-1', exercises=len(models), models=len(keys),
+    report = dict(revision='v5-app-20261109-2', exercises=len(models), models=len(keys),
                   legacy_avatar_fallback=False, rows=[])
     for key in keys:
         folder = args.extra if key == 'rolling_triceps_extension' else source
@@ -75,7 +77,7 @@ def main():
         (stage/'data'/f'{key}.json').write_bytes(equipment.read_bytes())
         report['rows'].append(dict(id=key, source_sha256=sha(path), packed_sha256=sha(stage/'human_v5'/f'{key}.bin'),
                                    equipment_sha256=sha(equipment), maximum_error_mm=error, frames=len(data['acts'])))
-    manifest = dict(revision=report['revision'], format='WGP1', clips=[clips[k] for k in keys])
+    manifest = dict(revision=report['revision'], format='WGP2', clips=[clips[k] for k in keys])
     (stage/'human_v5/manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')))
     report['maximum_error_mm'] = max(r['maximum_error_mm'] for r in report['rows'])
     report['bytes'] = sum(p.stat().st_size for p in stage.rglob('*') if p.is_file())

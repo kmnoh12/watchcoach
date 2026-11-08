@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>워치짐 기구 뷰어</title>
+<script>if (new URLSearchParams(location.search).get("ex")) document.documentElement.classList.add("embed");</script>
 <style>
   :root { --bg:#0e0f0f; --panel:#161818; --line:#262a29; --text:#ece8e1; --dim:#8d8a84; --sage:#76DBB9; --warn:#e8b45a; }
   * { box-sizing:border-box; }
@@ -66,6 +67,8 @@
   .embed #stage { position:fixed; inset:0; overflow:hidden; }   /* canvas must never grow the page past the WebView */
   .embed canvas { position:absolute; left:0; top:0; }
   .embed aside, .embed #hud, .embed #bar, .embed #toast, .embed #empty { display:none !important; }
+  html.embed #app { display:block; }
+  html.embed aside, html.embed #hud, html.embed #bar, html.embed #toast, html.embed #empty { display:none !important; }
   .embed, .embed body { background:#34322e; }
 </style>
 <script type="importmap">{ "imports": { "three": "./three/three.module.js", "three/addons/": "./three/addons/" } }</script>
@@ -190,7 +193,7 @@ async function fetchHuman(machine) {
   const [r, base] = await Promise.all([fetch(`human_v5/${encodeURIComponent(machine)}.bin`), fetchHumanBase()]);
   if (!r.ok) throw Error("V5 motion unavailable");
   const a = await r.arrayBuffer(), d = new DataView(a);
-  if (a.byteLength < 40 || d.getUint32(0, true) !== 0x31504757) throw Error("invalid V5 cache");
+  if (a.byteLength < 40 || d.getUint32(0, true) !== 0x32504757) throw Error("invalid V5 cache");
   const n = d.getUint32(4, true), vertices = d.getUint32(8, true);
   if (!n || vertices * 3 !== base.points.length || a.byteLength !== 40 + n * 4 + n * vertices * 6) throw Error("invalid V5 size");
   const minimum = Array.from({length:3}, (_,i) => d.getFloat32(16+i*4,true));
@@ -199,8 +202,8 @@ async function fetchHuman(machine) {
   for (let i=0;i<n;i++) acts[i] = d.getFloat32(40+i*4,true);
   if (minimum.some(x=>!Number.isFinite(x)) || scale.some(x=>!Number.isFinite(x)||x<=0) ||
       acts.some((x,i)=>!Number.isFinite(x)||i>0&&x<=acts[i-1])) throw Error("invalid V5 values");
-  const quantized = new Uint16Array(n * vertices * 3);
-  for (let i=0;i<quantized.length;i++) quantized[i] = d.getUint16(40+n*4+i*2,true);
+  const quantized = new Uint16Array(n * vertices * 3), stride = vertices * 3;   // time-delta coded; Uint16 wraps, so the sum is exact
+  for (let i=0;i<quantized.length;i++) quantized[i] = d.getUint16(40+n*4+i*2,true) + (i >= stride ? quantized[i-stride] : 0);
   const h = { acts, base, vertices, minimum, scale, quantized, skinFrames:new Map(), format:"v5-point-cache" };
   const g = new THREE.BufferGeometry(), pos = new THREE.BufferAttribute(humanFrame(h,0).slice(),3);
   pos.setUsage(THREE.DynamicDrawUsage); g.setAttribute("position",pos); g.setIndex(new THREE.BufferAttribute(base.tris,1)); h.geom=g;
