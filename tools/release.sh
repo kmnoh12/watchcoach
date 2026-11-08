@@ -188,3 +188,7 @@ gh release create "$TAG" --repo "$REPO" --target "$(git rev-parse HEAD)" --lates
     "$OUT"/kcoach-phone.apk "$OUT"/kcoach-watch.apk "$OUT"/update-phone.json "$OUT"/update-watch.json
 
 echo "배포 완료: https://github.com/$REPO/releases/tag/$TAG"
+# The GitHub release is the archive: keep only this release's local APK cache.
+for old in "$ROOT"/build/release/*/; do
+    [ "$(basename "$old")" = "$TAG" ] || rm -rf "$old"
+done
