@@ -178,6 +178,21 @@ internal fun SetAnalysisUi.repMetricRows(): List<Pair<String, String>> = listOf(
 internal const val ANALYSIS_ESTIMATE_NOTE = "자동 추정은 실제 횟수와 다를 수 있어요. 기록의 횟수를 확인하고 수정해 주세요. 분석 점수는 정확도나 정답 확률이 아니에요."
 
 /** Presentation excludes legacy range ratios too; they never measured joint ROM. */
+/** Small user-facing subset; diagnostic scoring/provenance stays out of the result flow. */
+internal fun SetAnalysisUi.workoutResultRows(): List<Pair<String, String>> = buildList {
+    if (trackingMode == "MANUAL_REQUIRED") return@buildList
+    val metrics = motionMetrics?.takeIf { it.reps.isNotEmpty() } ?: return@buildList
+    metrics.averageCycleMs.takeIf { it.isFinite() && it > 0 }?.let {
+        add("평균 반복 시간" to "%.2f초".format(java.util.Locale.KOREA, it / 1000.0))
+    }
+    metrics.tempoCoefficientOfVariation?.takeIf { it.isFinite() }?.let {
+        add("반복 시간 편차" to "%.1f%%".format(java.util.Locale.KOREA, it * 100))
+    }
+    metrics.lateCycleChangeRatio?.takeIf { it.isFinite() }?.let {
+        SetInsight.describe(null, it)?.let { text -> add("후반 속도" to text) }
+    }
+}
+
 internal fun SetAnalysisUi.resultMetricRows(): List<Pair<String, String>> = buildList {
     add("측정 방식" to trackingStatus.ifBlank { if (trackingMode == "MANUAL_REQUIRED") "수동 입력" else "손목 센서 기반 추정" })
     addAll(repMetricRows())

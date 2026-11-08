@@ -11,6 +11,7 @@ data class UnilateralProgress(
     val watchReps: Int? = null,
     val watchRepSource: SetRepSource? = null,
     val otherReps: Int? = null,
+    // Retained in the saved/wire schema for compatibility; matched opposite reps are not estimates.
     val otherRepSource: SetRepSource? = null,
     val firstSideDurationMs: Long? = null,
     val otherStartedAtMs: Long? = null,
@@ -27,7 +28,11 @@ data class UnilateralProgress(
         require((stage == UnilateralStage.WATCH_SIDE_WORKING) == (watchReps == null))
         require((stage == UnilateralStage.BOTH_COMPLETE) == (otherReps != null))
     }
-    val estimated: Boolean get() = otherRepSource == SetRepSource.ESTIMATED
+    fun withWatchReps(reps: Int, source: SetRepSource): UnilateralProgress = copy(
+        watchReps = reps, watchRepSource = source,
+        // Follow the matched count, but preserve a separately corrected opposite count.
+        otherReps = if (stage == UnilateralStage.BOTH_COMPLETE && otherReps == watchReps) reps else otherReps,
+    )
     fun confirmOther(reps: Int): UnilateralProgress {
         require(stage == UnilateralStage.BOTH_COMPLETE && reps in 0..9_999)
         return copy(otherReps = reps, otherRepSource = SetRepSource.MANUAL)
@@ -39,9 +44,12 @@ data class UnilateralProgress(
             if (value.isEmpty()) return null
             val fields = value.split(',')
             require(fields.size == 4 || fields.size == 8)
-            return UnilateralProgress(UnilateralStage.valueOf(fields[0]), fields[1].takeIf { it.isNotEmpty() }?.toInt(),
+            val stage = UnilateralStage.valueOf(fields[0])
+            return UnilateralProgress(stage, fields[1].takeIf { it.isNotEmpty() }?.toInt(),
                 fields[2].takeIf { it.isNotEmpty() }?.let(SetRepSource::valueOf), fields[3].takeIf { it.isNotEmpty() }?.toInt(),
-                fields.getOrNull(4)?.takeIf { it.isNotEmpty() }?.let(SetRepSource::valueOf),
+                fields.getOrNull(4)?.takeIf { it.isNotEmpty() }?.let(SetRepSource::valueOf)
+                    ?.takeUnless { it == SetRepSource.ESTIMATED }
+                    ?: if (stage == UnilateralStage.BOTH_COMPLETE) SetRepSource.MANUAL else null,
                 fields.getOrNull(5)?.toLongOrNull(), fields.getOrNull(6)?.toLongOrNull(), fields.getOrNull(7)?.toLongOrNull() ?: 0)
         }
     }
@@ -98,13 +106,10 @@ object UnilateralSetReducer {
         val result = apply(snapshot, snapshot.sessionId, set.setId, set.attemptId,
             UnilateralAction.COMPLETE_OTHER_SIDE, nowMs, progress.watchReps)
         if (result !is SetCompletionResult.Applied) return null
-        return result.snapshot.copy(plannedSets = result.snapshot.plannedSets.map {
-            if (it.setId == set.setId && it.attemptId == set.attemptId)
-                it.copy(unilateral = it.unilateral?.copy(otherRepSource = SetRepSource.ESTIMATED)) else it
-        })
+        return result.snapshot
     }
 
-    /** Explicit input records manual evidence and cancels the pending clock. */
+    /** Completion uses the configured matching count unless explicitly edited; it is never sensor evidence. */
     fun apply(snapshot: WorkoutSnapshot, sessionId: String, setId: String, attemptId: String,
               action: UnilateralAction, nowMs: Long, otherReps: Int? = null): SetCompletionResult {
         fun reject(reason: String) = SetCompletionResult.Rejected(snapshot, reason)
@@ -127,7 +132,7 @@ object UnilateralSetReducer {
         val skipOther = action == UnilateralAction.FINISH_WATCH_SIDE_ONLY && progress.stage == UnilateralStage.OTHER_SIDE_WORKING
         if (progress.stage != expected && !skipOther || action != UnilateralAction.COMPLETE_OTHER_SIDE && otherReps != null)
             return reject("invalid_unilateral_transition")
-        // A complete press confirms the suggested matching count; it is manual evidence, never a sensor count.
+        // Timer and button completion share the user's same-count policy. Explicit corrections still win.
         val updated = progress.copy(stage = stage, otherReps = if (stage == UnilateralStage.BOTH_COMPLETE) otherReps ?: progress.watchReps else null,
             otherRepSource = if (stage == UnilateralStage.BOTH_COMPLETE) SetRepSource.MANUAL else null,
             otherStartedAtMs = if (stage == UnilateralStage.OTHER_SIDE_WORKING) nowMs else null,

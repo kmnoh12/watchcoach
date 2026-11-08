@@ -139,6 +139,8 @@ class SetIdentityTest {
                 setId = "set-$i", attemptId = "attempt-$i", identityRequired = true)
         })
         val (activity, active) = activity(saved)
+        val telemetry = dev.kyungmin.kcoach.phone.ui.LiveLine("10", "watch-panel-telemetry")
+        MainActivity::class.java.getDeclaredField("activeLiveStatus").apply { isAccessible = true }.set(activity, telemetry)
         val routine = active.javaClass.getDeclaredField("routine").apply { isAccessible = true }.get(active) as WorkoutRoutine
         java.util.Collections.swap(routine.exercises[0].sets, 0, 1)
         val concurrent = SessionStore(app); val current = concurrent.loadActive().getOrThrow()!!
@@ -149,6 +151,22 @@ class SetIdentityTest {
         assertEquals(false, persist.invoke(activity, active))
         assertEquals(listOf("set-0", "set-1"), routine.exercises[0].sets.map { it.setId })
         assertEquals(listOf(6, 10), routine.exercises[0].sets.map { it.performedReps })
+        assertEquals("10", telemetry.text)
+        assertEquals("변경이 저장되지 않았어요. 다시 수정해 주세요.", org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
+    }
+
+    @Test fun commandRejectionNeverReplacesTheLiveWorkoutCountWithDiagnostics() {
+        val (activity, _) = activity(snapshot())
+        val telemetry = dev.kyungmin.kcoach.phone.ui.LiveLine("12", "watch-panel-telemetry")
+        MainActivity::class.java.getDeclaredField("activeLiveStatus").apply { isAccessible = true }.set(activity, telemetry)
+        val receiver = MainActivity::class.java.getDeclaredField("wearReceiver").apply { isAccessible = true }
+            .get(activity) as android.content.BroadcastReceiver
+        for (reason in listOf("STALE", "BINDING", "OUTBOX", "SERVICE_START", "INVALID", "UNKNOWN", "CLOSED_SESSION")) {
+            receiver.onReceive(activity, android.content.Intent(PhoneWearListenerService.ACTION_COMMAND_REJECTED).putExtra("reason", reason))
+            assertEquals("12", telemetry.text)
+            assertEquals(if (reason == "CLOSED_SESSION") "운동이 종료됐어요. 새 운동을 시작해 주세요." else "워치 연결을 확인해 주세요.",
+                org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
+        }
     }
     @Test fun leavingAnUnfinishedMeasurementChangesItsAttemptAndKeepsPause() {
         val first = snapshot().plannedSets.first().copy(setId = "first", attemptId = "first-attempt", identityRequired = true)

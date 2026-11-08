@@ -140,7 +140,7 @@ object WorkoutSessionReducer {
         if (set.repSource == SetRepSource.ESTIMATED || set.repSource == SetRepSource.MANUAL || set.unilateral?.watchRepSource == SetRepSource.MANUAL) return snapshot
         val updated = snapshot.plannedSets.map {
             if (it === set) it.copy(performedReps = if (it.completed) reps else null, repSource = if (it.completed) SetRepSource.PHONE_ANALYSIS else null,
-                unilateral = it.unilateral?.copy(watchReps = reps, watchRepSource = SetRepSource.PHONE_ANALYSIS)) else it
+                unilateral = it.unilateral?.withWatchReps(reps, SetRepSource.PHONE_ANALYSIS)) else it
         }
         return snapshot.copy(plannedSets = updated, performedReps = updated.filter { it.completed }
             .groupBy { it.exerciseId }.mapValues { (_, sets) -> sets.sumOf { it.performedReps ?: 0 } })

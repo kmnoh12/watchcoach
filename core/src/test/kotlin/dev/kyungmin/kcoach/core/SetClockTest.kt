@@ -99,6 +99,8 @@ class SetClockTest {
         assertEquals(45_000L, SetClock.remainingMs(s, 1000, false))
         val adjusted = SetClock.adjust(s, 10, 1000, false)!!
         assertNull(SetClock.autoComplete(adjusted, 55_999, false))
-        assertTrue(SetClock.autoComplete(adjusted, 56_000, false)!!.plannedSets.first().unilateral!!.estimated)
+        val other = SetClock.autoComplete(adjusted, 56_000, false)!!.plannedSets.first().unilateral!!
+        assertEquals(8, other.otherReps)
+        assertEquals(SetRepSource.MANUAL, other.otherRepSource)
     }
 }

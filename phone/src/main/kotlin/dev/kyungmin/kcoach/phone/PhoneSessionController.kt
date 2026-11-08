@@ -74,7 +74,10 @@ class PhoneSessionController(private val store: SessionStore, private val send: 
             is PhonePlanEdit.DuplicateSet -> {
                 val source = exercise(edit.exerciseIndex).single { it.setIndex == edit.setIndex }
                 val insertion = source.setIndex + 1
-                val copy = source.copy(setIndex = insertion, completed = false, durationSeconds = null, performedReps = null,
+                val copy = source.copy(setIndex = insertion,
+                    targetReps = if (source.completed && source.exerciseKind != ExerciseKind.HOLD) source.performedReps ?: source.targetReps else source.targetReps,
+                    targetDurationSeconds = if (source.completed && source.exerciseKind == ExerciseKind.HOLD) source.durationSeconds ?: source.targetDurationSeconds else source.targetDurationSeconds,
+                    completed = false, durationSeconds = null, performedReps = null,
                     repSource = null, rpe = null, workingStartedAtMs = 0, workingPausedAtStartMs = 0, completedDurationMs = null, setTimerLimitMs = null, setTimerAdjustmentMs = 0, unilateral = UnilateralExercises.initial(source.exerciseId),
                     setId = java.util.UUID.randomUUID().toString(), attemptId = java.util.UUID.randomUUID().toString(), identityRequired = true)
                 sets.add(sets.indexOf(source) + 1, copy)

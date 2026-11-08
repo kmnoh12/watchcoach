@@ -254,18 +254,12 @@ class MainActivity : ComponentActivity() {
                     refreshActiveSession()
                 }
                 PhoneWearListenerService.ACTION_COMMAND_REJECTED -> {
-                    activeLiveStatus?.apply {
-                        text = when (intent.getStringExtra("reason")) {
-                            "CLOSED_SESSION" -> "워치에서 종료된 세션이에요 · 새 운동을 시작해 주세요"
-                            "STALE" -> "워치 명령 순서를 확인할 수 없어요 · 연결을 다시 확인해 주세요"
-                            "BINDING" -> "세트 정보가 바뀌어 워치 명령을 보내지 못했어요 · 세트를 다시 열어주세요"
-                            "OUTBOX" -> "워치 명령을 저장하지 못했어요 · 잠시 후 다시 시도해 주세요"
-                            "SERVICE_START" -> "워치 연결 서비스를 시작하지 못했어요 · 앱을 다시 열어 주세요"
-                            "INVALID" -> "워치 명령 형식이 맞지 않아 보내지 않았어요 · 세트를 다시 열어주세요"
-                            else -> "워치 명령을 적용하지 못했어요 · 운동 상태를 확인해 주세요"
-                        }
-                        setTextColor(amber)
-                    }
+                    val reason = intent.getStringExtra("reason")
+                    Log.w(EVENT_TAG, "watch command rejected: $reason")
+                    // Diagnostics must not replace the live count/heart rate over the viewer.
+                    val message = if (reason == "CLOSED_SESSION") "운동이 종료됐어요. 새 운동을 시작해 주세요."
+                        else "워치 연결을 확인해 주세요."
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                 }
                 PhoneWearListenerService.ACTION_PAIR -> {
                     updateWearConnectionStatus()
@@ -1106,30 +1100,29 @@ class MainActivity : ComponentActivity() {
         stopTicker()
         currentTab = RootTab.RECORDS
         currentScreen = Screen.ROOT
-        val sections = if (result.analyses.isEmpty()) {
-            listOf(ResultSectionUi("분석 대기", listOf("센서 기록" to "워치에서 받는 중", "자동 추정 횟수" to "센서 기록을 받으면 표시돼요")))
-        } else {
-            result.analyses.values.sortedWith(compareBy<SetAnalysisUi> { it.exerciseName }.thenBy { it.setIndex }).map { analysis ->
-                ResultSectionUi("${analysis.exerciseName} · 세트 ${analysis.setIndex + 1}", analysis.resultMetricRows(),
+        val sections = result.analyses.values.sortedWith(compareBy<SetAnalysisUi> { it.exerciseName }.thenBy { it.setIndex })
+            .mapNotNull { analysis ->
+                val rows = analysis.workoutResultRows()
+                if (rows.isEmpty()) null else ResultSectionUi("${analysis.exerciseName} · ${analysis.setIndex + 1}세트", rows,
                     analysis.motionMetrics?.reps?.map { it.durationMs / 1000.0 }.orEmpty())
             }
-        }
         val ui = ResultUi(
             title = result.title,
-            subtitle = "${result.durationMinutes}분 · ${result.completedSets}세트 · 세션 ${result.sessionId.takeLast(8)}",
+            subtitle = "${result.durationMinutes}분 · ${result.completedSets}세트",
             sections = sections,
             records = if (lastWorkoutResult?.sessionId == result.sessionId) lastWorkoutRecords else emptyList(),
-            footnote = ANALYSIS_ESTIMATE_NOTE,
+            footnote = "반복 시간은 워치 움직임을 기준으로 계산해요.",
             sessionId = result.sessionId,
         )
-        val estimated = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
-            ?.snapshot?.plannedSets?.filter { it.completed && (it.unilateral?.estimated == true || it.repSource == SetRepSource.ESTIMATED) }.orEmpty()
+        val editableSets = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
+            ?.snapshot?.plannedSets?.filter { it.completed && (it.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.BOTH_COMPLETE || it.repSource == SetRepSource.ESTIMATED) }.orEmpty()
         showStandalone(ComposeView(this).apply {
             setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { showRecords() },
                 summary = { dev.kyungmin.kcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) },
-                estimatedSets = estimated.map { "${it.exerciseName} · ${it.setIndex + 1}세트" to requireNotNull(it.unilateral?.otherReps ?: it.performedReps) },
-                confirmEstimate = { index, reps ->
-                    val set = estimated[index]
+                editableSets = editableSets.map { "${it.exerciseName} · ${it.setIndex + 1}세트" +
+                    (if (it.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.BOTH_COMPLETE) " · 반대손" else "") to requireNotNull(it.unilateral?.otherReps ?: it.performedReps) },
+                confirmReps = { index, reps ->
+                    val set = editableSets[index]
                     if (FinishedWorkoutStore(this@MainActivity).confirmOther(result.sessionId, set.setId, set.attemptId, reps)) {
                         this@MainActivity.historyCache = null
                         showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
@@ -1873,7 +1866,7 @@ class MainActivity : ComponentActivity() {
                             hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
                             reps = if (routineExercise.exercise.kind == ExerciseKind.HOLD) { if (set.completed) set.durationSeconds else set.targetDurationSeconds ?: 30 } else if (set.completed) set.performedReps else set.targetReps,
                             completed = set.completed,
-                            estimated = set.repSource == SetRepSource.ESTIMATED || set.unilateral?.otherRepSource == SetRepSource.ESTIMATED,
+                            estimated = set.repSource == SetRepSource.ESTIMATED,
                             halfDone = !set.completed && set.unilateral?.holdsRest == true,
                             otherSideWorking = !set.completed && set.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.OTHER_SIDE_WORKING,
                             warmup = set.setType == SetType.WARMUP,
@@ -2043,11 +2036,9 @@ class MainActivity : ComponentActivity() {
                         if (routineExercise.exercise.kind == ExerciseKind.HOLD) {
                             if (set.completed) set.durationSeconds = reps else set.targetDurationSeconds = reps
                         } else if (set.completed) {
-                            if (set.unilateral?.estimated != true) {
-                                set.performedReps = reps
-                                set.repSource = SetRepSource.MANUAL
-                            }
-                            set.unilateral = set.unilateral?.let { side -> if (side.otherRepSource == SetRepSource.ESTIMATED) side.copy(otherReps = reps, otherRepSource = SetRepSource.MANUAL) else side.copy(watchReps = reps, watchRepSource = SetRepSource.MANUAL) }
+                            set.performedReps = reps
+                            set.repSource = SetRepSource.MANUAL
+                            set.unilateral = set.unilateral?.withWatchReps(reps, SetRepSource.MANUAL)
                         } else set.targetReps = reps
                     }
                 }
@@ -2889,32 +2880,23 @@ class MainActivity : ComponentActivity() {
         currentScreen = Screen.EXERCISE_INFO
         returnFromExerciseInfo = onReturn
 
-        val matching = routines.filter { it.exercises.any { item -> item.exercise.id == exercise.id } }
-        val plannedSets = matching.sumOf { routine -> routine.exercises.filter { it.exercise.id == exercise.id }.sumOf { it.sets.size } }
-        val used = routines.flatMap { it.exercises }.filter { it.exercise.id == exercise.id }
-        val averageRest = used.map { it.restSeconds }.average().takeIf { !it.isNaN() }?.toInt() ?: 0
-        val info = ExerciseInfoUi(
-            name = exercise.name,
-            muscles = exercise.muscles,
-            description = exerciseDescription(exercise),
-            myRecord = listOf(
-                "● 나의 기록" to "이 운동이 포함된 루틴 ${matching.size}개\n계획된 총 세트 ${plannedSets}세트\n\n최근 루틴\n${matching.firstOrNull()?.name ?: "아직 기록 없음"}",
-                "● 최근 목표" to (matching.firstOrNull()?.exercises?.firstOrNull { it.exercise.id == exercise.id }?.sets?.firstOrNull()?.let { set ->
-                    "${set.weightKg?.let { cleanWeight(it) + "kg" } ?: if (exercise.equipment == "맨몸") "체중" else "무게 미정"} · ${if (exercise.kind == ExerciseKind.HOLD) HoldExercise.time(set.targetDurationSeconds ?: 30) else "${set.targetReps}회"}"
-                } ?: "기록이 쌓이면 표시돼요."),
-            ),
-            stats = listOf(
-                "${used.size}회" to "루틴 포함",
-                "${used.sumOf { it.sets.size }}세트" to "계획 세트",
-                "${averageRest}초" to "평균 휴식",
-                exercise.equipment to "기구",
-            ),
-            analysisNote = if (ExerciseTrackingProfiles.resolve(exercise.id, exercise.name).mode == TrackingMode.MANUAL_REQUIRED)
-                "실제 횟수를 폰이나 워치에서 입력해 주세요. 손목 신호로 횟수·다리 자세를 판정하지 않아요."
-                else "",
-        )
         showStandalone(ComposeView(this).apply {
             setContent {
+                val actual by androidx.compose.runtime.produceState<ExerciseRecordOverview?>(null, exercise.id) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching { ExerciseRecordOverview.from(FinishedWorkoutStore(this@MainActivity).historyForRecords(), exercise.id, exercise.kind == ExerciseKind.HOLD) }
+                            .getOrElse {
+                                Log.e(EVENT_TAG, "exercise history read failed", it)
+                                ExerciseRecordOverview(listOf("기록을 불러오지 못했어요" to "잠시 후 다시 열어 주세요."), emptyList())
+                            }
+                    }
+                }
+                val info = ExerciseInfoUi(
+                    name = exercise.name, muscles = exercise.muscles, description = exerciseDescription(exercise),
+                    myRecord = actual?.records ?: listOf("기록 불러오는 중" to ""), stats = actual?.stats.orEmpty(),
+                    analysisNote = if (ExerciseTrackingProfiles.resolve(exercise.id, exercise.name).mode == TrackingMode.MANUAL_REQUIRED)
+                        "실제 횟수를 폰이나 워치에서 입력해 주세요. 손목 신호로 횟수·다리 자세를 판정하지 않아요." else "",
+                )
                 ExerciseInfoScreen(info, back = onReturn) { height -> exerciseAnimationView(exercise, height) }
             }
         })
@@ -3527,10 +3509,7 @@ class MainActivity : ComponentActivity() {
                 applySnapshotToWorkout(workout, it)
                 bumpWorkoutUi()
             }
-            activeLiveStatus?.apply {
-                text = "세션 저장에 실패했어요 · 워치 명령을 보내지 않았어요"
-                setTextColor(amber)
-            }
+            Toast.makeText(this, "변경이 저장되지 않았어요. 다시 수정해 주세요.", Toast.LENGTH_SHORT).show()
         }
         return saved
     }

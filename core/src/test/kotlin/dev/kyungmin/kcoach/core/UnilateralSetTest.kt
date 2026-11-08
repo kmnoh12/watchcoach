@@ -113,13 +113,13 @@ class UnilateralSetTest {
         assertEquals(106_000, done.restEndAtMs)
         val side = done.plannedSets.first().unilateral!!
         assertEquals(12, side.otherReps)
-        assertEquals(SetRepSource.ESTIMATED, side.otherRepSource)
+        assertEquals(SetRepSource.MANUAL, side.otherRepSource)
         assertEquals(SetRepSource.WATCH, side.watchRepSource)
         assertNull(UnilateralSetReducer.autoComplete(done, 100_000))
         assertEquals(done, WorkoutSnapshotCodec.decode(WorkoutSnapshotCodec.encode(done)))
         assertEquals(9, side.confirmOther(9).otherReps)
         assertEquals(SetRepSource.MANUAL, side.confirmOther(9).otherRepSource)
-        assertFalse(side.confirmOther(9).estimated)
+        assertEquals(SetRepSource.MANUAL, side.confirmOther(9).otherRepSource)
         assertEquals(12, side.confirmOther(9).watchReps)
     }
     @Test fun `manual opposite completion and skip both cancel timeout`() {
@@ -144,8 +144,30 @@ class UnilateralSetTest {
         assertNull(UnilateralSetReducer.autoComplete(timed(null), 999_999))
         val legacy = UnilateralProgress.decode("OTHER_SIDE_WORKING,12,WATCH,")!!
         assertNull(legacy.firstSideDurationMs)
-        assertFalse(legacy.estimated)
+        assertNull(legacy.otherRepSource)
         assertNull(UnilateralSetReducer.autoComplete(timed(policy = UnilateralFirstSidePolicy.WATCH_SIDE_ONLY), 999_999))
+    }
+
+    @Test fun `legacy opposite estimates lose label without rewriting corrected counts`() {
+        for (encoded in listOf("BOTH_COMPLETE,12,WATCH,9,ESTIMATED,30000,,0", "BOTH_COMPLETE,12,WATCH,9")) {
+            val old = UnilateralProgress.decode(encoded)!!
+            assertEquals(12, old.watchReps)
+            assertEquals(9, old.otherReps)
+            assertEquals(SetRepSource.MANUAL, old.otherRepSource)
+            assertEquals(old, UnilateralProgress.decode(old.encode()))
+        }
+    }
+    @Test fun `late watch analysis keeps matched opposite reps together but preserves manual differences`() {
+        val done = UnilateralSetReducer.autoComplete(timed(), 46_000)!!
+        val corrected = WorkoutSessionReducer.confirmReps(done, "one_arm_dumbbell_row", 0, 11, "set", "a")
+        assertEquals(11, corrected.plannedSets.first().performedReps)
+        assertEquals(11, corrected.plannedSets.first().unilateral!!.otherReps)
+        val edited = done.copy(plannedSets = done.plannedSets.mapIndexed { i, set ->
+            if (i == 0) set.copy(unilateral = set.unilateral!!.confirmOther(9)) else set
+        })
+        val preserved = WorkoutSessionReducer.confirmReps(edited, "one_arm_dumbbell_row", 0, 11, "set", "a")
+        assertEquals(11, preserved.plannedSets.first().unilateral!!.watchReps)
+        assertEquals(9, preserved.plannedSets.first().unilateral!!.otherReps)
     }
 
 }

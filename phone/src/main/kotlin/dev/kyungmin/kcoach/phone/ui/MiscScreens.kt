@@ -165,19 +165,20 @@ class ResultUi(
 
 @Composable
 fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Unit, summary: (@Composable () -> Unit)? = null,
-    estimatedSets: List<Pair<String, Int>> = emptyList(), confirmEstimate: (Int, Int) -> Unit = { _, _ -> }) {
+    editableSets: List<Pair<String, Int>> = emptyList(), confirmReps: (Int, Int) -> Unit = { _, _ -> }) {
     val context = LocalContext.current
-    var editingEstimate by remember { mutableStateOf<Int?>(null) }
-    var estimateText by remember { mutableStateOf("") }
-    editingEstimate?.let { index ->
-        androidx.compose.material3.AlertDialog(onDismissRequest = { editingEstimate = null },
-            title = { Text("반대손 횟수") },
-            text = { BasicTextField(estimateText, { estimateText = it.filter(Char::isDigit).take(4) },
+    var showTempo by remember { mutableStateOf(false) }
+    var editingReps by remember { mutableStateOf<Int?>(null) }
+    var repsText by remember { mutableStateOf("") }
+    editingReps?.let { index ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { editingReps = null },
+            title = { Text("횟수 수정") },
+            text = { BasicTextField(repsText, { repsText = it.filter(Char::isDigit).take(4) },
                 keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)) },
             confirmButton = { androidx.compose.material3.TextButton(onClick = {
-                estimateText.toIntOrNull()?.takeIf { it in 0..9_999 }?.let { confirmEstimate(index, it); editingEstimate = null }
+                repsText.toIntOrNull()?.takeIf { it in 0..9_999 }?.let { confirmReps(index, it); editingReps = null }
             }) { Text("확정") } },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { editingEstimate = null }) { Text("취소") } })
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { editingReps = null }) { Text("취소") } })
     }
     val scope = rememberCoroutineScope()
     // The content column is taller than the viewport, so recording it here exports the whole page.
@@ -253,9 +254,9 @@ fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Uni
                 Text(result.subtitle, color = KColors.Muted, fontSize = 14.sp)
                 Spacer(Modifier.height(18.dp))
                 summary?.invoke()
-                estimatedSets.forEachIndexed { index, (label, reps) ->
-                    Text("$label · 반대손 ${reps}회 · 추정", color = KColors.Muted, fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth().clickable { estimateText = reps.toString(); editingEstimate = index }.padding(vertical = 10.dp))
+                editableSets.forEachIndexed { index, (label, reps) ->
+                    Text("$label · ${reps}회 · 수정", color = KColors.Muted, fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().clickable { repsText = reps.toString(); editingReps = index }.padding(vertical = 10.dp))
                 }
                 if (result.records.isNotEmpty()) {
                     Spacer(Modifier.height(28.dp))
@@ -270,19 +271,20 @@ fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Uni
                     RecordList(result.records)
                 }
                 Spacer(Modifier.height(28.dp))
-                Text("세트별 센서 추정", color = KColors.Soft, fontSize = 15.sp)
-                Spacer(Modifier.height(10.dp))
-                result.sections.forEach {
-                    if (it.repSeconds.isNotEmpty()) {
-                        Text(it.title, color = KColors.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
-                        RepTempoBars(it.repSeconds)
-                        Spacer(Modifier.height(14.dp))
-                        SectionCard("센서 추정", it.values)
-                    } else SectionCard(it.title, it.values)
-                    Spacer(Modifier.height(24.dp))
+                if (result.sections.isNotEmpty()) {
+                    androidx.compose.material3.TextButton(onClick = { showTempo = !showTempo }) {
+                        Text(if (showTempo) "반복 속도 접기" else "반복 속도 보기", color = KColors.Soft)
+                    }
+                    if (showTempo) {
+                        result.sections.forEach {
+                            Text(it.title, color = KColors.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
+                            if (it.repSeconds.isNotEmpty()) RepTempoBars(it.repSeconds)
+                            SectionCard("반복 속도", it.values)
+                            Spacer(Modifier.height(24.dp))
+                        }
+                        Text(result.footnote, color = KColors.Muted, fontSize = 13.sp)
+                    }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(result.footnote, color = KColors.Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(18.dp))
                 WideButton("운동 기록으로 돌아가기", KColors.SurfaceRaised, KColors.White, 58, onClick = toRecords)
             }

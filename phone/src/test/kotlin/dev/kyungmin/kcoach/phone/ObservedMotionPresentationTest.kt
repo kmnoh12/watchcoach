@@ -65,4 +65,13 @@ class ObservedMotionPresentationTest {
         SetAnalysisStore(app).persistAnalysis(manifest, fields.joinToString("|"))
         assertNull(SetAnalysisStore(app).loadForSession("metrics-session").values.single().motionMetrics)
     }
+    @Test fun workoutResultOnlyOffersObservedTempoAndDoesNotInventManualAnalysis() {
+        val analysis = SetAnalysisUi("lat_pull_down", "랫풀다운", 0, 1, 1, 1, .8, motionMetrics = metrics())
+        val rows = analysis.workoutResultRows()
+        assertTrue(rows.contains("평균 반복 시간" to "1.00초"))
+        assertFalse(rows.any { it.first in setOf("측정 방식", "분석 점수", "신호 품질", "개인 손목 기준", "자세 정확도") })
+        assertTrue(analysis.copy(trackingMode = "MANUAL_REQUIRED").workoutResultRows().isEmpty())
+        assertTrue(analysis.copy(motionMetrics = null).workoutResultRows().isEmpty())
+    }
+
 }

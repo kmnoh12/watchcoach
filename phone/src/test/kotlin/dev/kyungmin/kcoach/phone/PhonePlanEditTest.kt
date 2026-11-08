@@ -166,7 +166,7 @@ class PhonePlanEditTest {
         val copy = saved.plannedSets[1]
         assertEquals(source, saved.plannedSets[0])
         assertEquals(source.weightKg, copy.weightKg)
-        assertEquals(source.targetReps, copy.targetReps)
+        assertEquals(source.performedReps, copy.targetReps)
         assertEquals(source.setType, copy.setType)
         assertEquals(source.gripType, copy.gripType)
         assertEquals(source.restOverrideSeconds, copy.restOverrideSeconds)
@@ -214,4 +214,40 @@ class PhonePlanEditTest {
         assertTrue("the exact next attempt sent to the wrist must be completable: $result", result is SetCompletionResult.Applied)
     }
 
+    @Test fun performedCopyUsesActualRepsOrTimeWithoutChangingTheOriginalPlan() {
+        val (store, seed) = seed()
+        for (hold in listOf(false, true)) {
+            val source = seed.plannedSets[0].copy(completed = true, targetReps = 10, performedReps = if (hold) 0 else 8,
+                repSource = SetRepSource.MANUAL, exerciseKind = if (hold) ExerciseKind.HOLD else ExerciseKind.RESISTANCE,
+                targetDurationSeconds = if (hold) 60 else null, durationSeconds = if (hold) 42 else null)
+            check(store.saveActive(seed.copy(plannedSets = listOf(source) + seed.plannedSets.drop(1))))
+            val before = store.loadActive().getOrThrow()!!
+            val next = PhoneSessionController(store) { _, _ -> }.editPlan({ before },
+                PhonePlanEdit.DuplicateSet(0, 0)).getOrThrow().snapshot
+            assertEquals(source, next.plannedSets[0])
+            val copy = next.plannedSets[1]
+            assertEquals(if (hold) 10 else 8, copy.targetReps)
+            assertEquals(if (hold) 42 else null, copy.targetDurationSeconds)
+            assertFalse(copy.completed)
+            assertNull(copy.performedReps); assertNull(copy.durationSeconds)
+            assertNotEquals(source.setId, copy.setId)
+            assertEquals(before.restEndAtMs, next.restEndAtMs)
+        }
+    }
+    @Test fun copyUsesLatestSavedManualCountEvenWhenTheScreenIsOlder() {
+        val (store, seed) = seed()
+        val source = seed.plannedSets[0].copy(completed = true, performedReps = 8, repSource = SetRepSource.WATCH)
+        check(store.saveActive(seed.copy(plannedSets = listOf(source) + seed.plannedSets.drop(1))))
+        val screen = store.loadActive().getOrThrow()!!
+        val newer = SessionStore(app)
+        val current = newer.loadActive().getOrThrow()!!
+        check(newer.saveActive(current.copy(plannedSets = current.plannedSets.mapIndexed { i, set ->
+            if (i == 0) set.copy(weightKg = 25.0, performedReps = 12, repSource = SetRepSource.MANUAL) else set
+        })))
+        val copy = PhoneSessionController(store) { _, _ -> }.editPlan({ screen }, PhonePlanEdit.DuplicateSet(0, 0))
+            .getOrThrow().snapshot.plannedSets[1]
+        assertEquals(12, copy.targetReps)
+        assertEquals(25.0, copy.weightKg!!, 0.0)
+        assertFalse(copy.completed)
+    }
 }

@@ -40,9 +40,9 @@ internal class FinishedWorkoutStore(private val context: Context) {
         val record = prefs.getString(key, null)?.let(::JSONObject) ?: return@synchronized false
         val snapshot = WorkoutSnapshotCodec.decode(record.getString("snapshot"))
         val set = snapshot.plannedSets.singleOrNull { it.setId == setId && it.attemptId == attemptId }
-            ?.takeIf { it.completed && (it.unilateral?.estimated == true || it.repSource == SetRepSource.ESTIMATED) } ?: return@synchronized false
+            ?.takeIf { it.completed && (it.unilateral?.stage == UnilateralStage.BOTH_COMPLETE || it.repSource == SetRepSource.ESTIMATED) } ?: return@synchronized false
         val corrected = snapshot.copy(plannedSets = snapshot.plannedSets.map {
-            if (it === set) if (it.unilateral?.estimated == true) it.copy(unilateral = requireNotNull(it.unilateral).confirmOther(reps))
+            if (it === set) if (it.unilateral?.stage == UnilateralStage.BOTH_COMPLETE) it.copy(unilateral = requireNotNull(it.unilateral).confirmOther(reps))
             else it.copy(performedReps = reps, repSource = SetRepSource.MANUAL) else it
         })
         val totals = corrected.copy(performedReps = corrected.plannedSets.filter { it.completed }.groupBy { it.exerciseId }
@@ -139,7 +139,9 @@ internal class FinishedWorkoutStore(private val context: Context) {
             val day = Instant.ofEpochMilli(evidence.snapshot.startedAtMs).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
             ProgressionPlanStore(context).logs(evidence.snapshot, day)
         }
-        ExerciseHistory(legacy + full)
+        // Prefer complete owned sessions over their cached projections, once per exercise.
+        val owned = full.map { it.sessionId to it.exerciseId }.toSet()
+        ExerciseHistory(legacy.filterNot { it.sessionId != null && (it.sessionId to it.exerciseId) in owned } + full)
     }
 
     fun usePounds(sessionId: String): Boolean = synchronized(lock) {

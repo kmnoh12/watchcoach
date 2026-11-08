@@ -206,7 +206,7 @@ class WorkoutDataTest {
         assertEquals(copy.setId, sets[1].setId)
         assertEquals(25.0, sets[2].weightKg)
         assertEquals(20.0, copy.weightKg)
-        assertEquals(10, copy.targetReps)
+        assertEquals(9, copy.targetReps)
         assertEquals("언더", copy.gripType)
         assertEquals(45, copy.restSeconds)
         assertFalse(copy.completed)
@@ -234,4 +234,16 @@ class WorkoutDataTest {
             assertTrue("$new must exist", new in WorkoutData.builtInExerciseIds)
         }
     }
+    @Test fun `performed duplicate uses the actual count and leaves its source untouched`() {
+        val source = PlannedSet(100.0, 10, completed = true, performedReps = 8, repSource = SetRepSource.MANUAL)
+        val sets = mutableListOf(source)
+        assertEquals(8, sets.duplicateAfter(0)!!.targetReps)
+        assertEquals(10, source.targetReps)
+        assertEquals(8, source.performedReps)
+        assertFalse(sets[1].completed)
+        assertEquals(10, mutableListOf(PlannedSet(20.0, 10)).duplicateAfter(0)!!.targetReps)
+        val hold = mutableListOf(PlannedSet(5.0, 0, completed = true, durationSeconds = 42, targetDurationSeconds = 60))
+        assertEquals(42, hold.duplicateAfter(0)!!.targetDurationSeconds)
+    }
+
 }

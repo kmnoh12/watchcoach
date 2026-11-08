@@ -73,7 +73,7 @@ class WorkoutEditSafetyTest {
             assertEquals(20.0, routine(activity).exercises[0].sets[0].weightKg!!, 0.0)
             assertEquals(10, routine(activity).exercises[0].sets[0].targetReps)
             assertEquals(2L, SessionStore(app).loadActive().getOrThrow()!!.lastSequence)
-            assertNull(ShadowToast.getTextOfLatestToast())
+            assertEquals("변경이 저장되지 않았어요. 다시 수정해 주세요.", ShadowToast.getTextOfLatestToast())
         } finally { controller.destroy() }
     }
 

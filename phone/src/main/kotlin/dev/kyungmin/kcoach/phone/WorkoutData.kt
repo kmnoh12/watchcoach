@@ -56,16 +56,16 @@ fun adjustedIndexAfterMove(current: Int, from: Int, to: Int): Int = when {
     else -> current
 }
 
-/** Inserts an uncompleted copy of [index] directly after it, so the copy becomes the next set; a recorded result is never cloned. */
+/** Copies the currently saved values into a fresh, uncompleted next set. */
 fun MutableList<PlannedSet>.duplicateAfter(index: Int): PlannedSet? {
     val source = getOrNull(index) ?: return null
     val copy = PlannedSet(
         weightKg = source.weightKg,
-        targetReps = source.targetReps,
+        targetReps = if (source.completed) source.performedReps ?: source.targetReps else source.targetReps,
         setType = source.setType,
         gripType = source.gripType,
         restSeconds = source.restSeconds,
-        targetDurationSeconds = source.targetDurationSeconds,
+        targetDurationSeconds = if (source.completed) source.durationSeconds ?: source.targetDurationSeconds else source.targetDurationSeconds,
     )
     add(index + 1, copy)
     return copy

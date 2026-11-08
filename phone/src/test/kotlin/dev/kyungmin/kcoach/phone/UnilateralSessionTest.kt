@@ -75,7 +75,7 @@ class UnilateralSessionTest {
         val stale = start.copy(commandId = "old", attemptId = "old")
         assertEquals(WatchWorkoutControlStatus.REJECTED, store.applyWatchControl(stale, 99_000).getOrThrow().ack.status)
     }
-    @Test fun watchSuggestedCompletionIsEstimatedUntilPhoneConfirms() {
+    @Test fun watchCompletionUsesMatchedCountAndRemainsEditable() {
         val store = SessionStore(app); assertTrue(store.saveActive(initial()))
         PhoneSessionController(store) { _, _ -> }.receiveCompletion(completion(), 1_000).getOrThrow()
         val request = command(WatchWorkoutAction.COMPLETE_OTHER_SIDE)
@@ -83,7 +83,7 @@ class UnilateralSessionTest {
         val set = result.snapshot!!.plannedSets.single()
         assertEquals(UnilateralStage.BOTH_COMPLETE, set.unilateral!!.stage)
         assertEquals(12, set.unilateral!!.otherReps)
-        assertEquals(SetRepSource.ESTIMATED, set.unilateral!!.otherRepSource)
+        assertEquals(SetRepSource.MANUAL, set.unilateral!!.otherRepSource)
         assertEquals(64_000L, result.snapshot!!.restEndAtMs)
         assertEquals(WatchWorkoutControlStatus.DUPLICATE, store.applyWatchControl(request, 5_000).getOrThrow().ack.status)
         val finished = FinishedWorkoutStore(app)
@@ -122,17 +122,17 @@ class UnilateralSessionTest {
         assertNull(restored.advanceRest(65_999).getOrThrow())
         val done = restored.advanceRest(66_000).getOrThrow()!!
         assertEquals(126_000, done.restEndAtMs)
-        assertTrue(done.plannedSets.single().unilateral!!.estimated)
+        assertEquals(SetRepSource.MANUAL, done.plannedSets.single().unilateral!!.otherRepSource)
         assertNull(restored.advanceRest(66_001).getOrThrow())
-        assertFalse(ProgressionPlanStore(app).logs(done, 1).single().sets.single().progressionEligible)
+        assertTrue(ProgressionPlanStore(app).logs(done, 1).single().sets.single().progressionEligible)
     }
     @Test fun explicitInputBeforeTimeoutWinsAndFinishedCorrectionPreservesMeasuredSide() {
         val controller = timedController()
         val manual = controller.unilateralAction("s", "set", "a", UnilateralAction.COMPLETE_OTHER_SIDE, 40_000, 8).getOrThrow().snapshot!!
-        assertFalse(manual.plannedSets.single().unilateral!!.estimated)
+        assertEquals(SetRepSource.MANUAL, manual.plannedSets.single().unilateral!!.otherRepSource)
         assertNull(controller.advanceRest(46_000).getOrThrow())
     }
-    @Test fun finishedEstimatedCorrectionPreservesMeasuredSide() {
+    @Test fun finishedOppositeCorrectionPreservesMeasuredSide() {
         val timed = timedController().advanceRest(46_000).getOrThrow()!!
         val finished = FinishedWorkoutStore(app)
         finished.finish(timed, "원암", 1)
@@ -143,7 +143,9 @@ class UnilateralSessionTest {
         assertEquals(9, corrected.plannedSets.single().unilateral!!.otherReps)
         assertEquals(SetRepSource.MANUAL, corrected.plannedSets.single().unilateral!!.otherRepSource)
         assertTrue(ProgressionPlanStore(app).logs(corrected, 1).single().sets.single().progressionEligible)
-        assertFalse(finished.confirmOther("s", "set", "a", 7))
+        assertTrue(finished.confirmOther("s", "set", "a", 7))
+        assertEquals(7, finished.evidenceForSessions(setOf("s")).single().snapshot.plannedSets.single().unilateral!!.otherReps)
+        assertFalse(finished.confirmOther("s", "set", "stale", 7))
     }
     @Test fun oneArmOnlySettingAndUnknownLegacyDurationNeverArmTimer() {
         OneArmSetting.setEnabled(app, true)
@@ -159,6 +161,21 @@ class UnilateralSessionTest {
         assertTrue(SessionStore(app).saveActive(initial()))
         controller.receiveCompletion(completion(), 1_000).getOrThrow()
         assertNull(SessionStore(app).advanceOtherSide(999_999).getOrThrow())
+    }
+
+    @Test fun completedCountEditsKeepMatchedSidesTogetherWithoutRestartingRest() {
+        val done = timedController().advanceRest(46_000).getOrThrow()!!
+        val store = SessionStore(app)
+        val edit = ManualSetCommand("edit-matched", "s", "one_arm_dumbbell_row", 0, "set", "a", 10,
+            store.manualSetRevision("s", "set", "a").getOrThrow()!!, ManualSetOperation.EDIT)
+        val result = store.applyManualSet(edit, 47_000).getOrThrow()
+        val set = result.snapshot!!.plannedSets.single()
+        assertEquals(10, set.performedReps)
+        assertEquals(10, set.unilateral!!.watchReps)
+        assertEquals(10, set.unilateral!!.otherReps)
+        assertEquals(done.restEndAtMs, result.snapshot!!.restEndAtMs)
+        assertFalse(result.restStarted)
+        assertEquals(ManualSetStatus.DUPLICATE, store.applyManualSet(edit, 48_000).getOrThrow().ack.status)
     }
 
 }
