@@ -1,0 +1,1010 @@
+{
+ "ab_wheel_rollout": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "alternating_dumbbell_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "alternating_hammer_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "arnold_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "assisted_chin_up": {
+  "yaw": 150,
+  "elev": 5
+ },
+ "assisted_dip": {
+  "yaw": 40,
+  "elev": 0
+ },
+ "assisted_pull_up": {
+  "yaw": 150,
+  "elev": 5
+ },
+ "barbell_biceps_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "barbell_overhead_press": {
+  "yaw": 50,
+  "elev": 5
+ },
+ "barbell_pullover": {
+  "yaw": 85,
+  "elev": 5
+ },
+ "barbell_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "barbell_shrug": {
+  "yaw": 12,
+  "elev": 0
+ },
+ "barbell_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "bayesian_curl": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "behind_neck_lat_pulldown": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "belt_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "bent_over_dumbbell_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "bicycle_crunch": {
+  "yaw": 60,
+  "elev": 20
+ },
+ "box_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "bradford_press": {
+  "yaw": 50,
+  "elev": 5
+ },
+ "bulgarian_split_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "cable_crunch": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "cable_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "cable_drag_curl": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_fly_high": {
+  "yaw": 12,
+  "elev": 5
+ },
+ "cable_fly_low": {
+  "yaw": 12,
+  "elev": 5
+ },
+ "cable_fly_mid": {
+  "yaw": 12,
+  "elev": 5
+ },
+ "cable_front_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_glute_kickback": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_kickback_glute": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_overhead_extension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_pullover": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_pushdown": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_rear_delt_fly": {
+  "yaw": 120,
+  "elev": 12
+ },
+ "cable_seated_crunch": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "cable_seated_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cable_standing_crunch": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "cable_upright_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "chest_dip": {
+  "yaw": 40,
+  "elev": 0
+ },
+ "chest_press": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "chest_supported_dumbbell_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "chin_up": {
+  "yaw": 150,
+  "elev": 5
+ },
+ "clean_and_press": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "close_grip_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "concentration_curl": {
+  "yaw": 45,
+  "elev": 10
+ },
+ "conventional_deadlift": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "cossack_squat": {
+  "yaw": 0,
+  "elev": 5
+ },
+ "cross_body_hammer_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "crossover_reverse_fly": {
+  "yaw": 12,
+  "elev": 5
+ },
+ "crunch": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "cuban_press": {
+  "yaw": 0,
+  "elev": 0
+ },
+ "curtsy_lunge": {
+  "yaw": 40,
+  "elev": 5
+ },
+ "dead_bug": {
+  "yaw": 60,
+  "elev": 20
+ },
+ "decline_barbell_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "decline_dumbbell_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "decline_machine_bench_press_plate": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "decline_machine_chest_press": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "decline_push_up": {
+  "yaw": 90,
+  "elev": 8
+ },
+ "decline_sit_up": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "diamond_push_up": {
+  "yaw": 90,
+  "elev": 8
+ },
+ "drag_curl": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "dumbbell_bench": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "dumbbell_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "dumbbell_deadlift": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "dumbbell_drag_curl": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "dumbbell_front_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "dumbbell_goblet_squat": {
+  "yaw": 70,
+  "elev": 5
+ },
+ "dumbbell_lateral_raise": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "dumbbell_pullover": {
+  "yaw": 85,
+  "elev": 5
+ },
+ "dumbbell_rear_delt_fly": {
+  "yaw": 120,
+  "elev": 12
+ },
+ "dumbbell_reverse_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "dumbbell_seated_kickback": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "dumbbell_shoulder_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "dumbbell_shrug": {
+  "yaw": 12,
+  "elev": 0
+ },
+ "dumbbell_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "dumbbell_triceps_extension": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "external_rotation": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "ez_biceps_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "ez_lying_extension": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "face_pull": {
+  "yaw": 35,
+  "elev": 0
+ },
+ "farmers_carry": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "flat_bench": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "flat_machine_bench_press": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "floor_press_barbell": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "front_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "glute_bridge": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "goblet_squat": {
+  "yaw": 70,
+  "elev": 5
+ },
+ "good_morning": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "guillotine_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "hack_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "hammer_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "hang_clean": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "hanging_knee_raise": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "hanging_leg_raise": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "hanging_windshield_wiper": {
+  "yaw": 0,
+  "elev": 5
+ },
+ "hex_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "high_row_machine": {
+  "yaw": 30,
+  "elev": 0
+ },
+ "hip_abduction": {
+  "yaw": 15,
+  "elev": 5
+ },
+ "hip_adduction": {
+  "yaw": 15,
+  "elev": 5
+ },
+ "hip_thrust_barbell": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "hip_thrust_machine": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "hollow_hold": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "hyperextension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "incline_bench": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "incline_curl": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "incline_dumbbell_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "incline_dumbbell_fly": {
+  "yaw": 40,
+  "elev": 12
+ },
+ "incline_dumbbell_rear_delt_fly": {
+  "yaw": 120,
+  "elev": 12
+ },
+ "incline_hammer_curl": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "incline_machine_bench_press_plate": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "incline_machine_chest_press_pin": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "incline_machine_chest_press_plate": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "incline_push_up": {
+  "yaw": 90,
+  "elev": 8
+ },
+ "inverted_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "jm_press": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "kettlebell_swing": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "kickback_cable": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "kickback_dumbbell": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "landmine_press": {
+  "yaw": 60,
+  "elev": 5
+ },
+ "landmine_shoulder_press": {
+  "yaw": 60,
+  "elev": 5
+ },
+ "lat_pull_down": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "lateral_lunge": {
+  "yaw": 0,
+  "elev": 5
+ },
+ "leg_extension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "leg_press": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "leg_press_calf_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "leg_press_horizontal": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "lying_leg_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "lying_leg_raise": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "lying_tbar_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "machine_chest_press_plate": {
+  "yaw": 65,
+  "elev": 5
+ },
+ "machine_dip": {
+  "yaw": 40,
+  "elev": 0
+ },
+ "machine_fly": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "machine_front_pulldown_pin": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "machine_front_pulldown_plate": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "machine_glute_kickback": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "machine_lateral_raise": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "machine_pulldown_pin": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "machine_pulldown_plate": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "machine_pullover": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "machine_reverse_fly": {
+  "yaw": 120,
+  "elev": 12
+ },
+ "machine_row_plate": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "machine_shoulder_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "machine_shoulder_press_plate": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "machine_shrug": {
+  "yaw": 12,
+  "elev": 0
+ },
+ "machine_tbar_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "machine_torso_rotation": {
+  "yaw": 30,
+  "elev": 35
+ },
+ "mag_grip_lat_pulldown": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "meadows_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "neutral_grip_pull_up": {
+  "yaw": 150,
+  "elev": 5
+ },
+ "nordic_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "one_arm_cable_lateral": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "one_arm_cable_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "one_arm_dumbbell_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "one_arm_lat_pull_down": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "overhead_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "pallof_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "pendulum_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "plank": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "plate_front_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "plate_pinch": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "power_clean": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "preacher_curl": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "preacher_curl_dumbbell": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "pull_up": {
+  "yaw": 150,
+  "elev": 5
+ },
+ "push_press": {
+  "yaw": 50,
+  "elev": 5
+ },
+ "push_up": {
+  "yaw": 90,
+  "elev": 8
+ },
+ "rack_pull": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "reverse_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "reverse_grip_pushdown": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "reverse_lat_pull_down": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "reverse_lunge": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "reverse_wrist_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "rolling_triceps_extension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "romanian_deadlift_barbell": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "romanian_deadlift_dumbbell": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "rope_extension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "rope_hammer_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "rope_lat_pulldown": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "rope_overhead_extension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "russian_twist": {
+  "yaw": 30,
+  "elev": 28
+ },
+ "seal_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "seated_barbell_overhead_press": {
+  "yaw": 50,
+  "elev": 5
+ },
+ "seated_cable_row_close": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "seated_calf_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "seated_dumbbell_rear_delt_fly": {
+  "yaw": 120,
+  "elev": 12
+ },
+ "seated_leg_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "seated_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "side_plank": {
+  "yaw": 20,
+  "elev": 10
+ },
+ "single_arm_bayesian_curl": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_cable_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "single_arm_cable_external_rotation": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "single_arm_cable_front_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_cable_overhead_extension": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_cable_pushdown": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_cable_reverse_fly": {
+  "yaw": 120,
+  "elev": 12
+ },
+ "single_arm_cable_seated_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_chest_supported_dumbbell_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_dumbbell_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "single_arm_dumbbell_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "single_arm_dumbbell_kickback": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_dumbbell_lateral_raise": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "single_arm_dumbbell_preacher_curl": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "single_arm_dumbbell_shoulder_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "single_arm_hammer_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "single_arm_high_row_machine": {
+  "yaw": 30,
+  "elev": 0
+ },
+ "single_arm_incline_bench_curl": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "single_arm_landmine_press": {
+  "yaw": 60,
+  "elev": 5
+ },
+ "single_arm_machine_lateral_raise": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "single_arm_machine_pulldown_pin": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "single_arm_machine_pulldown_plate": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "single_arm_machine_seated_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_plate_loaded_row": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "single_arm_reverse_pec_deck": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "single_leg_press": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "sissy_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "sit_up": {
+  "yaw": 90,
+  "elev": 3
+ },
+ "skullcrusher_barbell": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "skullcrusher_dumbbell": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "smith_close_grip_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "smith_decline_close_grip_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "smith_flat_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "smith_incline_bench_press": {
+  "yaw": 35,
+  "elev": 12
+ },
+ "smith_jm_press": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "smith_seated_shoulder_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "smith_shoulder_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "smith_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "snatch": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "spider_curl": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "standing_calf_raise": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "standing_leg_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "step_up": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "stiff_leg_deadlift": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "straight_arm_pulldown": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "sumo_deadlift": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "tate_press": {
+  "yaw": 80,
+  "elev": 8
+ },
+ "tbar_row_landmine": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "thruster": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "trap_bar_deadlift": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "turkish_get_up": {
+  "yaw": 45,
+  "elev": 15
+ },
+ "upright_row_barbell": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "upright_row_dumbbell": {
+  "yaw": 90,
+  "elev": 0
+ },
+ "v_bar_lat_pulldown": {
+  "yaw": 30,
+  "elev": 5
+ },
+ "viking_press": {
+  "yaw": 35,
+  "elev": 5
+ },
+ "walking_lunge_barbell": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "walking_lunge_dumbbell": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "weighted_dip": {
+  "yaw": 40,
+  "elev": 0
+ },
+ "weighted_pull_up": {
+  "yaw": 150,
+  "elev": 5
+ },
+ "woodchopper_cable": {
+  "yaw": 45,
+  "elev": 10
+ },
+ "wrist_curl": {
+  "yaw": 28,
+  "elev": 0
+ },
+ "zercher_squat": {
+  "yaw": 90,
+  "elev": 5
+ },
+ "zottman_curl": {
+  "yaw": 28,
+  "elev": 0
+ }
+}

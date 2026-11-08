@@ -21,7 +21,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const baseOf = n => n.split("~")[0];
 // ---------- scene ----------
 const stage = document.getElementById("stage");
-const renderer = new THREE.WebGLRenderer({ antialias:true });
+const SNAP = new URLSearchParams(location.search).get("snap");   // ?snap=<act>: hand one still frame to the parent page (review sheets, thumbnail capture)
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer: !!SNAP });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 stage.prepend(renderer.domElement);
 const scene = new THREE.Scene();
@@ -146,19 +147,30 @@ function pose(m, a) {
 }
 function setAct(a) { act = a; for (const m of shown) { pose(m, a); poseHuman(m, a); } }
 
+const flatBox = new THREE.Box3();
+function isFlat(mesh) { return flatBox.setFromObject(mesh).getSize(new THREE.Vector3()).z < 0.08; }
+let framedPerson = false;   // true when the person alone sets the frame: then the camera can sit closer
 function bounds() {
-  const box = new THREE.Box3(), keep = act;
+  const full = new THREE.Box3(), person = new THREE.Box3(), keep = act;
   for (const a of [0, .25, .5, .75, 1]) {   // frame the whole rep, not only the start pose
     for (const m of shown) { pose(m, a); poseHuman(m, a); if (m.human) m.human.geom.computeBoundingBox(); }   // bounds are cached per geometry: refresh for every sampled pose
     world.updateMatrixWorld(true);
-    for (const m of shown) box.expandByObject(m.group);
+    for (const m of shown) {
+      m.group.traverse(o => { if (o.isMesh && !(o === m.humanMesh) && !isFlat(o)) full.expandByObject(o); });   // a floor mat is not part of the subject
+      if (m.humanMesh) { person.expandByObject(m.humanMesh); full.expandByObject(m.humanMesh); }
+    }
   }
   for (const m of shown) { pose(m, keep); poseHuman(m, keep); }
-  return box;
+  if (person.isEmpty()) return full;
+  // The person is the subject. A machine that dwarfs them is cropped to the area around the person instead of shrinking them.
+  const fullSize = full.getSize(new THREE.Vector3()).length(), personSize = person.getSize(new THREE.Vector3()).length();
+  framedPerson = fullSize > personSize * FRAME_MACHINE_RATIO;
+  if (!framedPerson) return full;
+  return person.clone().expandByVector(person.getSize(new THREE.Vector3()).multiplyScalar(FRAME_PERSON_PAD));
 }
 
 // ---------- first view: read the frame-zero mesh, never alter the human pose ----------
-const FRONT_DEG = 40, ELEV_DEG = 25, LYING_Z = 0.45;
+const FRONT_DEG = 40, ELEV_DEG = 25, LYING_Z = 0.45, FRAME_MACHINE_RATIO = 1.15, FRAME_PERSON_PAD = 0.28;
 const viewFrames = new WeakMap();
 function facingOf(h) {
   if (!h || !h.base) return null;
@@ -199,14 +211,15 @@ function machineBehindPenalty(d, human) {
   centre.divideScalar(P.length / 3); human.mesh.localToWorld(centre);
   return d.x * (c.x - centre.x) + d.y * (c.y - centre.y);
 }
-function qViewDir(human) {
+function qViewDir(human, spec = {}, view = null) {
   const facing = human && facingOf(human.human); if (!facing) return null;
-  const sideDir = sign => {
+  const sideDir = (sign, turn = 0) => {
     // Lying: 40 degrees from the body's side, toward its head; upright: 40 from front.
-    const angle = sign * (facing.lying ? 90 - FRONT_DEG : FRONT_DEG) * Math.PI / 180;
+    const yaw = Math.min(180, Math.max(0, (spec.yaw ?? FRONT_DEG) + turn));   // upright: degrees off the front; lying: degrees off the side, toward the head
+    const angle = sign * (facing.lying ? 90 - yaw : yaw) * Math.PI / 180;
     const f = facing.heading, c = Math.cos(angle), s = Math.sin(angle);
     const d = new THREE.Vector3(f.x * c - f.y * s, f.x * s + f.y * c, 0);
-    let elevation = ELEV_DEG * Math.PI / 180;
+    let elevation = (spec.elev ?? ELEV_DEG) * Math.PI / 180;
     // A bent standing torso (deadlift) can put 25 degrees just behind the chest.
     // Lower slightly to stay in front; prone/lying bodies retain the above-body view.
     if (!facing.lying && facing.front.z < 0) {
@@ -215,8 +228,35 @@ function qViewDir(human) {
     }
     return d.setZ(Math.tan(elevation)).normalize();
   };
-  const a = sideDir(1), b = sideDir(-1);
-  return machineBehindPenalty(b, human) < machineBehindPenalty(a, human) ? b : a;
+  if (!view) { const a = sideDir(1), b = sideDir(-1); return machineBehindPenalty(b, human) < machineBehindPenalty(a, human) ? b : a; }
+  // Try both sides and a few small turns; keep the view where the machine hides the person least.
+  const points = personPoints(), blockers = [];
+  for (const m of shown) m.group.traverse(o => { if (o.isMesh && o !== human.mesh) blockers.push(o); });
+  const ray = new THREE.Raycaster(); let best = null;
+  for (const sign of [1, -1]) for (const turn of [0, 20, -20, 40, -40]) {
+    const d = sideDir(sign, turn); if (!d) continue;
+    const eye = view.center.clone().addScaledVector(d, view.distance);
+    let hidden = 0;
+    for (const q of points) {
+      const to = q.clone().sub(eye), len = to.length();
+      ray.set(eye, to.normalize()); ray.far = len - 0.03;
+      if (ray.intersectObjects(blockers, false).length) hidden++;
+    }
+    const score = hidden / points.length * 100 + Math.abs(turn) * 0.05 + Math.max(0, machineBehindPenalty(d, human)) * 0.01;
+    if (!best || score < best.score) best = { score, d };
+  }
+  return best.d;
+}
+// World-space samples of the person at the start, middle and end of the rep, to test what a camera can see.
+function personPoints() {
+  const m = shown[0], out = [], keep = act;
+  for (const a of [0, .5, 1]) {
+    pose(m, a); poseHuman(m, a); world.updateMatrixWorld(true);
+    const P = m.humanMesh.geometry.attributes.position.array;
+    for (let v = 0; v < P.length; v += 3 * 40) out.push(m.humanMesh.localToWorld(new THREE.Vector3(P[v], P[v + 1], P[v + 2])));
+  }
+  pose(m, keep); poseHuman(m, keep); world.updateMatrixWorld(true);
+  return out;
 }
 
 async function show(models) {
@@ -244,13 +284,21 @@ async function show(models) {
   setView();
 }
 
+let camViews = {};   // exercise id -> { yaw, elev } from camera_views.json
+function camSpec() {
+  const q = new URLSearchParams(location.search), spec = { ...(camViews[EX] || {}) };   // ?yaw=&elev= override for trying angles
+  if (q.has("yaw")) spec.yaw = +q.get("yaw");
+  if (q.has("elev")) spec.elev = +q.get("elev");
+  return spec;
+}
 function setView() {
   if (!shown.length) return;
   const b = bounds(), c = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3()).length();
   const cableFront = shown.some(m => /^(cable_|functional_|lat_pulldown|high_pulley)/.test(m.name));   // handles are on the -Y side of cable stations
   const human = shown.length === 1 && shown[0].humanMesh ? { mesh: shown[0].humanMesh, human: shown[0].human } : null;   // the person decides the first view when there is a fit for this machine
-  const dir = qViewDir(human) || [0.9, cableFront ? -0.8 : 0.8, 0.45];
-  camera.position.copy(c).add(new THREE.Vector3(...dir).normalize().multiplyScalar(size * 1.25));
+  const distance = size * (framedPerson ? 1.12 : 1.25);
+  const dir = qViewDir(human, camSpec(), { center: c, distance }) || [0.9, cableFront ? -0.8 : 0.8, 0.45];
+  camera.position.copy(c).add(new THREE.Vector3(...dir).normalize().multiplyScalar(distance));
   controls.target.copy(c); controls.update();
 }
 
@@ -278,9 +326,14 @@ renderer.setAnimationLoop(now => {
 async function start() {
   await loadHumanList();
   const map = await (await fetch("exercise_models.json")).json();
+  try { const r = await fetch("camera_views.json", { cache: "no-store" }); if (r.ok) camViews = await r.json(); } catch {}
   resize();
   await show(map[EX] || []); resize(); playRep();
   window.__ready = true;
+  if (SNAP) {   // still frames for review sheets and thumbnail capture; __snap(a) draws the rep at progress a
+    window.__snap = (a, type = "image/png") => { anim = null; looping = false; setAct(a); controls.update(); renderer.render(scene, camera); return renderer.domElement.toDataURL(type, 0.9); };
+    parent.postMessage({ id: EX, png: window.__snap(+SNAP, "image/jpeg") }, "*");
+  }
 }
 if (EX) start().catch(error => {
   console.error(error);

@@ -57,6 +57,7 @@ def main():
     (stage/'data').mkdir()
     shutil.copytree(args.output/'three', stage/'three')
     (stage/'index.html').write_text((REPO/'tools/viewer3d/index.html').read_text())
+    (stage/'camera_views.json').write_text((REPO/'tools/viewer3d/camera_views.json').read_text())
     (stage/'exercise_models.json').write_text(json.dumps(models, ensure_ascii=False, separators=(',', ':')))
     (stage/'human_v5/base.json').write_text(json.dumps(base, separators=(',', ':')))
     report = dict(revision='v5-app-20261109-2', exercises=len(models), models=len(keys),
