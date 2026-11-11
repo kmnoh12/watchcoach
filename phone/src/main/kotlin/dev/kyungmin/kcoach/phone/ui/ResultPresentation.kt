@@ -12,7 +12,7 @@ internal fun resultNumber(value: Double): String = java.text.DecimalFormat("#,##
 internal data class ResultSet(val number: Int, val today: String, val previous: String, val record: Boolean)
 /** Average seconds per repetition and how the pace moved through the sets: -1 quickening, 0 steady, 1 slowing, null unknown. */
 internal data class ResultTempo(val average: String, val trend: Int?, val change: String?)
-internal data class ResultExercise(val name: String, val best: String, val delta: String, val direction: Int?, val sets: List<ResultSet>, val tempo: ResultTempo? = null)
+internal data class ResultExercise(val name: String, val best: String, val delta: String, val direction: Int?, val sets: List<ResultSet>, val tempo: ResultTempo? = null, val growth: String? = null, val exerciseId: String = "")
 
 /** Wrist-observed repetition times only; the 8% steadiness band matches the in-workout set remarks. */
 internal fun resultTempo(metrics: List<ObservedMotionMetrics>): ResultTempo? {
@@ -59,8 +59,12 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
             sets.sumOf { it.durationSeconds!! } - before.sumOf { it.durationSeconds!! } else null
         val comparableReps = changes.flatMap { it.sameWeight }.filter { it.comparableSetCount }
         val delta: Double? = if (hold) seconds?.toDouble() else weights.maxOrNull() ?: reps.toDouble().takeIf { comparableReps.isNotEmpty() && changes.all { it.previous != null && !it.setCountChanged && it.current.volumeKgReps != null && it.previous?.volumeKgReps != null } }
-        val direction = delta?.compareTo(0.0)
-        val label = when { delta == null -> if (before.isEmpty()) "첫 기록" else "—"; delta == 0.0 -> "유지"; else ->
+        fun oneRm(list: List<PlannedSetSnapshot>) = list.filter { it.setType == "NORMAL" }.mapNotNull { EstimatedOneRepMax.epley(it.weightKg, it.performedReps ?: 0) }.maxOrNull()
+        val nowRm = if (hold) null else oneRm(sets)
+        val prevRm = if (hold) null else oneRm(before)
+        val growthRatio = if (nowRm != null && prevRm != null && prevRm > 0) nowRm / prevRm - 1 else null
+        val direction = growthRatio?.let { if (it > .005) 1 else if (it < -.005) -1 else 0 } ?: delta?.compareTo(0.0)
+        val label = growthRatio?.let { if (direction == 0) "유지" else "%+.1f%%".format(Locale.KOREA, it * 100) } ?: when { delta == null -> if (before.isEmpty()) "첫 기록" else "—"; delta == 0.0 -> "유지"; else ->
             (if (delta > 0) "+" else "−") + resultNumber(kotlin.math.abs(delta)) + if (hold) "초" else if (weights.isNotEmpty()) "kg" else "회" }
         val hit = hits.firstOrNull { it.exerciseId == first.exerciseId }
         val normal = sets.filter { it.setType == "NORMAL" }
@@ -76,7 +80,7 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
         ResultExercise(first.exerciseName.ifBlank { first.exerciseId }, value(best), label, direction, sets.map { s ->
             val isRecord = s === recordSet
             ResultSet(s.setIndex + 1, value(s), before.singleOrNull { it.setIndex == s.setIndex && it.setType == s.setType }?.let(::value) ?: "—", isRecord)
-        }, tempo)
+        }, tempo, if (nowRm != null && prevRm != null) "추정 1RM ${resultNumber(prevRm)} → ${resultNumber(nowRm)}kg" else null, first.exerciseId)
     }
     val date = Instant.ofEpochMilli(current.startedAtMs).atZone(ZoneId.systemDefault())
     val heart = WorkoutVitalsStore(context).summary(sessionId, current.startedAtMs, evidence.finishedAtMs)

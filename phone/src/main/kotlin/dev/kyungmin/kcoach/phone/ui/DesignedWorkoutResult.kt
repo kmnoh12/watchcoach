@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import dev.kyungmin.kcoach.phone.ExercisePreviewView
+import dev.kyungmin.kcoach.phone.ExercisePreviews
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -35,6 +37,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -60,8 +63,9 @@ import kotlinx.coroutines.withContext
 
 internal val ResultMint = Color(0xFF76DBB9)
 internal val ResultBone = Color(0xFFEDE8DC)
-internal val ResultRaised = Color(0xFF1C1B19)
-internal val ResultMuted = Color(0xFF8F8B82)
+internal val ResultRaised = Color(0xFF242424)
+internal val ResultHair = Color(0xFF353535)
+internal val ResultMuted = Color(0xFF909090)
 /** Same corner radius as the result screen's bottom buttons, for the card and the camera frame. */
 internal const val ResultCameraRadius = 10f
 /** Camera photo frame top, below the status bar, and the room the ratio tabs and shutter need under it (dp). */
@@ -175,7 +179,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                         }
                         ResultButton("카메라 열기", true, Modifier, 13) { openCamera() }
                     }
-                    PullHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 19.dp), 1f - (pullShown / (30f * density)).coerceIn(0f, 1f))
+                    PullHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 15.dp), 1f - (pullShown / (30f * density)).coerceIn(0f, 1f))
                 }
                 Column(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp)) {
                     Spacer(Modifier.height(18.dp))
@@ -274,7 +278,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
 @Composable
 private fun PullHint(modifier: Modifier, visible: Float) {
     val t by rememberInfiniteTransition(label = "hint").animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "hintT")
-    Canvas(modifier.size(40.dp, 20.dp)) {
+    Canvas(modifier.size(36.dp, 18.dp)) {
         // 0..0.2 drop with ease-out, hold until 0.3, then a quick spring back (one small overshoot, done in about 0.36s), rest.
         val drop = when {
             t < .2f -> 1f - (1f - t / .2f).let { it * it * it }
@@ -282,11 +286,11 @@ private fun PullHint(modifier: Modifier, visible: Float) {
             t < .53f -> { val q = (t - .3f) / .23f; kotlin.math.exp(-4f * q) * kotlin.math.cos(7.5f * q) }
             else -> 0f
         }
-        val dy = drop * 10f * density
-        val stroke = Stroke(3.2f * density, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val dy = drop * 7f * density
+        val stroke = Stroke(2.9f * density, cap = StrokeCap.Round, join = StrokeJoin.Round)
         for (row in 0..1) {
-            val y = (3f + row * 7f) * density + dy
-            val path = Path().apply { moveTo(3f * density, y); lineTo(20f * density, y + 7f * density); lineTo(37f * density, y) }
+            val y = (2.7f + row * 6.3f) * density + dy
+            val path = Path().apply { moveTo(2.7f * density, y); lineTo(18f * density, y + 6.3f * density); lineTo(33.3f * density, y) }
             drawPath(path, Color.White.copy(alpha = .5f * visible), style = stroke)
         }
     }
@@ -323,22 +327,49 @@ private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false
     var expanded by remember(exercise) { mutableStateOf(false) }
     Column(Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(if (export) 8.dp else 12.dp)).background(ResultRaised)) {
         Row(Modifier.fillMaxWidth().then(if (export) Modifier else Modifier.clickable { expanded = !expanded }).padding(start = if (export) 11.dp else 14.dp, end = if (export) 11.dp else 14.dp, top = if (export) 9.dp else 13.dp, bottom = if (export) 3.dp else 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            val previewContext = LocalContext.current
+            if (!export && exercise.exerciseId.isNotEmpty() && ExercisePreviews.has(previewContext, exercise.exerciseId)) {
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ExercisePreviewView(it, exercise.exerciseId) },
+                    modifier = Modifier.padding(end = 12.dp).size(44.dp).clip(RoundedCornerShape(ResultCameraRadius.dp)),
+                )
+            }
             Column(Modifier.weight(1f)) {
                 Text(exercise.name, color = ResultBone, fontSize = (if (export) 14 else 15).sp, fontWeight = FontWeight.Medium)
                 if (!export) Text("${exercise.sets.size}세트 · 최고 ${exercise.best}", color = ResultMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             }
-            Text(exercise.delta, color = if (exercise.direction == 1) ResultMint else if (exercise.direction == -1) ResultBone else ResultMuted, fontSize = (if (export) 12 else 14).sp, fontWeight = FontWeight.SemiBold)
-            if (!export) Text(if (expanded) " ▴" else " ▾", color = ResultMuted)
-        }
-        if (expanded || export) Column(Modifier.padding(horizontal = if (export) 11.dp else 14.dp).padding(bottom = if (export) 9.dp else 10.dp)) {
-            if (!export) {
-                Row(Modifier.fillMaxWidth().padding(top = 9.dp, bottom = 3.dp)) {
-                    Text("세트", color = ResultMuted, fontSize = 11.sp, modifier = Modifier.width((if (export) 20 else 24).dp))
-                    Text("오늘", color = ResultMuted, fontSize = 11.sp, modifier = Modifier.weight(1f)); Text("지난번", color = ResultMuted, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                }
-                HorizontalDivider(color = Color(0xFF2A2926))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(exercise.delta, color = if (exercise.direction == 1) ResultMint else if (exercise.direction == -1) ResultBone else ResultMuted, fontSize = (if (export) 12 else 15).sp, fontWeight = FontWeight.SemiBold)
+                if (!export) exercise.growth?.let { Text(it, color = ResultMuted, fontSize = 11.sp) }
             }
-            exercise.sets.forEach { set ->
+            if (!export) {
+                val turn by animateFloatAsState(if (expanded) 180f else 0f, tween(240, easing = FastOutSlowInEasing), label = "chev")
+                Canvas(Modifier.padding(start = 10.dp).size(14.dp, 8.dp).graphicsLayer { rotationZ = turn }) {
+                    val path = Path().apply { moveTo(1f * density, 1.5f * density); lineTo(7f * density, 6.5f * density); lineTo(13f * density, 1.5f * density) }
+                    drawPath(path, ResultMuted, style = Stroke(1.8f * density, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                }
+            }
+        }
+        androidx.compose.animation.AnimatedVisibility(visible = expanded || export,
+            enter = androidx.compose.animation.expandVertically(tween(240, easing = FastOutSlowInEasing)) + androidx.compose.animation.fadeIn(tween(200)),
+            exit = androidx.compose.animation.shrinkVertically(tween(220, easing = FastOutSlowInEasing)) + androidx.compose.animation.fadeOut(tween(120))) {
+        Column(Modifier.padding(horizontal = if (export) 11.dp else 14.dp).padding(bottom = if (export) 9.dp else 10.dp)) {
+            if (!export) exercise.sets.chunked(6).forEach { line ->
+                Row(Modifier.fillMaxWidth().padding(top = 9.dp).height(IntrinsicSize.Min)) {
+                    for (i in 0 until 6) {
+                        val set = line.getOrNull(i)
+                        Column(Modifier.weight(1f).fillMaxHeight().then(if (i > 0) Modifier.drawBehind { drawLine(ResultHair, Offset(0f, 0f), Offset(0f, size.height), 1.dp.toPx()) }.padding(start = 6.dp) else Modifier)) {
+                            if (set != null) {
+                                val parts = set.today.split(" × ")
+                                val tone = if (set.record) ResultMint else ResultBone
+                                Text(resultSetText(parts[0], 10), color = tone, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+                                if (parts.size > 1) Text(resultSetText(parts[1], 10), color = if (set.record) ResultMint else Color(0xFFCFCBC1), fontSize = 14.sp, maxLines = 1, softWrap = false)
+                            }
+                        }
+                    }
+                }
+            }
+            if (export) exercise.sets.forEach { set ->
                 Row(Modifier.fillMaxWidth().padding(vertical = if (export) 2.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("${set.number}", color = ResultMuted, fontSize = 12.sp, modifier = Modifier.width((if (export) 20 else 24).dp))
                     Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
@@ -349,9 +380,9 @@ private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false
                 }
             }
             if (!export) exercise.tempo?.let { tempo ->
-                HorizontalDivider(color = Color(0xFF2A2926), modifier = Modifier.padding(top = 6.dp))
+                HorizontalDivider(color = ResultHair, modifier = Modifier.padding(top = 6.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("평속", color = ResultMuted, fontSize = 12.sp)
+                    Text("평균 반복 시간", color = ResultMuted, fontSize = 12.sp)
                     Text(" ${tempo.average}/회", color = ResultBone, fontSize = if (export) 13.sp else 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                     tempo.trend?.let { trend ->
                         val label = when (trend) { 1 -> "점점 느려짐"; -1 -> "점점 빨라짐"; else -> "일정함" }
@@ -360,6 +391,7 @@ private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false
                     }
                 }
             }
+        }
         }
     }
 }
