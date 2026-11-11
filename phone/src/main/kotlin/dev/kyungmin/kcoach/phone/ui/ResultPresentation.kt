@@ -10,7 +10,21 @@ import java.util.Locale
 
 internal fun resultNumber(value: Double): String = java.text.DecimalFormat("#,##0.#").format(value)
 internal data class ResultSet(val number: Int, val today: String, val previous: String, val record: Boolean)
-internal data class ResultExercise(val name: String, val best: String, val delta: String, val direction: Int?, val sets: List<ResultSet>)
+/** Average seconds per repetition and how the pace moved through the sets: -1 quickening, 0 steady, 1 slowing, null unknown. */
+internal data class ResultTempo(val average: String, val trend: Int?, val change: String?)
+internal data class ResultExercise(val name: String, val best: String, val delta: String, val direction: Int?, val sets: List<ResultSet>, val tempo: ResultTempo? = null)
+
+/** Wrist-observed repetition times only; the 8% steadiness band matches the in-workout set remarks. */
+internal fun resultTempo(metrics: List<ObservedMotionMetrics>): ResultTempo? {
+    val reps = metrics.flatMap { it.reps }
+    if (reps.isEmpty()) return null
+    val average = reps.map { it.durationMs }.average().takeIf { it.isFinite() && it > 0 } ?: return null
+    val ratios = metrics.mapNotNull { it.lateCycleChangeRatio?.takeIf(Double::isFinite) }
+    val change = ratios.takeIf { it.isNotEmpty() }?.average()
+    val trend = change?.let { if (it >= .08) 1 else if (it <= -.08) -1 else 0 }
+    return ResultTempo("%.1f초".format(Locale.KOREA, average / 1000.0), trend,
+        change?.takeIf { trend != 0 }?.let { "후반 %+d%%".format(Locale.KOREA, Math.round(it * 100).toInt()) })
+}
 internal data class ResultPresentation(val title: String, val date: String, val photoDate: String, val minutes: Int,
     val volume: String, val exercises: List<ResultExercise>, val vitals: String, val recordCount: Int) {
     val setCount get() = exercises.sumOf { it.sets.size }
@@ -31,6 +45,7 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
     fun value(s: PlannedSetSnapshot): String = if (s.exerciseKind == ExerciseKind.HOLD)
         "${s.durationSeconds?.toString() ?: "—"}초" else
         "${s.weightKg?.let(::resultNumber) ?: "—"}kg × ${s.performedReps?.toString() ?: "—"}회"
+    val analyses = runCatching { SetAnalysisStore(context).loadForSession(sessionId) }.getOrDefault(emptyMap())
     val exercises = current.plannedSets.filter { it.completed }.groupBy { it.exerciseIndex }.values.map { group ->
         val sets = group.sortedBy { it.setIndex }
         val first = sets.first()
@@ -57,10 +72,11 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
                 RecordKind.BEST_VOLUME -> false
             }
         } ?: normal.maxWithOrNull(compareBy<PlannedSetSnapshot> { it.weightKg ?: -1.0 }.thenBy { it.performedReps ?: -1 }) }
+        val tempo = resultTempo(sets.mapNotNull { s -> analyses[SetIdentity.key(s.exerciseId, s.setIndex, s.setId, s.attemptId)]?.takeIf { it.trackingMode != "MANUAL_REQUIRED" }?.motionMetrics })
         ResultExercise(first.exerciseName.ifBlank { first.exerciseId }, value(best), label, direction, sets.map { s ->
             val isRecord = s === recordSet
             ResultSet(s.setIndex + 1, value(s), before.singleOrNull { it.setIndex == s.setIndex && it.setType == s.setType }?.let(::value) ?: "—", isRecord)
-        })
+        }, tempo)
     }
     val date = Instant.ofEpochMilli(current.startedAtMs).atZone(ZoneId.systemDefault())
     val heart = WorkoutVitalsStore(context).summary(sessionId, current.startedAtMs, evidence.finishedAtMs)

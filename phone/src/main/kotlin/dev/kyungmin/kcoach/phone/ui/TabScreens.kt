@@ -190,10 +190,11 @@ fun RecordsScreen(
         Text("최근 운동", color = KColors.Muted, fontSize = 13.sp)
         Spacer(Modifier.height(6.dp))
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(KColors.Hairline))
-        if (records.isEmpty()) {
-            Text("아직 기록이 없어요", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 18.dp))
+        val monthRecords = records.filter { it.date.startsWith(month.toString()) }
+        if (monthRecords.isEmpty()) {
+            Text(if (records.isEmpty()) "아직 기록이 없어요" else "이 달에는 기록이 없어요", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 18.dp))
         }
-        records.take(4).forEach { record -> RecordCard(record) { actions.openRecord(record) } }
+        monthRecords.forEach { record -> RecordCard(record) { actions.openRecord(record) } }
     }
 }
 

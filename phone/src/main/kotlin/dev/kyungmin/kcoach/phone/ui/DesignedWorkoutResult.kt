@@ -348,6 +348,18 @@ private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false
                     if (!export) Text(resultSetText(set.previous,11), color = ResultMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
                 }
             }
+            if (!export) exercise.tempo?.let { tempo ->
+                HorizontalDivider(color = Color(0xFF2A2926), modifier = Modifier.padding(top = 6.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("평속", color = ResultMuted, fontSize = 12.sp)
+                    Text(" ${tempo.average}/회", color = ResultBone, fontSize = if (export) 13.sp else 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    tempo.trend?.let { trend ->
+                        val label = when (trend) { 1 -> "점점 느려짐"; -1 -> "점점 빨라짐"; else -> "일정함" }
+                        Text(label, color = if (trend == 0) ResultMint else ResultBone, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        tempo.change?.let { Text(" $it", color = ResultMuted, fontSize = 11.sp) }
+                    }
+                }
+            }
         }
     }
 }

@@ -660,7 +660,8 @@ class MainActivity : ComponentActivity() {
         }
         when (currentScreen) {
             Screen.ROOT -> {
-                if (currentTab != RootTab.HOME) showHome()
+                if (currentTab == RootTab.RECORDS && visibleWorkoutResultSessionId != null) showRecords()
+                else if (currentTab != RootTab.HOME) showHome()
                 // Backing out of the last screen would finish the activity while the workout keeps running.
                 else if (activeWorkout != null) confirmStopWorkout()
                 else super.onBackPressed()
