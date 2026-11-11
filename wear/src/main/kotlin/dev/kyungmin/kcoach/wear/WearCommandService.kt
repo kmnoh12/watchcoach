@@ -118,12 +118,7 @@ class WearCommandService : WearableListenerService() {
             return
         }
         if (path == WearSync.PATH_HEARTBEAT) {
-            val state = getSharedPreferences("workout-runtime", MODE_PRIVATE).getString("state", null)
-                ?.let { runCatching { JSONObject(it) }.getOrNull() }
-            val ownsSession = state?.optString("session").orEmpty().isNotBlank()
-            val hasCompletion = state != null && !state.isNull("pendingCompletion")
-            val hasCaptures = getSharedPreferences("capture-outbox", MODE_PRIVATE).getStringSet("pendingCaptureIds", emptySet()).orEmpty().isNotEmpty()
-            if (!ownsSession && !hasCompletion && !hasCaptures && ManualSetOutbox(this).pending().isEmpty() && WatchWorkoutOutbox(this).pending().isEmpty()) return
+            if (!hasPendingWorkout()) return
             dispatchCommand("HEARTBEAT", emptyList())
             return
         }
@@ -157,11 +152,24 @@ class WearCommandService : WearableListenerService() {
                 WatchWorkoutOutbox(this).receivePhoneHello(fields)
                 sendBroadcast(Intent(WearWorkoutService.ACTION_WORKOUT_CONTROL).setPackage(packageName))
             }
-            dispatchCommand("HELLO", fields)
+            // Discovery is already persisted above. Do not restore/destroy an idle workout owner for every hello.
+            if (hasPendingWorkout()) dispatchCommand("HELLO", fields)
             return
         }
         if (fields.size < 2) return
         dispatchCommand(fields[1], fields)
+    }
+
+    private fun hasPendingWorkout(): Boolean {
+        val state = getSharedPreferences("workout-runtime", MODE_PRIVATE).getString("state", null)
+            ?.let { runCatching { JSONObject(it) }.getOrNull() }
+        val ownsSession = state?.optString("session").orEmpty().isNotBlank()
+        val hasCompletion = state != null && !state.isNull("pendingCompletion")
+        val hasCaptures = getSharedPreferences("capture-outbox", MODE_PRIVATE)
+            .getStringSet("pendingCaptureIds", emptySet()).orEmpty().isNotEmpty()
+        // A chunk journal may be newer than preferences after an interrupted checkpoint.
+        return ownsSession || hasCompletion || hasCaptures || java.io.File(filesDir, "capture-checkpoint.json").isFile ||
+            ManualSetOutbox(this).pending().isNotEmpty() || WatchWorkoutOutbox(this).pending().isNotEmpty()
     }
 
     private fun receivePatternProfile(payload: String, sourceNodeId: String?) {

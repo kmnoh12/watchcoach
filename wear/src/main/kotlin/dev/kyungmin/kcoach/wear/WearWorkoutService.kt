@@ -314,16 +314,13 @@ class WearWorkoutService : Service(), SensorEventListener {
     }
     private fun createRuntime() {
         serviceDestroyed = false
+        createNotificationChannel()
+        // Answer the foreground deadline before sensor discovery, recovery, storage or transport work.
+        enterForeground()
         sensorManager = getSystemService(SensorManager::class.java)
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-        createNotificationChannel()
-        // Android 14/15 validates the health FGS runtime permission at startup.
-        // Generic Wear emulators intentionally run the fake telemetry lane
-        // without BODY_SENSORS/ACTIVITY_RECOGNITION, so use the manifest-declared
-        // dataSync type only on that lane. Physical watches stay on health FGS.
-        enterForeground()
         if (isEmulator) emulatorBridge.start()
         restoreRuntime()
         retryDataCleanup()
@@ -337,11 +334,13 @@ class WearWorkoutService : Service(), SensorEventListener {
     }
 
     private fun enterForeground() {
-        if (isEmulator && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Physical workouts must not also opt into dataSync's background time budget.
+        // The generic emulator has no health runtime permissions and uses its labeled dataSync lane.
+        if (isEmulator || Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 NOTIFICATION_ID,
                 buildNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                if (isEmulator) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH,
             )
         } else {
             startForeground(NOTIFICATION_ID, buildNotification())
@@ -354,11 +353,16 @@ class WearWorkoutService : Service(), SensorEventListener {
         lastStartId = startId
         try { enterForeground() } catch (error: RuntimeException) {
             LocalExitDiagnostics.event("fgs-promote-refused", sessionId, currentPhase(), lastCaptureTimestampNs, error)
+            // Leave durable state untouched and let the sender retry; an unpromoted owner must not run sensors
+            // or acknowledge a command as applied. In particular, do not return START_STICKY and retry forever.
+            stopRuntimeService(startId)
+            return START_NOT_STICKY
         }
         if (startupFailed) {
             stopRuntimeService(startId)
             return START_NOT_STICKY
         }
+        if (phoneWatchdog == null) startPhoneWatchdog()
         return try { handleStartCommand(intent, flags, startId) }
         catch (error: Exception) {
             LocalExitDiagnostics.event("command-deferred", sessionId, currentPhase(), lastCaptureTimestampNs, error)
@@ -2268,60 +2272,51 @@ class WearWorkoutService : Service(), SensorEventListener {
         lastCaptureTimestampNs = 0L
     }
 
-    private fun sendCaptureToPhone(capture: SavedCapture) {
-        if (!captureSendInFlight.add(capture.captureId)) return
-        val emulatorPayload = listOf(
-            capture.captureId,
-            Base64.getEncoder().encodeToString(capture.manifest.toByteArray(Charsets.UTF_8)),
-            Base64.getEncoder().encodeToString(capture.bytes),
-        ).joinToString("|")
-        if (isEmulator) {
-            // completeSet() runs on the service main looper. Network I/O here
-            // throws NetworkOnMainThreadException before the relay can receive
-            // the asset, so keep the emulator lane off the main thread too.
-            submitCaptureTransfer(capture.captureId) {
-                val relayWrite = emulatorBridge.send(WearSync.PATH_CAPTURE_ASSET_EMULATOR, emulatorPayload)
-                handler.post {
-                    Log.i(TAG, "capture send id=${capture.captureId} emulator=true relayWrite=$relayWrite bytes=${capture.bytes.size}")
-                    // A relay TCP write only proves that the host accepted bytes;
-                    // keep the outbox retryable until the phone parses, persists,
-                    // and returns CAPTURE_ACK.
-                    handler.postDelayed({
-                        captureSendInFlight.remove(capture.captureId)
-                        val stillPending = capturePrefs
-                            .getStringSet(KEY_PENDING_CAPTURE_IDS, emptySet())
-                            .orEmpty()
-                            .contains(capture.captureId)
-                        if (stillPending) {
-                            Log.i(TAG, "capture retry id=${capture.captureId}")
-                            schedulePendingCaptureRetry()
-                        }
-                    }, CAPTURE_RETRY_DELAY_MS)
-                }
-            }
-            return
-        }
-        submitCaptureTransfer(capture.captureId) {
+    private fun sendCaptureToPhone(capture: SavedCapture) = queueCaptureTransfer(capture.captureId) { capture }
+
+    /** Reserve on the owner thread; load and encode at most once on the bounded transfer worker. */
+    private fun queueCaptureTransfer(captureId: String, load: () -> SavedCapture) {
+        if (serviceDestroyed || !captureSendInFlight.add(captureId)) return
+        submitCaptureTransfer(captureId) {
+            if (serviceDestroyed) return@submitCaptureTransfer
+            val emulator = isEmulator
+            var missingOriginal = false
             runCatching {
-                val request = PutDataMapRequest.create(WearSync.captureAssetPath(capture.captureId))
-                request.dataMap.putString("wireManifest", capture.manifest)
-                request.dataMap.putAsset("captureAsset", Asset.createFromBytes(capture.bytes))
-                request.dataMap.putLong("updatedAt", System.currentTimeMillis())
-                Tasks.await(
-                    Wearable.getDataClient(this).putDataItem(request.asPutDataRequest().setUrgent()),
-                    CAPTURE_TRANSFER_TIMEOUT_MS,
-                    TimeUnit.MILLISECONDS,
-                )
-            }.onFailure { Log.w(TAG, "capture transfer deferred id=${capture.captureId}", it) }
-            handler.post {
-                captureSendInFlight.remove(capture.captureId)
-                // A DataItem write does not acknowledge reception on the phone.
-                if (capturePrefs.getStringSet(KEY_PENDING_CAPTURE_IDS, emptySet()).orEmpty().contains(capture.captureId)) schedulePendingCaptureRetry()
-                else if (capturePrefs.getString(KEY_ACKED_CAPTURE_IDS, "").orEmpty().lines().contains(capture.captureId)) {
-                    val cleanup = capturePrefs.getStringSet(KEY_PENDING_DATA_CLEANUP, emptySet()).orEmpty().toMutableSet()
-                    cleanup.add(capture.captureId)
-                    if (capturePrefs.edit().putStringSet(KEY_PENDING_DATA_CLEANUP, cleanup).commit()) retryDataCleanup()
+                val capture = load()
+                if (emulator) {
+                    // Base64 is only the emulator relay format. Physical watches send the original Asset bytes.
+                    val payload = listOf(captureId,
+                        Base64.getEncoder().encodeToString(capture.manifest.toByteArray(Charsets.UTF_8)),
+                        Base64.getEncoder().encodeToString(capture.bytes)).joinToString("|")
+                    val relayWrite = emulatorBridge.send(WearSync.PATH_CAPTURE_ASSET_EMULATOR, payload)
+                    Log.i(TAG, "capture send id=$captureId emulator=true relayWrite=$relayWrite bytes=${capture.bytes.size}")
+                } else {
+                    val request = PutDataMapRequest.create(WearSync.captureAssetPath(captureId))
+                    request.dataMap.putString("wireManifest", capture.manifest)
+                    request.dataMap.putAsset("captureAsset", Asset.createFromBytes(capture.bytes))
+                    request.dataMap.putLong("updatedAt", System.currentTimeMillis())
+                    Tasks.await(Wearable.getDataClient(this).putDataItem(request.asPutDataRequest().setUrgent()),
+                        CAPTURE_TRANSFER_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 }
+            }.onFailure {
+                missingOriginal = it is java.io.FileNotFoundException
+                Log.w(TAG, "capture transfer deferred id=$captureId", it)
+            }
+            handler.post {
+                if (serviceDestroyed) return@post
+                val settle = Runnable {
+                    captureSendInFlight.remove(captureId)
+                    if (serviceDestroyed) return@Runnable
+                    // Neither a relay write nor a DataItem write is a durable phone ACK.
+                    val pending = capturePrefs.getStringSet(KEY_PENDING_CAPTURE_IDS, emptySet()).orEmpty().contains(captureId)
+                    if (pending && !missingOriginal) schedulePendingCaptureRetry()
+                    else if (!pending && !emulator && capturePrefs.getString(KEY_ACKED_CAPTURE_IDS, "").orEmpty().lines().contains(captureId)) {
+                        val cleanup = capturePrefs.getStringSet(KEY_PENDING_DATA_CLEANUP, emptySet()).orEmpty().toMutableSet()
+                        cleanup.add(captureId)
+                        if (capturePrefs.edit().putStringSet(KEY_PENDING_DATA_CLEANUP, cleanup).commit()) retryDataCleanup()
+                    }
+                }
+                if (emulator) handler.postDelayed(settle, CAPTURE_RETRY_DELAY_MS) else settle.run()
             }
         }
     }
@@ -2418,16 +2413,13 @@ class WearWorkoutService : Service(), SensorEventListener {
 
     private fun retryPendingCaptures() {
         capturePrefs.getStringSet(KEY_PENDING_CAPTURE_IDS, emptySet()).orEmpty().forEach { captureId ->
-            val captureFile = File(filesDir, "$captureId.kcs")
-            val manifestFile = File(filesDir, "$captureId.manifest")
-            if (!captureFile.isFile || !manifestFile.isFile) {
-                Log.e(TAG, "Pending capture has missing files; delivery is not acknowledged id=$captureId")
-                writeStorageReport()
-                return@forEach
+            queueCaptureTransfer(captureId) {
+                val captureFile = File(filesDir, "$captureId.kcs")
+                val manifestFile = File(filesDir, "$captureId.manifest")
+                if (!captureFile.isFile || !manifestFile.isFile)
+                    throw java.io.FileNotFoundException("Pending capture has missing files; delivery is not acknowledged")
+                SavedCapture(captureId, captureFile.name, captureFile.readBytes(), manifestFile.readText())
             }
-            val manifest = runCatching { manifestFile.readText() }.getOrNull() ?: return@forEach
-            val bytes = runCatching { captureFile.readBytes() }.getOrNull() ?: return@forEach
-            sendCaptureToPhone(SavedCapture(captureId, captureFile.name, bytes, manifest))
         }
     }
 
@@ -2464,6 +2456,8 @@ class WearWorkoutService : Service(), SensorEventListener {
     private fun stopRuntimeService(startId: Int = lastStartId) {
         // Stop first: if Android already queued a newer start, this is refused and foreground must stay up for it.
         if (startId <= 0 || startId != lastStartId || !stopSelfResult(startId)) return
+        handler.removeCallbacks(setEndTicker)
+        handler.removeCallbacks(setClockTicker)
         stopRestTicker()
         phoneWatchdog?.let(handler::removeCallbacks)
         phoneWatchdog = null
