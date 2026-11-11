@@ -6,7 +6,7 @@ from pathlib import Path
 import argparse,hashlib,json,time,sys
 import numpy as np
 D=Path(__file__).resolve().parent
-parser=argparse.ArgumentParser();parser.add_argument('--upper-frame',choices=['plane','source'],default='plane');parser.add_argument('--protraction-deg',type=float,default=0.)
+parser=argparse.ArgumentParser();parser.add_argument('--pilot-set',choices=['core','overhead'],default='core');parser.add_argument('--upper-frame',choices=['plane','source'],default='plane');parser.add_argument('--protraction-deg',type=float,default=0.)
 args=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 if not np.isfinite(args.protraction_deg) or not 0<=args.protraction_deg<=20:raise ValueError('Diagnostic protraction must be within 0..20 degrees')
 source=(D/'supported_skin.py').read_text().split('# Complete arm influence domain;')[0]
@@ -20,7 +20,7 @@ identity=np.tile(np.eye(4),(len(names),1,1))
 rest,_,_=ns['deform'](identity,V,{},protraction_deg=args.protraction_deg)
 rest_error=float(np.linalg.norm(rest-V,axis=1).max()*1000)
 assert rest_error<1e-5
-OLD=ns['OLD'];manifest=json.loads((OLD/'manifest.json').read_text());OUT=D/('guide_protraction' if args.protraction_deg else ('guide_source_suite' if args.upper_frame=='source' else 'guide_suite'));OUT.mkdir(exist_ok=True)
+OLD=D.parent/'v5_motion_expansion' if args.pilot_set=='overhead' else ns['OLD'];manifest=json.loads((OLD/'manifest.json').read_text());OUT=D/('guide_overhead' if args.pilot_set=='overhead' else ('guide_protraction' if args.protraction_deg else ('guide_source_suite' if args.upper_frame=='source' else 'guide_suite')));OUT.mkdir(exist_ok=True)
 base={'vertices':N,'triangles':T.ravel().tolist(),'rest':V.ravel().tolist(),'bone_names':names,
       'joints':J.tolist(),'weights':W.tolist()}
 (OUT/'base.json').write_text(json.dumps(base,separators=(',',':')))
@@ -60,6 +60,6 @@ for clip in manifest['clips']:
             'stage':'review only; surface contact and full-motion appearance not approved'}
     reports.append(report);clips.append({**clip,'positions':f'{key}.positions.bin','json':f'{key}.json','approved':False})
     print('GUIDE_CLIP',key,len(Q),'GRIP_EXACT',grip_exact,'elapsed',round(time.monotonic()-start,2),flush=True)
-(OUT/'manifest.json').write_text(json.dumps({'model':'V5 shape guide review','base':'base.json','clips':clips,'stage':'unapproved review','upper_frame':args.upper_frame,'protraction_deg':args.protraction_deg,'rest_error_mm':rest_error},ensure_ascii=False,indent=2))
+(OUT/'manifest.json').write_text(json.dumps({'model':'V5 shape guide review','pilot_set':args.pilot_set,'base':'base.json','clips':clips,'stage':'unapproved review','upper_frame':args.upper_frame,'protraction_deg':args.protraction_deg,'rest_error_mm':rest_error},ensure_ascii=False,indent=2))
 (OUT/'kinematics.json').write_text(json.dumps({'rest_error_mm':rest_error,'clips':reports},indent=2))
 print('GUIDE_SUITE_READY',len(clips),'REST_ERROR_MM',rest_error,flush=True)

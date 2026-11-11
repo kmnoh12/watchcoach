@@ -1,11 +1,11 @@
 """Independent audit of persisted guide caches and real playback midpoints."""
 from pathlib import Path
-import sys,json,time,argparse
+import sys,json,time,argparse,hashlib
 import bpy,numpy as np
 from mathutils.bvhtree import BVHTree
 D=Path(__file__).resolve().parent;sys.path.insert(0,str(D))
 from material_contact import triangle_intersects
-parser=argparse.ArgumentParser();parser.add_argument('--upper-frame',choices=['plane','source'],default='plane');parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support','guide_protraction']);options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+parser=argparse.ArgumentParser();parser.add_argument('--upper-frame',choices=['plane','source'],default='plane');parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support','guide_protraction','front_orientation_bench']);options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT=D/(options.case or ('guide_source_suite' if options.upper_frame=='source' else 'guide_suite'));manifest=json.loads((OUT/'manifest.json').read_text());base=json.loads((OUT/'base.json').read_text())
 T=np.array(base['triangles']).reshape(-1,3);V=np.array(base['rest']).reshape(-1,3);N=len(V)
 names=base['bone_names'];J=np.array(base['joints']);W=np.array(base['weights'])
@@ -31,7 +31,7 @@ for clip in manifest['clips']:
  acceleration=np.linalg.norm(np.diff(Q,n=2,axis=0),axis=2)
  twists=json.loads((OUT/'kinematics.json').read_text());kr=next(c for c in twists['clips'] if c['id']==key)
  twist_jump={s:float(np.max(abs(np.diff([r[s]['twist_deg'] for r in kr['kinematics']])))) for s in 'lr'}
- row={'id':key,'samples':samples,'sample_count':len(samples),'max_new_pairs':max(r['new_pairs'] for r in samples),
+ row={'id':key,'positions_sha256':hashlib.sha256((OUT/clip['positions']).read_bytes()).hexdigest(),'samples':samples,'sample_count':len(samples),'max_new_pairs':max(r['new_pairs'] for r in samples),
       'max_arm_pairs':max(r['arm_pairs'] for r in samples),'max_vertex_step_mm':float(delta.max()*1000),
       'max_phase_speed_m':float(speed.max()),'max_second_difference_mm':float(acceleration.max()*1000),
       'max_twist_step_deg':twist_jump,'grip_exact':kr['grip_exact'],'stage':'pending visual and contact approval'}

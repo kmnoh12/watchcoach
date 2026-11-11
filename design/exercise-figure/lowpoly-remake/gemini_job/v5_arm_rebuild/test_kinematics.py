@@ -1,6 +1,6 @@
 import math,unittest
 import numpy as np
-from kinematics import PoseError,two_bone,swing,rigid_rotation,continuous_twist
+from kinematics import PoseError,two_bone,shoulder_arm,swing,rigid_rotation,continuous_twist
 class ArmBoundaryTests(unittest.TestCase):
  def assert_lengths(self,s,w,a,b,e):
   self.assertAlmostEqual(np.linalg.norm(e-s),a,places=8);self.assertAlmostEqual(np.linalg.norm(w-e),b,places=8)
@@ -31,4 +31,17 @@ class ArmBoundaryTests(unittest.TestCase):
    with self.assertRaises(PoseError):rigid_rotation(m)
  def test_nonfinite_pose_is_rejected(self):
   with self.assertRaises(PoseError):two_bone([0,0,0],[0,float('nan'),0],.3,.3,[1,0,0])
+ def test_soft_extension_preserves_clavicle_and_arm_lengths(self):
+  c=np.array([-.05,-.08,0.]);s=np.zeros(3)
+  for d in np.linspace(.57,.635,101):
+   w=np.array([d,0.,0.]);ss,e,_=shoulder_arm(c,s,w,.337,.273,[0,1,0],extension_margin=.006)
+   self.assert_lengths(ss,w,.337,.273,e)
+   self.assertAlmostEqual(np.linalg.norm(ss-c),np.linalg.norm(s-c),places=8)
+ def test_soft_extension_has_no_velocity_cusp_at_band_edges(self):
+  c=np.array([-.05,-.08,0.]);s=np.zeros(3);eps=1e-6
+  def elbow(d):return shoulder_arm(c,s,[d,0,0],.337,.273,[0,1,0],extension_margin=.006)[1]
+  for boundary in [.598,.610]:
+   left=(elbow(boundary)-elbow(boundary-eps))/eps
+   right=(elbow(boundary+eps)-elbow(boundary))/eps
+   self.assertLess(np.linalg.norm(left-right),.01)
 if __name__=='__main__':unittest.main()

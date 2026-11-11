@@ -4,10 +4,10 @@ import sys,json,argparse
 import bpy,numpy as np
 from mathutils import Vector,Matrix
 D=Path(__file__).resolve().parent
-parser=argparse.ArgumentParser();parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support','guide_protraction'],default='guide_suite');options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
+parser=argparse.ArgumentParser();parser.add_argument('--case',choices=['guide_suite','guide_shoulder_0.5','guide_shoulder_0.75','guide_shoulder_weights','guide_front_axilla','guide_front_support','guide_protraction','front_orientation_bench','guide_front_visual','guide_front_overhead','conversion_trial'],default='guide_suite');options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 OUT=D/options.case;REVIEW=OUT/'review';REVIEW.mkdir(exist_ok=True)
 base=json.loads((OUT/'base.json').read_text());T=np.array(base['triangles']).reshape(-1,3);N=base['vertices'];names=base['bone_names']
-manifest=json.loads((OUT/'manifest.json').read_text());audit=json.loads((OUT/'surface_audit.json').read_text())
+manifest=json.loads((OUT/'manifest.json').read_text());audit=json.loads((OUT/'surface_audit.json').read_text()) if (OUT/'surface_audit.json').exists() else {'clips':[]}
 bpy.ops.wm.read_factory_settings(use_empty=True);sc=bpy.context.scene
 sc.render.engine='BLENDER_WORKBENCH';sc.render.resolution_x=720;sc.render.resolution_y=720;sc.render.resolution_percentage=100
 sc.render.image_settings.file_format='PNG';sc.world=bpy.data.worlds.new('World');sc.world.color=(.09,.09,.09)
@@ -20,7 +20,7 @@ sys.path.insert(0,'/Users/kmnoh/.agents/skills/blender-asset-qa/scripts');import
 for clip in manifest['clips']:
  key=clip['id'];Q=np.fromfile(OUT/clip['positions'],dtype='<f4').reshape(-1,N,3)
  skin=np.fromfile(OUT/f'{key}.skin.bin',dtype='<f4').reshape(-1,len(names),4,4)
- ar=next(r for r in audit['clips'] if r['id']==key);worst=max(ar['samples'],key=lambda r:r['new_pairs'])['frame'];worst=int(round(worst))
+ ar=next((r for r in audit['clips'] if r['id']==key),None);worst=int(round(max(ar['samples'],key=lambda r:r['new_pairs'])['frame'])) if ar else len(Q)-1
  frames=sorted(set([0,len(Q)//2,len(Q)-1,worst]))
  for f in frames:
   me.vertices.foreach_set('co',Q[f].ravel());me.update()

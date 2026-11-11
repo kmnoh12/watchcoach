@@ -42,11 +42,12 @@ def two_bone(shoulder,wrist,upper_length,lower_length,pole,previous_pole=None):
     if max(abs(np.linalg.norm(e-s)-L1),abs(np.linalg.norm(w-e)-L2))>2e-8:raise PoseError('IK length invariant failed')
     return e,candidate
 
-def shoulder_arm(attachment,shoulder,wrist,upper_length,lower_length,pole,previous_pole=None):
+def shoulder_arm(attachment,shoulder,wrist,upper_length,lower_length,pole,previous_pole=None,extension_margin=0.):
     """Reach with a rotating clavicle and two fixed-length arm segments.
 
-    Keep an already feasible shoulder exactly fixed. Otherwise choose its
-    nearest position on the clavicle sphere that permits the arm to reach.
+    Keep a feasible shoulder fixed except in an explicitly requested soft
+    extension band. Otherwise choose the nearest position on the clavicle
+    sphere that permits the arm to reach at the original segment lengths.
     This is a geometric candidate, not an anatomical shoulder-limit model.
     An unreachable three-link chain raises rather than stretching a segment.
     """
@@ -57,10 +58,22 @@ def shoulder_arm(attachment,shoulder,wrist,upper_length,lower_length,pole,previo
     if clavicle<1e-12:raise PoseError('Zero-length clavicle')
     low,high=abs(a-b),a+b
     distance=float(np.linalg.norm(w-s))
-    if low<=distance<=high:
+    radius=high if distance>high else low
+    if extension_margin:
+        if not np.isfinite(extension_margin) or extension_margin<0:
+            raise PoseError('Invalid extension margin')
+        # Reserve a small bend near full reach. A C2 soft cap joins the
+        # unchanged feasible region to shoulder-assisted reach without the
+        # sqrt elbow-height cusp at a completely locked arm.
+        minimum_radius=abs(float(np.linalg.norm(w-c))-clavicle)
+        margin=min(float(extension_margin),max(0.,high-minimum_radius)*.8)
+        if margin>1e-10 and distance>high-2*margin:
+            x=float(np.clip((distance-(high-2*margin))/(2*margin),0,1))
+            radius=(distance-2*margin*(x**3-.5*x**4)) if x<1 else high-margin
+            radius=max(radius,min(high,minimum_radius+1e-8))
+    if low<=distance<=high and (not extension_margin or radius>=distance-1e-10 or distance<=high-2*margin):
         e,p=two_bone(s,w,a,b,pole,previous_pole)
         return s.copy(),e,p
-    radius=high if distance>high else low
     axis=w-c;d=float(np.linalg.norm(axis));tol=1e-9*max(1.,clavicle+high)
     if d<tol or d>clavicle+radius+tol or d<abs(clavicle-radius)-tol:
         raise PoseError('Grip target unreachable at fixed clavicle and arm lengths')

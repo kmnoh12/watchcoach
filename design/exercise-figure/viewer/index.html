@@ -23,6 +23,7 @@
   .item:hover { background:#1e2121; }
   .item.on { background:#20302b; }
   .item .sub { color:var(--dim); font-size:12px; white-space:nowrap; }
+  .item > span, #title { user-select:text; -webkit-user-select:text; }   /* triple-click selects just the name or just the id, so it can be copied */
   .item.none { color:var(--dim); }
   .item.none .sub { color:var(--warn); }
   main { position:relative; min-width:0; }
@@ -152,9 +153,12 @@ let act = 0;
 let humanList = new Set(), humanOn = true;
 try { humanOn = localStorage.getItem("humanOn") !== "0"; } catch (e) {}
 const humanCache = {};
-const GUIDE_REVIEW = new URLSearchParams(location.search).get("human") === "v5-guide";
+// Default = live V5 catalog (the same files the phone app is built from, read straight from v5-catalog/, so a publish shows up on reload).
+// ?human=old: previous fits. ?human=v5-guide: the older review folders.
+const HUMAN_MODE = new URLSearchParams(location.search).get("human") || "live";
+const GUIDE_REVIEW = HUMAN_MODE !== "old";
 const GUIDE_FRONT = GUIDE_REVIEW && new URLSearchParams(location.search).get("front") === "moderate";
-const GUIDE_DIRECTORY = GUIDE_FRONT ? "v5-guide-front" : "v5-guide";
+const GUIDE_DIRECTORY = HUMAN_MODE === "live" ? "v5-catalog" : (GUIDE_FRONT ? "v5-guide-front" : "v5-guide");
 let guideManifest = null, guideBasePromise;
 const guideErrors = new Set();
 const BONE_NAMES = ["pelvis", "spine_03", "neck_01"];   // bones the first view reads (see the q-view block below)
@@ -328,6 +332,10 @@ function parse(d) {
 }
 
 async function fetchModel(name) {
+  if (HUMAN_MODE === "live") {   // the equipment this V5 person was fitted to (else the normal machine file)
+    const v = await fetch(`${GUIDE_DIRECTORY}/equipment/${name}.json`, { cache: "no-store" });
+    if (v.ok) return parse(await v.json());
+  }
   const r = await fetch(`data/${name}.json?v=${manifest[name] || Date.now()}`);
   if (!r.ok) return null;
   return parse(await r.json());
@@ -353,7 +361,10 @@ function pose(m, a) {
     o.mesh.matrix.compose(tp, tq, ts);
   }
 }
-function setAct(a) { act = a; for (const m of shown) { pose(m, a); poseHuman(m, a); } actEl.value = a; actv.textContent = Math.round(a * 100) + "%"; }
+function setAct(a) {
+  const limits = GUIDE_REVIEW && shown.length === 1 && ["arnold_press", "barbell_overhead_press", "cable_overhead_extension"].includes(shown[0].name) ? (guideManifest?.get(shown[0].name)?.playback_range || [0, 1]) : [0, 1];   // V5 app clips keep the full slider range
+  actEl.min = limits[0]; actEl.max = limits[1]; a = Math.max(limits[0], Math.min(limits[1], a));
+  act = a; for (const m of shown) { pose(m, a); poseHuman(m, a); } actEl.value = a; actv.textContent = Math.round(a * 100) + "%"; }
 
 function bounds() {
   const box = new THREE.Box3();
@@ -458,6 +469,8 @@ async function show(models, keepCam = false) {
   if (!shown.length && models.length) document.getElementById("empty").textContent = "이 기구는 아직 3D 모델이 없어";
   modelsEl.textContent = loaded.map(kname).join(" + ") + (shown.length ? `  ·  ${shown.reduce((s, m) => s + m.faces, 0)}면` : "");
   if (GUIDE_REVIEW && shown.length === 1) modelsEl.textContent += shown[0].human?.reviewGuide ? (shown[0].human.frontModerated ? " · V5 앞쪽 완화 비교 중" : " · V5 동작 확인 중") : guideErrors.has(humanKey) ? " · 검토본 오류, 기존 모델 표시" : " · 기존 모델 표시";
+  const playbackRange = GUIDE_REVIEW && guideManifest?.get(humanKey)?.playback_range;
+  if (playbackRange) modelsEl.textContent += ` · ${Math.round(playbackRange[0]*100)}–${Math.round(playbackRange[1]*100)}% 반복`;
   if (!keepCam) setView("q");
 }
 
@@ -479,8 +492,10 @@ let anim = null, looping = false;
 const REP = 2600; // ms for one full rep: 0 -> 1 -> 0
 function ease(t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 const ALT_MIRROR = new Set(["alternating_dumbbell_curl", "alternating_hammer_curl"]);   // one arm per rep: the way back is the mirrored (other) arm
-function repMs() { return shown.length === 1 && ALT_MIRROR.has(shown[0].name) ? REP * 2 : REP; }   // alternating curls play at half speed
-function playRep() { anim = { t0: performance.now() }; }
+function repMeta() { return GUIDE_REVIEW && shown.length === 1 ? guideManifest?.get(shown[0].name) : null; }
+function repMs() { return repMeta()?.playback_ms || (shown.length === 1 && ALT_MIRROR.has(shown[0].name) ? REP * 2 : REP); }   // alternating curls play at half speed
+function repRange() { return repMeta()?.playback_range || [0, 1]; }
+function playRep() { setAct(repRange()[0]); anim = { t0: performance.now() }; }
 document.getElementById("play").onclick = playRep;
 const loopBtn = document.getElementById("loop");
 loopBtn.onclick = () => { looping = !looping; loopBtn.classList.toggle("on", looping); if (looping && !anim) playRep(); };
@@ -489,8 +504,9 @@ actEl.oninput = () => { anim = null; looping = false; loopBtn.classList.remove("
 renderer.setAnimationLoop(now => {
   if (anim) {
     const t = (now - anim.t0) / repMs();
-    if (t >= 1) { setAct(0); anim = looping ? { t0: now } : null; }
-    else setAct(t < .5 ? ease(t * 2) : ease((1 - t) * 2));
+    const [start, end] = repRange();
+    if (t >= 1) { setAct(start); anim = looping ? { t0: now } : null; }
+    else setAct(start + (end - start) * (repMeta()?.playback_mode === "cycle" ? t : (t < .5 ? ease(t * 2) : ease((1 - t) * 2))));
   }
   if (shown.length === 1 && ALT_MIRROR.has(shown[0].name)) shown[0].group.scale.x = anim && (now - anim.t0) / repMs() >= .5 ? -1 : 1;
   controls.update(); renderer.render(scene, camera);
@@ -569,6 +585,7 @@ function renderOpts() {
   row("그립", o.g, GRIP_L, c.g, g => apply({ h: c.h, g }));
 }
 async function pick(kind, id, label, models) {
+  if (current && current.kind === kind && current.id === id && JSON.stringify(current.models) === JSON.stringify(models)) return;   // already open: re-clicking (a double/triple click to copy the name) must not rebuild the list and drop the selection
   current = { kind, id, models }; titleEl.textContent = label; act = 0; anim = null;
   renderList(); await show(models); renderOpts(); playRep();
   try { localStorage.setItem("wg-viewer-last", JSON.stringify({ kind, id, label, models })); } catch {}

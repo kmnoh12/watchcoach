@@ -2,7 +2,7 @@
 Original guide versus one isolated six-vertex DQ/LBS diagnostic, not adoption.
 """
 from pathlib import Path
-import sys,json
+import sys,json,argparse
 import bpy,numpy as np
 from mathutils import Vector,Matrix
 D=Path(__file__).resolve().parent;SOURCE=D/'guide_suite';OUT=SOURCE/'front_axilla';OUT.mkdir(exist_ok=True)
@@ -10,9 +10,16 @@ b=json.loads((SOURCE/'base.json').read_text());V=np.array(b['rest']).reshape(-1,
 # Left front crease and proximal biceps, explicitly y<0 in the rest body.
 ids=np.array([117,118,128,138,145,151]);assert (V[ids,1]<0).all()
 rear=np.array([135,147,152]);assert (V[rear,1]>0).all()
+parser=argparse.ArgumentParser();parser.add_argument('--orientation',action='store_true');parser.add_argument('--bench',action='store_true');options=parser.parse_args(sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else [])
 frame=32;P=Q[frame].copy();alternative=P.copy()
 for i in ids:
  alternative[i]=sum(w*(S[frame,k,:3,:3]@V[i]+S[frame,k,:3,3]) for k,w in zip(J[i],W[i]))
+if options.orientation:
+ alternative=np.fromfile(D/'front_orientation_case/frame32.positions.bin',dtype='<f4').reshape(P.shape)
+ OUT=D/'front_orientation_case';OUT.mkdir(exist_ok=True)
+if options.bench:
+ alternative=np.fromfile(D/'front_orientation_bench/flat_bench_press.positions.bin',dtype='<f4').reshape(Q.shape)[frame]
+ OUT=D/'front_orientation_bench/front_axilla';OUT.mkdir(exist_ok=True)
 metrics=[]
 for i in ids:
  metrics.append({'vertex':int(i),'rest_xyz':V[i].tolist(),'dq_to_lbs_mm':float(np.linalg.norm(P[i]-alternative[i])*1000),'weights':[(names[k],float(w)) for k,w in zip(J[i],W[i]) if w>1e-8]})

@@ -1,7 +1,9 @@
 from pathlib import Path
-import json,numpy as np
+import argparse,json,numpy as np
 from front_biceps_visual import correct
-D=Path(__file__).resolve().parent;SOURCE=D/'guide_suite';OUT=D/'guide_front_visual';OUT.mkdir(exist_ok=True)
+D=Path(__file__).resolve().parent
+parser=argparse.ArgumentParser();parser.add_argument('--pilot-set',choices=['core','overhead'],default='core');args=parser.parse_args()
+SOURCE=D/('guide_overhead' if args.pilot_set=='overhead' else 'guide_suite');OUT=D/('guide_front_overhead' if args.pilot_set=='overhead' else 'guide_front_visual');OUT.mkdir(exist_ok=True)
 b=json.loads((SOURCE/'base.json').read_text());V=np.array(b['rest']).reshape(-1,3);J=np.array(b['joints']);W=np.array(b['weights']);names=b['bone_names'];R=np.array(json.loads((D/'anatomical_rest.json').read_text())['rest_matrices'])
 identity=np.tile(np.eye(4),(len(names),1,1));rest,f,_=correct(V,V,J,W,names,R,identity);assert np.array_equal(rest,V)
 m=json.loads((SOURCE/'manifest.json').read_text());reports=[]
