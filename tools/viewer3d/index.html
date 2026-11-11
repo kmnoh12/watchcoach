@@ -259,9 +259,22 @@ function personPoints() {
   return out;
 }
 
-async function show(models) {
-  const loaded = [];
-  for (const n of models) { cache[n] = cache[n] || await fetchModel(n); if (cache[n]) loaded.push(n); }
+function humanForModel(name) {
+  const key = humanList.has(name) ? name : (name.includes("~") ? null : baseOf(name));
+  return key && humanList.has(key) ? fetchHuman(key) : null;
+}
+
+async function show(models, cameraReady) {
+  const [equipment, earlyHuman] = await Promise.all([
+    Promise.all(models.map(async name => {
+      cache[name] = cache[name] || await fetchModel(name);
+      return name;
+    })),
+    models.length === 1 ? humanForModel(models[0]) : null
+  ]);
+  const loaded = equipment.filter(name => cache[name]);
+  const h = loaded.length === 1 ? (models.length === 1 ? earlyHuman : await humanForModel(loaded[0])) : null;
+  await cameraReady;
   world.clear(); shown = [];
   let x = 0;
   loaded.forEach((n, i) => {
@@ -272,13 +285,9 @@ async function show(models) {
     m.machineCenter = m.group.localToWorld(b.getCenter(new THREE.Vector3()));   // rest-pose centre in world space, for the first view
     world.add(m.group); shown.push(m);
   });
-  const humanKey = shown.length === 1 ? (humanList.has(shown[0].name) ? shown[0].name : (shown[0].name.includes("~") ? null : baseOf(shown[0].name))) : null;
-  if (humanKey && humanList.has(humanKey)) {
-    const h = await fetchHuman(humanKey);
-    if (h) {
-      const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x5aa9e6, flatShading: true }));
-      mesh.frustumCulled = false; mesh.visible = humanOn; shown[0].human = h; shown[0].humanMesh = mesh; shown[0].group.add(mesh);
-    }
+  if (h) {
+    const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x5aa9e6, flatShading: true }));
+    mesh.frustumCulled = false; mesh.visible = humanOn; shown[0].human = h; shown[0].humanMesh = mesh; shown[0].group.add(mesh);
   }
   setAct(act);
   setView();
@@ -324,11 +333,17 @@ renderer.setAnimationLoop(now => {
 });
 
 async function start() {
-  await loadHumanList();
-  const map = await (await fetch("exercise_models.json")).json();
-  try { const r = await fetch("camera_views.json", { cache: "no-store" }); if (r.ok) camViews = await r.json(); } catch {}
-  resize();
-  await show(map[EX] || []); resize(); playRep();
+  const cameraReady = fetch("camera_views.json", { cache: "no-store" })
+    .then(r => r.ok ? r.json() : {})
+    .then(views => { camViews = views; })
+    .catch(() => {});
+  const [map] = await Promise.all([
+    fetch("exercise_models.json").then(r => r.json()),
+    loadHumanList()
+  ]);
+  await show(map[EX] || [], cameraReady);
+  resize(); playRep();
+  renderer.render(scene, camera);
   window.__ready = true;
   if (SNAP) {   // still frames for review sheets and thumbnail capture; __snap(a) draws the rep at progress a
     window.__snap = (a, type = "image/png") => { anim = null; looping = false; setAct(a); controls.update(); renderer.render(scene, camera); return renderer.domElement.toDataURL(type, 0.9); };

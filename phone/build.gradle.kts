@@ -48,6 +48,8 @@ android {
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            // Phones that take in-app updates are all 64-bit ARM; x86 and 32-bit copies of the pose engine only add ~35MB.
+            ndk { abiFilters += "arm64-v8a" }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
