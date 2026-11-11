@@ -50,6 +50,9 @@ internal val ResultBone = Color(0xFFEDE8DC)
 internal val ResultRaised = Color(0xFF1C1B19)
 internal val ResultMuted = Color(0xFF8F8B82)
 internal const val ResultCameraRadius = 22f
+/** Camera photo frame top, below the status bar, and the room the ratio tabs and shutter need under it (dp). */
+internal const val ResultCameraTop = 8
+internal const val ResultCameraControls = 138
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,7 +111,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
             dismissButton = { TextButton(onClick = { estimateIndex = null }) { Text("취소") } })
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-        val cameraFrameWidth = minOf(maxWidth - 22.dp, (maxHeight - 194.dp) * (9f / 16f)).coerceAtLeast(1.dp)
+        val cameraFrameWidth = minOf(maxWidth - 22.dp, (maxHeight - (ResultCameraTop + ResultCameraControls).dp) * (9f / 16f)).coerceAtLeast(1.dp)
         AndroidView(factory = { ResultCameraView(it, owner).also { v -> camera = v; v.onClosed = { cameraOpen = false }; v.onGallery = { gallery.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }; if (permission) v.bind() } },
             update = { it.presentation = read }, modifier = Modifier.fillMaxSize().zIndex(if (cameraOpen) 2f else 0f))
         Column(Modifier.fillMaxSize().zIndex(1f)) {

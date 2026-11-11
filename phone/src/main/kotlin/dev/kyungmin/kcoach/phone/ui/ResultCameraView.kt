@@ -161,10 +161,10 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     private fun geometry(): Pair<RectF, RectF> {
         val w = measuredWidth - 22 * d
         // Preserve the reference's 9:16 stage; scale the complete camera composition on short screens.
-        val scale = min(1f, (measuredHeight - 56 * d - 138 * d) / (w * 16 / 9)).coerceAtLeast(.1f)
+        val scale = min(1f, (measuredHeight - ResultCameraTop * d - ResultCameraControls * d) / (w * 16 / 9)).coerceAtLeast(.1f)
         val fw = w * scale
         val stageHeight = fw * 16 / 9
-        val top = 56 * d
+        val top = ResultCameraTop * d
         val fh = fw * frameRatio
         val full = RectF((measuredWidth - fw) / 2, top + (stageHeight - fh) / 2, (measuredWidth + fw) / 2, top + (stageHeight + fh) / 2)
         val dx = cardBounds.left - full.left
@@ -281,19 +281,25 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     }
 
     private fun drawControls(c: Canvas, f: RectF) {
-        val stageBottom = 56*d + (width-22*d)*min(1f,(height-194*d)/((width-22*d)*16/9))*16/9
+        val stageBottom = ResultCameraTop*d + (width-22*d)*min(1f,(height-(ResultCameraTop+ResultCameraControls)*d)/((width-22*d)*16/9))*16/9
         val tabsY = stageBottom+10*d
         val center = width/2f
         val labels = listOf("9:16","1:1","3:4")
+        // Reference track: each tab is its text width + 4dp, 24dp apart, and the chosen tab's centre sits on the screen centre.
+        paint.textSize=13*d; paint.typeface=Typeface.create("sans-serif", Typeface.BOLD)
+        val widths = labels.map { paint.measureText(it) + 4*d }
+        val centres = widths.indices.map { i -> widths.take(i).sum() + 24*d*i + widths[i]/2 }
+        val lo = ratioMotion.toInt().coerceIn(0, labels.size-1); val hi = (lo+1).coerceAtMost(labels.size-1)
+        val shift = center - (centres[lo] + (centres[hi]-centres[lo])*(ratioMotion-lo))
         labels.forEachIndexed { i,label ->
-            val x = center+(i-ratioMotion)*57*d
-            text(c,label,x,tabsY,13*d,if (ratio==i) Color.WHITE else Color.rgb(143,139,130),true,opacity=controls)
-            taps += RectF(x-8*d,tabsY-4*d,x+42*d,tabsY+30*d) to { chooseRatio(i) }
+            val x = shift+centres[i]
+            text(c,label,x-(widths[i]-4*d)/2,tabsY,13*d,if (ratio==i) Color.WHITE else Color.rgb(143,139,130),true,opacity=controls)
+            taps += RectF(x-widths[i]/2-12*d,tabsY-4*d,x+widths[i]/2+12*d,tabsY+30*d) to { chooseRatio(i) }
         }
-        paint.color=Color.rgb(118,219,185); paint.alpha=(255*controls).toInt(); c.drawCircle(center+14*d,tabsY+28*d,2*d,paint)
+        paint.color=Color.rgb(118,219,185); paint.alpha=(255*controls).toInt(); c.drawCircle(center,tabsY+28*d,2*d,paint)
         val cy = tabsY+40*d+35*d
         fun circle(x: Float, radius: Float, color: Int, atY: Float = cy, opacity: Float = controls) { paint.color=color; paint.alpha=(255*opacity).toInt(); paint.style=Paint.Style.FILL; c.drawCircle(x,atY,radius*d,paint) }
-        val closeRect = RectF(22*d,66*d,59.4f*d,103.4f*d)
+        val closeRect = RectF(f.left+11*d,f.top+10*d,f.left+48.4f*d,f.top+47.4f*d)
         val closeSave = c.save()
         clipPath.reset(); clipPath.addRoundRect(closeRect,18.7f*d,18.7f*d,Path.Direction.CW); c.clipPath(clipPath)
         val (_, image) = geometry()
@@ -301,9 +307,10 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         closeSample?.let { c.drawBitmap(it,null,image,paint.apply { alpha = (255*controls).toInt() }) }
         c.restoreToCount(backdrop)
         c.drawColor(Color.argb((255*.45f*controls).toInt(),0,0,0)); c.restoreToCount(closeSave)
+        paint.color=Color.WHITE; paint.alpha=(255*controls).toInt(); paint.strokeWidth=2*d; paint.strokeCap=Paint.Cap.ROUND
+        val cc=closeRect.centerX(); val yy=closeRect.centerY()
         if (photo == null) {
-            paint.color=Color.WHITE; paint.alpha=(255*controls).toInt(); paint.strokeWidth=2*d; paint.strokeCap=Paint.Cap.ROUND
-            val cc=closeRect.centerX(); val yy=closeRect.centerY(); val a=17.6f*d*9/32
+            val a=17.6f*d*9/32
             c.drawLine(cc-a,yy-a,cc+a,yy+a,paint); c.drawLine(cc+a,yy-a,cc-a,yy+a,paint)
             taps += closeRect to { close() }
             circle(center,35f,Color.WHITE); circle(center,31f,Color.BLACK); circle(center,28f,Color.WHITE)
@@ -319,9 +326,18 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
             val right=width-55*d; circle(right,21f,Color.rgb(28,27,25)); drawIcon(c, 4, right, cy, 20*d, Color.rgb(237,232,220), controls)
             taps += RectF(right-25*d,cy-25*d,right+25*d,cy+25*d) to { if (!taking) { front=!front; bind() } }
         } else {
-            paint.color=Color.argb(180,0,0,0); c.drawRoundRect(RectF(22*d,66*d,106*d,100*d),8*d,8*d,paint)
-            text(c,"다시 찍기",33*d,73*d,13*d,Color.WHITE,true,opacity=controls)
-            taps += RectF(22*d,66*d,110*d,106*d) to { if (!exporting) { photo?.recycle();photo=null;photoSaved=false;sampleAt=0;invalidate() } }
+            // Retake: the same smoked circle as close, with a counter-clockwise arrow in it.
+            // Thick counter-clockwise ring (butt ends) from -51° to 15°, with an upward filled head standing on the ring at 19°.
+            val r=9f*d; val oldCap=paint.strokeCap; val oldW=paint.strokeWidth
+            paint.style=Paint.Style.STROKE; paint.strokeWidth=3.6f*d; paint.strokeCap=Paint.Cap.BUTT
+            c.drawArc(RectF(cc-r,yy-r,cc+r,yy+r),-51f,-294f,false,paint)
+            paint.strokeWidth=oldW; paint.strokeCap=oldCap
+            val endA=Math.toRadians(19.0)
+            val ex=cc+r*kotlin.math.cos(endA).toFloat(); val ey=yy+r*kotlin.math.sin(endA).toFloat()
+            clipPath.reset(); clipPath.moveTo(ex,ey-8f*d); clipPath.lineTo(ex-4.5f*d,ey); clipPath.lineTo(ex+4.5f*d,ey); clipPath.close()
+            paint.style=Paint.Style.FILL; c.drawPath(clipPath,paint)
+            paint.style=Paint.Style.FILL
+            taps += closeRect to { if (!exporting) { photo?.recycle();photo=null;photoSaved=false;sampleAt=0;invalidate() } }
             listOf("사진 저장","인스타 스토리","카카오톡","더보기").forEachIndexed { i,label ->
                 val x=width*(i+.5f)/4
                 val pop = curve.getInterpolation(((SystemClock.uptimeMillis()-shotAt-i*30)/280f).coerceIn(0f,1f))
