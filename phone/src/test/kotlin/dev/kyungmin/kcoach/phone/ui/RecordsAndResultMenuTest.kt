@@ -1,7 +1,6 @@
 package dev.kyungmin.kcoach.phone.ui
 
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dev.kyungmin.kcoach.phone.WorkoutRecord
@@ -34,15 +33,18 @@ class RecordsAndResultMenuTest {
     }
 
     @Test
-    fun theResultDotsOpenShareAndSave() {
+    fun resultExportOpensFormatsAndPhotoEntry() {
         compose.setContent {
             WorkoutResultScreen(
                 ResultUi("가슴·삼두", "81분 · 26세트 · 세션 00000000", emptyList(), "센서 추정"),
                 back = {}, toRecords = {},
             )
         }
-        compose.onNodeWithTag("result-menu").performClick()
-        compose.onNodeWithText("이미지로 공유").assertExists()
-        compose.onNodeWithText("이미지로 저장").assertExists()
+        compose.onNodeWithText("내보내기").performClick()
+        compose.onNodeWithText("요약형").assertExists()
+        compose.onNodeWithText("상세형").assertExists()
+        compose.onNodeWithText("공유").assertExists()
+        compose.onNodeWithText("사진에 저장").assertExists()
+        compose.onNodeWithText("사진 찍어 공유").assertExists()
     }
 }
