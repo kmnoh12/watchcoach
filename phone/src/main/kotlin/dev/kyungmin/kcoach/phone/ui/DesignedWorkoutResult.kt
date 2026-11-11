@@ -10,6 +10,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -25,13 +27,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Velocity
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -49,7 +62,8 @@ internal val ResultMint = Color(0xFF76DBB9)
 internal val ResultBone = Color(0xFFEDE8DC)
 internal val ResultRaised = Color(0xFF1C1B19)
 internal val ResultMuted = Color(0xFF8F8B82)
-internal const val ResultCameraRadius = 22f
+/** Same corner radius as the result screen's bottom buttons, for the card and the camera frame. */
+internal const val ResultCameraRadius = 10f
 /** Camera photo frame top, below the status bar, and the room the ratio tabs and shutter need under it (dp). */
 internal const val ResultCameraTop = 8
 internal const val ResultCameraControls = 138
@@ -110,18 +124,47 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
         }, confirmButton = { TextButton(onClick = { estimateText.toIntOrNull()?.takeIf { it in 0..9999 }?.let { confirm(index, it); estimateIndex = null } }) { Text("확정") } },
             dismissButton = { TextButton(onClick = { estimateIndex = null }) { Text("취소") } })
     }
+    // Pull down at the very top to open the camera: a haptic tick marks the release point, letting go opens it.
+    val haptics = LocalHapticFeedback.current
+    val pullLimit = 72f * density
+    var pull by remember { mutableFloatStateOf(0f) }
+    var armed by remember { mutableStateOf(false) }
+    var released by remember { mutableStateOf(false) }
+    val pullShown by animateFloatAsState(pull, if (released) tween(260, easing = FastOutSlowInEasing) else snap(), label = "pull")
+    val pullConnection = remember(pullLimit) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (pull <= 0f || available.y >= 0f) return Offset.Zero
+                val used = minOf(pull, -available.y); pull -= used
+                if (armed && pull < pullLimit) armed = false
+                return Offset(0f, -used)
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput || available.y <= 0f || cameraOpen) return Offset.Zero
+                released = false
+                pull = minOf(pull + available.y * .6f, pullLimit * 1.4f)
+                if (!armed && pull >= pullLimit) { armed = true; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                return Offset(0f, available.y)
+            }
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                val go = armed; released = true; pull = 0f; armed = false
+                if (go) openCamera()
+                return Velocity.Zero
+            }
+        }
+    }
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val cameraFrameWidth = minOf(maxWidth - 22.dp, (maxHeight - (ResultCameraTop + ResultCameraControls).dp) * (9f / 16f)).coerceAtLeast(1.dp)
         AndroidView(factory = { ResultCameraView(it, owner).also { v -> camera = v; v.onClosed = { cameraOpen = false }; v.onGallery = { gallery.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }; if (permission) v.bind() } },
             update = { it.presentation = read }, modifier = Modifier.fillMaxSize().zIndex(if (cameraOpen) 2f else 0f))
-        Column(Modifier.fillMaxSize().zIndex(1f)) {
+        Column(Modifier.fillMaxSize().zIndex(1f).nestedScroll(pullConnection)) {
             Column(Modifier.weight(1f).verticalScroll(scroll)) {
                 Row(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp).height(33.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("✕", color = ResultMuted, modifier = Modifier.clickable(onClick = back).padding(end = 16.dp))
                     Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = ResultMuted, fontSize = 12.sp)
                 }
                 val fade = (scroll.value / (120f * density)).coerceIn(0f, 1f)
-                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 23.dp).width(cameraFrameWidth).height(132.dp)
+                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 23.dp).width(cameraFrameWidth).height(132.dp + (pullShown / density).dp)
                     .onGloballyPositioned { camera?.cardBounds = it.boundsInRoot(); camera?.cardFade = fade }
                     .graphicsLayer { alpha = 1 - fade; translationY = fade * 10 * density; scaleX = 1 - fade * .04f; scaleY = scaleX }
                     .clip(RoundedCornerShape(ResultCameraRadius.dp))) {
@@ -132,6 +175,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                         }
                         ResultButton("카메라 열기", true, Modifier, 13) { openCamera() }
                     }
+                    PullHint(Modifier.align(Alignment.BottomCenter).padding(bottom = 19.dp), 1f - (pullShown / (30f * density)).coerceIn(0f, 1f))
                 }
                 Column(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp)) {
                     Spacer(Modifier.height(18.dp))
@@ -226,9 +270,31 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
     }
 }
 
+/** Two wide, translucent chevrons that drop together and spring back on a loop, hinting that the card can be pulled down. */
+@Composable
+private fun PullHint(modifier: Modifier, visible: Float) {
+    val t by rememberInfiniteTransition(label = "hint").animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "hintT")
+    Canvas(modifier.size(40.dp, 20.dp)) {
+        // 0..0.2 drop with ease-out, hold until 0.3, then a quick spring back (one small overshoot, done in about 0.36s), rest.
+        val drop = when {
+            t < .2f -> 1f - (1f - t / .2f).let { it * it * it }
+            t < .3f -> 1f
+            t < .53f -> { val q = (t - .3f) / .23f; kotlin.math.exp(-4f * q) * kotlin.math.cos(7.5f * q) }
+            else -> 0f
+        }
+        val dy = drop * 10f * density
+        val stroke = Stroke(3.2f * density, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        for (row in 0..1) {
+            val y = (3f + row * 7f) * density + dy
+            val path = Path().apply { moveTo(3f * density, y); lineTo(20f * density, y + 7f * density); lineTo(37f * density, y) }
+            drawPath(path, Color.White.copy(alpha = .5f * visible), style = stroke)
+        }
+    }
+}
+
 @Composable
 internal fun ResultButton(label: String, mint: Boolean, modifier: Modifier = Modifier, font: Int = 15, action: () -> Unit) {
-    Box(modifier.clip(RoundedCornerShape((ResultCameraRadius - 12).dp)).background(if (mint) ResultMint else ResultRaised).clickable(onClick = action).padding(horizontal = 12.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(RoundedCornerShape(ResultCameraRadius.dp)).background(if (mint) ResultMint else ResultRaised).clickable(onClick = action).padding(horizontal = 12.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (mint) Color(0xFF04140E) else ResultBone, fontSize = font.sp, fontWeight = FontWeight.SemiBold)
     }
 }
