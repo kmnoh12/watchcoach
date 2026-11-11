@@ -26,7 +26,8 @@ internal fun resultTempo(metrics: List<ObservedMotionMetrics>): ResultTempo? {
         change?.takeIf { trend != 0 }?.let { "후반 %+d%%".format(Locale.KOREA, Math.round(it * 100).toInt()) })
 }
 internal data class ResultPresentation(val title: String, val date: String, val photoDate: String, val minutes: Int,
-    val volume: String, val exercises: List<ResultExercise>, val vitals: String, val recordCount: Int) {
+    val volume: String, val exercises: List<ResultExercise>, val vitals: String, val recordCount: Int,
+    val avgHeart: String = "—", val maxHeart: String = "—", val kcal: String = "—", val heartPoints: List<Pair<Long, Int>> = emptyList()) {
     val setCount get() = exercises.sumOf { it.sets.size }
     val rising get() = exercises.count { it.direction == 1 }
     val verdict get() = "지난번보다 ${rising}종목 상승"
@@ -80,7 +81,7 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
         ResultExercise(first.exerciseName.ifBlank { first.exerciseId }, value(best), label, direction, sets.map { s ->
             val isRecord = s === recordSet
             ResultSet(s.setIndex + 1, value(s), before.singleOrNull { it.setIndex == s.setIndex && it.setType == s.setType }?.let(::value) ?: "—", isRecord)
-        }, tempo, if (nowRm != null && prevRm != null) "추정 1RM ${resultNumber(prevRm)} → ${resultNumber(nowRm)}kg" else null, first.exerciseId)
+        }, tempo, if (nowRm != null && prevRm != null) (if (resultNumber(prevRm) == resultNumber(nowRm)) "추정 1RM ${resultNumber(nowRm)}kg" else "추정 1RM ${resultNumber(prevRm)} → ${resultNumber(nowRm)}kg") else null, first.exerciseId)
     }
     val date = Instant.ofEpochMilli(current.startedAtMs).atZone(ZoneId.systemDefault())
     val heart = WorkoutVitalsStore(context).summary(sessionId, current.startedAtMs, evidence.finishedAtMs)
@@ -92,5 +93,6 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
     return ResultPresentation(evidence.title, date.format(DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE · a h:mm", Locale.KOREA)),
         date.format(DateTimeFormatter.ofPattern("MM.dd EEE", Locale.US)).uppercase(Locale.US), evidence.minutes,
         WorkoutComparison.totals(current.plannedSets.filter { it.completed }).volumeKgReps?.let(::resultNumber) ?: "—", exercises,
-        "평균 심박 ${heart.average?.toInt() ?: "—"} · 최고 ${heart.maximum ?: "—"} · ${kcal?.let { "약 ${it}kcal" } ?: "—kcal"}", hits.size)
+        "평균 심박 ${heart.average?.toInt() ?: "—"} · 최고 ${heart.maximum ?: "—"} · ${kcal?.let { "약 ${it}kcal" } ?: "—kcal"}", hits.size,
+        heart.average?.toInt()?.toString() ?: "—", heart.maximum?.toString() ?: "—", kcal?.toString() ?: "—", heart.points.map { it.receivedAtMs to it.bpm })
 }

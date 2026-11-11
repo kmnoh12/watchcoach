@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -69,8 +68,9 @@ internal val ResultMuted = Color(0xFF909090)
 /** Same corner radius as the result screen's bottom buttons, for the card and the camera frame. */
 internal const val ResultCameraRadius = 10f
 /** Camera photo frame top, below the status bar, and the room the ratio tabs and shutter need under it (dp). */
-internal const val ResultCameraTop = 8
-internal const val ResultCameraControls = 138
+/** The camera stage starts exactly where the resting card does: 33dp header + 4dp gap. */
+internal const val ResultCameraTop = 37
+internal const val ResultCameraControls = 120
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -164,11 +164,11 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
         Column(Modifier.fillMaxSize().zIndex(1f).nestedScroll(pullConnection)) {
             Column(Modifier.weight(1f).verticalScroll(scroll)) {
                 Row(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp).height(33.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("✕", color = ResultMuted, modifier = Modifier.clickable(onClick = back).padding(end = 16.dp))
-                    Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = ResultMuted, fontSize = 12.sp)
+                    Text("✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable(onClick = back).padding(end = 16.dp))
+                    Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp)
                 }
                 val fade = (scroll.value / (120f * density)).coerceIn(0f, 1f)
-                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 23.dp).width(cameraFrameWidth).height(132.dp + (pullShown / density).dp)
+                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = (ResultCameraTop - 33).dp).width(cameraFrameWidth).height(132.dp + (pullShown / density).dp)
                     .onGloballyPositioned { camera?.cardBounds = it.boundsInRoot(); camera?.cardFade = fade }
                     .graphicsLayer { alpha = 1 - fade; translationY = fade * 10 * density; scaleX = 1 - fade * .04f; scaleY = scaleX }
                     .clip(RoundedCornerShape(ResultCameraRadius.dp))) {
@@ -192,7 +192,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                             Text(data.comparison, color = ResultMuted, fontSize = 12.sp)
                         }
                         data.exercises.forEach { ExerciseResultCard(it) }
-                        Text(data.vitals, color = ResultMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp, bottom = 12.dp))
+                        Spacer(Modifier.height(12.dp))
                     } ?: Text(if (readFailed) "운동 기록을 불러오지 못했어요" else "운동 기록 불러오는 중", color = ResultMuted)
                     if (readFailed) TextButton(onClick = { retry++ }) { Text("다시 시도", color = ResultMint) }
                     estimated.forEachIndexed { i, (label, reps) ->
@@ -304,7 +304,115 @@ internal fun ResultButton(label: String, mint: Boolean, modifier: Modifier = Mod
 }
 
 @Composable
-private fun ResultNumbers(data: ResultPresentation, compact: Boolean = false) {
+private fun ResultHeadlineStats(data: ResultPresentation) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
+        listOf(Triple("${data.minutes}", "분", "운동 시간"), Triple(data.volume, "kg", "총 볼륨"), Triple("${data.setCount}", "", "세트")).forEachIndexed { i, (value, unit, label) ->
+            Column(Modifier.weight(if (i == 1) 1.4f else 1f)) {
+                Text(androidx.compose.ui.text.buildAnnotatedString {
+                    append(value)
+                    if (unit.isNotEmpty()) { pushStyle(androidx.compose.ui.text.SpanStyle(fontSize = 14.sp, color = ResultMuted, fontWeight = FontWeight.Normal)); append(" $unit"); pop() }
+                }, color = ResultMint, fontSize = 30.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(label, color = ResultMuted, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+/** The watch's heart (same shape and zone colour), beating once per heartbeat at the given bpm. */
+@Composable
+private fun BeatingHeart(bpm: Int?, size: androidx.compose.ui.unit.Dp) {
+    if (bpm == null || bpm <= 0) { Spacer(Modifier.size(size)); return }
+    val period = (60_000 / bpm).coerceIn(300, 1_500)
+    key(period) {
+        val scale by rememberInfiniteTransition(label = "beat").animateFloat(1f, 1f, infiniteRepeatable(keyframes {
+            durationMillis = period
+            1f at 0; 1.22f at (period * .14f).toInt(); 1f at (period * .28f).toInt(); 1.12f at (period * .42f).toInt(); 1f at (period * .56f).toInt(); 1f at period
+        }), label = "beatScale")
+        val tint = Color(dev.kyungmin.kcoach.core.HeartZone.color(bpm))
+        Canvas(Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, .55f) }) {
+            val u = minOf(this.size.width, this.size.height) / 24f
+            val ox = (this.size.width - 24f * u) / 2f; val oy = (this.size.height - 24f * u) / 2f
+            fun x(v: Float) = ox + v * u
+            fun y(v: Float) = oy + v * u
+            val path = Path().apply {
+                moveTo(x(12f), y(21.35f)); lineTo(x(10.55f), y(20.03f))
+                cubicTo(x(5.4f), y(15.36f), x(2f), y(12.28f), x(2f), y(8.5f))
+                cubicTo(x(2f), y(5.42f), x(4.42f), y(3f), x(7.5f), y(3f))
+                cubicTo(x(9.24f), y(3f), x(10.91f), y(3.81f), x(12f), y(5.09f))
+                cubicTo(x(13.09f), y(3.81f), x(14.76f), y(3f), x(16.5f), y(3f))
+                cubicTo(x(19.58f), y(3f), x(22f), y(5.42f), x(22f), y(8.5f))
+                cubicTo(x(22f), y(12.28f), x(18.6f), y(15.36f), x(13.45f), y(20.04f))
+                close()
+            }
+            drawPath(path, tint)
+            drawPath(path, tint, style = Stroke(width = this.size.width * .05f, join = StrokeJoin.Round))
+        }
+    }
+}
+
+@Composable
+private fun ResultHeartCard(data: ResultPresentation) {
+    Row(Modifier.fillMaxWidth().height(128.dp).clip(RoundedCornerShape(10.dp)).background(ResultRaised).padding(14.dp)) {
+        Column(Modifier.weight(1.15f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("평균 심박수", color = ResultMuted, fontSize = 11.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BeatingHeart(data.avgHeart.toIntOrNull(), 22.dp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(androidx.compose.ui.text.buildAnnotatedString {
+                        append(data.avgHeart)
+                        pushStyle(androidx.compose.ui.text.SpanStyle(fontSize = 12.sp, color = ResultMuted, fontWeight = FontWeight.Normal)); append(" bpm"); pop()
+                    }, color = ResultBone, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(Triple("최고 심박수", data.maxHeart, "bpm"), Triple("소모 칼로리", data.kcal, "kcal")).forEach { (label, value, unit) ->
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(label, color = ResultMuted, fontSize = 10.5.sp, modifier = Modifier.width(54.dp), maxLines = 1, softWrap = false)
+                        if (unit == "bpm") BeatingHeart(value.toIntOrNull(), 12.dp) else Spacer(Modifier.width(12.dp))   // same slot, so the numbers line up
+                        Spacer(Modifier.width(4.dp))
+                        Text(androidx.compose.ui.text.buildAnnotatedString {
+                            append(value)
+                            pushStyle(androidx.compose.ui.text.SpanStyle(fontSize = 10.sp, color = ResultMuted, fontWeight = FontWeight.Normal)); append(" $unit"); pop()
+                        }, color = ResultBone, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Box(Modifier.weight(1.35f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            if (data.heartPoints.size < 2) Text("그래프를 그릴 심박이 부족해요", color = ResultMuted, fontSize = 11.sp)
+            else Canvas(Modifier.fillMaxSize()) {
+                val pts = data.heartPoints
+                val t0 = pts.first().first; val span = (pts.last().first - t0).coerceAtLeast(1L)
+                val barW = 3.dp.toPx(); val step = barW * 2f
+                val n = (size.width / step).toInt().coerceAtLeast(2)
+                val lo = IntArray(n) { Int.MAX_VALUE }; val hi = IntArray(n) { Int.MIN_VALUE }
+                pts.forEach { (at, bpm) ->
+                    val i = ((at - t0).toFloat() / span * (n - 1)).toInt().coerceIn(0, n - 1)
+                    lo[i] = minOf(lo[i], bpm); hi[i] = maxOf(hi[i], bpm)
+                }
+                val floor = (pts.minOf { it.second } - 8).toFloat(); val ceil = (pts.maxOf { it.second } + 4).toFloat()
+                fun y(bpm: Int) = size.height - (bpm - floor) / (ceil - floor) * size.height
+                val peak = hi.indices.maxByOrNull { hi[it] } ?: -1
+                val left = (size.width - (n - 1) * step - barW) / 2f
+                for (i in 0 until n) {
+                    if (hi[i] == Int.MIN_VALUE) continue
+                    val x = left + barW / 2f + i * step
+                    val top = y(hi[i]); val bottom = maxOf(y(lo[i]), top + 0.1f)
+                    drawLine(if (i == peak) ResultBone else ResultMint.copy(alpha = .75f), Offset(x, top), Offset(x, bottom), strokeWidth = barW, cap = StrokeCap.Round)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ResultNumbers(data: ResultPresentation, compact: Boolean = false) {
+    if (!compact) {
+        Column { ResultHeadlineStats(data); if (data.heartPoints.isNotEmpty() || data.avgHeart != "—") ResultHeartCard(data) }   // no watch heart data, no heart card
+        return
+    }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("${data.minutes}분" to "운동 시간", "${data.volume}kg" to "총 볼륨", "${data.setCount}" to "세트").forEach { (value, label) ->
             Column(Modifier.weight(1f).clip(RoundedCornerShape(if (compact) 8.dp else 10.dp)).background(ResultRaised).padding(if (compact) 10.dp else 11.dp)) {
@@ -323,8 +431,8 @@ private fun ResultNumbers(data: ResultPresentation, compact: Boolean = false) {
 }
 
 @Composable
-private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false) {
-    var expanded by remember(exercise) { mutableStateOf(false) }
+internal fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false, initiallyExpanded: Boolean = false) {
+    var expanded by remember(exercise) { mutableStateOf(initiallyExpanded) }
     Column(Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(if (export) 8.dp else 12.dp)).background(ResultRaised)) {
         Row(Modifier.fillMaxWidth().then(if (export) Modifier else Modifier.clickable { expanded = !expanded }).padding(start = if (export) 11.dp else 14.dp, end = if (export) 11.dp else 14.dp, top = if (export) 9.dp else 13.dp, bottom = if (export) 3.dp else 13.dp), verticalAlignment = Alignment.CenterVertically) {
             val previewContext = LocalContext.current
@@ -340,7 +448,6 @@ private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(exercise.delta, color = if (exercise.direction == 1) ResultMint else if (exercise.direction == -1) ResultBone else ResultMuted, fontSize = (if (export) 12 else 15).sp, fontWeight = FontWeight.SemiBold)
-                if (!export) exercise.growth?.let { Text(it, color = ResultMuted, fontSize = 11.sp) }
             }
             if (!export) {
                 val turn by animateFloatAsState(if (expanded) 180f else 0f, tween(240, easing = FastOutSlowInEasing), label = "chev")
@@ -354,16 +461,17 @@ private fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false
             enter = androidx.compose.animation.expandVertically(tween(240, easing = FastOutSlowInEasing)) + androidx.compose.animation.fadeIn(tween(200)),
             exit = androidx.compose.animation.shrinkVertically(tween(220, easing = FastOutSlowInEasing)) + androidx.compose.animation.fadeOut(tween(120))) {
         Column(Modifier.padding(horizontal = if (export) 11.dp else 14.dp).padding(bottom = if (export) 9.dp else 10.dp)) {
+            if (!export) exercise.growth?.let { Text(it, color = ResultMuted, fontSize = 12.sp, modifier = Modifier.padding(top = 9.dp)) }
             if (!export) exercise.sets.chunked(6).forEach { line ->
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp).height(IntrinsicSize.Min)) {
                     for (i in 0 until 6) {
                         val set = line.getOrNull(i)
-                        Column(Modifier.weight(1f).fillMaxHeight().then(if (i > 0) Modifier.drawBehind { drawLine(ResultHair, Offset(0f, 0f), Offset(0f, size.height), 1.dp.toPx()) }.padding(start = 6.dp) else Modifier)) {
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
                             if (set != null) {
                                 val parts = set.today.split(" × ")
-                                val tone = if (set.record) ResultMint else ResultBone
-                                Text(resultSetText(parts[0], 10), color = tone, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
-                                if (parts.size > 1) Text(resultSetText(parts[1], 10), color = if (set.record) ResultMint else Color(0xFFCFCBC1), fontSize = 14.sp, maxLines = 1, softWrap = false)
+                                val tone = ResultMint
+                                Text(resultSetText(parts[0], 10), color = tone, fontSize = 15.sp, fontWeight = if (set.record) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false)
+                                if (parts.size > 1) Text(resultSetText(parts[1], 10), color = ResultMint, fontSize = 14.sp, fontWeight = if (set.record) FontWeight.Bold else FontWeight.Normal, maxLines = 1, softWrap = false)
                             }
                         }
                     }

@@ -102,19 +102,32 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                     .setViewPort(ViewPort.Builder(android.util.Rational(3, 4), android.view.Surface.ROTATION_0).build()).build()
                 focusAt = 0L
                 camera = p.bindToLifecycle(owner, if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA, group)
+                limitFps(!opening)
             }.onFailure { toast("카메라를 열지 못했어요") }
         }, main)
     }
 
     fun release() {
         released = true; animation?.cancel(); ratioAnimation?.cancel()
-        provider?.unbind(*ownUseCases.toTypedArray()); worker.shutdown()
+        provider?.unbind(*ownUseCases.toTypedArray()); worker.execute { runCatching { blurRs?.destroy() } }; worker.shutdown()
         photo?.recycle(); sample?.recycle(); blurredSample?.recycle(); closeSample?.recycle(); galleryThumb?.recycle()
+    }
+
+    /** The resting card only shows a heavily blurred picture, so the camera runs at a low frame rate until it is opened. */
+    @androidx.annotation.OptIn(androidx.camera.camera2.interop.ExperimentalCamera2Interop::class)
+    private fun limitFps(low: Boolean) {
+        val cam = camera ?: return
+        runCatching {
+            val options = androidx.camera.camera2.interop.CaptureRequestOptions.Builder()
+            if (low) options.setCaptureRequestOption(android.hardware.camera2.CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, android.util.Range(10, 15))
+            androidx.camera.camera2.interop.Camera2CameraControl.from(cam.cameraControl).setCaptureRequestOptions(options.build())
+        }
     }
 
     fun open() {
         if (opening) return
         opening = true
+        limitFps(false)
         ratioAnimation?.cancel(); ratio = 0; ratioMotion = 0f; frameRatio = 16/9f; imageRatio = 4/3f; safeRatio = 4/3f
         animateOpen(true)
     }
@@ -224,6 +237,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         val elapsed = SystemClock.uptimeMillis() - flashAt
         if (elapsed in 0..300 && flashAt != 0L) canvas.drawColor(Color.argb((204 * if (elapsed < 45) elapsed / 45f else (300 - elapsed) / 255f).toInt().coerceIn(0, 255), 255, 255, 255))
         drawFocus(canvas)
+        drawZoom(canvas)
         canvas.restoreToCount(clipped)
         if (controls > 0) drawControls(canvas, f)
         canvas.restoreToCount(save)
@@ -236,8 +250,11 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     }
     private fun ink(t: Float): Int { val v = (11 + (255 - 11) * t).toInt().coerceIn(0,255); return Color.rgb(v, v, (10 + 245 * t).toInt().coerceIn(0,255)) }
     @Suppress("DEPRECATION")
+    private var blurRs: android.renderscript.RenderScript? = null
+    /** Worker thread only; the RenderScript context is created once instead of for every sample. */
+    @Suppress("DEPRECATION")
     private fun blurred(bitmap: Bitmap, radius: Float): Bitmap {
-        val rs = android.renderscript.RenderScript.create(context)
+        val rs = blurRs ?: android.renderscript.RenderScript.create(context).also { blurRs = it }
         val input = android.renderscript.Allocation.createFromBitmap(rs, bitmap)
         val output = android.renderscript.Allocation.createTyped(rs, input.type)
         val script = android.renderscript.ScriptIntrinsicBlur.create(rs, android.renderscript.Element.U8_4(rs))
@@ -245,20 +262,34 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
             val result = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
             script.setRadius(radius.coerceIn(.1f,25f)); script.setInput(input); script.forEach(output); output.copyTo(result)
             result
-        } finally { script.destroy(); output.destroy(); input.destroy(); rs.destroy() }
+        } finally { script.destroy(); output.destroy(); input.destroy() }
     }
+    private var sampling = false
     private fun refreshSample(imageWidth: Float) {
         val now = SystemClock.uptimeMillis()
-        if (now - sampleAt < 333) return
+        // The resting card only needs a rough, slow-moving picture; sample faster only while the camera is open.
+        if (sampling || now - sampleAt < (if (opening || photo != null) 333 else 900)) return
         sampleAt = now
         val raw = photo ?: preview.bitmap ?: return
         val scaled = Bitmap.createScaledBitmap(raw,72,96,false)
         val small = if (scaled === raw) scaled.copy(Bitmap.Config.ARGB_8888,false) else scaled
         if (raw !== photo && raw !== small) raw.recycle()
         sample?.recycle(); sample = small
-        blurredSample?.recycle(); closeSample?.recycle()
-        blurredSample = runCatching { blurred(small,16*d*72/imageWidth.coerceAtLeast(1f)) }.getOrNull()
-        closeSample = runCatching { blurred(small,12*d*72/imageWidth.coerceAtLeast(1f)) }.getOrNull()
+        val widthPx = imageWidth.coerceAtLeast(1f)
+        sampling = true
+        runCatching {
+            worker.execute {
+                val a = runCatching { blurred(small,16*d*72/widthPx) }.getOrNull()
+                val b = runCatching { blurred(small,12*d*72/widthPx) }.getOrNull()
+                main.execute {
+                    sampling = false
+                    if (released) { a?.recycle(); b?.recycle(); return@execute }
+                    blurredSample?.recycle(); closeSample?.recycle()
+                    blurredSample = a; closeSample = b
+                    invalidate()
+                }
+            }
+        }.onFailure { sampling = false }
     }
 
     private fun updateTones(image: RectF, safe: RectF) {
@@ -288,7 +319,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
 
     private fun drawControls(c: Canvas, f: RectF) {
         val stageBottom = ResultCameraTop*d + (width-22*d)*min(1f,(height-(ResultCameraTop+ResultCameraControls)*d)/((width-22*d)*16/9))*16/9
-        val tabsY = stageBottom+10*d
+        val tabsY = stageBottom+6*d
         val center = width/2f
         val labels = listOf("9:16","1:1","3:4")
         // Reference track: each tab is its text width + 4dp, 24dp apart, and the chosen tab's centre sits on the screen centre.
@@ -302,8 +333,8 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
             text(c,label,x-(widths[i]-4*d)/2,tabsY,13*d,if (ratio==i) Color.WHITE else Color.rgb(143,139,130),true,opacity=controls)
             taps += RectF(x-widths[i]/2-12*d,tabsY-4*d,x+widths[i]/2+12*d,tabsY+30*d) to { chooseRatio(i) }
         }
-        paint.color=Color.rgb(118,219,185); paint.alpha=(255*controls).toInt(); c.drawCircle(center,tabsY+28*d,2*d,paint)
-        val cy = tabsY+40*d+35*d
+        paint.color=Color.rgb(118,219,185); paint.alpha=(255*controls).toInt(); c.drawCircle(center,tabsY+25*d,2*d,paint)
+        val cy = tabsY+34*d+33*d
         fun circle(x: Float, radius: Float, color: Int, atY: Float = cy, opacity: Float = controls) { paint.color=color; paint.alpha=(255*opacity).toInt(); paint.style=Paint.Style.FILL; c.drawCircle(x,atY,radius*d,paint) }
         val closeRect = RectF(f.left+11*d,f.top+10*d,f.left+48.4f*d,f.top+47.4f*d)
         val closeSave = c.save()
@@ -372,9 +403,88 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         }
         c.restoreToCount(state)
     }
+    private var pinched = false
+    private var zoomShown = 0f
+    private var zoomAt = 0L
+    /** Pinch zoom through the camera's own zoom range, so a phone that exposes its ultra-wide or telephoto as one logical camera switches lenses by itself. */
+    private val scaleDetector = android.view.ScaleGestureDetector(context, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(detector: android.view.ScaleGestureDetector): Boolean {
+            val cam = camera ?: return true
+            val state = cam.cameraInfo.zoomState.value ?: return true
+            val next = (state.zoomRatio * detector.scaleFactor).coerceIn(state.minZoomRatio, state.maxZoomRatio)
+            cam.cameraControl.setZoomRatio(next)
+            zoomShown = next; zoomAt = SystemClock.uptimeMillis(); invalidate()
+            return true
+        }
+    })
+    private val zp = Paint(Paint.ANTI_ALIAS_FLAG)
+    private fun drawZoom(c: Canvas) {
+        if (zoomAt == 0L || photo != null) return
+        val t = SystemClock.uptimeMillis() - zoomAt
+        if (t > 1300) { zoomAt = 0L; return }
+        val alpha = if (t < 900) 1f else 1f - (t - 900) / 400f
+        val label = "%.1f×".format(java.util.Locale.US, zoomShown)
+        zp.textSize = 14f * d; zp.typeface = Typeface.DEFAULT_BOLD; zp.textAlign = Paint.Align.CENTER
+        val w = zp.measureText(label) + 22f * d
+        val cx = frame.centerX(); val cy = frame.top + 38f * d
+        zp.style = Paint.Style.FILL; zp.color = Color.BLACK; zp.alpha = (115 * alpha).toInt()
+        c.drawRoundRect(cx - w / 2, cy - 15f * d, cx + w / 2, cy + 15f * d, 10f * d, 10f * d, zp)
+        zp.color = Color.WHITE; zp.alpha = (255 * alpha).toInt()
+        c.drawText(label, cx, cy + 5f * d, zp)
+        postInvalidateOnAnimation()
+    }
+    private var dragging = false
+    private var dragFromTap = false
+    private var downX = 0f
+    private var downY = 0f
+    private var dragRange = 1f
+    private val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+    private fun applyBlur() { if (Build.VERSION.SDK_INT >= 31) preview.setRenderEffect(if (blur > .001f) RenderEffect.createBlurEffect(16 * d * blur, 16 * d * blur, Shader.TileMode.CLAMP) else null) }
+    /** Finishes a finger-driven close: from wherever the stage is, glide to fully open or fully back on the card. */
+    private fun settle(open: Boolean) {
+        animation?.cancel()
+        val p0 = progress; val b0 = blur; val c0 = controls
+        val pe = if (open) 1f else 0f; val be = if (open) 0f else 1f; val ce = if (open) 1f else 0f
+        animation = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = (80 + 320 * kotlin.math.abs(pe - p0)).toLong()
+            interpolator = curve
+            addUpdateListener {
+                val t = it.animatedValue as Float
+                progress = mix(p0, pe, t); blur = mix(b0, be, t); controls = mix(c0, ce, t)
+                applyBlur(); requestLayout(); invalidate()
+                if (t == 1f && !open) { ratioAnimation?.cancel(); ratio = 0; ratioMotion = 0f; frameRatio = 16/9f; imageRatio = 4/3f; safeRatio = 4/3f
+                    opening = false; photo?.recycle(); photo = null; front = false; bind(); onClosed() }
+            }
+            start()
+        }
+    }
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!opening) return false
-        if (event.action == MotionEvent.ACTION_UP) {
+        val action = event.actionMasked
+        if (action == MotionEvent.ACTION_DOWN) {
+            pinched = false; dragging = false; downX = event.x; downY = event.y
+            dragFromTap = taps.any { it.first.contains(event.x, event.y) }
+        }
+        if (photo == null && !taking) {
+            scaleDetector.onTouchEvent(event)
+            if (event.pointerCount > 1 || scaleDetector.isInProgress) pinched = true
+        }
+        // Swiping up reverses the opening: the stage follows the finger back toward the card.
+        if (action == MotionEvent.ACTION_MOVE && !dragging && !pinched && !dragFromTap && photo == null && !taking && event.pointerCount == 1 && animation?.isRunning != true && controls >= 1f) {
+            val dy = event.y - downY; val dx = event.x - downX
+            if (dy < -slop && -dy > kotlin.math.abs(dx) * 1.2f) { dragging = true; dragRange = frame.height() * .6f; parent?.requestDisallowInterceptTouchEvent(true) }
+        }
+        if (dragging) {
+            pinched = true
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) { dragging = false; settle(action == MotionEvent.ACTION_CANCEL || progress >= .8f); return true }
+            val pull = (downY - event.y).coerceAtLeast(0f)
+            progress = (1f - pull / dragRange).coerceIn(0f, 1f)
+            controls = ((progress - .55f) / .45f).coerceIn(0f, 1f)
+            blur = (1f - (progress - .45f) / .4f).coerceIn(0f, 1f)
+            applyBlur(); requestLayout(); invalidate()
+            return true
+        }
+        if (action == MotionEvent.ACTION_UP && !pinched) {
             val hit = taps.lastOrNull { it.first.contains(event.x,event.y) }
             if (hit != null) hit.second.invoke() else focusAtPoint(event.x, event.y)
         }
