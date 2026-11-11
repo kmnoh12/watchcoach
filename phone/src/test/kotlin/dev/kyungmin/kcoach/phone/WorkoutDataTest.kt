@@ -36,7 +36,8 @@ class WorkoutDataTest {
     @Test
     fun `exercise catalog is normalized and category ready`() {
         val ids = WorkoutData.catalog.map { it.id }
-        assertEquals(250, ids.size)
+        assertEquals(249, ids.size)
+        assertFalse(ids.contains("cable_rear_delt_fly"))
         assertEquals(ids.size, ids.distinct().size)
         WorkoutData.catalog.forEach { exercise ->
             assertTrue(exercise.id, exercise.bodyCategory in dev.kyungmin.kcoach.core.ExerciseTaxonomy.bodyOrder)

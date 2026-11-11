@@ -131,10 +131,6 @@
   "yaw": 90,
   "elev": 0
  },
- "cable_rear_delt_fly": {
-  "yaw": 120,
-  "elev": 12
- },
  "cable_seated_crunch": {
   "yaw": 90,
   "elev": 3

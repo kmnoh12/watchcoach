@@ -676,7 +676,6 @@ object WorkoutData {
         exercise("dumbbell_rear_delt_fly", "스탠딩 덤벨 리어델트 플라이", "어깨", "어깨", "덤벨"),
         exercise("seated_dumbbell_rear_delt_fly", "시티드 덤벨 리어델트 플라이", "어깨", "어깨", "덤벨"),
         exercise("incline_dumbbell_rear_delt_fly", "인클라인 덤벨 리어델트 플라이", "어깨", "어깨", "덤벨"),
-        exercise("cable_rear_delt_fly", "케이블 리어델트 플라이", "어깨", "어깨", "케이블"),
         exercise("single_arm_cable_reverse_fly", "원암 케이블 리버스 플라이", "어깨, 등", "어깨", "케이블"),
         exercise("face_pull", "페이스풀", "어깨", "어깨", "케이블"),
         exercise("barbell_shrug", "바벨 슈러그", "어깨, 승모", "어깨", "바벨"),
