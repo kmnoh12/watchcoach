@@ -34,6 +34,10 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     private val main = ContextCompat.getMainExecutor(context)
     private var provider: ProcessCameraProvider? = null
     private var capture: ImageCapture? = null
+    private var camera: androidx.camera.core.Camera? = null
+    private var focusAt = 0L
+    private var focusX = 0f
+    private var focusY = 0f
     private var ownUseCases: List<UseCase> = emptyList()
     private var front = false
     private var released = false
@@ -96,7 +100,8 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                 ownUseCases = listOf(live, capture!!)
                 val group = UseCaseGroup.Builder().addUseCase(live).addUseCase(capture!!)
                     .setViewPort(ViewPort.Builder(android.util.Rational(3, 4), android.view.Surface.ROTATION_0).build()).build()
-                p.bindToLifecycle(owner, if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA, group)
+                focusAt = 0L
+                camera = p.bindToLifecycle(owner, if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA, group)
             }.onFailure { toast("카메라를 열지 못했어요") }
         }, main)
     }
@@ -218,6 +223,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         }
         val elapsed = SystemClock.uptimeMillis() - flashAt
         if (elapsed in 0..300 && flashAt != 0L) canvas.drawColor(Color.argb((204 * if (elapsed < 45) elapsed / 45f else (300 - elapsed) / 255f).toInt().coerceIn(0, 255), 255, 255, 255))
+        drawFocus(canvas)
         canvas.restoreToCount(clipped)
         if (controls > 0) drawControls(canvas, f)
         canvas.restoreToCount(save)
@@ -368,8 +374,35 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     }
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!opening) return false
-        if (event.action == MotionEvent.ACTION_UP) taps.lastOrNull { it.first.contains(event.x,event.y) }?.second?.invoke()
+        if (event.action == MotionEvent.ACTION_UP) {
+            val hit = taps.lastOrNull { it.first.contains(event.x,event.y) }
+            if (hit != null) hit.second.invoke() else focusAtPoint(event.x, event.y)
+        }
         return true
+    }
+    /** Tap-to-focus like a camera app: autofocus, exposure and white balance are metered at the tapped point. */
+    private fun focusAtPoint(x: Float, y: Float) {
+        if (photo != null || taking || controls < 1f || !frame.contains(x, y)) return
+        val cam = camera ?: return
+        runCatching {
+            val point = preview.meteringPointFactory.createPoint(x - preview.left, y - preview.top)
+            val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
+                .setAutoCancelDuration(4, java.util.concurrent.TimeUnit.SECONDS).build()
+            cam.cameraControl.startFocusAndMetering(action)
+            focusX = x; focusY = y; focusAt = SystemClock.uptimeMillis(); invalidate()
+        }
+    }
+    private fun drawFocus(c: Canvas) {
+        if (focusAt == 0L || photo != null) return
+        val t = SystemClock.uptimeMillis() - focusAt
+        if (t > 1100) { focusAt = 0L; return }
+        val settle = curve.getInterpolation((t / 220f).coerceIn(0f, 1f))
+        val alpha = if (t < 700) 1f else 1f - (t - 700) / 400f
+        val r = 31f * d * (1.3f - .3f * settle)
+        paint.style = Paint.Style.STROKE; paint.strokeWidth = 1.6f * d; paint.color = Color.rgb(255, 255, 255); paint.alpha = (255 * alpha).toInt()
+        c.drawCircle(focusX, focusY, r, paint)
+        paint.style = Paint.Style.FILL; paint.alpha = (255 * alpha * .9f).toInt(); c.drawCircle(focusX, focusY, 2.2f * d, paint)
+        postInvalidateOnAnimation()
     }
     private fun shoot() {
         val camera = capture ?: return
