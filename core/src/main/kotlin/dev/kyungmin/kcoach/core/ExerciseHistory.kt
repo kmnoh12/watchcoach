@@ -58,6 +58,11 @@ class ExerciseHistory(logs: List<ExerciseLog> = emptyList()) {
 
     fun last(exerciseId: String): ExerciseLog? = byExercise[exerciseId]?.firstOrNull()
 
+    fun last(exerciseId: String, routineId: String, exerciseIndex: Int, equipment: String): ExerciseLog? =
+        byExercise[exerciseId]?.firstOrNull {
+            it.routineId == routineId && it.exerciseIndex == exerciseIndex && it.equipment == equipment
+        }
+
     fun recent(exerciseId: String, count: Int = 5): List<ExerciseLog> = byExercise[exerciseId].orEmpty().take(count)
 
     fun bestVolume(exerciseId: String): ExerciseLog? = byExercise[exerciseId]?.maxByOrNull { it.volumeKg }

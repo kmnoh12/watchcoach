@@ -168,6 +168,7 @@ class ScreenshotTest {
             "equals" -> proxy === args?.get(0)
             "hashCode" -> System.identityHashCode(proxy)
             "toString" -> "NoActions"
+            "onEditFinished" -> true
             else -> null
         }
     } as WorkoutActions

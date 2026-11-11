@@ -350,10 +350,8 @@ object ExerciseMotionCatalog {
         manual("power_clean", "파워 클린"),
         manual("hang_clean", "행 클린"),
         manual("snatch", "스내치"),
-        manual("clean_and_press", "클린 앤 프레스"),
         binding("thruster", "쓰러스터", MotionFamily.CYCLE_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("kettlebell_swing", "케틀벨 스윙", MotionFamily.CYCLE_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
-        manual("turkish_get_up", "터키시 겟업"),
     )
 
     private val byExercise = explicitBindings.associateBy { it.exerciseId }

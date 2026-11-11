@@ -35,6 +35,26 @@ class RoutineLibraryStoreTest {
         assertEquals(original, RoutineLibraryStore(file()).load().getOrThrow())
     }
 
+    @Test fun catalogRenamePreservesPlanAndCustomNames() {
+        val store = RoutineLibraryStore(file())
+        store.load().getOrThrow()
+        val current = WorkoutData.catalog.single { it.id == "flat_machine_bench_press" }
+        val original = library()
+        val oldItem = original.routines.single().exercises.single().copy(
+            exercise = current.copy(name = "플랫 머신", favorite = !current.favorite),
+        )
+        val routine = original.routines.single().copy(
+            exercises = mutableListOf(oldItem, original.routines.single().exercises.single()),
+        )
+        store.save(original.copy(routines = listOf(routine))).getOrThrow()
+        val loaded = RoutineLibraryStore(file()).load().getOrThrow()!!
+        val renamed = loaded.routines.single().exercises.first()
+        assertEquals(oldItem.copy(exercise = oldItem.exercise.copy(name = current.name)), renamed)
+        assertEquals(original.routines.single().exercises.single(), loaded.routines.single().exercises.last())
+        assertEquals(original.customExercises, loaded.customExercises)
+        assertEquals(routine.id, loaded.routines.single().id)
+    }
+
     @Test fun defaultsKeepAllCatalogAndRoutineIdsAfterRestart() {
         val original = RoutineLibrary(WorkoutData.defaultRoutines(), emptyList())
         val store = RoutineLibraryStore(file())

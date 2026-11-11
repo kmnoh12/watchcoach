@@ -36,6 +36,22 @@ class ExerciseHistoryTest {
     }
 
     @Test
+    fun `last matches routine position and equipment without falling back to legacy history`() {
+        val matching = log(2, 60.0 to 10).copy(routineId = "routine-a", exerciseIndex = 0, equipment = "barbell")
+        val history = ExerciseHistory(listOf(
+            matching.copy(epochDay = 1),
+            matching,
+            matching.copy(epochDay = 3, routineId = "routine-b"),
+            matching.copy(epochDay = 3, exerciseIndex = 1),
+            matching.copy(epochDay = 3, equipment = "machine"),
+            log(4, 80.0 to 10),
+        ))
+        assertEquals(matching, history.last("bench", "routine-a", 0, "barbell"))
+        assertNull(history.last("bench", "routine-c", 0, "barbell"))
+        assertEquals(4L, history.last("bench")?.epochDay)
+    }
+
+    @Test
     fun `history keeps only the newest entries per exercise`() {
         var h = ExerciseHistory()
         for (day in 1L..30L) h = h.with(log(day, 40.0 to 10))

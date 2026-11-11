@@ -34,14 +34,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +70,6 @@ fun ActiveWorkoutScreen(
     animationView: (exerciseIndex: Int) -> View,
 ) {
     val scope = rememberCoroutineScope()
-    val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<EditTarget?>(null) }
     var editValue by remember { mutableStateOf(TextFieldValue()) }
     var lastEdit by remember { mutableStateOf<EditTarget?>(null) }
@@ -129,9 +121,10 @@ fun ActiveWorkoutScreen(
         if (changed) actions.onEditValue(target.exerciseIndex, target.setIndex, target.field, value.text)
     }
 
-    fun closeEditor() {
-        if (editing != null) actions.onEditFinished()
+    fun closeEditor(): Boolean {
+        if (editing == null) return true
         editing = null
+        return actions.onEditFinished()
     }
 
     // Switching kg and lb rewrites the digits being edited, so the value follows the model.
@@ -174,15 +167,9 @@ fun ActiveWorkoutScreen(
                     liveTitle = liveTitle,
                     liveTelemetry = liveTelemetry,
                     actions = actions,
-                    onOpenEditor = ::openEditor,
+                    onOpenEditor = { target -> if (closeEditor()) openEditor(target) },
                     onRemoveSet = { setIndex ->
-                        closeEditor()
-                        actions.onRemoveSet(page, setIndex)
-                        scope.launch {
-                            snackbar.currentSnackbarData?.dismiss()
-                            val result = snackbar.showSnackbar("세트를 삭제했어요", actionLabel = "되돌리기", duration = SnackbarDuration.Short)
-                            if (result == SnackbarResult.ActionPerformed) actions.onUndoRemoveSet()
-                        }
+                        if (closeEditor()) actions.onRemoveSet(page, setIndex)
                     },
                     onNextExercise = {
                         if (page + 1 < model.exercises.size) {
@@ -200,13 +187,13 @@ fun ActiveWorkoutScreen(
                 SetClockBar(setClockLeft, model.paused, actions::onAdjustSetClock)
             }
             if (editing != null) {
-                RestStrip(rest, current?.restSeconds ?: 0, onExpand = { closeEditor(); restExpanded = true })
+                RestStrip(rest, current?.restSeconds ?: 0, onExpand = { if (closeEditor()) restExpanded = true })
             } else {
                 RestBar(
                     rest = rest,
                     idleSeconds = current?.restSeconds ?: 0,
                     paused = model.paused,
-                    onExpand = { closeEditor(); restExpanded = true },
+                    onExpand = { if (closeEditor()) restExpanded = true },
                     onAdjust = actions::onAdjustRest,
                     onTogglePause = actions::onTogglePause,
                     onStop = { if (rest.resting) actions.onSkipRest() else actions.onStop() },
@@ -232,15 +219,14 @@ fun ActiveWorkoutScreen(
                     onDigit = { c -> push(SetValueEdit.type(editValue, c)) },
                     onBackspace = { push(SetValueEdit.backspace(editValue)) },
                     onUnit = { if (target != null) actions.onToggleUnit(target.exerciseIndex) },
-                    onClose = ::closeEditor,
-                    onGo = {
-                        val t = editing
-                        if (t?.field == SetField.WEIGHT) {
-                            actions.onEditFinished()
+                    onClose = { closeEditor() },
+                    onGo = go@{
+                        val t = editing ?: return@go
+                        if (!closeEditor()) return@go
+                        if (t.field == SetField.WEIGHT) {
                             openEditor(t.copy(field = SetField.REPS))
-                        } else {
-                            closeEditor()
-                            if (t != null && set != null && !set.completed) actions.onToggleSet(t.exerciseIndex, t.setIndex)
+                        } else if (set != null && !set.completed) {
+                            actions.onToggleSet(t.exerciseIndex, t.setIndex)
                         }
                     },
                 )
@@ -275,7 +261,6 @@ fun ActiveWorkoutScreen(
             }
         }
 
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
     }
 }
 
@@ -375,11 +360,7 @@ private fun ExercisePage(
                     // Keep the edited row above the keypad once it has slid in.
                     if (focused && keypadOpen) { delay(Motion.PANEL_MS.toLong()); requester.bringIntoView() }
                 }
-                SwipeRevealDelete(
-                    enabled = model.swipeDelete && exercise.sets.size > 1,
-                    onDelete = { onRemoveSet(setIndex) },
-                    modifier = Modifier.bringIntoViewRequester(requester),
-                ) {
+                Box(Modifier.bringIntoViewRequester(requester)) {
                     SetRow(
                         set = set,
                         weighted = exercise.weighted,
@@ -413,7 +394,7 @@ private fun ExercisePage(
         Row {
             TextAction("세트 추가", KColors.Accent, Modifier.weight(1f), KIcon.Plus) { actions.onAddSet(exerciseIndex) }
             TextAction("세트 삭제", if (removableSet != null) KColors.Soft else KColors.Faint, Modifier.weight(1f), KIcon.Minus) {
-                removableSet?.let { actions.onRemoveSet(exerciseIndex, it) }
+                removableSet?.let(onRemoveSet)
             }
         }
         TextAction("모든 세트 완료", KColors.Accent, Modifier.fillMaxWidth(), KIcon.Check) { actions.onAllSetsDone(exerciseIndex) }

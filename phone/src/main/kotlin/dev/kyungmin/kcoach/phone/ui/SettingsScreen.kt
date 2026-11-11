@@ -62,8 +62,6 @@ fun SettingsScreen(
     progression: ProgressionSettings = ProgressionSettings(),
     personalization: Boolean = true,
     onPersonalizationChange: (Boolean) -> Unit = {},
-    swipeDelete: Boolean = true,
-    onSwipeDeleteChange: (Boolean) -> Unit = {},
     oneArmOnly: Boolean = false,
     onOneArmOnlyChange: (Boolean) -> Unit = {},
     manualAutoFinish: Boolean = true,
@@ -81,8 +79,6 @@ fun SettingsScreen(
             ProgressionSection(progression, onProgressionChange)
             Spacer(Modifier.height(16.dp))
             PersonalizationSection(personalization, onPersonalizationChange)
-            Spacer(Modifier.height(16.dp))
-            SwipeDeleteSection(swipeDelete, onSwipeDeleteChange)
             Spacer(Modifier.height(16.dp))
             OneArmSection(oneArmOnly, onOneArmOnlyChange)
             Spacer(Modifier.height(16.dp))
@@ -142,21 +138,6 @@ private fun ManualAutoFinishSection(enabled: Boolean, onChange: (Boolean) -> Uni
             Text("수동 운동 자동 종료", color = KColors.White, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
             Text("직전 세트 시간 +10초 후 추정 횟수로 완료해요", color = KColors.Soft, fontSize = 12.sp)
-        }
-        Spacer(Modifier.width(12.dp))
-        SquareSwitch(on) { on = it; onChange(it) }
-    }
-}
-
-@Composable
-private fun SwipeDeleteSection(enabled: Boolean, onChange: (Boolean) -> Unit) {
-    var on by remember { mutableStateOf(enabled) }
-    Row(Modifier.fillMaxWidth().clip(KShape.Panel).border(0.5.dp, GROUP_BORDER, KShape.Panel).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("세트 밀어서 삭제", color = KColors.White, fontSize = 16.sp)
-            Spacer(Modifier.height(3.dp))
-            Text("운동 중 세트를 왼쪽으로 밀면 삭제 버튼이 나와요", color = KColors.Soft, fontSize = 12.sp)
         }
         Spacer(Modifier.width(12.dp))
         SquareSwitch(on) { on = it; onChange(it) }

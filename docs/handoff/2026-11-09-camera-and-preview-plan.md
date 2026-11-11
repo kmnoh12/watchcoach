@@ -29,3 +29,16 @@
 - 풀업 계열은 뒤쪽 구도를 사용자가 직접 골랐음(6번).
 - 스쿼트: 옆모습 첫 장면이 서 있는 자세처럼 보임.
 - 썸네일 촬영 전에 모델 동작 문제(팔 뒤틀림 등)가 먼저 정리돼야 함.
+
+## 2026-11-09 추가: 누운 운동 구도 수정
+- 원인: 누운 몸(48개: 크런치·싯업·플랭크·푸시업·벤치류·로우 등)은 뷰어가 yaw를 "옆면에서 머리쪽으로" 재는데, 규칙은 "90 = 옆면"으로 써서 머리 쪽 시점으로 찍혔다.
+- 수정: `tools/gen_camera_views.py`의 LYING 목록에 있는 운동은 yaw >= 60이면 90 - yaw로 변환. 크런치·플랭크·푸시업·싯업 등이 이제 옆면.
+- 아직 폰 실기기·썸네일 재촬영 전. 새 누운 운동 추가 시 LYING 목록에도 넣을 것.
+
+## 2026-11-09 추가: PC 뷰어(8765)와 폰이 같은 모델을 자동으로 쓰게
+- 원천은 하나: `~/Library/Application Support/WatchGymViewer/v5-catalog/` (코덱스가 고쳐서 여기에 게시한다).
+- PC 뷰어(8765)는 기본으로 이 폴더를 바로 읽는다(`워치짐/design/exercise-figure/viewer/index.html`, 미커밋). 게시하면 새로고침만으로 반영. 구형은 `?human=old`, 예전 검토 폴더는 `?human=v5-guide`.
+- 폰 에셋(`phone/src/main/assets/viewer3d`, 재생성 파일)은 `tools/sync_v5_to_app.sh`가 카탈로그가 바뀌면 `build_app3d_v5.py`로 다시 만든다(약 11초). 감시 루프는 터미널 탭에서 `zsh ~/.agents/scripts/watchgym-sync-loop.sh` (20초마다 확인, 탭을 닫으면 멈춤).
+- launchd 상주는 불가: macOS가 백그라운드 작업의 ~/Documents 읽기를 막는다(Full Disk Access를 주면 가능하지만 사용자 설정 몫).
+- 설치된 앱은 새 버전을 배포해야 바뀐다. 배포는 사용자가 말할 때만.
+- 케틀벨 스윙 수정(2026-11-09, 코덱스2)이 카탈로그에 게시돼 위 경로로 반영됨. 클린 앤 프레스는 미해결(결과 `워치짐/work/v5-finish/clean_and_press/RESULT.md`).

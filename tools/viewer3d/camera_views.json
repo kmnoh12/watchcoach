@@ -1,6 +1,6 @@
 {
  "ab_wheel_rollout": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "alternating_dumbbell_curl": {
@@ -36,7 +36,7 @@
   "elev": 5
  },
  "barbell_pullover": {
-  "yaw": 85,
+  "yaw": 5,
   "elev": 5
  },
  "barbell_row": {
@@ -68,7 +68,7 @@
   "elev": 0
  },
  "bicycle_crunch": {
-  "yaw": 60,
+  "yaw": 30,
   "elev": 20
  },
  "box_squat": {
@@ -116,7 +116,7 @@
   "elev": 0
  },
  "cable_kickback_glute": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "cable_overhead_extension": {
@@ -124,7 +124,7 @@
   "elev": 0
  },
  "cable_pullover": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "cable_pushdown": {
@@ -167,10 +167,6 @@
   "yaw": 150,
   "elev": 5
  },
- "clean_and_press": {
-  "yaw": 90,
-  "elev": 0
- },
  "close_grip_bench_press": {
   "yaw": 35,
   "elev": 12
@@ -180,7 +176,7 @@
   "elev": 10
  },
  "conventional_deadlift": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "cossack_squat": {
@@ -196,7 +192,7 @@
   "elev": 5
  },
  "crunch": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "cuban_press": {
@@ -208,7 +204,7 @@
   "elev": 5
  },
  "dead_bug": {
-  "yaw": 60,
+  "yaw": 30,
   "elev": 20
  },
  "decline_barbell_bench_press": {
@@ -220,7 +216,7 @@
   "elev": 12
  },
  "decline_machine_bench_press_plate": {
-  "yaw": 65,
+  "yaw": 25,
   "elev": 5
  },
  "decline_machine_chest_press": {
@@ -228,15 +224,15 @@
   "elev": 5
  },
  "decline_push_up": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 8
  },
  "decline_sit_up": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "diamond_push_up": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 8
  },
  "drag_curl": {
@@ -272,7 +268,7 @@
   "elev": 5
  },
  "dumbbell_pullover": {
-  "yaw": 85,
+  "yaw": 5,
   "elev": 5
  },
  "dumbbell_rear_delt_fly": {
@@ -312,7 +308,7 @@
   "elev": 0
  },
  "ez_lying_extension": {
-  "yaw": 80,
+  "yaw": 10,
   "elev": 8
  },
  "face_pull": {
@@ -328,7 +324,7 @@
   "elev": 12
  },
  "flat_machine_bench_press": {
-  "yaw": 65,
+  "yaw": 25,
   "elev": 5
  },
  "floor_press_barbell": {
@@ -340,7 +336,7 @@
   "elev": 5
  },
  "glute_bridge": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "goblet_squat": {
@@ -404,7 +400,7 @@
   "elev": 0
  },
  "hollow_hold": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "hyperextension": {
@@ -448,15 +444,15 @@
   "elev": 5
  },
  "incline_push_up": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 8
  },
  "inverted_row": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "jm_press": {
-  "yaw": 80,
+  "yaw": 10,
   "elev": 8
  },
  "kettlebell_swing": {
@@ -468,7 +464,7 @@
   "elev": 0
  },
  "kickback_dumbbell": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "landmine_press": {
@@ -508,7 +504,7 @@
   "elev": 0
  },
  "lying_leg_raise": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "lying_tbar_row": {
@@ -608,7 +604,7 @@
   "elev": 0
  },
  "one_arm_dumbbell_row": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "one_arm_lat_pull_down": {
@@ -628,7 +624,7 @@
   "elev": 5
  },
  "plank": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "plate_front_raise": {
@@ -660,7 +656,7 @@
   "elev": 5
  },
  "push_up": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 8
  },
  "rack_pull": {
@@ -688,7 +684,7 @@
   "elev": 0
  },
  "rolling_triceps_extension": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "romanian_deadlift_barbell": {
@@ -720,7 +716,7 @@
   "elev": 28
  },
  "seal_row": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "seated_barbell_overhead_press": {
@@ -796,7 +792,7 @@
   "elev": 0
  },
  "single_arm_dumbbell_kickback": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 0
  },
  "single_arm_dumbbell_lateral_raise": {
@@ -860,15 +856,15 @@
   "elev": 5
  },
  "sit_up": {
-  "yaw": 90,
+  "yaw": 0,
   "elev": 3
  },
  "skullcrusher_barbell": {
-  "yaw": 80,
+  "yaw": 10,
   "elev": 8
  },
  "skullcrusher_dumbbell": {
-  "yaw": 80,
+  "yaw": 10,
   "elev": 8
  },
  "smith_close_grip_bench_press": {
@@ -888,7 +884,7 @@
   "elev": 12
  },
  "smith_jm_press": {
-  "yaw": 80,
+  "yaw": 10,
   "elev": 8
  },
  "smith_seated_shoulder_press": {
@@ -940,7 +936,7 @@
   "elev": 0
  },
  "tate_press": {
-  "yaw": 80,
+  "yaw": 10,
   "elev": 8
  },
  "tbar_row_landmine": {
@@ -954,10 +950,6 @@
  "trap_bar_deadlift": {
   "yaw": 90,
   "elev": 0
- },
- "turkish_get_up": {
-  "yaw": 45,
-  "elev": 15
  },
  "upright_row_barbell": {
   "yaw": 90,

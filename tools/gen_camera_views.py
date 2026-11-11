@@ -1,7 +1,8 @@
 """Assign a default 3D camera (yaw, elevation) to every exercise and write tools/viewer3d/camera_views.json.
 
 yaw  = degrees off the front of the person (0 front, 90 pure side, >90 from behind).
-       For a lying person it is degrees off the SIDE, toward the head (90 = pure side view).
+       For a lying person the viewer measures it from the SIDE toward the head, so 0 = pure side and 90 = looking from the head.
+       RULES are written as "90 = side"; for exercises in LYING they are converted (90 - yaw) when yaw >= 60.
 elev = camera height above the torso line, in degrees (positive looks down).
 The viewer picks the left or right side itself so the machine does not hide the person.
 First matching rule wins; an exercise that matches nothing keeps the viewer default (40 / 25).
@@ -72,9 +73,59 @@ RULES = [
     # --- forearm and full body
     (r'wrist_curl', 70, 20),
     (r'plate_pinch|farmers', 35, 5),
-    (r'turkish', 45, 15),
     (r'clean|snatch|thruster|kettlebell_swing', 90, 0),
 ]
+
+# Exercises whose torso is horizontal at the start (found by scanning every model in the viewer).
+LYING = {
+    'one_arm_dumbbell_row',
+    'dumbbell_pullover',
+    'barbell_pullover',
+    'flat_bench',
+    'dumbbell_bench',
+    'ez_lying_extension',
+    'push_up',
+    'sit_up',
+    'decline_barbell_bench_press',
+    'decline_dumbbell_bench_press',
+    'smith_flat_bench_press',
+    'flat_machine_bench_press',
+    'incline_push_up',
+    'decline_push_up',
+    'floor_press_barbell',
+    'hex_press',
+    'guillotine_press',
+    'single_arm_dumbbell_bench_press',
+    'seal_row',
+    'inverted_row',
+    'cable_pullover',
+    'skullcrusher_barbell',
+    'skullcrusher_dumbbell',
+    'close_grip_bench_press',
+    'diamond_push_up',
+    'kickback_dumbbell',
+    'jm_press',
+    'tate_press',
+    'rolling_triceps_extension',
+    'conventional_deadlift',
+    'lying_leg_curl',
+    'glute_bridge',
+    'cable_kickback_glute',
+    'crunch',
+    'lying_leg_raise',
+    'decline_sit_up',
+    'plank',
+    'side_plank',
+    'ab_wheel_rollout',
+    'dead_bug',
+    'bicycle_crunch',
+    'hollow_hold',
+    'single_arm_dumbbell_kickback',
+    'decline_machine_bench_press_plate',
+    'smith_jm_press',
+    'smith_close_grip_bench_press',
+    'smith_decline_close_grip_bench_press',
+}
 
 
 def main():
@@ -83,6 +134,8 @@ def main():
     for key in sorted(models):
         for pattern, yaw, elev in RULES:
             if re.search(pattern, key):
+                if key in LYING and yaw >= 60:
+                    yaw = 90 - yaw
                 views[key] = {'yaw': yaw, 'elev': elev}
                 break
         else:

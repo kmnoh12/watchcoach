@@ -46,7 +46,7 @@ class SettingsActivity : ComponentActivity() {
             SettingsScreen(actions, progression, PersonalizationSetting.isEnabled(this), { on ->
                 if (PersonalizationSetting.setEnabled(this, on)) PersonalizationSetting.pushToWatch(this)
                 else Toast.makeText(this, "설정을 저장하지 못했어요. 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
-            }, SwipeDeleteSetting.isEnabled(this), { on -> SwipeDeleteSetting.setEnabled(this, on) },
+            },
                 OneArmSetting.isEnabled(this), { on ->
                     if (!OneArmSetting.setEnabled(this, on))
                         Toast.makeText(this, "설정을 저장하지 못했어요. 다시 시도해 주세요.", Toast.LENGTH_LONG).show()

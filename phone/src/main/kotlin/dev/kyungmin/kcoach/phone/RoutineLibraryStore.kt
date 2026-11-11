@@ -83,7 +83,11 @@ internal class RoutineLibraryStore(
                 routine.requiredString("id"), routine.requiredString("name"), routine.getString("muscles"),
                 routine.getString("lastPerformed"),
                 routine.getJSONArray("exercises").objects().map { item ->
-                    RoutineExercise(decodeExercise(item.getJSONObject("exercise")),
+                    RoutineExercise(decodeExercise(item.getJSONObject("exercise")).let { saved ->
+                        WorkoutData.catalog.firstOrNull { it.id == saved.id && it.id in WorkoutData.builtInExerciseIds }?.let { current ->
+                            saved.copy(name = current.name)
+                        } ?: saved
+                    },
                         item.getJSONArray("sets").objects().map { set ->
                             val type = set.getString("setType")
                             require(SetType.entries.any { it.storageValue == type })

@@ -244,10 +244,8 @@ internal fun reviewedContracts(): Map<String, ExerciseMeasurementContract> = map
     "power_clean" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않아요. 실제 횟수를 직접 입력해 주세요."),
     "hang_clean" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않아요. 실제 횟수를 직접 입력해 주세요."),
     "snatch" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않아요. 실제 횟수를 직접 입력해 주세요."),
-    "clean_and_press" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않아요. 실제 횟수를 직접 입력해 주세요."),
     "thruster" to ExerciseMeasurementContract(MeasurementRecipe.SQUAT_PRESS, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교해요. 실제 횟수 확인이 필요해요."),
     "kettlebell_swing" to ExerciseMeasurementContract(MeasurementRecipe.LOADED_HINGE, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교해요. 실제 횟수 확인이 필요해요."),
-    "turkish_get_up" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않아요. 실제 횟수를 직접 입력해 주세요."),
     "rope_lat_pulldown" to ExerciseMeasurementContract(MeasurementRecipe.VERTICAL_PULL, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교해요. 실제 횟수 확인이 필요해요."),
 
 )

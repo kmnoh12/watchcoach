@@ -152,7 +152,7 @@ class SetIdentityTest {
         assertEquals(listOf("set-0", "set-1"), routine.exercises[0].sets.map { it.setId })
         assertEquals(listOf(6, 10), routine.exercises[0].sets.map { it.performedReps })
         assertEquals("10", telemetry.text)
-        assertEquals("변경이 저장되지 않았어요. 다시 수정해 주세요.", org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
+        assertEquals(null, org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
     }
 
     @Test fun commandRejectionNeverReplacesTheLiveWorkoutCountWithDiagnostics() {

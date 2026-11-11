@@ -52,6 +52,7 @@ import dev.kyungmin.kcoach.core.RecordKind
 import dev.kyungmin.kcoach.core.WorkoutLog
 import dev.kyungmin.kcoach.core.WorkoutStats
 import dev.kyungmin.kcoach.core.ExerciseHistory
+import dev.kyungmin.kcoach.core.ExerciseLog
 import dev.kyungmin.kcoach.core.ExerciseSubstitutes
 import dev.kyungmin.kcoach.core.ExerciseTaxonomy
 import dev.kyungmin.kcoach.core.SetInsight
@@ -1782,8 +1783,8 @@ class MainActivity : ComponentActivity() {
             .onFailure { Log.e(EVENT_TAG, "progression prefill failed", it) }
     }
 
-    private fun historyUi(item: RoutineExercise, workout: ActiveWorkout): HistoryUi? {
-        val last = history.last(item.exercise.id) ?: return null
+    private fun historyUi(item: RoutineExercise, workout: ActiveWorkout, last: ExerciseLog?): HistoryUi? {
+        last ?: return null
         val performed = last.sets.filter { it.completed && it.repsEntered }
         if (performed.isEmpty()) return null
         val lastLine = "지난번 " + performed.take(4).joinToString(" · ") { set ->
@@ -1793,8 +1794,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Replaces the not-yet-started sets of an exercise with what was done last time. */
-    private fun loadLastSets(item: RoutineExercise) {
-        val last = history.last(item.exercise.id) ?: return
+    private fun loadLastSets(item: RoutineExercise, last: ExerciseLog) {
         if (item.sets.any { it.completed }) return
         item.sets.clear()
         last.sets.forEach { item.sets += PlannedSet(it.weightKg, it.targetReps ?: it.reps,
@@ -1820,7 +1820,6 @@ class MainActivity : ComponentActivity() {
             totalPausedMs = workout.totalPausedMs,
             pausedSinceMs = workout.pausedSinceMs,
             exerciseIndex = workout.restingPageIndex ?: workout.exerciseIndex,
-            swipeDelete = SwipeDeleteSetting.isEnabled(this),
             setClockEndAtMs = clockRemaining?.takeIf { clockSnapshot?.paused == false }?.plus(clockNow),
             pausedSetClockMs = clockRemaining?.takeIf { clockSnapshot?.paused == true },
             holdElapsedMs = clockSnapshot?.let { dev.kyungmin.kcoach.core.SetClock.holdElapsedMs(it, clockNow) },
@@ -1842,6 +1841,7 @@ class MainActivity : ComponentActivity() {
                 val currentSet = if (exerciseIndex == workout.exerciseIndex) workout.setIndex
                 else workout.setIndexByExercise[workoutExerciseKey(routineExercise)]
                     ?: routineExercise.sets.indexOfFirst { !it.completed }.coerceAtLeast(0)
+                val last = history.last(routineExercise.exercise.id, workout.routine.id, exerciseIndex, routineExercise.exercise.equipment)
                 ExerciseUi(
                     id = routineExercise.exercise.id,
                     name = routineExercise.exercise.name,
@@ -1857,7 +1857,7 @@ class MainActivity : ComponentActivity() {
                     currentSetIndex = currentSet,
                     volumeDone = (routineExercise.sets.filter { it.completed }.sumOf { (it.weightKg ?: 0.0) * (it.performedReps ?: 0) } * volumeUnit(workout, routineExercise.exercise.id)).toInt(),
                     volumeTarget = if (routineExercise.exercise.kind == ExerciseKind.HOLD) 0 else (routineExercise.sets.sumOf { (it.weightKg ?: 0.0) * it.targetReps } * volumeUnit(workout, routineExercise.exercise.id)).toInt(),
-                    history = historyUi(routineExercise, workout),
+                    history = historyUi(routineExercise, workout, last),
                     sets = routineExercise.sets.mapIndexed { setIndex, set ->
                         SetUi(
                             uid = System.identityHashCode(set),
@@ -1876,7 +1876,7 @@ class MainActivity : ComponentActivity() {
                             insight = (workout.analyses[SetIdentity.key(routineExercise.exercise.id, setIndex, set.setId, set.attemptId)]
                                 ?: if (!set.identityRequired) workout.analyses["${routineExercise.exercise.id}:$setIndex"] else null)
                                 ?.let { SetInsight.describe(it.tempoConsistency, it.lateDrift) },
-                            previous = history.last(routineExercise.exercise.id)?.sets?.getOrNull(setIndex)?.let { last ->
+                            previous = last?.sets?.getOrNull(setIndex)?.let { last ->
                                 val weight = last.weightKg
                                 if (last.durationSeconds != null) (weight?.let { "${formatActiveWeight(it, usesPounds(workout, routineExercise.exercise.id))}kg × " }.orEmpty() + HoldExercise.time(requireNotNull(last.durationSeconds))) else if (weight == null) "${last.reps}회" else "${formatActiveWeight(weight, usesPounds(workout, routineExercise.exercise.id))}×${last.reps}"
                             },
@@ -1951,8 +1951,12 @@ class MainActivity : ComponentActivity() {
         bumpWorkoutUi()
     }
 
+    private fun savePendingWorkoutEdit(workout: ActiveWorkout): Boolean =
+        pendingWorkoutRollback?.first !== workout || saveWorkoutChanges(workout)
+
     /** Active plan intents return durable snapshots; preview/library editing remains separate. */
     private fun editActivePlan(workout: ActiveWorkout, edit: PhonePlanEdit): Boolean {
+        if (!savePendingWorkoutEdit(workout)) return false
         val result = PhoneSessionController(sessionStore) { path, payload ->
             PhoneWorkoutService.send(this, path, payload)
         }.editPlan({ workoutSnapshot(workout) }, edit)
@@ -2047,10 +2051,8 @@ class MainActivity : ComponentActivity() {
             bumpWorkoutUi()
         }
 
-        override fun onEditFinished() {
-            // Persists and, while working, re-sends the current set target to the watch.
-            workout()?.let { saveWorkoutChanges(it) }
-        }
+        override fun onEditFinished(): Boolean =
+            workout()?.let(::savePendingWorkoutEdit) ?: true
 
         override fun onFinishWatchSideOnly(exerciseIndex: Int, setIndex: Int) {
             val workout = workout()?.takeIf { activeWorkout === it } ?: return
@@ -2065,6 +2067,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onToggleSet(exerciseIndex: Int, setIndex: Int) {
             val workout = workout() ?: return
+            if (!savePendingWorkoutEdit(workout)) return
             val routineExercise = exercise(exerciseIndex) ?: return
             val plannedSet = routineExercise.sets.getOrNull(setIndex) ?: return
             if (!plannedSet.completed) {
@@ -2113,6 +2116,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onSetMenu(exerciseIndex: Int, setIndex: Int) {
             val workout = workout() ?: return
+            if (!savePendingWorkoutEdit(workout)) return
             val routineExercise = exercise(exerciseIndex) ?: return
             workout.selectedEditSetIndex = setIndex
             showSetMenu(workout, routineExercise, setIndex)
@@ -2216,6 +2220,7 @@ class MainActivity : ComponentActivity() {
 
         override fun onAllSetsDone(exerciseIndex: Int) {
             val workout = workout() ?: return
+            if (!savePendingWorkoutEdit(workout)) return
             if (activeWorkout !== workout) {
                 startWorkout(workout.routine, startExerciseIndex = exerciseIndex) { started ->
                     started.routine.exercises.getOrNull(exerciseIndex)?.let { requestAllSetsCompletion(started, it) }
@@ -2502,6 +2507,7 @@ class MainActivity : ComponentActivity() {
     private fun showWorkoutMenu(workout: ActiveWorkout) {
         val pageIndex = workout.restingPageIndex ?: workout.exerciseIndex
         val routineExercise = workout.routine.exercises.getOrNull(pageIndex) ?: return
+        val last = history.last(routineExercise.exercise.id, workout.routine.id, pageIndex, routineExercise.exercise.equipment)
         showSheet { dismiss ->
             SheetOptions(
                 routineExercise.exercise.name,
@@ -2543,10 +2549,10 @@ class MainActivity : ComponentActivity() {
                         dismiss()
                         removeExerciseWithUndo(workout.routine, pageIndex, workout) { showActiveWorkout(forceRebuild = true) }
                     },
-                ) + if (history.last(routineExercise.exercise.id) != null && routineExercise.sets.none { it.completed }) listOf(
+                ) + if (last != null && routineExercise.sets.none { it.completed }) listOf(
                     SheetItem(KIcon.Reload, "지난 세트 불러오기") {
                         dismiss()
-                        loadLastSets(routineExercise)
+                        loadLastSets(routineExercise, last)
                         saveWorkoutChanges(workout, forceRebuild = true)
                     },
                 ) else emptyList(),
@@ -3509,7 +3515,6 @@ class MainActivity : ComponentActivity() {
                 applySnapshotToWorkout(workout, it)
                 bumpWorkoutUi()
             }
-            Toast.makeText(this, "변경이 저장되지 않았어요. 다시 수정해 주세요.", Toast.LENGTH_SHORT).show()
         }
         return saved
     }

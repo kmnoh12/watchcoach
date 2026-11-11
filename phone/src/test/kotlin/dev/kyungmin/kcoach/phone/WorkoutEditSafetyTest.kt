@@ -58,7 +58,7 @@ class WorkoutEditSafetyTest {
         } finally { controller.destroy() }
     }
 
-    @Test fun rejectedSaveRollsBackAnEntireEditAndShowsToast() {
+    @Test fun rejectedSaveRollsBackAnEntireEditWithoutToast() {
         seed()
         val controller = Robolectric.buildActivity(MainActivity::class.java).create()
         val activity = controller.get()
@@ -69,11 +69,24 @@ class WorkoutEditSafetyTest {
             val service = SessionStore(app)
             val current = service.loadActive().getOrThrow()!!
             check(service.saveActive(current.copy(lastSequence = 2)))
-            actions(activity).onEditFinished()
+            assertFalse(actions(activity).onEditFinished())
             assertEquals(20.0, routine(activity).exercises[0].sets[0].weightKg!!, 0.0)
             assertEquals(10, routine(activity).exercises[0].sets[0].targetReps)
             assertEquals(2L, SessionStore(app).loadActive().getOrThrow()!!.lastSequence)
-            assertEquals("변경이 저장되지 않았어요. 다시 수정해 주세요.", ShadowToast.getTextOfLatestToast())
+            assertEquals(null, ShadowToast.getTextOfLatestToast())
+        } finally { controller.destroy() }
+    }
+
+    @Test fun addingASetSavesAndCopiesPendingInput() {
+        seed()
+        val controller = Robolectric.buildActivity(MainActivity::class.java).create()
+        val activity = controller.get()
+        try {
+            actions(activity).onEditValue(0, 0, SetField.WEIGHT, "25")
+            actions(activity).onEditValue(0, 0, SetField.REPS, "12")
+            actions(activity).onAddSet(0)
+            val saved = SessionStore(app).loadActive().getOrThrow()!!
+            assertEquals(listOf(25.0 to 12, 25.0 to 12), saved.plannedSets.map { it.weightKg to it.targetReps })
         } finally { controller.destroy() }
     }
 

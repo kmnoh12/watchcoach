@@ -18,8 +18,6 @@ data class WorkoutUiModel(
     val restingSet: Pair<Int, Int>? = null,
     /** A record the just-finished set broke; the screen shows it briefly. */
     val recordBanner: RecordBannerUi? = null,
-    /** Swipe a set row left to reveal its delete button. */
-    val swipeDelete: Boolean = true,
     val setClockEndAtMs: Long? = null,
     val pausedSetClockMs: Long? = null,
     val holdElapsedMs: Long? = null,
@@ -85,7 +83,7 @@ interface WorkoutActions {
     fun onExerciseInfo(exerciseIndex: Int)
     fun onPageSettled(exerciseIndex: Int)
     fun onEditValue(exerciseIndex: Int, setIndex: Int, field: SetField, value: String)
-    fun onEditFinished()
+    fun onEditFinished(): Boolean
     fun onToggleSet(exerciseIndex: Int, setIndex: Int)
     fun onFinishWatchSideOnly(exerciseIndex: Int, setIndex: Int) {}
     fun onSetMenu(exerciseIndex: Int, setIndex: Int)
