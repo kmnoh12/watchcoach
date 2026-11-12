@@ -57,7 +57,7 @@ class WorkoutPreparationUiTest {
                 })
         }
         compose.onNodeWithText("운동 준비").assertExists()
-        compose.onNodeWithText("착용 정보 미설정 · 개인 보정 없이 시작해요").assertExists()
+        compose.onNodeWithText("착용 정보 미설정 · 개인 보정 없이 시작").assertExists()
         compose.onNodeWithText("이 방식").assertDoesNotExist()
         compose.onNodeWithText("시작").performClick()
         assertTrue(started)

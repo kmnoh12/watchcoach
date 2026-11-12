@@ -68,7 +68,7 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
         if (showDetails && kcal != null) Text(read.energy.getString("method"), color = KColors.Muted, fontSize = 12.sp)
         Text("평균 심박 ${read.heart.average?.let { n(it) } ?: "미측정"} · 최고 ${read.heart.maximum?.toString() ?: "미측정"} bpm", color = KColors.Soft, fontSize = 15.sp)
         if (read.heart.points.isNotEmpty()) HeartRateGraph(read.heart.points, read.record.snapshot.startedAtMs, read.record.finishedAtMs)
-        if (showDetails) Text(if (read.heart.hasGaps) "심박 일부 미측정 · 공백은 연결하지 않아요" else "운동 중 심박 · 폰 수신 시각 기준", color = KColors.Muted, fontSize = 12.sp)
+        if (showDetails) Text(if (read.heart.hasGaps) "심박 일부 미측정 · 공백은 연결하지 않음" else "운동 중 심박 · 폰 수신 시각 기준", color = KColors.Muted, fontSize = 12.sp)
         Text("운동별 기록", color = KColors.White, fontSize = 20.sp)
         done.groupBy { it.exerciseId }.forEach { (id, sets) ->
             Row(Modifier.fillMaxWidth()) {
@@ -82,11 +82,11 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
                     } else Text("${sets.size}세트 · ${volume?.let { n(it) + " kg" } ?: "볼륨 미확인"}", color = KColors.Muted, fontSize = 13.sp)
                     if (expanded == id) {
                         val changes = if (sets.first().exerciseKind == dev.kyungmin.kcoach.core.ExerciseKind.HOLD) emptyList() else WorkoutComparison.compare(read.record.snapshot, read.previous?.snapshot).filter { it.condition.exerciseId == id }
-                        if (changes.any { it.condition.missingFields.isNotEmpty() }) Text("기구·수행 조건 일부 미입력 · 입력이 같은 범위의 비교예요", color = KColors.Muted, fontSize = 12.sp)
+                        if (changes.any { it.condition.missingFields.isNotEmpty() }) Text("기구·수행 조건 일부 미입력 · 입력이 같은 범위의 비교입니다", color = KColors.Muted, fontSize = 12.sp)
                         changes.forEach { change ->
                             Text(change.volumeChange?.let { "같은 수행 조건의 지난 기록 대비 ${if (it >= 0) "+" else ""}${n(it)} kg · 일반 세트" }
-                                ?: "같은 수행 조건의 이전 기록이 없어요", color = KColors.Soft, fontSize = 13.sp)
-                            if (change.setCountChanged) Text("완료한 본세트 수가 달라요 · 볼륨 증가만으로 수행 향상을 판단하지 않아요", color = KColors.Muted, fontSize = 12.sp)
+                                ?: "같은 수행 조건의 이전 기록 없음", color = KColors.Soft, fontSize = 13.sp)
+                            if (change.setCountChanged) Text("완료한 본세트 수 다름 · 볼륨 증가만으로 수행 향상을 판단하지 않습니다", color = KColors.Muted, fontSize = 12.sp)
                             change.sameWeight.filter { it.comparableSetCount }.forEach { same ->
                                 val delta = same.currentReps - same.previousReps
                                 Text("${n(same.weightKg)} kg · 같은 세트 수에서 ${same.previousReps} → ${same.currentReps}회 (${if (delta >= 0) "+" else ""}$delta)", color = KColors.Soft, fontSize = 13.sp)
@@ -105,7 +105,7 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
         }
         if (showDetails) {
             Text(read.captures.getString("message"), color = KColors.Muted, fontSize = 14.sp)
-            Text("운동 기록은 저장됐어요. 이 화면을 나가도 분석은 계속돼요.", color = KColors.Muted, fontSize = 12.sp)
+            Text("운동 기록 저장 완료. 이 화면을 나가도 분석은 계속됩니다.", color = KColors.Muted, fontSize = 12.sp)
         }
     }
 }

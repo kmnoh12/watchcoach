@@ -114,15 +114,15 @@ object ExerciseMeasurementContracts {
             appendLine(if (manual) "측정 방식 · 수동 입력" else "측정 방식 · ${contract.recipe.label} 공통 동작")
             appendLine()
             if (manual) {
-                appendLine("손목 신호로 이 운동의 수행 횟수를 확인하지 않아요. 실제 수행 횟수를 입력하고 세트를 완료해 주세요.")
+                appendLine("손목 신호로 이 운동의 수행 횟수를 확인하지 않습니다. 실제 수행 횟수를 입력하고 세트를 완료해 주세요.")
             } else {
                 appendLine("시작 기준 · ${contract.startDescription}")
                 appendLine("1회 기준 · ${contract.cycleDescription}")
-                appendLine("손목 신호의 자동 추정이며 실제 수행 횟수 확인이 필요해요.")
+                appendLine("손목 신호의 자동 추정이며 실제 수행 횟수 확인이 필요합니다.")
             }
             appendLine()
             appendLine("동작 조건 · ${contract.conditionDescription}")
-            append("손목만으로 전신 자세의 정확도를 판정하지 않아요.")
+            append("손목만으로 전신 자세의 정확도를 판정하지 않습니다.")
         }
     }
 
@@ -130,9 +130,9 @@ object ExerciseMeasurementContracts {
         val id = ExerciseMotionCatalog.normalizeExerciseId(exerciseId)
         return standard[id] ?: when (id) {
             "squat", "barbell_squat", "front_squat", "goblet_squat", "dumbbell_goblet_squat", "smith_squat" -> ExerciseMeasurementContract(
-                MeasurementRecipe.SQUAT, "전신 카메라 확인 필요. 워치는 손목 주기 신호로 자동 추정해요.")
+                MeasurementRecipe.SQUAT, "전신 카메라 확인 필요. 워치는 손목 주기 신호로 자동 추정합니다.")
             "push_up" -> ExerciseMeasurementContract(MeasurementRecipe.PUSH_UP,
-                "맨몸 푸시업. 손목이 바닥에 고정돼 워치는 전완 기울기 변화를 읽어요. 카메라 보정으로 횟수를 확인하세요.")
+                "맨몸 푸시업. 손목이 바닥에 고정돼 워치는 전완 기울기 변화를 읽습니다. 카메라 보정으로 횟수를 확인하세요.")
             "sit_up" -> ExerciseMeasurementContract(MeasurementRecipe.SIT_UP,
                 "누운 자세에서 상체를 일으키는 싯업. 카메라 보정으로 횟수를 확인하세요.")
             "high_row_machine", "standing_tbar_row" -> ExerciseMeasurementContract(

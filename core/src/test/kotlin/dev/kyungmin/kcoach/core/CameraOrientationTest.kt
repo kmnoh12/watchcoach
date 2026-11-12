@@ -44,7 +44,7 @@ class CameraOrientationTest {
         assertFalse(diagnosis(0.0).ready)
         assertTrue(diagnosis(-45.0).ready)
         assertNull(diagnosis(-45.0).blocker)
-        assertEquals("자세 확인 · 곧 촬영을 시작해요", diagnosis(-45.0).status(true))
+        assertEquals("자세 확인 · 곧 촬영을 시작합니다", diagnosis(-45.0).status(true))
         assertEquals("조금만 덜 돌려 주세요", diagnosis(-90.0).blocker)
         assertFalse(diagnosis(45.0).ready)
         assertEquals("워치를 찬 팔이 카메라 가까이 오게 돌려 주세요", diagnosis(45.0).blocker)
@@ -60,13 +60,13 @@ class CameraOrientationTest {
         val f = CalibrationPoseFixture.frame(1000)
         val image = f.imageLandmarks.single().toMutableList()
         image[15] = image[15].copy(visibility = .3)
-        assertEquals("팔이 몸에 가려져요", guide.diagnose(image, f.worldLandmarks.single(), true).blocker)
+        assertEquals("팔이 몸에 가려집니다", guide.diagnose(image, f.worldLandmarks.single(), true).blocker)
         image[23] = image[23].copy(y = 1.1)
         assertFalse(guide.startReady(image, f.worldLandmarks.single(), true))
         assertFailsWith<IllegalArgumentException> { f.worldLandmarks.single()[12].copy(z = Double.NaN) }
         val hidden = f.worldLandmarks.single().toMutableList(); hidden[15] = hidden[15].copy(z = .4)
         image[15] = image[15].copy(x = .5, y = .4, visibility = 1.0); image[23] = image[23].copy(y = .6)
-        assertEquals("팔이 몸에 가려져요", guide.diagnose(image, hidden, true).blocker)
+        assertEquals("팔이 몸에 가려집니다", guide.diagnose(image, hidden, true).blocker)
     }
     @Test fun medianWarmupHysteresisAndGapsDoNotBorrowStaleGreen() {
         val tracker = CameraOrientationTracker(); var ms = 1000L

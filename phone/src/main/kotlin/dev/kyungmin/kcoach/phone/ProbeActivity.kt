@@ -273,7 +273,7 @@ class ProbeActivity : Activity() {
     private fun shareRecording() {
         val file = synchronized(lock) { if (recorder == null) recordFile else null }
         if (file == null || !file.isFile) {
-            statusText.text = if (recorder != null) "기록을 먼저 중지해 주세요" else "공유할 기록이 없어요"
+            statusText.text = if (recorder != null) "기록을 먼저 중지해 주세요" else "공유할 기록이 없습니다"
             return
         }
         val uri = FileProvider.getUriForFile(this, "$packageName.updates", file)

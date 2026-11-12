@@ -24,7 +24,7 @@ class CalibrationCameraActivityTest {
             .putExtra("exerciseId", "dumbbell_curl").putExtra("exerciseName", "덤벨 컬")
             .putExtra("watchOnLeft", true).putExtra("watchOrientation", "SIDEWAYS")
         ActivityScenario.launch<CalibrationCameraActivity>(intent).use { scenario ->
-            compose.onNodeWithText("후보의 워치 착용 정보가 올바르지 않아요").assertExists()
+            compose.onNodeWithText("후보의 워치 착용 정보가 올바르지 않습니다").assertExists()
             compose.onNodeWithText("뒤로 가서 후보 시험 다시 선택").performClick()
             var finishing = false
             scenario.onActivity { finishing = it.isFinishing }

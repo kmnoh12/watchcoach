@@ -186,7 +186,7 @@ class PhoneWearListenerService : WearableListenerService() {
             runCatching {
                 prefs.edit().putString("assetScanError", error.message ?: "cached capture buffer failure").apply()
                 sendBroadcast(Intent(ACTION_CAPTURE_ERROR).setPackage(packageName)
-                    .putExtra("stage", "asset_scan").putExtra("error", "워치 기록을 불러오지 못했어요. 연결 후 다시 시도해 주세요"))
+                    .putExtra("stage", "asset_scan").putExtra("error", "워치 기록을 불러오지 못했습니다. 연결 후 다시 시도해 주세요"))
             }.onFailure { Log.e(TAG, "cached capture failure status could not be published", it) }
             return
         }

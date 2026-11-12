@@ -175,7 +175,7 @@ internal fun SetAnalysisUi.repMetricRows(): List<Pair<String, String>> = listOf(
     "자동 추정 횟수" to if (trackingMode == "MANUAL_REQUIRED") "수동 입력 필요" else measuredRepsText(confirmedReps, "확인 필요"),
 )
 
-internal const val ANALYSIS_ESTIMATE_NOTE = "자동 추정은 실제 횟수와 다를 수 있어요. 기록의 횟수를 확인하고 수정해 주세요. 분석 점수는 정확도나 정답 확률이 아니에요."
+internal const val ANALYSIS_ESTIMATE_NOTE = "자동 추정은 실제 횟수와 다를 수 있습니다. 기록의 횟수를 확인하고 수정해 주세요. 분석 점수는 정확도나 정답 확률이 아닙니다."
 
 /** Presentation excludes legacy range ratios too; they never measured joint ROM. */
 /** Small user-facing subset; diagnostic scoring/provenance stays out of the result flow. */

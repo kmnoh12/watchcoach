@@ -387,7 +387,7 @@ class PatternCandidateStore(private val context: Context) {
             HeldOutPatternSet(set, count, ExerciseTrackingProfiles.resolve(set.exerciseId))
         }
         val safety = PatternRegressionValidation.compare(PatternRuntimeProfile.from(profile), null, material).getOrThrow()
-        require(safety.passed) { "일반 검출기보다 나빠지는 보정은 적용하지 않아요: ${safety.failures.joinToString()}" }
+        require(safety.passed) { "일반 검출기보다 나빠지는 보정은 적용하지 않습니다: ${safety.failures.joinToString()}" }
     }
 
     private fun validationMaterialDigest(candidate: PatternCandidate): String {

@@ -28,12 +28,12 @@ class CalibrationResultActivityTest {
 
     @Test fun missingCaptureShowsRetryAndCanReturnToTheList() {
         ActivityScenario.launch<CalibrationResultActivity>(intent("paired-missing")).use {
-            awaitText("촬영 자료를 읽지 못했어요. 다시 시도해 주세요.")
-            compose.onNodeWithText("아직 촬영 자료가 없어요.").assertDoesNotExist()
+            awaitText("촬영 자료를 읽지 못했습니다. 다시 시도해 주세요.")
+            compose.onNodeWithText("아직 촬영 자료가 없습니다.").assertDoesNotExist()
             compose.onNodeWithText("다시 불러오기").performClick()
-            awaitText("촬영 자료를 읽지 못했어요. 다시 시도해 주세요.")
+            awaitText("촬영 자료를 읽지 못했습니다. 다시 시도해 주세요.")
             compose.onNodeWithContentDescription("뒤로").performClick()
-            awaitText("아직 촬영 자료가 없어요.")
+            awaitText("아직 촬영 자료가 없습니다.")
         }
     }
 
@@ -43,7 +43,7 @@ class CalibrationResultActivityTest {
         captures.finish(capture.id, false, "fixture without video").getOrThrow()
         ActivityScenario.launch<CalibrationResultActivity>(intent(capture.id)).use { scenario ->
             awaitText("10회 했나요?")
-            compose.onNodeWithText("맞아요").performScrollTo().performClick()
+            compose.onNodeWithText("맞습니다").performScrollTo().performClick()
             awaitText("확인한 횟수")
             val saved = CalibrationReviewStore(app).load(capture.id).getOrThrow()
             assertEquals(10, saved.countReference!!.reps)

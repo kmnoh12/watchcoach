@@ -102,8 +102,8 @@ data class CameraCaptureGuide(val id: String, val direction: String, val framing
                 else -> null
             }
             return CameraCaptureGuide("camera-$id-v2", direction,
-                "폰을 고정해 보이는 관절이 화면 가장자리 밖으로 나가지 않게 맞춰요. 셀카 화면은 반전돼도 $side 해부학적 관절을 관측해요.",
-                required, contract.startDescription + ". 관측 범위 밖 자세는 평가하지 않아요.", metric,
+                "폰을 고정해 보이는 관절이 화면 가장자리 밖으로 나가지 않게 맞춰요. 셀카 화면은 반전돼도 $side 해부학적 관절을 관측합니다.",
+                required, contract.startDescription + ". 관측 범위 밖 자세는 평가하지 않습니다.", metric,
                 // External rotation turns the forearm about the upper arm, which a phone camera cannot
                 // judge reliably; it only checks the elbow is set at about 90 degrees beside the body.
                 if (recipe == MeasurementRecipe.EXTERNAL_ROTATION) 75.0..105.0 else null,
@@ -201,6 +201,6 @@ data class StartDiagnosis(val joints: List<StartJoint>, val angle: Double?, val 
     /** The first thing blocking readiness, in plain words, or null when ready. */
     val blocker: String? get() = orientation?.takeIf { !it.accepted }?.message ?: joints.firstOrNull { !it.ok }?.let {
         if (!it.inFrame) "필요한 관절이 화면 안에 보이게 해 주세요" else "팔과 몸통이 가려지지 않게 해 주세요"
-    } ?: if (atRest == false) "안내된 시작 자세로 팔과 다리를 맞춰 주세요" else if (!ready) "시작 자세를 확인할 수 없어요" else null
-    fun status(held: Boolean): String = blocker ?: if (held && ready) "자세 확인 · 곧 촬영을 시작해요" else "시작 자세를 잠시 유지해 주세요"
+    } ?: if (atRest == false) "안내된 시작 자세로 팔과 다리를 맞춰 주세요" else if (!ready) "시작 자세를 확인할 수 없습니다" else null
+    fun status(held: Boolean): String = blocker ?: if (held && ready) "자세 확인 · 곧 촬영을 시작합니다" else "시작 자세를 잠시 유지해 주세요"
 }

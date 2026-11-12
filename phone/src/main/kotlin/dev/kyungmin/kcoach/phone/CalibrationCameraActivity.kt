@@ -116,7 +116,7 @@ class CalibrationCameraActivity : ComponentActivity() {
         if (granted) { ui = ui.copy(permissionNeeded = false); bindCamera() }
         else {
             permissionBlocked = !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
-            ui = ui.copy(permissionNeeded = true, status = if (permissionBlocked) "설정 › 권한에서 카메라를 허용해 주세요." else "촬영하려면 카메라 권한이 필요해요.")
+            ui = ui.copy(permissionNeeded = true, status = if (permissionBlocked) "설정 › 권한에서 카메라를 허용해 주세요." else "촬영하려면 카메라 권한이 필요합니다.")
         }
     }
 
@@ -141,7 +141,7 @@ class CalibrationCameraActivity : ComponentActivity() {
             addAction(PhoneWearListenerService.ACTION_PATTERN_PROFILE)
             addAction(PhoneWearListenerService.ACTION_LIVE)
         }, ContextCompat.RECEIVER_NOT_EXPORTED)
-        store.recoverInterrupted().onFailure { ui = ui.copy(status = "이전 촬영 자료를 확인해야 해요.") }
+        store.recoverInterrupted().onFailure { ui = ui.copy(status = "이전 촬영 자료를 확인해야 합니다.") }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) bindCamera()
         else permission.launch(Manifest.permission.CAMERA)
     }
@@ -190,7 +190,7 @@ class CalibrationCameraActivity : ComponentActivity() {
         val report = ui.failureReport ?: return
         (getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
             .setPrimaryClip(android.content.ClipData.newPlainText("카메라 초기화 오류", report))
-        Toast.makeText(this, "오류 정보를 복사했어요", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "오류 정보를 복사했습니다", Toast.LENGTH_SHORT).show()
     }
 
     /**
@@ -247,13 +247,13 @@ class CalibrationCameraActivity : ComponentActivity() {
                         val report = CameraInitializationFailure.save(this, "POSE_INIT", error)
                         main.post {
                             cameraReady = false
-                            ui = ui.copy(failureReport = report, status = "관절 인식을 시작하지 못했어요. 오류 정보를 복사해 주세요.")
+                            ui = ui.copy(failureReport = report, status = "관절 인식을 시작하지 못했습니다. 오류 정보를 복사해 주세요.")
                         }
                     }
                 }
             }.onFailure { error ->
                 ui = ui.copy(failureReport = CameraInitializationFailure.save(this, "CAMERA_BIND", error),
-                    status = "전면 카메라를 시작하지 못했어요. 오류 정보를 복사해 주세요.")
+                    status = "전면 카메라를 시작하지 못했습니다. 오류 정보를 복사해 주세요.")
             }
         }, ContextCompat.getMainExecutor(this))
     }
@@ -311,9 +311,9 @@ class CalibrationCameraActivity : ComponentActivity() {
                         main.postDelayed({ if (preparedCapture?.id == next.id) stopCapture("Watch reference capture support not confirmed") }, 5_000)
                         startWhenReady(next)
                     }
-                }.onFailure { main.post { starting = false; ui = ui.copy(status = "다른 운동이 진행 중이거나 저장을 시작하지 못했어요.", blocked = true, ready = false) } }
+                }.onFailure { main.post { starting = false; ui = ui.copy(status = "다른 운동이 진행 중이거나 저장을 시작하지 못했습니다.", blocked = true, ready = false) } }
             }
-        }.addOnFailureListener { starting = false; ui = ui.copy(status = "워치 연결을 확인하지 못했어요. 자세를 다시 잡아 주세요.", blocked = true, ready = false) }
+        }.addOnFailureListener { starting = false; ui = ui.copy(status = "워치 연결 확인 실패. 자세를 다시 잡아 주세요.", blocked = true, ready = false) }
     }
 
     private fun startWhenReady(prepared: CalibrationCapture) {
@@ -356,8 +356,8 @@ class CalibrationCameraActivity : ComponentActivity() {
             }
             main.post {
                 starting = false
-                ui = ui.copy(recordingSinceMs = SystemClock.uptimeMillis(), status = "워치 준비 중이에요. 시작 자세를 유지해 주세요")
-                main.postDelayed({ if (capture?.id == prepared.id && !watchMeasurementReady) stopCapture("워치 준비 상태를 확인하지 못했어요") }, 15_000)
+                ui = ui.copy(recordingSinceMs = SystemClock.uptimeMillis(), status = "워치 준비 중입니다. 시작 자세를 유지해 주세요")
+                main.postDelayed({ if (capture?.id == prepared.id && !watchMeasurementReady) stopCapture("워치 준비 상태를 확인하지 못했습니다") }, 15_000)
             }
         }
     }
@@ -410,10 +410,10 @@ class CalibrationCameraActivity : ComponentActivity() {
                 // A refused start keeps its reason on screen until the user breaks the pose and tries again.
                 if (!poseCandidate && ui.blocked) ui = ui.copy(blocked = false)
                 if (cameraReady && !ui.blocked && finalizer.pending == null && !ui.saving) ui = ui.copy(status = when {
-                    wearing == null && intent.hasExtra("watchOnLeft") -> "후보의 착용 정보가 올바르지 않아 촬영할 수 없어요"
+                    wearing == null && intent.hasExtra("watchOnLeft") -> "후보의 착용 정보가 올바르지 않아 촬영할 수 없습니다"
                     wearing == null -> "워치 착용 정보를 먼저 저장해 주세요"
                     people > 1 -> "한 사람만 화면에 들어오게 해 주세요"
-                    ready -> "자세 확인 · 곧 촬영을 시작해요"
+                    ready -> "자세 확인 · 곧 촬영을 시작합니다"
                     else -> diagnosis?.status(ready) ?: orientation.message ?: "필요한 관절이 다 보이게 맞춰 주세요"
                 }, ready = ready && wearing != null)
             }
@@ -462,14 +462,14 @@ class CalibrationCameraActivity : ComponentActivity() {
                     eligible = written && metric != null)
                 val remaining = targetCompletion.remainingSeconds(cameraNs)
                 val message = when {
-                    remaining != null -> "10회 확인 · ${remaining}초 후 자동 저장해요"
+                    remaining != null -> "10회 확인 · ${remaining}초 후 자동 저장합니다"
                     normalized.size > 1 -> "여러 사람이 보여요. 혼자 화면에 들어와 주세요."
                     !orientation.accepted -> orientation.message ?: "몸 방향을 다시 맞춰 주세요"
-                    !watchMeasurementReady -> "워치 준비 중이에요. 시작 자세를 유지해 주세요"
+                    !watchMeasurementReady -> "워치 준비 중입니다. 시작 자세를 유지해 주세요"
                     normalized.isEmpty() || counter != null && metric == null -> "팔과 몸통이 가려지지 않게 해 주세요."
-                    orientationFrames >= 30 && orientationRejected.toDouble() / orientationFrames > 1 - CalibrationSafety.MIN_ORIENTATION_RATIO -> "몸 방향이 맞지 않는 구간이 많아요. 이 촬영은 보정에서 제외될 수 있어요"
-                    guide.metric == null -> "이 운동은 카메라 횟수 검증을 지원하지 않아요. 촬영 후 직접 종료해 주세요"
-                    else -> "${counter?.reps ?: 0}/10회 · 10회를 확인하면 3초 뒤 저장해요"
+                    orientationFrames >= 30 && orientationRejected.toDouble() / orientationFrames > 1 - CalibrationSafety.MIN_ORIENTATION_RATIO -> "몸 방향이 맞지 않는 구간이 많습니다. 이 촬영은 보정에서 제외될 수 있습니다"
+                    guide.metric == null -> "이 운동은 카메라 횟수 검증을 지원하지 않습니다. 촬영 후 직접 종료해 주세요"
+                    else -> "${counter?.reps ?: 0}/10회 · 10회를 확인하면 3초 뒤 저장합니다"
                 }
                 main.post { ui = ui.copy(status = message) }
                 if (end != null) stopCapture(null, end)
@@ -488,9 +488,9 @@ class CalibrationCameraActivity : ComponentActivity() {
             val report = CameraInitializationFailure.report("FRAME_PROCESSING", error)
             main.post {
                 ui = ui.copy(failureReport = report, status = when {
-                    !hadCapture -> "카메라 프레임을 처리하지 못했어요. 오류 정보를 확인해 주세요."
-                    storageFull -> "저장 공간이 부족해 촬영을 멈췄어요. 이미 받은 자료의 종료 상태를 저장하는 중이에요."
-                    else -> "촬영이 중단됐어요. 받은 자료의 종료 상태를 저장하는 중이에요."
+                    !hadCapture -> "카메라 프레임을 처리하지 못했습니다. 오류 정보를 확인해 주세요."
+                    storageFull -> "저장 공간이 부족해 촬영을 멈췄습니다. 이미 받은 자료의 종료 상태를 저장하는 중입니다."
+                    else -> "촬영이 중단됐습니다. 받은 자료의 종료 상태를 저장하는 중입니다."
                 })
             }
         } finally { bitmap?.recycle(); image.close() }
@@ -548,7 +548,7 @@ class CalibrationCameraActivity : ComponentActivity() {
                 starting = false; autoStartArmed = false
                 ui = ui.copy(recording = false, stopEnabled = false, saving = false, saveRetry = false, recordingSinceMs = null, blocked = true,
                     status = if (saved.getOrThrow().status == CalibrationCaptureStatus.REVIEW_PENDING)
-                        "영상 저장 완료 · 워치 원본 수신 후 동작을 확인해 주세요." else "중단 자료를 보관했어요. 새 촬영에서 이어갈 수 있어요.")
+                        "영상 저장 완료 · 워치 원본 수신 후 동작을 확인해 주세요." else "중단 자료를 보관했습니다. 새 촬영에서 이어갈 수 있습니다.")
                 if (pending.reason == null && !isFinishing && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
                     startActivity(Intent(this, CalibrationResultActivity::class.java).putExtra("captureId", active.id))
             }

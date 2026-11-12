@@ -110,7 +110,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
     val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permission = granted
         if (granted) { camera?.bind(); if (openAfterPermission) { cameraOpen = true; camera?.open() } }
-        else Toast.makeText(context, "카메라 권한이 필요해요. 앱 설정에서 권한을 허용해 주세요.", Toast.LENGTH_LONG).show()
+        else Toast.makeText(context, "카메라 권한이 필요합니다. 앱 설정에서 권한을 허용해 주세요.", Toast.LENGTH_LONG).show()
         openAfterPermission = false
     }
     fun openCamera() {
@@ -159,10 +159,11 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val cameraFrameWidth = minOf(maxWidth - 22.dp, (maxHeight - (ResultCameraTop + ResultCameraControls).dp) * (9f / 16f)).coerceAtLeast(1.dp)
-        AndroidView(factory = { ResultCameraView(it, owner).also { v -> camera = v; v.onClosed = { cameraOpen = false }; v.onGallery = { gallery.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }; if (permission) v.bind() } },
+        AndroidView(factory = { ResultCameraView(it, owner).also { v -> camera = v; v.onClosed = { cameraOpen = false; scope.launch { scroll.scrollTo(0) }; pull = 0f; armed = false; released = false }; v.onGallery = { gallery.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }; if (permission) v.bind() } },
             update = { it.presentation = read }, modifier = Modifier.fillMaxSize().zIndex(if (cameraOpen) 2f else 0f))
         Column(Modifier.fillMaxSize().zIndex(1f).nestedScroll(pullConnection)) {
-            Column(Modifier.weight(1f).verticalScroll(scroll)) {
+            // The list stays put while the camera is up, so closing returns to the untouched top.
+            Column(Modifier.weight(1f).verticalScroll(scroll, enabled = !cameraOpen)) {
                 Row(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp).height(33.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable(onClick = back).padding(end = 16.dp))
                     Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp)
@@ -175,7 +176,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
                         Column {
                             Text("오운완 사진 남기기", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                            Text("거울 앞에서 찍으면 오늘 기록이 같이 들어가요", color = Color.White.copy(alpha = .82f), fontSize = 12.sp)
+                            Text("거울 앞 촬영 시 오늘 기록 포함", color = Color.White.copy(alpha = .82f), fontSize = 12.sp)
                         }
                         ResultButton("카메라 열기", true, Modifier, 13) { openCamera() }
                     }
@@ -193,7 +194,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                         }
                         data.exercises.forEach { ExerciseResultCard(it) }
                         Spacer(Modifier.height(12.dp))
-                    } ?: Text(if (readFailed) "운동 기록을 불러오지 못했어요" else "운동 기록 불러오는 중", color = ResultMuted)
+                    } ?: Text(if (readFailed) "운동 기록 불러오기 실패" else "운동 기록 불러오는 중", color = ResultMuted)
                     if (readFailed) TextButton(onClick = { retry++ }) { Text("다시 시도", color = ResultMint) }
                     estimated.forEachIndexed { i, (label, reps) ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -381,7 +382,7 @@ private fun ResultHeartCard(data: ResultPresentation) {
         }
         Spacer(Modifier.width(14.dp))
         Box(Modifier.weight(1.35f).fillMaxHeight(), contentAlignment = Alignment.Center) {
-            if (data.heartPoints.size < 2) Text("그래프를 그릴 심박이 부족해요", color = ResultMuted, fontSize = 11.sp)
+            if (data.heartPoints.size < 2) Text("그래프용 심박 데이터 부족", color = ResultMuted, fontSize = 11.sp)
             else Canvas(Modifier.fillMaxSize()) {
                 val pts = data.heartPoints
                 val t0 = pts.first().first; val span = (pts.last().first - t0).coerceAtLeast(1L)

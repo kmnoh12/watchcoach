@@ -20,7 +20,7 @@ class WorkoutTempoSettingsActivity : ComponentActivity() {
             BackHandler(selected != null) { selected = null }
             WorkoutTempoScreen(selected, previous, select = { selected = it }, back = { if (selected != null) selected = null else finish() },
                 save = { next -> store.save(next).onSuccess {
-                    Toast.makeText(this, "템포 알림 설정을 저장했어요.", Toast.LENGTH_SHORT).show(); selected = null
+                    Toast.makeText(this, "템포 알림 설정 저장 완료", Toast.LENGTH_SHORT).show(); selected = null
                 }.isSuccess })
         }
     }

@@ -38,7 +38,7 @@ internal fun ProfileEditor(profile: WorkoutProfile, onDismiss: () -> Unit,
             Text("내 운동 프로필", color = KColors.White, fontSize = 25.sp)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("모든 항목은 선택이에요. 입력하지 않은 정보는 추정해 채우지 않아요.", color = KColors.Muted, fontSize = 13.sp)
+            Text("모든 항목은 선택 입력입니다. 입력하지 않은 정보는 추정해 채우지 않습니다.", color = KColors.Muted, fontSize = 13.sp)
             ProfileField("나이 (선택, 세션 평균 칼로리 기준용)", age, true) { age = it }
             Text("성별", color = KColors.Soft, fontSize = 13.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -53,7 +53,7 @@ internal fun ProfileEditor(profile: WorkoutProfile, onDismiss: () -> Unit,
                 Checkbox(energy, onCheckedChange = { energy = it })
                 Text("다종목 8~15회 일반 근력운동 기준으로 활동 칼로리 추정", color = KColors.Soft, fontSize = 13.sp)
             }
-            Text("19~59세·운동일 전 90일 이내 체중에 3.5 MET 세션 평균을 적용해요. 개인 실측 칼로리가 아니에요.", color = KColors.Muted, fontSize = 12.sp)
+            Text("19~59세·운동일 전 90일 이내 체중에 3.5 MET 세션 평균을 적용합니다. 개인 실측 칼로리가 아닙니다.", color = KColors.Muted, fontSize = 12.sp)
             ProfileField("키 (cm)", height, true) { height = it }
             ProfileField("체중 (kg)", weight, true) { weight = it }
             ProfileField("체중 측정일 (YYYY-MM-DD)", measured) { measured = it }

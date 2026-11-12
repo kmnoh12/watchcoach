@@ -131,7 +131,7 @@ private fun Controls(
             }
             Box(Modifier.fillMaxWidth().height(1.dp).background(KColors.Hairline))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(ui.wearingSummary?.let { "워치 $it" } ?: if (ui.candidateWearingInvalid) "후보의 워치 착용 정보가 올바르지 않아요" else "워치 착용 정보가 없어요", color = KColors.Muted, fontSize = 13.sp,
+                Text(ui.wearingSummary?.let { "워치 $it" } ?: if (ui.candidateWearingInvalid) "후보의 워치 착용 정보가 올바르지 않습니다" else "워치 착용 정보가 없습니다", color = KColors.Muted, fontSize = 13.sp,
                     modifier = Modifier.weight(1f))
                 if (ui.wearingFromSettings) Text(if (ui.wearingSummary == null) "설정에서 저장  ›" else "설정에서 변경  ›",
                     color = KColors.Accent, fontSize = 13.sp,

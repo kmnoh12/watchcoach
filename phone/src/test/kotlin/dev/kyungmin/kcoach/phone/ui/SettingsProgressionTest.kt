@@ -30,7 +30,7 @@ class SettingsProgressionTest {
         show()
         compose.onNodeWithText("점진적 과부하 사용").assertExists()
         compose.onAllNodesWithText("보통").assertCountEquals(2) // the chosen speed and its place on the slider
-        compose.onNodeWithText("목표 횟수를 다 채운 날이 2번 이어지면 무게를 올려요.").assertExists()
+        compose.onNodeWithText("목표 횟수를 다 채운 날이 2번 이어지면 무게를 올립니다.").assertExists()
         compose.onNodeWithText("예시").assertExists()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings-progression-on.png")
     }
@@ -50,17 +50,17 @@ class SettingsProgressionTest {
         show()
         slider().performTouchInput { click(Offset(width - 4f, centerY)) }
         assertEquals(ProgressionSettings(true, ProgressionSpeed.FAST), saved.last())
-        compose.onNodeWithText("목표 횟수를 다 채운 날, 바로 무게를 올려요.").assertExists()
+        compose.onNodeWithText("목표 횟수를 다 채운 날, 바로 무게를 올립니다.").assertExists()
         compose.onAllNodesWithText("85kg 6회").assertCountEquals(2)
         slider().performTouchInput { click(Offset(4f, centerY)) }
         assertEquals(ProgressionSettings(true, ProgressionSpeed.SLOW), saved.last())
-        compose.onNodeWithText("목표 횟수를 다 채운 날이 3번 이어지면 무게를 올려요.").assertExists()
+        compose.onNodeWithText("목표 횟수를 다 채운 날이 3번 이어지면 무게를 올립니다.").assertExists()
         compose.onAllNodesWithText("80kg 10회").assertCountEquals(2)
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings-progression-slow.png")
     }
 
     @Test fun savedChoicesAreShownWhenTheScreenOpens() {
         show(ProgressionSettings(enabled = true, speed = ProgressionSpeed.FAST))
-        compose.onNodeWithText("목표 횟수를 다 채운 날, 바로 무게를 올려요.").assertExists()
+        compose.onNodeWithText("목표 횟수를 다 채운 날, 바로 무게를 올립니다.").assertExists()
     }
 }

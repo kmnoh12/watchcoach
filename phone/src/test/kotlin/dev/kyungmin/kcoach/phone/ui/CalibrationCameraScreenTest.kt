@@ -48,8 +48,8 @@ class CalibrationCameraScreenTest {
     }
 
     @Test fun readyStateCountsDownWithoutAButton() {
-        show(waiting.copy(status = "자세 확인 · 곧 촬영을 시작해요", ready = true))
-        compose.onNodeWithText("자세 확인 · 곧 촬영을 시작해요").assertExists()
+        show(waiting.copy(status = "자세 확인 · 곧 촬영을 시작합니다", ready = true))
+        compose.onNodeWithText("자세 확인 · 곧 촬영을 시작합니다").assertExists()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/camera_phone_ready.png")
     }
 
@@ -62,7 +62,7 @@ class CalibrationCameraScreenTest {
 
     @Test fun missingWearingPointsToSettings() {
         show(waiting.copy(status = "워치 착용 정보를 먼저 저장해 주세요", wearingSummary = null))
-        compose.onNodeWithText("워치 착용 정보가 없어요").assertExists()
+        compose.onNodeWithText("워치 착용 정보가 없습니다").assertExists()
         compose.onNodeWithText("설정에서 저장  ›").assertExists()
     }
 
@@ -74,7 +74,7 @@ class CalibrationCameraScreenTest {
                 "덤벨 컬", null, remember { View(context) }, remember { View(context) },
                 back = { left = true }, openSaved = {}, openWearingSettings = {}, stop = {}, retrySave = {}, requestPermission = {}, copyError = {})
         }
-        compose.onNodeWithText("후보의 워치 착용 정보가 올바르지 않아요").assertExists()
+        compose.onNodeWithText("후보의 워치 착용 정보가 올바르지 않습니다").assertExists()
         assertTrue(compose.onAllNodesWithTextCount("설정에서") == 0)
         compose.onNodeWithText("뒤로 가서 후보 시험 다시 선택").performClick()
         assertTrue(left)
@@ -89,7 +89,7 @@ class CalibrationCameraScreenTest {
 
     @Config(qualifiers = "w600dp-h800dp-xxhdpi") // 3:4, like an unfolded inner screen
     @Test fun fourByThreeScreenKeepsTheWholeFrame() {
-        show(waiting.copy(status = "자세 확인 · 곧 촬영을 시작해요", ready = true))
+        show(waiting.copy(status = "자세 확인 · 곧 촬영을 시작합니다", ready = true))
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/camera_unfolded_ready.png")
     }
 

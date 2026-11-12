@@ -136,7 +136,7 @@ internal class CalibrationView(context: Context) : Grid432(context) {
         val fresh = stage != Stage.PREPARE
         show(Stage.PREPARE)
         clock.text = clockText; title.text = "보정"
-        message.text = "시작 자세로 가만히 있어요"; placeText(message, 70, 362, 353.3f, fit = true)
+        message.text = "시작 자세로 가만히 있습니다"; placeText(message, 70, 362, 353.3f, fit = true)
         footer(cameraRecording, 388f)
         if (secondsLeft == null) {
             countdown.visibility = GONE; waiting.visibility = VISIBLE; waiting.text = "준비"
@@ -182,7 +182,7 @@ internal class CalibrationView(context: Context) : Grid432(context) {
         verdict.visibility = if (confirmed == null) GONE else VISIBLE
         if (confirmed == sensorReps) { verdict.text = "일치"; verdict.setTextColor(WatchWorkoutFace.SAGE) }
         else if (confirmed != null) { verdict.text = "${kotlin.math.abs(confirmed - sensorReps)}회 차이"; verdict.setTextColor(WatchWorkoutFace.ORANGE) }
-        hint.text = "폰에서 결과를 확인해요"
+        hint.text = "폰에서 결과를 확인합니다"
         if (playCheck) check.play()
         fill = 1f
         invalidate()

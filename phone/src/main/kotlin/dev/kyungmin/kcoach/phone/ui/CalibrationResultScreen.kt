@@ -92,7 +92,7 @@ fun CalibrationResultScreen(
                     ResultAction("다시 불러오기", enabled = !loading && !busy, action = retry)
                 }
                 if (clip == null) {
-                    if (clips.isEmpty() && !loading && error == null) Text("아직 촬영 자료가 없어요.", color = KColors.Soft)
+                    if (clips.isEmpty() && !loading && error == null) Text("아직 촬영 자료가 없습니다.", color = KColors.Soft)
                     clips.forEachIndexed { index, row ->
                         if (index > 0) Box(Modifier.fillMaxWidth().height(.5.dp).background(KColors.Hairline))
                         CaptureRow(row, selecting, row.id in picked,
@@ -124,7 +124,7 @@ fun CalibrationResultScreen(
         Dialog(onDismissRequest = { confirmDelete = false }) {
             Column(Modifier.fillMaxWidth().clip(KShape.Panel).background(KColors.SurfaceRaised).padding(24.dp)) {
                 ConfirmDialog(if (count == 1) "이 촬영을 삭제할까요?" else "${count}개 촬영을 삭제할까요?",
-                    "영상과 확인한 횟수가 함께 삭제되고 되돌릴 수 없어요.", "취소", "삭제", { confirmDelete = false }) {
+                    "영상과 확인한 횟수가 함께 삭제되고 되돌릴 수 없습니다.", "취소", "삭제", { confirmDelete = false }) {
                     if (clip != null) deleteClip() else { deleteClips(picked); selecting = false; picked = emptySet() }
                 }
             }
@@ -197,16 +197,16 @@ private fun ClipDetail(
     }
     if (clip.videoPath != null && clip.endMs > 0) key(clip.id, clip.videoPath) { ReferencePlayback(clip, progress) }
     else Box(Modifier.fillMaxWidth().height(260.dp).clip(KShape.Control).background(KColors.Surface).padding(16.dp), contentAlignment = Alignment.Center) {
-        Text("영상을 재생할 수 없어요. 저장 상태를 확인해 주세요.", color = KColors.Soft)
+        Text("영상을 재생할 수 없습니다. 저장 상태를 확인해 주세요.", color = KColors.Soft)
     }
     Text(clip.graphTitle, color = KColors.Soft, fontSize = 13.sp)
     SignalGraph(clip, playbackMs)
-    Text(if (clip.intervals.isEmpty()) "자동으로 표시한 반복 구간이 없어요. 영상을 보고 횟수를 확인해 주세요."
-        else "민트 구간은 영상에서 찾은 반복 후보예요.${if (clip.mismatches.isEmpty()) "" else " 붉은 구간은 센서 피크 재분석과 어긋난 곳이에요."}", color = KColors.Muted, fontSize = 12.sp)
+    Text(if (clip.intervals.isEmpty()) "자동으로 표시한 반복 구간이 없습니다. 영상을 보고 횟수를 확인해 주세요."
+        else "민트 구간은 영상에서 찾은 반복 후보입니다.${if (clip.mismatches.isEmpty()) "" else " 붉은 구간은 센서 피크 재분석과 어긋난 곳입니다."}", color = KColors.Muted, fontSize = 12.sp)
     Text("10회 했나요?", color = KColors.White, fontSize = 22.sp)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val chosen = clip.confirmedCount
-        listOf("맞아요" to 10, "9회" to 9, "11회" to 11).forEach { (label, count) ->
+        listOf("맞습니다" to 10, "9회" to 9, "11회" to 11).forEach { (label, count) ->
             ResultAction(label, Modifier.weight(1f), !busy, selected = chosen == count) { answer(count) }
         }
         ResultAction("기타", Modifier.weight(1f), !busy, selected = chosen != null && chosen !in listOf(9, 10, 11)) { setOther(!other) }
@@ -229,14 +229,14 @@ private fun ClipDetail(
 @Composable
 private fun MismatchSection(clip: CapturePlaybackUi, busy: Boolean, answer: (Int, Int, Boolean, Boolean) -> Unit) {
     Text("영상과 센서 재분석 비교", color = KColors.White, fontSize = 18.sp)
-    Text("구간은 원본 센서의 별도 피크 재분석 결과예요. 위의 워치 실시간 총횟수와 다른 분석이에요.", color = KColors.Muted, fontSize = 13.sp)
-    if (clip.trailingSuspect) Text("폰 횟수 재분석에서 마지막 후보가 다른 반복보다 느리고 약하게 나왔어요. 시계를 본 동작인지 영상으로 확인해 주세요. 이 알림은 구간 비교와 별도 분석이에요.",
+    Text("구간은 원본 센서의 별도 피크 재분석 결과입니다. 위의 워치 실시간 총횟수와 다른 분석입니다.", color = KColors.Muted, fontSize = 13.sp)
+    if (clip.trailingSuspect) Text("폰 횟수 재분석에서 마지막 후보가 다른 반복보다 느리고 약하게 나왔습니다. 시계를 본 동작인지 영상으로 확인해 주세요. 이 알림은 구간 비교와 별도 분석입니다.",
         color = KColors.Accent, fontSize = 13.sp)
     when {
-        !clip.watchSpansKnown -> Text("센서 재분석 구간을 영상 시간에 맞출 수 없어 비교 결과는 미확인이에요.", color = KColors.Muted, fontSize = 13.sp)
-        clip.mismatches.isEmpty() -> Text("영상 후보와 센서 피크 재분석이 서로 다르게 찾은 구간이 없어요. 실제 반복의 정답을 뜻하지는 않아요.", color = KColors.Muted, fontSize = 13.sp)
+        !clip.watchSpansKnown -> Text("센서 재분석 구간을 영상 시간에 맞출 수 없어 비교 결과는 미확인입니다.", color = KColors.Muted, fontSize = 13.sp)
+        clip.mismatches.isEmpty() -> Text("영상 후보와 센서 피크 재분석이 서로 다르게 찾은 구간이 없습니다. 실제 반복의 정답을 뜻하지는 않습니다.", color = KColors.Muted, fontSize = 13.sp)
         else -> {
-            Text("답은 이 기기에만 저장하고, 반복 라벨로는 쓰지 않아요.", color = KColors.Muted, fontSize = 12.sp)
+            Text("답은 이 기기에만 저장하고, 반복 라벨로는 쓰지 않습니다.", color = KColors.Muted, fontSize = 12.sp)
             clip.mismatches.forEach { row ->
                 Column(Modifier.fillMaxWidth().clip(KShape.Control).background(KColors.Surface).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -244,7 +244,7 @@ private fun MismatchSection(clip: CapturePlaybackUi, busy: Boolean, answer: (Int
                     Text("$range · ${if (row.videoOnly) "영상에서만 찾은 구간" else "센서 피크 재분석에서만 찾은 구간"}", color = KColors.White, fontSize = 15.sp)
                     Text("이 구간에서 실제로 1회 했나요?", color = KColors.Soft, fontSize = 13.sp)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ResultAction("맞아요", Modifier.weight(1f), !busy, selected = row.answer == true) { answer(row.startMs, row.endMs, row.videoOnly, true) }
+                        ResultAction("맞습니다", Modifier.weight(1f), !busy, selected = row.answer == true) { answer(row.startMs, row.endMs, row.videoOnly, true) }
                         ResultAction("아니에요", Modifier.weight(1f), !busy, selected = row.answer == false) { answer(row.startMs, row.endMs, row.videoOnly, false) }
                     }
                 }
@@ -288,7 +288,7 @@ private fun ReferencePlayback(clip: CapturePlaybackUi, progress: (Int) -> Unit) 
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
-    if (failed) Text("영상을 재생하지 못했어요. 촬영 자료를 다시 열어 주세요.", color = KColors.Red)
+    if (failed) Text("영상을 재생하지 못했습니다. 촬영 자료를 다시 열어 주세요.", color = KColors.Red)
     Text("%.1f / %.1f초".format(position / 1000.0, clip.endMs / 1000.0), color = KColors.Muted, fontSize = 12.sp)
     clip.intervals.indexOfFirst { position in it.first..it.second }.takeIf { it >= 0 }?.let {
         Text("${it + 1}회 후보", color = KColors.Accent, fontSize = 13.sp)

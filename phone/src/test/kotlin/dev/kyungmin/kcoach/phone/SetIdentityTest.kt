@@ -164,7 +164,7 @@ class SetIdentityTest {
         for (reason in listOf("STALE", "BINDING", "OUTBOX", "SERVICE_START", "INVALID", "UNKNOWN", "CLOSED_SESSION")) {
             receiver.onReceive(activity, android.content.Intent(PhoneWearListenerService.ACTION_COMMAND_REJECTED).putExtra("reason", reason))
             assertEquals("12", telemetry.text)
-            assertEquals(if (reason == "CLOSED_SESSION") "운동이 종료됐어요. 새 운동을 시작해 주세요." else "워치 연결을 확인해 주세요.",
+            assertEquals(if (reason == "CLOSED_SESSION") "운동이 종료되었습니다. 새 운동을 시작해 주세요." else "워치 연결을 확인해 주세요.",
                 org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
         }
     }

@@ -260,7 +260,7 @@ fun ExerciseBrowser(
             }
             if (rows.isEmpty()) {
                 item(key = "empty") {
-                    Text("맞는 운동이 없어요. 검색어나 필터를 바꿔 보세요.", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(SideGutter + 14.dp))
+                    Text("맞는 운동 없음. 검색어나 필터를 바꿔 보세요.", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(SideGutter + 14.dp))
                 }
             }
             items(rows, key = { row ->

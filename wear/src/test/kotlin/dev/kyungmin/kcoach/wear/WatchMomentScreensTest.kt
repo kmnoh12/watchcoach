@@ -222,7 +222,7 @@ class WatchMomentScreensTest {
         calibration(false, "READY", 5) { putExtra("calibrationConfirmedReps", 5) }
         shot(root, "calibration-done")
         assertEquals(CalibrationView.Stage.DONE, view.stage)
-        assertTrue(visibleTexts(view).containsAll(listOf("보정 완료", "5회", "센서", "확인", "일치", "폰에서 결과를 확인해요")))
+        assertTrue(visibleTexts(view).containsAll(listOf("보정 완료", "5회", "센서", "확인", "일치", "폰에서 결과를 확인합니다")))
         calibration(false, "READY", 5) { putExtra("calibrationConfirmedReps", 4) }
         shot(root, "calibration-done-mismatch")
         assertTrue(visibleTexts(view).contains("1회 차이"))

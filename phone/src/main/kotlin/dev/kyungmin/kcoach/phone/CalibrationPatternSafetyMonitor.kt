@@ -38,7 +38,7 @@ class CalibrationPatternSafetyMonitor(private val context: Context) {
         val stream = file.startWrite()
         try {
             stream.write(org.json.JSONObject().put("profileId", runtime.id).put("commandId", transition.command.commandId)
-                .put("notice", "보정 오류가 확인돼 기본 측정으로 복귀를 요청했어요. 워치의 다음 시도에서 해제 여부를 확인해요")
+                .put("notice", "보정 오류가 확인돼 기본 측정으로 복귀를 요청했습니다. 워치의 다음 시도에서 해제 여부를 확인합니다")
                 .toString().toByteArray(Charsets.UTF_8))
             file.finishWrite(stream)
         } catch (error: Throwable) { file.failWrite(stream); throw error }

@@ -258,7 +258,7 @@ class MainActivity : ComponentActivity() {
                     val reason = intent.getStringExtra("reason")
                     Log.w(EVENT_TAG, "watch command rejected: $reason")
                     // Diagnostics must not replace the live count/heart rate over the viewer.
-                    val message = if (reason == "CLOSED_SESSION") "운동이 종료됐어요. 새 운동을 시작해 주세요."
+                    val message = if (reason == "CLOSED_SESSION") "운동이 종료되었습니다. 새 운동을 시작해 주세요."
                         else "워치 연결을 확인해 주세요."
                     Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                 }
@@ -371,11 +371,11 @@ class MainActivity : ComponentActivity() {
                     if (succeeded) {
                         Toast.makeText(
                             this@MainActivity,
-                            "보정 설정을 저장했어요 · 감지 ${validReps}회",
+                            "보정 설정 저장 완료 · 감지 ${validReps}회",
                             Toast.LENGTH_LONG,
                         ).show()
                     } else {
-                        Toast.makeText(this@MainActivity, "유효 반복이 ${validReps}회라 프로필을 만들지 않았어요 · 다시 보정해 주세요", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "유효 반복 ${validReps}회로 프로필 미생성 · 다시 보정해 주세요", Toast.LENGTH_LONG).show()
                     }
                     calibrationSessionId = null
                     activeCalibrationExerciseId = null
@@ -397,7 +397,7 @@ class MainActivity : ComponentActivity() {
                         calibrationSessionId = null
                         activeCalibrationExerciseId = null
                         calibrationStopRequested = false
-                        Toast.makeText(this@MainActivity, "$calibratedName 보정 기록을 저장했어요", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "$calibratedName 보정 기록 저장 완료", Toast.LENGTH_LONG).show()
                         if (currentTab == RootTab.CALIBRATION) showCalibration()
                         return@onReceive
                     }
@@ -449,7 +449,7 @@ class MainActivity : ComponentActivity() {
                     .putLong("lastUiErrorAt", System.currentTimeMillis())
                     .apply()
                 if (!isFinishing && !isDestroyed) {
-                    Toast.makeText(this@MainActivity, "워치 데이터 표시에 오류가 있었지만 운동 기록은 그대로 두었어요", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "워치 데이터 표시 오류 · 운동 기록은 그대로 유지됩니다", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -846,7 +846,7 @@ class MainActivity : ComponentActivity() {
             info = { index -> showExerciseInfo(freeExercises[index].exercise, reload) },
             menu = { index -> showExerciseMenu(freeRoutine(), index, null, reload) },
             move = { from, to -> freeExercises.add(to, freeExercises.removeAt(from)) },
-            moveFinished = { Toast.makeText(this, "순서를 바꿨어요", Toast.LENGTH_SHORT).show() },
+            moveFinished = { Toast.makeText(this, "순서 변경 완료", Toast.LENGTH_SHORT).show() },
             primary = { startWorkout(freeRoutine()) },
             addExercise = {
                 openLibrary(
@@ -1044,7 +1044,7 @@ class MainActivity : ComponentActivity() {
     private fun openRecordResult(record: WorkoutRecord) {
         val result = runCatching { loadRecordResult(record) }.getOrNull()
         if (result == null) {
-            Toast.makeText(this, "이 기록의 상세 결과를 찾지 못했어요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "이 기록의 상세 결과를 찾지 못했습니다", Toast.LENGTH_SHORT).show()
             return
         }
         showWorkoutResult(result)
@@ -1072,7 +1072,7 @@ class MainActivity : ComponentActivity() {
         val id = WorkoutResultIntent.sessionId(request)
         val result = id?.let { runCatching { loadFinishedWorkoutResult(it) }.getOrNull() }
         if (result == null) {
-            Toast.makeText(this, "완료된 운동 결과를 찾지 못했어요. 운동 기록을 확인해 주세요.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "완료된 운동 결과를 찾지 못했습니다. 운동 기록을 확인해 주세요.", Toast.LENGTH_LONG).show()
             return false
         }
         overlays.dismiss()
@@ -1113,7 +1113,7 @@ class MainActivity : ComponentActivity() {
             subtitle = "${result.durationMinutes}분 · ${result.completedSets}세트",
             sections = sections,
             records = if (lastWorkoutResult?.sessionId == result.sessionId) lastWorkoutRecords else emptyList(),
-            footnote = "반복 시간은 워치 움직임을 기준으로 계산해요.",
+            footnote = "반복 시간은 워치 움직임을 기준으로 계산합니다.",
             sessionId = result.sessionId,
         )
         val editableSets = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
@@ -1149,7 +1149,7 @@ class MainActivity : ComponentActivity() {
             calibrationStopRequested = true
             calibrationButtonOverride.value = CalibrationButtonUi("보정 원본 저장 중…", false)
             sendWear(WearSync.PATH_COMMAND, WearSync.command("STOP", session, "", 0, 0))
-            Toast.makeText(this, "워치 센서 기록을 저장하는 중이에요", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "워치 센서 기록 저장 중", Toast.LENGTH_LONG).show()
             scheduleCalibrationSaveTimeout(session)
             return
         }
@@ -1170,7 +1170,7 @@ class MainActivity : ComponentActivity() {
             activeCalibrationExerciseId = null
             calibrationStopRequested = false
             calibrationButtonOverride.value = CalibrationButtonUi("보정 전송 지연 · 다시 시작", true, textAmber = true)
-            Toast.makeText(this, "20초 동안 워치 기록을 받지 못했어요 · 연결을 확인하고 다시 보정해 주세요", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "20초 동안 워치 기록을 받지 못했습니다 · 연결을 확인하고 다시 보정해 주세요", Toast.LENGTH_LONG).show()
         }
         calibrationSaveTimeoutTask = timeout
         handler.postDelayed(timeout, CALIBRATION_SAVE_TIMEOUT_MS)
@@ -1207,9 +1207,9 @@ class MainActivity : ComponentActivity() {
                 val (order, title) = ExerciseTaxonomy.section(exercise.bodyCategory, exercise.pattern)
                 LibraryEntry(exercise, order, title, ExerciseTaxonomy.bodyRank(exercise.bodyCategory))
             },
-            instructions = "워치와 폰 셀카 카메라로 내 동작을 함께 기록해요.\n" +
-                "확인·검증한 기록으로 반복 시간과 손목 신호의 크기·방향 기준을 맞춰요. 적용 범위는 측정 방식마다 달라요.\n" +
-                "워치 착용 위치 교정이나 자세 평가는 하지 않아요.",
+            instructions = "워치와 폰 셀카 카메라로 내 동작을 함께 기록합니다.\n" +
+                "확인·검증한 기록으로 반복 시간과 손목 신호의 크기·방향 기준을 맞춥니다. 적용 범위는 측정 방식마다 다릅니다.\n" +
+                "워치 착용 위치 교정이나 자세 평가는 하지 않습니다.",
             selectableIds = selectable.filter(::canCapture).map { it.id }.toSet(),
             statuses = selectable.associate { exercise ->
                 val status = when {
@@ -1272,7 +1272,7 @@ class MainActivity : ComponentActivity() {
             ConfirmDialog(
                 title = "보정된 기록 삭제",
                 message = "$exerciseName 보정 기록을 폰과 워치에서 삭제할까요?\n" +
-                    "삭제하면 이 운동은 일반 기준으로 측정돼요.",
+                    "삭제하면 이 운동은 일반 기준으로 측정됩니다.",
                 negative = "취소",
                 positive = "삭제",
                 dismiss = dismiss,
@@ -1286,7 +1286,7 @@ class MainActivity : ComponentActivity() {
                     .remove("calibration:$exerciseId:error")
                     .apply()
                 sendWear(WearSync.PATH_PERSONAL_PROFILE_DELETE, exerciseId)
-                Toast.makeText(this, "$exerciseName 보정 기록을 삭제했어요", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "$exerciseName 보정 기록 삭제 완료", Toast.LENGTH_LONG).show()
                 showCalibration()
             }
         }
@@ -1355,7 +1355,7 @@ class MainActivity : ComponentActivity() {
             WorkoutPreparation.selection(settings.defaultSelection().getOrThrow(),
                 routine.exercises.map { it.exercise.id }, settings.preparationAnswers().getOrThrow())
         }.getOrElse {
-            Toast.makeText(this, "착용 설정을 불러오지 못했어요. 프로필 설정을 확인해 주세요.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "착용 설정을 불러오지 못했습니다. 프로필 설정을 확인해 주세요.", Toast.LENGTH_LONG).show()
             return
         }
         previewWorkout = null
@@ -1378,7 +1378,7 @@ class MainActivity : ComponentActivity() {
         if (ProgressionPlanStore(this).register(workout.sessionId, routine,
                 workout.routine.exercises.flatMap { it.sets }.map { it.setId }).isFailure) return
         WorkoutWearingStore(this).beginSession(workout.sessionId, wearing).onFailure {
-            Toast.makeText(this, "착용 상태를 저장하지 못했어요. 다시 시작해 주세요.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "착용 상태 저장 실패. 다시 시작해 주세요.", Toast.LENGTH_LONG).show()
             return
         }
         activeWorkout = workout
@@ -1580,7 +1580,7 @@ class MainActivity : ComponentActivity() {
         if (latest == null || set == null || set.completed ||
             set.unilateral?.stage != dev.kyungmin.kcoach.core.UnilateralStage.AWAITING_OTHER_SIDE ||
             latest.paused || latest.phase != WorkoutPhase.WORKING) {
-            Toast.makeText(this, "운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "운동 상태가 변경되었습니다. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
             refreshActiveSession()
             return
         }
@@ -1590,10 +1590,10 @@ class MainActivity : ComponentActivity() {
             .unilateralAction(sessionId, setId, attemptId, action, System.currentTimeMillis())
             .onSuccess {
                 if (it.ack.status != dev.kyungmin.kcoach.core.WatchWorkoutControlStatus.APPLIED)
-                    Toast.makeText(this, "운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "운동 상태가 변경되었습니다. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
             }.onFailure {
                 Log.e(EVENT_TAG, "other side choice failed", it)
-                Toast.makeText(this, "선택을 적용하지 못했어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "선택 적용 실패. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show()
             }
         refreshActiveSession()
     }
@@ -1983,7 +1983,7 @@ class MainActivity : ComponentActivity() {
         workout.selectedEditSetIndex = workout.selectedEditSetIndex.coerceAtMost(
             workout.routine.exercises.getOrNull(workout.exerciseIndex)?.sets?.lastIndex?.coerceAtLeast(0) ?: 0)
         if (applied.syncFailure != null) {
-            Toast.makeText(this, "변경은 저장했지만 워치 동기화에 실패했어요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "변경 저장 완료 · 워치 동기화 실패", Toast.LENGTH_SHORT).show()
         }
         bumpWorkoutUi()
         return true
@@ -2025,7 +2025,7 @@ class MainActivity : ComponentActivity() {
                 val parsed = if (value.isBlank()) 0.0 else value.toDoubleOrNull()
                 if (parsed == null || !parsed.isFinite() || parsed < 0.0) {
                     Log.w(EVENT_TAG, "invalid workout weight rejected")
-                    Toast.makeText(this@MainActivity, "무게는 0 이상의 유한한 숫자로 입력해주세요", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "무게는 0 이상의 숫자로 입력해 주세요", Toast.LENGTH_SHORT).show()
                     return
                 }
                 if (usesPounds(workout, routineExercise.exercise.id)) parsed / 2.20462 else parsed
@@ -2061,8 +2061,8 @@ class MainActivity : ComponentActivity() {
             PhoneSessionController(sessionStore, ::sendWear).unilateralAction(workout.sessionId, set.setId, set.attemptId,
                 dev.kyungmin.kcoach.core.UnilateralAction.FINISH_WATCH_SIDE_ONLY, System.currentTimeMillis())
                 .onSuccess { if (it.ack.status != dev.kyungmin.kcoach.core.WatchWorkoutControlStatus.APPLIED)
-                    Toast.makeText(this@MainActivity, "운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show() }
-                .onFailure { Toast.makeText(this@MainActivity, "선택을 적용하지 못했어요", Toast.LENGTH_SHORT).show() }
+                    Toast.makeText(this@MainActivity, "운동 상태가 변경되었습니다. 현재 상태를 확인해 주세요", Toast.LENGTH_SHORT).show() }
+                .onFailure { Toast.makeText(this@MainActivity, "선택 적용 실패", Toast.LENGTH_SHORT).show() }
             refreshActiveSession()
         }
 
@@ -2157,7 +2157,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }.getOrElse {
                     Log.e(EVENT_TAG, "remove set snapshot failed", it)
-                    Toast.makeText(this@MainActivity, "세트 구성을 읽지 못해 삭제하지 않았어요", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "세트 구성을 읽지 못해 삭제하지 않았습니다", Toast.LENGTH_SHORT).show()
                     return
                 }
                 if (editActivePlan(workout, PhonePlanEdit.RemoveSet(exerciseIndex, setIndex))) {
@@ -2328,7 +2328,7 @@ class MainActivity : ComponentActivity() {
     private fun updateWearConnectionStatus() {
         Wearable.getNodeClient(this).connectedNodes
             .addOnSuccessListener { nodes ->
-                preparationConnection = if (nodes.isNotEmpty()) "워치 연결됨" else "워치 연결 안 됨 · 연결 후 자동으로 전달해요"
+                preparationConnection = if (nodes.isNotEmpty()) "워치 연결됨" else "워치 연결 안 됨 · 연결 후 자동 전달"
                 wearLiveStatus?.takeIf { it.tag == WATCH_PANEL_CONNECTION }?.apply {
                     text = if (nodes.isNotEmpty()) {
                         "Watch8 연결됨 · 운동 시작 가능"
@@ -2339,7 +2339,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .addOnFailureListener {
-                preparationConnection = "워치 연결을 확인하지 못했어요"
+                preparationConnection = "워치 연결 확인 실패"
                 wearLiveStatus?.takeIf { it.tag == WATCH_PANEL_CONNECTION }?.apply {
                     text = "Watch8 연결 안 됨"
                     setTextColor(muted)
@@ -2394,7 +2394,7 @@ class MainActivity : ComponentActivity() {
                 dismiss()
                 val current = sessionStore.loadActive().getOrNull()
                 if (activeWorkout !== workout || current != before || remaining.map { it.value.setId to it.value.attemptId } != identities) {
-                    Toast.makeText(this, "세트가 변경됐어요. 최신 횟수를 확인해 주세요.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "세트가 변경되었습니다. 최신 횟수를 확인해 주세요.", Toast.LENGTH_LONG).show()
                     refreshActiveSession()
                     return@ManualCountSheet
                 }
@@ -2433,7 +2433,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         if (transaction.ack.status != dev.kyungmin.kcoach.core.ManualSetStatus.APPLIED) {
-            Toast.makeText(this, "세트가 변경됐어요. 최신 횟수를 확인해 주세요.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "세트가 변경되었습니다. 최신 횟수를 확인해 주세요.", Toast.LENGTH_LONG).show()
             refreshActiveSession()
             return
         }
@@ -2588,7 +2588,7 @@ class MainActivity : ComponentActivity() {
             val quickRpe = listOf("6", "7", "8", "9", "10")
             val typeNotes = mapOf("일반" to "기본 작업 세트", "웜업" to "근육을 준비하기 위한 워밍업", "슈퍼" to "두 운동을 쉬지 않고 연속으로", "드랍" to "휴식 없이 무게를 낮춰 이어서", "실패" to "실패까지 간 세트", "보조" to "도움을 받아 끝낸 세트")
             val gripNotes = mapOf("노멀" to "표준 그립", "오버핸드" to "손바닥이 몸 반대쪽을 향하는 그립", "언더핸드" to "손바닥이 몸 쪽을 향하는 그립", "뉴트럴" to "양손이 서로 마주 보는 그립", "와이드" to "어깨 너비보다 넓은 손 배치", "클로즈" to "어깨 너비보다 좁은 손 배치", "얼터네이트" to "한 손은 오버핸드, 다른 한 손은 언더핸드")
-            val rpeNotes = mapOf("10" to "더는 못 해요", "9.5" to "1개 정도 더 할 수 있을 것 같아요", "9" to "확실히 1개 더 할 수 있어요", "8.5" to "아마 2개 더 할 수 있어요", "8" to "확실히 2개 더 할 수 있어요", "7" to "꽤 할 만했어요", "6" to "웜업 정도예요")
+            val rpeNotes = mapOf("10" to "더는 불가", "9.5" to "1개 정도 더 가능할 듯", "9" to "확실히 1개 더 가능", "8.5" to "아마 2개 더 가능", "8" to "확실히 2개 더 가능", "7" to "꽤 할 만함", "6" to "웜업 수준")
             SetSheet(
                 title = setLabel,
                 subtitle = "${routineExercise.exercise.name} · ${if (routineExercise.exercise.kind == ExerciseKind.HOLD) HoldExercise.time(set.targetDurationSeconds ?: 30) else "${set.targetReps}회"}",
@@ -2622,7 +2622,7 @@ class MainActivity : ComponentActivity() {
                     ),
                     SegGroup(
                         "운동 강도 (RPE)",
-                        note = rpeNotes[rpe] ?: "기록하지 않아요",
+                        note = rpeNotes[rpe] ?: "기록 안 함",
                         options = listOf(SegOption("-", rpe == null) {
                             set.rpe = null
                             rpe = null
@@ -2634,7 +2634,7 @@ class MainActivity : ComponentActivity() {
                                 saveWorkoutChanges(workout)
                             }
                         } + SegOption(if (rpe != null && rpe !in quickRpe) rpe!! else "상세", rpe != null && rpe !in quickRpe) {
-                            showChoiceSheet("운동 강도 (RPE)", selected = rpe ?: "선택 안 함", items = listOf("선택 안 함" to "", "10" to "더는 못 해요", "9.5" to "1개 정도 더 할 수 있을 것 같아요", "9" to "확실히 1개 더 할 수 있어요", "8.5" to "아마 2개 더 할 수 있어요", "8" to "확실히 2개 더 할 수 있어요", "7" to "꽤 할 만했어요", "6" to "웜업 정도예요")) { value ->
+                            showChoiceSheet("운동 강도 (RPE)", selected = rpe ?: "선택 안 함", items = listOf("선택 안 함" to "", "10" to "더는 불가", "9.5" to "1개 정도 더 가능할 듯", "9" to "확실히 1개 더 가능", "8.5" to "아마 2개 더 가능", "8" to "확실히 2개 더 가능", "7" to "꽤 할 만함", "6" to "웜업 수준")) { value ->
                                 set.rpe = value.takeUnless { it == "선택 안 함" }
                                 saveWorkoutChanges(workout)
                             }
@@ -2877,9 +2877,9 @@ class MainActivity : ComponentActivity() {
 
     private fun exerciseDescription(exercise: ExerciseDefinition): String =
         if (exercise.id == "pull_up") {
-            "● 팁\n\n풀업은 등, 어깨, 팔 근육을 동시에 강화하는 운동이에요. 그립의 넓이와 손바닥 방향에 따라 자극되는 근육의 비중이 달라져요. 처음부터 반복 수를 늘리기보다 매 반복의 시작과 끝 자세를 일정하게 유지하세요.\n\n● 설명\n\n- 준비\n\n1. 바를 어깨너비보다 약간 넓게 오버핸드 그립으로 잡으세요.\n2. 팔을 완전히 뻗은 상태에서 어깨를 귀에서 멀어지게 내리고, 복부와 둔근에 가볍게 힘을 주세요.\n3. 다리를 앞뒤로 흔들지 말고 발목을 겹쳐 몸통을 하나의 단단한 덩어리처럼 유지하세요.\n\n- 움직임\n\n1. 가슴을 바 쪽으로 끌어올리면서 팔꿈치를 아래·뒤 방향으로 당기세요.\n2. 턱만 내미는 대신 가슴이 올라가도록 움직이고, 어깨가 으쓱하지 않게 유지하세요.\n3. 위에서 잠깐 멈춘 뒤 팔꿈치를 천천히 펴며 시작 자세로 돌아가세요. 내려가는 구간까지 통제해야 1회가 완성돼요.\n\n- 호흡법\n\n몸을 끌어올릴 때 숨을 내쉬고, 내려오면서 숨을 들이마시세요. 반복 중 숨을 오래 참지 말고 일정한 호흡을 유지하세요.\n\n● 주의사항\n\n1. 어깨·팔꿈치·손목에 통증이 느껴지면 즉시 중단하세요.\n2. 반동으로 몸을 차거나 허리를 과하게 젖히지 마세요.\n3. 가동범위가 무너지면 반복 수를 줄이거나 어시스티드 머신·밴드로 난도를 낮추세요."
+            "● 팁\n\n풀업은 등, 어깨, 팔 근육을 동시에 강화하는 운동입니다. 그립의 넓이와 손바닥 방향에 따라 자극되는 근육의 비중이 달라집니다. 처음부터 반복 수를 늘리기보다 매 반복의 시작과 끝 자세를 일정하게 유지합니다.\n\n● 설명\n\n- 준비\n\n1. 바를 어깨너비보다 약간 넓게 오버핸드 그립으로 잡습니다.\n2. 팔을 완전히 뻗은 상태에서 어깨를 귀에서 멀어지게 내리고, 복부와 둔근에 가볍게 힘을 줍니다.\n3. 다리를 앞뒤로 흔들지 말고 발목을 겹쳐 몸통을 하나의 단단한 덩어리처럼 유지합니다.\n\n- 움직임\n\n1. 가슴을 바 쪽으로 끌어올리면서 팔꿈치를 아래·뒤 방향으로 당깁니다.\n2. 턱만 내미는 대신 가슴이 올라가도록 움직이고, 어깨가 으쓱하지 않게 유지합니다.\n3. 위에서 잠깐 멈춘 뒤 팔꿈치를 천천히 펴며 시작 자세로 돌아갑니다. 내려가는 구간까지 통제해야 1회가 완성됩니다.\n\n- 호흡법\n\n몸을 끌어올릴 때 숨을 내쉬고, 내려오면서 숨을 들이마십니다. 반복 중 숨을 오래 참지 말고 일정한 호흡을 유지합니다.\n\n● 주의사항\n\n1. 어깨·팔꿈치·손목에 통증이 느껴지면 즉시 중단합니다.\n2. 반동으로 몸을 차거나 허리를 과하게 젖히지 않습니다.\n3. 가동범위가 무너지면 반복 수를 줄이거나 어시스티드 머신·밴드로 난도를 낮춥니다."
         } else {
-            "● 팁\n\n${exercise.name}은 ${exercise.muscles} 근육을 사용하는 운동이에요. 무게를 올리는 것보다 몸통을 고정하고 매 반복의 시작·끝 자세를 일정하게 유지하는 것이 우선이에요. 목표 근육에 힘이 들어오는지 느끼면서 호흡과 속도를 일정하게 맞추세요.\n\n● 설명\n\n- 준비\n\n1. 기구와 그립을 편하게 잡고 발·골반·몸통을 안정시키세요.\n2. 어깨를 으쓱하지 말고 관절이 자연스럽게 움직이는 위치를 찾으세요.\n3. 가벼운 무게로 1세트를 진행해 통증과 가동범위를 확인하세요.\n\n- 움직임\n\n1. 목표 근육으로 힘을 보내며 1~2초에 걸쳐 들어 올리거나 당기세요.\n2. 수축 지점에서 반동 없이 잠깐 멈추고, 무게를 놓치지 않으며 천천히 돌아오세요.\n3. 몸통이 흔들리거나 관절이 먼저 움직이면 무게와 반복 수를 낮추고 궤적을 다시 맞추세요.\n4. 마지막 반복까지 같은 자세를 유지할 수 있을 때만 다음 세트의 무게를 올리세요.\n\n- 호흡법\n\n힘을 쓰는 구간에 숨을 내쉬고, 시작 위치로 돌아오며 들이마시세요. 무거울 때도 숨을 오래 참지 말고 복부 긴장과 호흡을 함께 유지하세요.\n\n● 주의사항\n\n1. 날카로운 통증, 저림 또는 관절 불편감이 느껴지면 즉시 중단하세요.\n2. 빠른 반동, 과한 무게, 허리 꺾기로 반복 수를 억지로 채우지 마세요.\n3. 자세가 무너지기 시작하면 세트를 끝내고 다음 세트는 무게나 범위를 조절하세요."
+            "● 팁\n\n${exercise.name}은 ${exercise.muscles} 근육을 사용하는 운동입니다. 무게를 올리는 것보다 몸통을 고정하고 매 반복의 시작·끝 자세를 일정하게 유지하는 것이 우선입니다. 목표 근육에 힘이 들어오는지 느끼면서 호흡과 속도를 일정하게 맞춥니다.\n\n● 설명\n\n- 준비\n\n1. 기구와 그립을 편하게 잡고 발·골반·몸통을 안정시킵니다.\n2. 어깨를 으쓱하지 말고 관절이 자연스럽게 움직이는 위치를 찾습니다.\n3. 가벼운 무게로 1세트를 진행해 통증과 가동범위를 확인합니다.\n\n- 움직임\n\n1. 목표 근육으로 힘을 보내며 1~2초에 걸쳐 들어 올리거나 당깁니다.\n2. 수축 지점에서 반동 없이 잠깐 멈추고, 무게를 놓치지 않으며 천천히 돌아옵니다.\n3. 몸통이 흔들리거나 관절이 먼저 움직이면 무게와 반복 수를 낮추고 궤적을 다시 맞춥니다.\n4. 마지막 반복까지 같은 자세를 유지할 수 있을 때만 다음 세트의 무게를 올립니다.\n\n- 호흡법\n\n힘을 쓰는 구간에 숨을 내쉬고, 시작 위치로 돌아오며 들이마십니다. 무거울 때도 숨을 오래 참지 말고 복부 긴장과 호흡을 함께 유지합니다.\n\n● 주의사항\n\n1. 날카로운 통증, 저림 또는 관절 불편감이 느껴지면 즉시 중단합니다.\n2. 빠른 반동, 과한 무게, 허리 꺾기로 반복 수를 억지로 채우지 않습니다.\n3. 자세가 무너지기 시작하면 세트를 끝내고 다음 세트는 무게나 범위를 조절합니다."
         }
 
     private fun showExerciseInfo(exercise: ExerciseDefinition, onReturn: () -> Unit) {
@@ -2894,7 +2894,7 @@ class MainActivity : ComponentActivity() {
                         runCatching { ExerciseRecordOverview.from(FinishedWorkoutStore(this@MainActivity).historyForRecords(), exercise.id, exercise.kind == ExerciseKind.HOLD) }
                             .getOrElse {
                                 Log.e(EVENT_TAG, "exercise history read failed", it)
-                                ExerciseRecordOverview(listOf("기록을 불러오지 못했어요" to "잠시 후 다시 열어 주세요."), emptyList())
+                                ExerciseRecordOverview(listOf("기록 불러오기 실패" to "잠시 후 다시 열어 주세요."), emptyList())
                             }
                     }
                 }
@@ -2902,7 +2902,7 @@ class MainActivity : ComponentActivity() {
                     name = exercise.name, muscles = exercise.muscles, description = exerciseDescription(exercise),
                     myRecord = actual?.records ?: listOf("기록 불러오는 중" to ""), stats = actual?.stats.orEmpty(),
                     analysisNote = if (ExerciseTrackingProfiles.resolve(exercise.id, exercise.name).mode == TrackingMode.MANUAL_REQUIRED)
-                        "실제 횟수를 폰이나 워치에서 입력해 주세요. 손목 신호로 횟수·다리 자세를 판정하지 않아요." else "",
+                        "실제 횟수를 폰이나 워치에서 입력해 주세요. 손목 신호로 횟수·다리 자세를 판정하지 않습니다." else "",
                 )
                 ExerciseInfoScreen(info, back = onReturn) { height -> exerciseAnimationView(exercise, height) }
             }
@@ -2926,13 +2926,13 @@ class MainActivity : ComponentActivity() {
                 it.restingPageIndex = it.restingPageIndex?.let { page -> adjustedIndexAfterMove(page, from, to) }
             }
         }
-        if (announce) Toast.makeText(this, "순서를 바꿨어요", Toast.LENGTH_SHORT).show()
+        if (announce) Toast.makeText(this, "순서 변경 완료", Toast.LENGTH_SHORT).show()
     }
 
     private fun finishRoutineMove(routine: WorkoutRoutine) {
         if (!commitRunningRoutineEdit(routine)) return
         if (routines.any { it === routine } && !saveRoutineLibrary()) return
-        Toast.makeText(this, "순서를 바꿨어요", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "순서 변경 완료", Toast.LENGTH_SHORT).show()
     }
 
     /** Saves and resyncs the watch when [routine] is the running workout's list, which edits alone do not do. */
@@ -2952,8 +2952,8 @@ class MainActivity : ComponentActivity() {
     private fun removeExerciseWithUndo(routine: WorkoutRoutine, index: Int, active: ActiveWorkout?, onReturn: () -> Unit) {
         val exercise = routine.exercises.getOrNull(index)?.exercise ?: return
         if (activeWorkout?.routine === routine) {
-            if (routine.exercises.size <= 1) return Toast.makeText(this, "운동이 하나뿐이라 삭제할 수 없어요", Toast.LENGTH_SHORT).show()
-            if (routine.exercises[index].sets.any { it.completed }) return Toast.makeText(this, "완료한 세트가 있는 운동은 삭제할 수 없어요", Toast.LENGTH_SHORT).show()
+            if (routine.exercises.size <= 1) return Toast.makeText(this, "운동이 하나뿐이라 삭제할 수 없습니다", Toast.LENGTH_SHORT).show()
+            if (routine.exercises[index].sets.any { it.completed }) return Toast.makeText(this, "완료한 세트가 있는 운동은 삭제할 수 없습니다", Toast.LENGTH_SHORT).show()
         }
         // No "are you sure": remove right away and leave a short window to take it back.
         val removed = routine.exercises[index]
@@ -2978,7 +2978,7 @@ class MainActivity : ComponentActivity() {
         }
         if (routines.any { it === routine }) saveRoutineLibrary()
         if (!commitRunningRoutineEdit(routine)) { onReturn(); return }
-        overlays.showUndo(UndoNotice("${exercise.name}을(를) 삭제했어요") {
+        overlays.showUndo(UndoNotice("${exercise.name} 삭제 완료") {
             if (routine.exercises.any { item -> item.sets.any { set -> removed.sets.any { it.setId == set.setId } } }) return@UndoNotice
             val running = activeWorkout?.takeIf { it.routine === routine }
             val currentExercise = running?.let { routine.exercises.getOrNull(it.exerciseIndex) }
@@ -3014,7 +3014,7 @@ class MainActivity : ComponentActivity() {
                 val running = activeWorkout?.takeIf { it.routine === routine }
                 if (running != null) {
                     if (routine.exercises[index].sets.any { it.completed }) {
-                        return@PickDialog Toast.makeText(this, "완료한 세트가 있는 운동은 대체할 수 없어요", Toast.LENGTH_SHORT).show()
+                        return@PickDialog Toast.makeText(this, "완료한 세트가 있는 운동은 대체할 수 없습니다", Toast.LENGTH_SHORT).show()
                     }
                     beginWorkoutEdit(running)
                     // A swapped exercise starts fresh; partial unilateral results belong to the old exercise.
@@ -3031,7 +3031,7 @@ class MainActivity : ComponentActivity() {
                 routine.exercises[index] = routine.exercises[index].copy(exercise = alternatives[which])
                 if (routines.any { it === routine }) saveRoutineLibrary()
                 if (!commitRunningRoutineEdit(routine)) { onReturn(); return@PickDialog }
-                Toast.makeText(this, "${alternatives[which].name}(으)로 바꿨어요", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "${alternatives[which].name}(으)로 변경 완료", Toast.LENGTH_SHORT).show()
                 onReturn()
             }
         }
@@ -3073,7 +3073,7 @@ class MainActivity : ComponentActivity() {
             }
         }.onFailure {
             Log.e(EVENT_TAG, "routine library load failed; file retained", it)
-            Toast.makeText(this, "루틴을 불러오지 못했어요. 기존 저장 파일을 유지하고 덮어쓰지 않아요.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "루틴을 불러오지 못했습니다. 기존 저장 파일은 유지하며 덮어쓰지 않습니다.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -3082,7 +3082,7 @@ class MainActivity : ComponentActivity() {
         customExercises: List<ExerciseDefinition> = customExercises(),
     ): Boolean = routineLibraryStore.save(RoutineLibrary(plans, customExercises)).onFailure {
         Log.e(EVENT_TAG, "routine library save failed; previous file retained", it)
-        Toast.makeText(this, "루틴·운동을 저장하지 못했어요. 이전 저장 데이터는 유지돼요.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "루틴·운동 저장 실패. 이전 저장 데이터는 유지됩니다.", Toast.LENGTH_LONG).show()
     }.isSuccess
 
     private fun showRenameRoutineDialog(routine: WorkoutRoutine, onDone: () -> Unit) {
@@ -3180,9 +3180,9 @@ class MainActivity : ComponentActivity() {
         val completed = workout?.routine?.exercises?.sumOf { it.sets.completedWorkSetCount() } ?: 0
         showPopup { dismiss ->
             if (completed == 0) {
-                ConfirmDialog("운동을 종료할까요?", "완료한 세트가 없어서 저장할 기록이 없어요.", "계속 운동", "종료", dismiss) { endWorkout(save = false) }
+                ConfirmDialog("운동을 종료할까요?", "완료한 세트가 없어 저장할 기록이 없습니다.", "계속 운동", "종료", dismiss) { endWorkout(save = false) }
             } else {
-                StopWorkoutDialog("운동을 종료할까요?", "완료한 ${completed}세트를 기록으로 저장할 수 있어요.", dismiss,
+                StopWorkoutDialog("운동을 종료할까요?", "완료한 ${completed}세트를 기록으로 저장할 수 있습니다.", dismiss,
                     onSave = { endWorkout(save = true) }, onDiscard = { endWorkout(save = false) })
             }
         }
@@ -3422,7 +3422,7 @@ class MainActivity : ComponentActivity() {
         // A rejected binding (e.g. an edit that changed a frozen set) must never take the whole app down mid-workout.
         runCatching { PhoneWorkoutService.send(this, path, payload) }.onFailure {
             Log.w("KCoachEvent", "watch command rejected; app kept running", it)
-            Toast.makeText(this, "워치 동기화에 실패했어요. 세트를 다시 열어주세요", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "워치 동기화 실패. 세트를 다시 열어 주세요", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -3566,7 +3566,7 @@ class MainActivity : ComponentActivity() {
                 // A stale or corrupt layout must not kill the running screen; keep the in-memory plan.
                 Log.e(EVENT_TAG, "saved set layout rejected; current workout retained", it)
                 activeLiveStatus?.apply {
-                    text = "저장된 세트 구성을 읽지 못했어요 · 현재 운동은 유지 중"
+                    text = "저장된 세트 구성 읽기 실패 · 현재 운동은 유지 중"
                     setTextColor(amber)
                 }
                 return

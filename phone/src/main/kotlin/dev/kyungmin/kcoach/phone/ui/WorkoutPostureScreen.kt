@@ -32,7 +32,7 @@ internal fun WorkoutPostureScreen(answers: Map<String, String>, back: () -> Unit
                 TextButton(onClick = back) { KIcon(KIcon.Back, KColors.White) }
                 Text("운동별 자세", color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
             }
-            Text("평소 하는 그립이나 자세를 알려주면 횟수 인식이 더 정확해져요. 정하지 않은 운동은 '모름'으로 시작해요.",
+            Text("평소 하는 그립이나 자세를 알려 주면 횟수 인식이 더 정확해집니다. 정하지 않은 운동은 '모름'으로 시작합니다.",
                 color = KColors.Muted, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))
             WorkoutPreparation.allQuestions().forEach { question ->

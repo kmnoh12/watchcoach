@@ -60,8 +60,8 @@ class CalibrationReviewActivity : ComponentActivity() {
                 }
                 runOnUiThread {
                     if (!isFinishing && !isDestroyed) Toast.makeText(this,
-                        if (result.isSuccess) "검증 자료 ZIP을 저장했어요. 앱에서 외부로 전송하지 않았어요."
-                        else "저장하지 못했어요. 워치 원본 수신과 촬영 종료 상태를 확인해 주세요. 실패한 파일은 검증 자료로 사용하지 마세요.", Toast.LENGTH_LONG).show()
+                        if (result.isSuccess) "검증 자료 ZIP을 저장했습니다. 앱에서 외부로 전송하지 않았습니다."
+                        else "저장하지 못했습니다. 워치 원본 수신과 촬영 종료 상태를 확인해 주세요. 실패한 파일은 검증 자료로 사용하지 마세요.", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -96,7 +96,7 @@ class CalibrationReviewActivity : ComponentActivity() {
         content.addView(button("개인 패턴·검증 현황") { startActivity(Intent(this, PatternCandidatesActivity::class.java)) })
         content.addView(button("준비 손목 방향 · 자료 확인") { startActivity(Intent(this, StartDirectionReviewActivity::class.java)) })
         val clips = captures.list()
-        if (clips.isEmpty()) content.addView(text("아직 촬영 자료가 없어요."))
+        if (clips.isEmpty()) content.addView(text("아직 촬영 자료가 없습니다."))
         clips.forEach { clip -> content.addView(button("${clip.exerciseName} · ${
             if (captures.videoFile(clip.id).isFile && clip.videoComplete) "영상 확인"
             else if (CalibrationVideoRetention(this).logsOnly(clip.id)) "로그만 보관" else "중단·영상 없음"
@@ -116,14 +116,14 @@ class CalibrationReviewActivity : ComponentActivity() {
         root()
         content.addView(text("${selected.exerciseName}\n반복 구간 확인", 24f))
         content.addView(text(if (selected.videoComplete) "영상에서 실제 동작을 확인하고 시작·전환·복귀 위치를 표시해 주세요."
-            else "중단된 자료예요. 원본은 보관하며 이번 자료로 자동 보정하지 않아요."))
+            else "중단된 자료입니다. 원본은 보관하며 이번 자료로 자동 보정하지 않습니다."))
         content.addView(button("선택한 검증 자료 내보내기") {
             val includeVideo = CheckBox(this).apply {
                 text = "촬영 영상도 포함 (기본은 센서·관절 좌표·확인 라벨·시계 기록만)"
                 isChecked = false; isEnabled = captures.videoFile(id).isFile
             }
             AlertDialog.Builder(this).setTitle("검증 자료 ZIP 저장")
-                .setMessage("선택한 촬영의 운동·센서·신체 관절 좌표가 포함돼요. 계정 토큰과 다른 앱 설정은 제외해요. 저장 위치는 직접 선택하고, 앱이 자동으로 외부에 보내지 않아요.")
+                .setMessage("선택한 촬영의 운동·센서·신체 관절 좌표가 포함됩니다. 계정 토큰과 다른 앱 설정은 제외합니다. 저장 위치는 직접 선택하고, 앱이 자동으로 외부에 보내지 않습니다.")
                 .setView(includeVideo).setNegativeButton("취소", null).setPositiveButton("저장 위치 선택") { _, _ ->
                     exportCaptureId = id; exportVideo = includeVideo.isChecked
                     createEvidenceDocument.launch("kcoach-evidence-${id.takeLast(8)}.zip")
@@ -139,29 +139,29 @@ class CalibrationReviewActivity : ComponentActivity() {
                 reviews.saveCount(id, count, review?.revision ?: 0).onSuccess {
                     review = it; dialog.dismiss(); countButton?.text = "실제 총 횟수: ${it.countReference!!.reps}회"
                 }
-                    .onFailure { input.error = "확인한 구간 수보다 적거나 기록이 바뀌었어요. 다시 확인해 주세요." }
+                    .onFailure { input.error = "확인한 구간 수보다 적거나 기록이 바뀌었습니다. 다시 확인해 주세요." }
             } }; dialog.show()
         }
         content.addView(countButton)
         if (selected.status == CalibrationCaptureStatus.REVIEW_PENDING && selected.videoComplete && captures.videoFile(id).isFile) addVideoRetention(id)
         if (!captures.videoFile(id).isFile && selected.videoComplete) {
             content.addView(text(if (CalibrationVideoRetention(this).logsOnly(id))
-                "로그만 보관 중이에요. 센서·관절·기존 확인 라벨은 남아 있으며 실제 영상으로 동작을 다시 확인하거나 새 영상 라벨을 만들 수는 없어요."
-                else "원본 영상을 찾지 못했어요. 기존 로그와 라벨은 보관하지만 영상 재확인은 할 수 없어요."))
+                "로그만 보관 중입니다. 센서·관절·기존 확인 라벨은 남아 있으며 실제 영상으로 동작을 다시 확인하거나 새 영상 라벨을 만들 수는 없습니다."
+                else "원본 영상을 찾지 못했습니다. 기존 로그와 라벨은 보관하지만 영상 재확인은 할 수 없습니다."))
             content.addView(text(observedText(review)))
             cycleRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             content.addView(cycleRows)
             cycles.forEachIndexed { index, cycle ->
                 cycleRows?.addView(text("확인한 ${index + 1}회 · ${"%.2f".format(cycle.durationMs / 1000.0)}초"))
-                cycleRows?.addView(text(if (cycle.pauses.isEmpty()) "정지 구간 미확인 · 0초로 간주하지 않아요."
-                    else "표시한 정지 합계 ${"%.2f".format(cycle.pauseMs / 1000.0)}초 · 영상 없이 새 정지 표시는 만들 수 없어요."))
+                cycleRows?.addView(text(if (cycle.pauses.isEmpty()) "정지 구간 미확인 · 0초로 간주하지 않습니다."
+                    else "표시한 정지 합계 ${"%.2f".format(cycle.pauseMs / 1000.0)}초 · 영상 없이 새 정지 표시는 만들 수 없습니다."))
             }
             nonRepIntervals.forEach { interval -> cycleRows?.addView(text("횟수 제외 · ${interval.reason.label} · ${"%.2f".format((interval.endNs - interval.startNs) / 1e9)}초")) }
             content.addView(button("개인 패턴·검증 현황") { startActivity(Intent(this, PatternCandidatesActivity::class.java)) })
             content.addView(button("촬영 목록") { showList() }); return
         }
         if (!selected.videoComplete || frames.isEmpty()) {
-            content.addView(text("횟수만 확인한 기록에는 반복 경계나 자세 정답을 만들지 않아요."))
+            content.addView(text("횟수만 확인한 기록에는 반복 경계나 자세 정답을 만들지 않습니다."))
             content.addView(button("촬영 목록") { showList() }); return
         }
         image = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
@@ -182,8 +182,8 @@ class CalibrationReviewActivity : ComponentActivity() {
         })
         content.addView(button("영상 반복 구간 자동 제안") {
             val proposed = CameraRepProposals.propose(frames, selected.exerciseId, selected.watchOnLeft)
-            if (proposed.isEmpty()) { toast("보이는 기준 위치로 완성된 반복을 제안하지 못했어요. 수동으로 확인해 주세요.") }
-            else android.app.AlertDialog.Builder(this).setMessage("영상 후보 ${proposed.size}회예요. 실제 시작·전환·복귀 프레임을 확인하고 틀린 구간을 수정해 주세요. 현재 구간 목록을 바꿀까요?")
+            if (proposed.isEmpty()) { toast("보이는 기준 위치로 완성된 반복을 제안하지 못했습니다. 수동으로 확인해 주세요.") }
+            else android.app.AlertDialog.Builder(this).setMessage("영상 후보 ${proposed.size}회입니다. 실제 시작·전환·복귀 프레임을 확인하고 틀린 구간을 수정해 주세요. 현재 구간 목록을 바꿀까요?")
                 .setNegativeButton("유지", null).setPositiveButton("후보로 채우기") { _, _ ->
                     cycles = proposed.toMutableList()
                     getSharedPreferences("camera-rep-proposals", MODE_PRIVATE).edit().putString(id, org.json.JSONArray(proposed.map { c -> org.json.JSONArray(listOf(c.startNs, c.turnaroundNs, c.endNs)) }).toString()).commit()
@@ -192,7 +192,7 @@ class CalibrationReviewActivity : ComponentActivity() {
         })
         val mapping = reviews.alignment(id).getOrNull()
         val received = captures.sensor(id).getOrNull()
-        content.addView(text(if (mapping == null) "워치 원본 또는 시간 확인이 부족해요. 자료를 받은 뒤 새로고침해 주세요."
+        content.addView(text(if (mapping == null) "워치 원본 또는 시간 확인이 부족합니다. 자료를 받은 뒤 새로고침해 주세요."
             else "시간 교환 오차 범위 약 ${mapping.uncertaintyNs / 1_000_000}ms · 아래 두 신호에서 동작 시점을 비교해 주세요."))
         chart = SignalView().apply {
             cameraSeries = frames.mapNotNull { frame ->
@@ -208,27 +208,27 @@ class CalibrationReviewActivity : ComponentActivity() {
             } else emptyList()
         }
         content.addView(chart, LinearLayout.LayoutParams(-1, 220))
-        content.addView(text("민트: 영상 속 손목 높이 · 주황: 워치 회전 움직임\n단위가 다른 신호를 각각 보기 편하게 표시했어요. 파형 모양이 같다고 정답으로 판정하지 않아요."))
+        content.addView(text("민트: 영상 속 손목 높이 · 주황: 워치 회전 움직임\n단위가 다른 신호를 각각 보기 편하게 표시했습니다. 파형 모양이 같다고 정답으로 판정하지 않습니다."))
         val alignment = CheckBox(this).apply {
-            text = "처음·중간·끝의 동작 시점이 두 자료에서 맞는지 확인했어요"
+            text = "처음·중간·끝의 동작 시점이 두 자료에서 맞는지 확인했습니다"
             setTextColor(Color.WHITE); isEnabled = mapping != null && received != null
         }
         content.addView(alignment)
         if (selected.startWristContext?.completeForDirectionValidation == true) addDirectionReview(id, alignment)
         val simultaneous = CheckBox(this).apply {
-            text = "양팔을 동시에 움직인 촬영이에요 (좌우 비교용)"
+            text = "양팔을 동시에 움직인 촬영입니다 (좌우 비교용)"
             setTextColor(Color.WHITE); isChecked = review?.cameraMetrics?.simultaneousArmsReviewed == true
         }
         content.addView(simultaneous)
         observedMetricsText = text(observedText(review))
         content.addView(observedMetricsText)
-        markerButtons = listOf(button("시작 위치 지정") { startMark = currentNs(); toast("첫 위치를 지정했어요.") },
-            button("전환 위치 지정") { turnMark = currentNs(); toast("전환 위치를 지정했어요.") },
+        markerButtons = listOf(button("시작 위치 지정") { startMark = currentNs(); toast("첫 위치를 지정했습니다.") },
+            button("전환 위치 지정") { turnMark = currentNs(); toast("전환 위치를 지정했습니다.") },
             button("복귀 지정 · 1회 추가") { addBoundary() },
             button("횟수 제외 구간 · 시작 지정") { nonRepStart = currentNs(); toast("제외할 동작의 끝으로 이동해 주세요.") },
             button("횟수 제외 구간 · 끝과 이유 지정") { addNonRepInterval() })
         markerButtons.forEach { content.addView(it) }
-        content.addView(text("반복 사이 준비·멈춤·끝에 남은 반 반복·내려놓기·가림은 제외 구간으로 표시해 주세요. 완전 반복 안의 멈춤은 아래 반복 행에서 따로 표시해요."))
+        content.addView(text("반복 사이 준비·멈춤·끝에 남은 반 반복·내려놓기·가림은 제외 구간으로 표시해 주세요. 완전 반복 안의 멈춤은 아래 반복 행에서 따로 표시합니다."))
         content.addView(button("표시하던 구간 취소") { splitIndex = null; startMark = null; turnMark = null; nonRepStart = null; pauseStart = null; updateMarkerTitles() })
         cycleRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(cycleRows); renderCycles()
@@ -239,24 +239,24 @@ class CalibrationReviewActivity : ComponentActivity() {
                 review = it
                 observedMetricsText?.text = observedText(it)
                 toast(if (ExerciseMeasurementContracts.resolve(selected.exerciseId).recipe == MeasurementRecipe.SQUAT)
-                    "영상 확인 반복 ${it.references.size}개 저장 · 워치 단독 횟수는 수동 입력이에요."
-                    else "완전 반복 ${it.references.size}개 · 제외 구간 ${it.nonRepIntervals.size}개를 저장했어요. 촬영 품질과 횟수 일치는 후보 생성 전에 다시 확인해요")
+                    "영상 확인 반복 ${it.references.size}개 저장 · 워치 단독 횟수는 수동 입력입니다."
+                    else "완전 반복 ${it.references.size}개 · 제외 구간 ${it.nonRepIntervals.size}개를 저장했습니다. 촬영 품질과 횟수 일치는 후보 생성 전에 다시 확인합니다")
             }.onFailure { toast("구간·총 횟수 또는 영상 상태를 다시 확인해 주세요.") }
         })
         content.addView(button("원본 수신 상태 새로고침") { showCapture(id) })
         if (ExerciseTrackingProfiles.resolve(selected.exerciseId).mode != TrackingMode.MANUAL_REQUIRED) content.addView(button("확인한 자료로 보정 후보 만들기") {
-            toast("같은 동작·착용 조건의 확인 자료를 모으고 있어요.")
+            toast("같은 동작·착용 조건의 확인 자료를 모으고 있습니다.")
             worker.execute {
                 val built = PatternCandidateStore(this).buildForCapture(id)
                 runOnUiThread {
                     if (isFinishing || isDestroyed) return@runOnUiThread
                     built.onSuccess {
                         startActivity(Intent(this, PatternCandidatesActivity::class.java).putExtra("candidateId", it.profile.id))
-                    }.onFailure { error -> toast(error.message?.takeIf { it.contains("보정에 적용하지 않아요") }
-                        ?: "보정 후보를 만들지 못했어요. 촬영 방향·관절 가시성, 세 가지 횟수 일치와 확인 반복 ${CalibrationSafety.MIN_REPS}회 이상을 확인해 주세요") }
+                    }.onFailure { error -> toast(error.message?.takeIf { it.contains("보정에 적용하지 않습니다") }
+                        ?: "보정 후보를 만들지 못했습니다. 촬영 방향·관절 가시성, 세 가지 횟수 일치와 확인 반복 ${CalibrationSafety.MIN_REPS}회 이상을 확인해 주세요") }
                 }
             }
-        }) else content.addView(text("이 운동은 손목 자동 측정 대상이 아니에요. 영상과 실제 횟수는 보관하며 워치 횟수 보정 후보를 만들지 않아요."))
+        }) else content.addView(text("이 운동은 손목 자동 측정 대상이 아니에요. 영상과 실제 횟수는 보관하며 워치 횟수 보정 후보를 만들지 않습니다."))
         content.addView(button("촬영 목록") { showList() })
         selectFrame(0)
     }
@@ -266,13 +266,13 @@ class CalibrationReviewActivity : ComponentActivity() {
             worker.execute {
                 val result = CalibrationVideoRetention(this).keepVideo(id)
                 runOnUiThread { if (!isFinishing && !isDestroyed && capture?.id == id)
-                    toast(if (result.isSuccess) "영상과 로그를 함께 보관해요." else "영상 보관 상태를 저장하지 못했어요.") }
+                    toast(if (result.isSuccess) "영상과 로그를 함께 보관합니다." else "영상 보관 상태를 저장하지 못했습니다.") }
             }
         })
         content.addView(button("확인 후 로그만 보관") {
             val expectedReview = review?.revision ?: 0L
             AlertDialog.Builder(this).setTitle("이 촬영의 영상만 삭제")
-                .setMessage("실제 영상을 다시 볼 수 없어요. 센서·관절·이미 확인한 라벨·운동 기록은 남아요. 동작 확인을 마친 촬영만 선택해 주세요.")
+                .setMessage("실제 영상을 다시 볼 수 없습니다. 센서·관절·이미 확인한 라벨·운동 기록은 남습니다. 동작 확인을 마친 촬영만 선택해 주세요.")
                 .setNegativeButton("취소", null).setPositiveButton("영상 삭제 · 로그 보관") { _, _ ->
                     previewRequest.incrementAndGet()
                     worker.execute {
@@ -282,8 +282,8 @@ class CalibrationReviewActivity : ComponentActivity() {
                         }
                         runOnUiThread {
                             if (isFinishing || isDestroyed || capture?.id != id) return@runOnUiThread
-                            result.onSuccess { showCapture(id); toast("영상만 삭제하고 확인 로그를 보관했어요.") }
-                                .onFailure { toast("삭제하지 못했어요. 동작 확인 저장·기록 변경·영상 상태를 확인해 주세요.") }
+                            result.onSuccess { showCapture(id); toast("영상만 삭제하고 확인 로그를 보관했습니다.") }
+                                .onFailure { toast("삭제하지 못했습니다. 동작 확인 저장·기록 변경·영상 상태를 확인해 주세요.") }
                         }
                     }
                 }.show()
@@ -303,7 +303,7 @@ class CalibrationReviewActivity : ComponentActivity() {
         content.addView(button("손목 방향 구간 시작 지정") {
             val ns = currentNs()
             if (ns == null) toast("영상 프레임이 표시된 뒤 지정해 주세요.")
-            else { intervalStart = ns; toast("방향 구간의 시작을 지정했어요.") }
+            else { intervalStart = ns; toast("방향 구간의 시작을 지정했습니다.") }
         })
         content.addView(button("손목 방향 구간 끝 · 종류 지정") {
             val start = intervalStart; val end = currentNs()
@@ -330,7 +330,7 @@ class CalibrationReviewActivity : ComponentActivity() {
                     runOnUiThread {
                         if (isFinishing || isDestroyed || capture?.id != id) return@runOnUiThread
                         result.onSuccess { expectedRevision = it.revision; summary.text = "영상 확인 방향 ${it.intervals.size}개 저장 · 후보·독립 검증 전" }
-                            .onFailure { toast("저장하지 못했어요. 구간 겹침·2초 연속 센서·영상 종료·시간 정렬을 확인해 주세요.") }
+                            .onFailure { toast("저장하지 못했습니다. 구간 겹침·2초 연속 센서·영상 종료·시간 정렬을 확인해 주세요.") }
                     }
                 }
             }
@@ -413,8 +413,8 @@ class CalibrationReviewActivity : ComponentActivity() {
         val origin = frames.firstOrNull()?.cameraTimestampNs ?: 0
         cycles.forEachIndexed { index, cycle ->
             rows.addView(text("${index + 1}회 · ${"%.2f".format((cycle.startNs - origin) / 1e9)} → ${"%.2f".format((cycle.turnaroundNs - origin) / 1e9)} → ${"%.2f".format((cycle.endNs - origin) / 1e9)}초"))
-            rows.addView(text(if (cycle.pauses.isEmpty()) "정지 구간 미확인 · 0초로 간주하지 않아요."
-                else "표시한 정지 합계 ${"%.2f".format(cycle.pauseMs / 1000.0)}초 · 이 반복은 현재 개인 패턴 학습에서 제외해요."))
+            rows.addView(text(if (cycle.pauses.isEmpty()) "정지 구간 미확인 · 0초로 간주하지 않습니다."
+                else "표시한 정지 합계 ${"%.2f".format(cycle.pauseMs / 1000.0)}초 · 이 반복은 현재 개인 패턴 학습에서 제외합니다."))
             rows.addView(LinearLayout(this).apply {
                 addView(button("정지 시작 지정") {
                     val at = currentNs()
@@ -457,7 +457,7 @@ class CalibrationReviewActivity : ComponentActivity() {
                             val edited = when (field) { 0 -> cycle.copy(startNs = value); 1 -> cycle.copy(turnaroundNs = value); else -> cycle.copy(endNs = value) }
                             require((index == 0 || cycles[index - 1].endNs <= edited.startNs) && (index == cycles.lastIndex || cycles[index + 1].startNs >= edited.endNs))
                             cycles[index] = edited; renderCycles()
-                        }.onFailure { toast("다른 구간과 겹치거나 순서가 바뀌었어요.") }
+                        }.onFailure { toast("다른 구간과 겹치거나 순서가 바뀌었습니다.") }
                     }.show()
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(button("제외") { cycles.removeAt(index); splitIndex = null; pauseStart = null; renderCycles(); updateMarkerTitles() }, LinearLayout.LayoutParams(0, -2, 1f))
@@ -465,13 +465,13 @@ class CalibrationReviewActivity : ComponentActivity() {
             rows.addView(LinearLayout(this).apply {
                 addView(button("두 반복으로 분할") {
                     splitIndex = index; startMark = null; turnMark = null; pauseStart = null; updateMarkerTitles()
-                    toast("첫 전환·나눌 복귀·둘째 전환을 차례로 지정해 주세요. 기존 정지 표시는 보존돼요.")
+                    toast("첫 전환·나눌 복귀·둘째 전환을 차례로 지정해 주세요. 기존 정지 표시는 보존됩니다.")
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 if (index < cycles.lastIndex) addView(button("다음과 합치기") {
                     runCatching {
                         val combined = cycle.merge(cycles[index + 1], currentNs() ?: error("No frame"))
                         cycles[index] = combined; cycles.removeAt(index + 1); pauseStart = null; renderCycles()
-                    }.onFailure { toast("합칠 반복 안의 전환 프레임을 선택해 주세요. 기존 정지 표시는 보존돼요.") }
+                    }.onFailure { toast("합칠 반복 안의 전환 프레임을 선택해 주세요. 기존 정지 표시는 보존됩니다.") }
                 }, LinearLayout.LayoutParams(0, -2, 1f))
             })
         }

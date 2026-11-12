@@ -95,7 +95,7 @@ class ProgressionEngine {
         if (allAtTop && (averageRir == null || averageRir >= 1.0)) {
             return ProgressionDecision.IncreaseWeight(
                 incrementKg = minimumIncrementKg,
-                reason = "모든 작업 세트를 목표 횟수까지 채웠어요",
+                reason = "모든 작업 세트를 목표 횟수까지 채웠습니다",
             )
         }
 

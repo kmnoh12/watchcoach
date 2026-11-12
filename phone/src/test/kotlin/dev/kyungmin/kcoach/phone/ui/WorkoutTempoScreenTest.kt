@@ -24,7 +24,7 @@ class WorkoutTempoScreenTest {
         compose.onNode(isToggleable()).performClick()
         compose.onNodeWithText("다음 새 세트부터 저장").performScrollTo().performClick()
         assertNull(saved)
-        compose.onNodeWithText("시간 범위·연속 횟수·알림 간격을 확인해 주세요. 알림을 켜려면 시간 범위가 필요해요.").assertExists()
+        compose.onNodeWithText("시간 범위·연속 횟수·알림 간격을 확인해 주세요. 알림을 켜려면 시간 범위가 필요합니다.").assertExists()
         compose.onAllNodesWithText("최소 초")[0].performScrollTo().performTextInput("2")
         compose.onAllNodesWithText("최대 초")[0].performTextInput("4")
         compose.onNodeWithText("다음 새 세트부터 저장").performScrollTo().performClick()

@@ -18,8 +18,8 @@ internal fun WorkoutPreparationPanel(wearing: WorkoutWearingSelection?,
         Text("운동 준비", color = KColors.White, fontSize = 20.sp, fontWeight = FontWeight.Medium)
         Text(connection, color = KColors.Soft, fontSize = 14.sp)
         val summary = when {
-            wearingReadFailed -> "준비 설정을 불러오지 못했어요. 저장 상태를 확인해 주세요."
-            wearing == null -> "착용 정보 미설정 · 개인 보정 없이 시작해요"
+            wearingReadFailed -> "준비 설정을 불러오지 못했습니다. 저장 상태를 확인해 주세요."
+            wearing == null -> "착용 정보 미설정 · 개인 보정 없이 시작"
             else -> "${if (wearing.side == "LEFT") "왼손" else "오른손"} · ${if (wearing.placement == "OUTSIDE") "손등 쪽" else "손바닥 쪽"}"
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

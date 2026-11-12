@@ -93,11 +93,11 @@ class CalibrationResultActivity : ComponentActivity() {
                 val quality = captures.assessQuality(id, counted).getOrThrow()
                 val message = listOfNotNull(CalibrationPatternSafetyMonitor(this).notice(id), quality.message).joinToString(" · ") + " · " + when {
                     counted == null -> "영상을 보고 실제로 한 횟수를 알려 주세요."
-                    watch == null -> "${counted}회로 저장했어요. 워치 실시간 집계는 아직 받지 못했어요."
-                    watch != counted -> "${counted}회로 저장했어요. 워치 실시간 집계는 ${watch}회로 서로 달라요."
-                    else -> "${counted}회로 저장했어요. 워치 실시간 집계도 ${watch}회예요. 총횟수 일치가 각 반복 구간의 일치를 뜻하지는 않아요."
+                    watch == null -> "${counted}회로 저장했습니다. 워치 실시간 집계는 아직 받지 못했습니다."
+                    watch != counted -> "${counted}회로 저장했습니다. 워치 실시간 집계는 ${watch}회로 서로 달라요."
+                    else -> "${counted}회로 저장했습니다. 워치 실시간 집계도 ${watch}회입니다. 총횟수 일치가 각 반복 구간의 일치를 뜻하지는 않습니다."
                 } + if (review.references.isNotEmpty() && reviews.confirmationSource(id) == CalibrationReviewStore.SOURCE_VIDEO_WINDOWS)
-                    " 자동 영상 후보는 반복 경계 검토 전까지 학습에 쓰지 않아요." else ""
+                    " 자동 영상 후보는 반복 경계 검토 전까지 학습에 쓰지 않습니다." else ""
                 review.revision to CapturePlaybackUi(id, capture.exerciseName,
                     captures.videoFile(id).takeIf { capture.videoComplete && it.isFile }?.absolutePath,
                     end, heights, intervals, review.countReference?.reps, watch, message,
@@ -111,9 +111,9 @@ class CalibrationResultActivity : ComponentActivity() {
                 if (isDestroyed || request != generation) return@post
                 loading = false
                 list.onSuccess { rows -> rows?.let { clips = it } }
-                    .onFailure { loadError = "촬영 목록을 읽지 못했어요. 다시 시도해 주세요." }
+                    .onFailure { loadError = "촬영 목록을 읽지 못했습니다. 다시 시도해 주세요." }
                 result.onSuccess { row -> if (row != null) { revision = row.first; clip = row.second } }
-                    .onFailure { loadError = "촬영 자료를 읽지 못했어요. 다시 시도해 주세요." }
+                    .onFailure { loadError = "촬영 자료를 읽지 못했습니다. 다시 시도해 주세요." }
             }
         }
     }
@@ -149,7 +149,7 @@ class CalibrationResultActivity : ComponentActivity() {
             main.post {
                 if (isDestroyed) return@post
                 busy = false
-                result.onSuccess { refresh() }.onFailure { notice = "답을 저장하지 못했어요. 다시 눌러 주세요." }
+                result.onSuccess { refresh() }.onFailure { notice = "답을 저장하지 못했습니다. 다시 눌러 주세요." }
             }
         }
     }
@@ -170,9 +170,9 @@ class CalibrationResultActivity : ComponentActivity() {
                 if (isDestroyed) return@post
                 busy = false
                 notice = when {
-                    outcome.blocked.isEmpty() -> "${outcome.deleted.size}개 촬영을 삭제했어요."
-                    outcome.deleted.isEmpty() -> "삭제하지 못했어요. ${outcome.blocked.values.first()} 남겨 뒀어요."
-                    else -> "${outcome.deleted.size}개 삭제했어요. ${outcome.blocked.size}개는 ${outcome.blocked.values.first()} 남겨 뒀어요."
+                    outcome.blocked.isEmpty() -> "${outcome.deleted.size}개 촬영을 삭제했습니다."
+                    outcome.deleted.isEmpty() -> "삭제하지 못했습니다. ${outcome.blocked.values.first()} 남겨 뒀습니다."
+                    else -> "${outcome.deleted.size}개 삭제했습니다. ${outcome.blocked.size}개는 ${outcome.blocked.values.first()} 남겨 뒀습니다."
                 }
                 if (selected in outcome.deleted) { selected = null; clip = null }
                 refresh()
@@ -191,7 +191,7 @@ class CalibrationResultActivity : ComponentActivity() {
                 if (isDestroyed) return@post
                 busy = false
                 result.onSuccess { refresh() }.onFailure {
-                    if (selected == id) loadError = "횟수를 저장하지 못했어요. 다시 불러온 뒤 확인해 주세요."
+                    if (selected == id) loadError = "횟수를 저장하지 못했습니다. 다시 불러온 뒤 확인해 주세요."
                 }
             }
         }

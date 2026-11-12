@@ -132,7 +132,7 @@ class MainActivity : Activity() {
                     val message = when (intent.getStringExtra("status")) {
                         "STALE", "NO_PLAN" -> "폰에서 루틴을 다시 선택해 주세요"
                         "BUSY" -> "폰에서 진행 중인 운동을 확인해 주세요"
-                        "REJECTED" -> "요청한 세트가 변경됐어요"
+                        "REJECTED" -> "요청한 세트가 변경되었습니다"
                         else -> null
                     }
                     if (message != null) Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
@@ -335,7 +335,7 @@ class MainActivity : Activity() {
             addView(calibrationView, FrameLayout.LayoutParams(-1, -1))
             addView(resultView, FrameLayout.LayoutParams(-1, -1))
             addView(setDoneLayer, FrameLayout.LayoutParams(-1, -1))
-            failureNotice = label("워치 상태를 확인할 수 없어요\n폰에서 운동을 확인해 주세요\n눌러서 다시 확인", 15f, Color.WHITE).apply {
+            failureNotice = label("워치 상태 확인 불가\n폰에서 운동을 확인해 주세요\n눌러서 다시 확인", 15f, Color.WHITE).apply {
                 gravity = Gravity.CENTER
                 setPadding(dp(24), dp(24), dp(24), dp(24))
                 setBackgroundColor(Color.BLACK)
@@ -816,11 +816,11 @@ class MainActivity : Activity() {
                 face.heart.show(0); face.heartRate.visibility = View.GONE; face.bpm.visibility = View.GONE
                 face.applyRestMorph()
             }
-            if (paused && !restPaused) face.hint.text = "폰에서 계속할 수 있어요"
+            if (paused && !restPaused) face.hint.text = "폰에서 계속 가능"
             face.layoutCount(); face.layoutMetrics()
         } else if (complete) {
-            face.title.text = "운동 완료"; face.setSubtitle("수고했어요", WatchWorkoutFace.MUTED)
-            face.value.text = if (phoneResultStatus.isBlank()) "기록을 확인해 보세요" else phoneResultStatus
+            face.title.text = "운동 완료"; face.setSubtitle("수고하셨습니다", WatchWorkoutFace.MUTED)
+            face.value.text = if (phoneResultStatus.isBlank()) "기록 확인" else phoneResultStatus
             face.size(face.value, 14f); face.value.setTextColor(WatchWorkoutFace.WHITE)
             face.heart.show(0)
         } else {
@@ -832,7 +832,7 @@ class MainActivity : Activity() {
             face.hint.text = recent?.let {
                 val date = java.time.Instant.ofEpochMilli(it.getLong("endedAtMs")).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                 "최근 · ${it.getString("routineName")}\n${date.monthValue}월 ${date.dayOfMonth}일"
-            } ?: "최근 기록이 아직 없어요"
+            } ?: "최근 기록 없음"
             // A missing overview is unknown, not an empty workout history.
             if (homeStore.overview() == null) face.hint.text = "폰에서 기록을 확인하세요"
             face.heart.show(0)
@@ -841,13 +841,13 @@ class MainActivity : Activity() {
         // One status line under the numbers, most urgent first; every message here used to be its own control.
         val updateWaiting = otaCoordinator.store.local()?.phase == dev.kyungmin.kcoach.updates.OtaPhase.USER_ACTION_REQUIRED
         val phaseMessage = when (runtimePhase) {
-            "CAPTURE_RECOVERY_REQUIRED" -> "센서 기록 복구가 필요해요"
+            "CAPTURE_RECOVERY_REQUIRED" -> "센서 기록 복구 필요"
             "MANUAL_PENDING" -> "폰에 기록 전달 중"
             "MANUAL_CONFLICT" -> "폰과 워치의 횟수를 확인해 주세요"
             else -> ""
         }
         if (active && !resting && phaseMessage.isNotEmpty()) { face.hint.text = phaseMessage; face.hint.setTextColor(WatchWorkoutFace.ORANGE) }
-        else if (active && !paired) { face.hint.text = "폰 연결이 끊겼어요 · 기록은 보관돼요"; face.hint.setTextColor(WatchWorkoutFace.ORANGE) }
+        else if (active && !paired) { face.hint.text = "폰 연결 끊김 · 기록 보관 중"; face.hint.setTextColor(WatchWorkoutFace.ORANGE) }
         else if (updateWaiting) { face.hint.text = "폰이 요청한 업데이트 계속"; face.hint.setTextColor(WatchWorkoutFace.SAGE); face.noticeAction = { otaCoordinator.confirmInstall(this) } }
         face.hint.isClickable = face.noticeAction != null || runtimePhase == "START_DIRECTION_WAITING"
         shadowText.visibility = if (running && shadowCommandId.isNotBlank()) View.VISIBLE else View.GONE
@@ -1085,7 +1085,7 @@ class MainActivity : Activity() {
         val revision = existing?.ack?.currentRevision ?: 0L
         fun submit(count: Int) {
             if (sessionId != session || setId != set || attemptId != attempt || resting || paused) {
-                Toast.makeText(this, "세트가 바뀌었어요. 현재 세트를 확인해 주세요", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "세트가 변경되었습니다. 현재 세트를 확인해 주세요", Toast.LENGTH_LONG).show()
                 return
             }
             if (editOnly) {

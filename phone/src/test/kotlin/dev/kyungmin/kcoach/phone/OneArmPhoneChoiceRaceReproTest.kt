@@ -82,7 +82,7 @@ class OneArmPhoneChoiceRaceReproTest {
             WatchWorkoutAction.FINISH_WATCH_SIDE_ONLY, "s", "set", "a"), 121_000).getOrThrow()
         assertEquals(WatchWorkoutControlStatus.APPLIED, timedOut.ack.status)
         choose(activity.get()) // The actual sheet callback re-reads the snapshot and explains a stale choice.
-        assertEquals("운동 상태가 바뀌었어요. 현재 상태를 확인해 주세요", ShadowToast.getTextOfLatestToast())
+        assertEquals("운동 상태가 변경되었습니다. 현재 상태를 확인해 주세요", ShadowToast.getTextOfLatestToast())
         assertNull(overlays.current)
         val latest = store.loadActive().getOrThrow()!!
         assertEquals(UnilateralStage.WATCH_SIDE_ONLY, latest.plannedSets.single().unilateral!!.stage)

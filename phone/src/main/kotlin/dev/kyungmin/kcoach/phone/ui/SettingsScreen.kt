@@ -87,12 +87,12 @@ fun SettingsScreen(
             OutlinedButton(onClick = actions.profile, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
                 Text("내 운동 프로필 · 워치 착용", color = KColors.White)
             }
-            Text("신체 정보와 평소 착용 상태를 폰에 저장해요. 로그인 없이 설정할 수 있어요.", color = KColors.Muted, fontSize = 13.sp)
+            Text("신체 정보와 평소 착용 상태를 폰에 저장합니다. 로그인 없이 설정할 수 있습니다.", color = KColors.Muted, fontSize = 13.sp)
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = actions.diagnostics, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
                 Text("오류 기록 저장", color = KColors.White)
             }
-            Text("앱 종료 원인을 확인할 ZIP 파일을 저장해요. 저장한 파일을 채팅에 첨부해 주세요.", color = KColors.Muted, fontSize = 13.sp)
+            Text("앱 종료 원인 확인용 ZIP 파일 저장. 저장한 파일을 채팅에 첨부해 주세요.", color = KColors.Muted, fontSize = 13.sp)
         }
     }
 }
@@ -107,7 +107,7 @@ private fun PersonalizationSection(enabled: Boolean, onChange: (Boolean) -> Unit
         Column(Modifier.weight(1f)) {
             Text("측정 보정 적용", color = KColors.White, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
-            Text("보정한 운동은 내 기준으로 횟수를 세요. 끄면 일반 기준으로 측정해요", color = KColors.Soft, fontSize = 12.sp)
+            Text("보정한 운동은 내 기준으로 횟수 측정, 끄면 일반 기준 적용", color = KColors.Soft, fontSize = 12.sp)
         }
         Spacer(Modifier.width(12.dp))
         SquareSwitch(on) { on = it; onChange(it) }
@@ -122,7 +122,7 @@ private fun OneArmSection(enabled: Boolean, onChange: (Boolean) -> Unit) {
         Column(Modifier.weight(1f)) {
             Text("원암 운동 한 손만 하기", color = KColors.White, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
-            Text("끄면 첫 손 완료 후 반대손을 직접 기록해요", color = KColors.Soft, fontSize = 12.sp)
+            Text("끄면 첫 손 완료 후 반대손 직접 기록", color = KColors.Soft, fontSize = 12.sp)
         }
         Spacer(Modifier.width(12.dp))
         SquareSwitch(on) { on = it; onChange(it) }
@@ -137,7 +137,7 @@ private fun ManualAutoFinishSection(enabled: Boolean, onChange: (Boolean) -> Uni
         Column(Modifier.weight(1f)) {
             Text("수동 운동 자동 종료", color = KColors.White, fontSize = 16.sp)
             Spacer(Modifier.height(3.dp))
-            Text("직전 세트 시간 +10초 후 추정 횟수로 완료해요", color = KColors.Soft, fontSize = 12.sp)
+            Text("직전 세트 시간 +10초 후 추정 횟수로 자동 완료", color = KColors.Soft, fontSize = 12.sp)
         }
         Spacer(Modifier.width(12.dp))
         SquareSwitch(on) { on = it; onChange(it) }
@@ -160,7 +160,7 @@ private fun ProgressionSection(settings: ProgressionSettings, onChange: (Progres
             Column(Modifier.weight(1f)) {
                 Text("점진적 과부하 사용", color = KColors.White, fontSize = 16.sp)
                 Spacer(Modifier.height(3.dp))
-                Text("운동 결과에 맞춰 다음 목표를 미리 채워요", color = KColors.Soft, fontSize = 12.sp)
+                Text("운동 결과에 맞춰 다음 목표 자동 입력", color = KColors.Soft, fontSize = 12.sp)
             }
             Spacer(Modifier.width(12.dp))
             SquareSwitch(current.enabled) { update(current.copy(enabled = it)) }
@@ -271,9 +271,9 @@ private fun ProgressionSpeed.label() = when (this) {
 }
 
 private fun ProgressionSpeed.description() = when (this) {
-    ProgressionSpeed.SLOW -> "목표 횟수를 다 채운 날이 3번 이어지면 무게를 올려요."
-    ProgressionSpeed.NORMAL -> "목표 횟수를 다 채운 날이 2번 이어지면 무게를 올려요."
-    ProgressionSpeed.FAST -> "목표 횟수를 다 채운 날, 바로 무게를 올려요."
+    ProgressionSpeed.SLOW -> "목표 횟수를 다 채운 날이 3번 이어지면 무게를 올립니다."
+    ProgressionSpeed.NORMAL -> "목표 횟수를 다 채운 날이 2번 이어지면 무게를 올립니다."
+    ProgressionSpeed.FAST -> "목표 횟수를 다 채운 날, 바로 무게를 올립니다."
 }
 
 private fun ProgressionSpeed.exampleFirst() = if (this == ProgressionSpeed.FAST) "85kg 6회" else "80kg 10회"

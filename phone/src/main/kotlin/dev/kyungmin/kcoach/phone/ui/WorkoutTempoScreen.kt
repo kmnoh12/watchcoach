@@ -28,7 +28,7 @@ fun WorkoutTempoScreen(id: String?, previous: WorkoutTempoSettings?, select: (St
             Text(if (id == null) "운동별 템포 알림" else "${WorkoutData.catalog.find { it.id == id }?.name.orEmpty()} · 템포",
                 color = KColors.White, fontSize = 26.sp)
             if (id == null || previous == null) {
-                Text("기본은 꺼져 있어요. 정한 시간 범위에서 연속으로 벗어나면 워치가 알려줘요. 검증된 개인 반복 측정을 사용하는 새 세트부터 반영해요.", color = KColors.Soft)
+                Text("기본은 꺼짐 상태입니다. 정한 시간 범위에서 연속으로 벗어나면 워치가 알려 줍니다. 검증된 개인 반복 측정을 사용하는 새 세트부터 반영됩니다.", color = KColors.Soft)
                 WorkoutData.catalog.distinctBy { it.id }.filter {
                     ExerciseTrackingProfiles.resolve(it.id).mode != TrackingMode.MANUAL_REQUIRED
                 }.forEach { exercise ->
@@ -46,7 +46,7 @@ fun WorkoutTempoScreen(id: String?, previous: WorkoutTempoSettings?, select: (St
                     Text("템포 알림", color = KColors.White, modifier = Modifier.weight(1f))
                     Checkbox(enabled, { enabled = it })
                 }
-                Text("원하는 시간 범위를 초로 입력해 주세요. 비워 둔 항목은 알림을 꺼요. 목표 시간은 운동 처방이나 자세 점수가 아니에요.", color = KColors.Soft)
+                Text("원하는 시간 범위를 초로 입력해 주세요. 비워 둔 항목은 알림이 꺼집니다. 목표 시간은 운동 처방이나 자세 점수가 아닙니다.", color = KColors.Soft)
                 WorkoutTempoMetric.entries.forEach { metric -> key(metric) {
                     var low by rememberSaveable { mutableStateOf(previous.targets[metric]?.let { (it.minimumMs/1000.0).toString() }.orEmpty()) }
                     var high by rememberSaveable { mutableStateOf(previous.targets[metric]?.let { (it.maximumMs/1000.0).toString() }.orEmpty()) }
@@ -59,8 +59,8 @@ fun WorkoutTempoScreen(id: String?, previous: WorkoutTempoSettings?, select: (St
                 } }
                 SecondsField(consecutive, { consecutive = it }, "연속 횟수 (1~100회)")
                 SecondsField(interval, { interval = it }, "알림 사이 최소 간격 (초)")
-                Text("확인되지 않은 힘쓰는·복귀 시간은 알림에 쓰지 않아요.", color = KColors.Muted, fontSize = 13.sp)
-                if (error) Text("시간 범위·연속 횟수·알림 간격을 확인해 주세요. 알림을 켜려면 시간 범위가 필요해요.", color = KColors.Red)
+                Text("확인되지 않은 힘쓰는·복귀 시간은 알림에 쓰지 않습니다.", color = KColors.Muted, fontSize = 13.sp)
+                if (error) Text("시간 범위·연속 횟수·알림 간격을 확인해 주세요. 알림을 켜려면 시간 범위가 필요합니다.", color = KColors.Red)
                 Box(Modifier.fillMaxWidth().height(52.dp).clip(KShape.Control).background(KColors.Accent).pressable {
                     error = runCatching {
                         val targets = ranges.mapNotNull { (metric, pair) ->

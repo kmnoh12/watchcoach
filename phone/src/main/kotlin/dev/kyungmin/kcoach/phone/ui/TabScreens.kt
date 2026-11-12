@@ -217,7 +217,7 @@ fun RecordsScreen(
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(KColors.Hairline))
         val monthRecords = records.filter { it.date.startsWith(month.toString()) }
         if (monthRecords.isEmpty()) {
-            Text(if (records.isEmpty()) "아직 기록이 없어요" else "이 달에는 기록이 없어요", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 18.dp))
+            Text(if (records.isEmpty()) "아직 기록 없음" else "이 달 기록 없음", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 18.dp))
         }
         monthRecords.forEach { record -> RecordCard(record) { actions.openRecord(record) } }
     }
@@ -315,9 +315,9 @@ fun StatsScreen(ui: StatsUi) {
         }
         Spacer(Modifier.height(30.dp))
         if (ui.metrics.isEmpty()) {
-            Text("이번 달 기록이 없어요", color = KColors.Soft, fontSize = 15.sp)
+            Text("이번 달 기록 없음", color = KColors.Soft, fontSize = 15.sp)
             Spacer(Modifier.height(4.dp))
-            Text("운동을 끝내면 여기에 쌓여요", color = KColors.Muted, fontSize = 13.sp)
+            Text("운동을 끝내면 여기에 쌓입니다", color = KColors.Muted, fontSize = 13.sp)
         } else {
             Text("이번 달", color = KColors.Soft, fontSize = 15.sp)
             Spacer(Modifier.height(6.dp))
@@ -348,7 +348,7 @@ class MenuActions(
 @Composable
 fun MenuScreen(version: String, actions: MenuActions, wearing: dev.kyungmin.kcoach.phone.WorkoutWearingSelection? = null, notice: OtaNotice? = null,
     onNoticeShown: () -> Unit = {}) {
-    var state by remember { mutableStateOf(UpdateUi("업데이트를 확인해 보세요", false)) }
+    var state by remember { mutableStateOf(UpdateUi("최신 버전 확인", false)) }
     DisposableEffect(actions.observeUpdate) {
         val unsubscribe = actions.observeUpdate?.invoke { state = it }
         onDispose { unsubscribe?.invoke() }
@@ -404,7 +404,7 @@ private fun UpdatedBanner(notice: OtaNotice?, onShown: () -> Unit) {
             ) {
                 KIcon(KIcon.Check, KColors.Accent, Modifier.padding(end = 12.dp), 22.dp)
                 Column {
-                    Text("${notice?.to.orEmpty()}로 업데이트했어요", color = KColors.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("${notice?.to.orEmpty()}로 업데이트 완료", color = KColors.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Text("이전 ${notice?.from.orEmpty()}", color = KColors.Muted, fontSize = 13.sp)
                 }
             }
@@ -494,9 +494,9 @@ private fun UpdateButton(action: OtaAction, label: String, onClick: () -> Unit) 
 }
 
 private val MENU_TIPS = listOf(
-    "워치를 손목에 단단히 고정하면\n센서가 움직임을 더 정확하게 읽어요.",
-    "운동 전 측정·보정을 해 두면\n내 동작에 맞춰 횟수를 세어줘요.",
-    "기록은 로그인 없이 이 폰에만 저장돼요.\n센서 기록은 운동과 보정 중에만 켜져요.",
+    "워치를 손목에 단단히 고정하면\n센서가 움직임을 더 정확하게 읽습니다.",
+    "운동 전 측정·보정을 해 두면\n내 동작에 맞춰 횟수를 세어 줍니다.",
+    "기록은 로그인 없이 이 폰에만 저장됩니다.\n센서 기록은 운동과 보정 중에만 켜집니다.",
 )
 
 @Composable

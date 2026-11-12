@@ -40,7 +40,7 @@ class PatternCandidatesActivity : ComponentActivity() {
     private fun showCandidates() {
         root("내 측정 엔진")
         candidateListVisible = true
-        content.addView(text("후보를 만든 뒤 새 세트를 촬영하고 실제 횟수·반복 구간을 확인해 주세요. 학습했던 세트를 다시 맞히는 것으로 정확도가 높아졌다고 표시하지 않아요."))
+        content.addView(text("후보를 만든 뒤 새 세트를 촬영하고 실제 횟수·반복 구간을 확인해 주세요. 학습했던 세트를 다시 맞히는 것으로 정확도가 높아졌다고 표시하지 않습니다."))
         val status = text("저장한 후보 확인 중…"); content.addView(status)
         val revision = viewRevision
         worker.execute {
@@ -50,7 +50,7 @@ class PatternCandidatesActivity : ComponentActivity() {
             runOnUiThread {
                 if (isFinishing || isDestroyed || revision != viewRevision) return@runOnUiThread
                 records.onSuccess { list ->
-                    status.text = if (list.isEmpty()) "아직 후보가 없어요. 촬영한 동작을 확인한 뒤 보정 후보를 만들어 주세요." else "${list.size}개 후보 · 적용 상태는 워치의 실제 사용 확인 기준"
+                    status.text = if (list.isEmpty()) "아직 후보가 없습니다. 촬영한 동작을 확인한 뒤 보정 후보를 만들어 주세요." else "${list.size}개 후보 · 적용 상태는 워치의 실제 사용 확인 기준"
                     var group: String? = null
                     list.sortedWith(compareBy<PatternCandidate> { it.profile.compatibility.recipe.name + it.profile.compatibility.side + it.profile.compatibility.placement }.thenByDescending { it.profile.version }).forEach { candidate ->
                         val key = "${candidate.profile.compatibility.recipe.label} · ${candidate.profile.compatibility.side} · ${candidate.profile.compatibility.placement}"
@@ -62,11 +62,11 @@ class PatternCandidatesActivity : ComponentActivity() {
                         reports[profile.id].orEmpty().forEach { report ->
                             val native = report.optString("scope") == "OBSERVED_WATCH_OUTPUTS"
                             content.addView(text("저장한 ${if (native) "워치 실측" else "폰 독립"} 검증 · ${java.time.Instant.ofEpochMilli(report.getLong("evaluatedAtMs"))}\n${report.optInt("sets")}세트 · ${report.optInt("reps")}회 · ${report.optInt("days")}일"))
-                            content.addView(text("당시의 횟수 오차 ${report.opt("mae") ?: report.opt("rawMae") ?: "미측정"}회 · 적용 전 원본과 라벨을 다시 검사해요"))
+                            content.addView(text("당시의 횟수 오차 ${report.opt("mae") ?: report.opt("rawMae") ?: "미측정"}회 · 적용 전 원본과 라벨을 다시 검사합니다"))
                         }
                         val state = states[profile.id]?.getOrNull()
                         if (state?.previousObserved != null) content.addView(text("이전 사용 확인 · 버전 ${state.previousObserved!!.command.runtime.version}"))
-                        content.addView(text(state?.let(::describeState) ?: "적용 상태를 확인하지 못했어요. 저장 자료는 유지돼요."))
+                        content.addView(text(state?.let(::describeState) ?: "적용 상태를 확인하지 못했습니다. 저장 자료는 유지됩니다."))
                         content.addView(button("새 검증 세트 촬영") {
                             val capture = CalibrationCaptureStore(this).load(profile.sources.first().captureId).getOrNull()
                             val exerciseId = capture?.exerciseId ?: profile.exerciseConditions.sorted().first()
@@ -86,7 +86,7 @@ class PatternCandidatesActivity : ComponentActivity() {
                         if (state?.observedActive?.command?.runtime?.id == profile.id)
                             content.addView(button("개인 보정 끄고 기본 측정으로 되돌리기") { transition(candidate, rollback = false, disable = true) })
                     }
-                }.onFailure { status.text = "저장 자료를 읽지 못했어요. 자료는 보관돼 있으며 보정 설정을 적용하지 않았어요." }
+                }.onFailure { status.text = "저장 자료를 읽지 못했습니다. 자료는 보관돼 있으며 보정 설정을 적용하지 않았습니다." }
             }
         }
         content.addView(button("촬영·동작 확인") { startActivity(Intent(this, CalibrationReviewActivity::class.java)) })
@@ -103,9 +103,9 @@ class PatternCandidatesActivity : ComponentActivity() {
             PatternProfileStatus.STAGED -> "버전 ${request.command.runtime.version} 워치 수신 완료 · 다음 세트 실제 사용 확인 대기"
             PatternProfileStatus.APPLIED -> "버전 ${request.command.runtime.version} 실제 센서 처리 확인 완료"
             PatternProfileStatus.DISABLED -> "기본 측정으로 되돌린 뒤 실제 센서 처리 확인 완료"
-            PatternProfileStatus.CONFLICT -> "워치 설정이 달라졌어요. 연결 후 다시 검증해 주세요."
-            PatternProfileStatus.WRONG_DEVICE -> "선택한 보정값과 워치 기기가 달라 적용되지 않았어요."
-            else -> "변경 요청이 적용되지 않았어요. 현재 사용 확인 상태를 유지해요."
+            PatternProfileStatus.CONFLICT -> "워치 설정이 달라졌습니다. 연결 후 다시 검증해 주세요."
+            PatternProfileStatus.WRONG_DEVICE -> "선택한 보정값과 워치 기기가 달라 적용되지 않았습니다."
+            else -> "변경 요청이 적용되지 않았습니다. 현재 사용 확인 상태를 유지합니다."
         }
     }
 
@@ -120,8 +120,8 @@ class PatternCandidatesActivity : ComponentActivity() {
             result.onSuccess { bridge.retryPendingCommand() }
             runOnUiThread {
                 if (isFinishing || isDestroyed || revision != viewRevision) return@runOnUiThread
-                summary.text = result.fold({ "변경 요청을 저장했어요.\n진행 중인 세트는 같은 설정을 유지하고, 다음 세트에서 워치가 실제 사용한 뒤 적용 완료로 표시해요." },
-                    { "변경 요청을 보내지 않았어요.\n검증 자료 부족·확인한 원본/라벨 변경·진행 중인 다른 요청을 확인해 주세요. 기존 사용 상태는 유지돼요." })
+                summary.text = result.fold({ "변경 요청을 저장했습니다.\n진행 중인 세트는 같은 설정을 유지하고, 다음 세트에서 워치가 실제 사용한 뒤 적용 완료로 표시합니다." },
+                    { "변경 요청을 보내지 않았습니다.\n검증 자료 부족·확인한 원본/라벨 변경·진행 중인 다른 요청을 확인해 주세요. 기존 사용 상태는 유지됩니다." })
                 content.addView(button("후보·적용 상태 확인") { showCandidates() })
             }
         }
@@ -135,17 +135,17 @@ class PatternCandidatesActivity : ComponentActivity() {
             val result = runCatching {
                 if (freeze) {
                     val saved = store.freezeRegressionDataset(candidate.profile.id).getOrThrow()
-                    "확인 자료 ${saved.entries.size}세트를 고정했어요.\n새 후보를 평가할 때 같은 원본과 라벨로 비교해요."
+                    "확인 자료 ${saved.entries.size}세트를 고정했습니다.\n새 후보를 평가할 때 같은 원본과 라벨로 비교합니다."
                 } else {
                     val reports = store.compareRegression(candidate.profile.id).getOrThrow()
-                    if (reports.all { it.passed }) "과거 확인 자료에서 횟수·경계가 나빠지지 않았어요.\n새 촬영 자료와 실제 워치 검증은 별도로 필요해요."
+                    if (reports.all { it.passed }) "과거 확인 자료에서 횟수·경계가 나빠지지 않았습니다.\n새 촬영 자료와 실제 워치 검증은 별도로 필요합니다."
                     else "이전 설정 유지\n" + reports.flatMap { it.failures }.distinct().map(::explainFailure).joinToString("\n")
                 }
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed || revision != viewRevision) return@runOnUiThread
-                summary.text = result.getOrElse { "고정한 원본·확인 라벨·운동 조건이 바뀌었거나 자료를 읽지 못했어요. 설정을 적용하지 않았어요." }
-                content.addView(text("이 비교는 과거 자료의 성능 저하를 확인하는 용도예요. 학습에 사용한 자료가 들어갈 수 있어 새 정확도 검증으로 세지 않아요."))
+                summary.text = result.getOrElse { "고정한 원본·확인 라벨·운동 조건이 바뀌었거나 자료를 읽지 못했습니다. 설정을 적용하지 않았습니다." }
+                content.addView(text("이 비교는 과거 자료의 성능 저하를 확인하는 용도입니다. 학습에 사용한 자료가 들어갈 수 있어 새 정확도 검증으로 세지 않습니다."))
                 content.addView(button("후보 목록") { showCandidates() })
             }
         }
@@ -161,16 +161,16 @@ class PatternCandidatesActivity : ComponentActivity() {
                 if (isFinishing || isDestroyed || revision != viewRevision) return@runOnUiThread
                 result.onSuccess { report ->
                     fun number(value: Double?) = value?.let { String.format(Locale.KOREA, "%.2f", it) } ?: "미측정"
-                    summary.text = if (report.countGatePassed) "폰의 횟수·경계 비교 기준 통과\n워치 실시간 동작과 적용 검증은 아직 남아 있어요."
+                    summary.text = if (report.countGatePassed) "폰의 횟수·경계 비교 기준 통과\n워치 실시간 동작과 적용 검증은 아직 남아 있습니다."
                         else "검증 대기 · 기존 설정 유지"
                     content.addView(text("새 검증 자료 ${report.totalSets}세트 · 확인 ${report.totalReps}회 · 유효 ${report.distinctDays}일\n횟수 미확인 ${report.unknownReferenceSets}세트\n추정 가능 ${report.predictedSets}/${report.totalSets}세트\n정확히 일치 ${report.exactSets}/${report.totalSets} · ±1회 ${report.withinOneSets}/${report.totalSets}"))
                     content.addView(text("세트당 평균 횟수 오차\n이전 ${number(report.baselineRawMae)}회 · 피크 방식 ${number(report.paperRawMae)}회\n개인 패턴 ${number(report.rawMae)}회 · 실시간 후보 재생 ${number(report.causalRawMae)}회\n측정되지 않은 세트는 위의 추정 가능 비율과 함께 확인해 주세요."))
                     content.addView(text("실시간 후보 재생 일치 ${report.causalExactSets}/${report.totalSets}세트\n이 재생은 실제 워치의 처리 속도와 화면 반응을 검증한 결과가 아니에요."))
                     content.addView(text("영상 기준 평균 경계 오차\n시작 ${number(report.startBoundaryMaeMs)}ms · 전환 ${number(report.turnaroundMaeMs)}ms · 복귀 ${number(report.endBoundaryMaeMs)}ms"))
                     if (!report.countGatePassed) content.addView(text("남은 조건\n" + report.failures.map(::explainFailure).joinToString("\n")))
-                    if (report.unscoredCaptures.isNotEmpty()) content.addView(text("미완료 촬영 ${report.unscoredCaptures.size}세트도 전체 세트 수에 포함했어요. 원본 수신과 영상의 실제 횟수를 확인해 주세요."))
-                    content.addView(text("비교 결과는 저장됐어요. 운동 기록의 수행 횟수나 워치 설정을 자동으로 바꾸지 않아요."))
-                }.onFailure { summary.text = "학습에 쓴 원본이나 확인한 구간이 바뀌었거나 자료를 읽지 못했어요. 원본과 확인 상태를 점검하고 새 후보를 만들어 주세요." }
+                    if (report.unscoredCaptures.isNotEmpty()) content.addView(text("미완료 촬영 ${report.unscoredCaptures.size}세트도 전체 세트 수에 포함했습니다. 원본 수신과 영상의 실제 횟수를 확인해 주세요."))
+                    content.addView(text("비교 결과는 저장됐습니다. 운동 기록의 수행 횟수나 워치 설정을 자동으로 바꾸지 않습니다."))
+                }.onFailure { summary.text = "학습에 쓴 원본이나 확인한 구간이 바뀌었거나 자료를 읽지 못했습니다. 원본과 확인 상태를 점검하고 새 후보를 만들어 주세요." }
                 content.addView(button("후보 목록") { showCandidates() })
             }
         }
@@ -218,9 +218,9 @@ class PatternCandidatesActivity : ComponentActivity() {
                     content.addView(text("평균 횟수 오차 ${number(report.mae)}회\n화면 프레임 제출 반응 p95 ${number(report.latencyP95Ms)}ms\n시작·전환·복귀 중 가장 큰 평균 오차 ${number(report.boundaryMaeMs)}ms"))
                     if (!report.approved) content.addView(text(report.failures.map(::explainFailure).joinToString("\n")))
                     val excluded = report.rows.count { it.exclusionReason != null }
-                    if (excluded > 0) content.addView(text("사용할 수 없는 워치 기록 ${excluded}세트도 전체 분모에 포함했어요. 중단·다른 설정·에뮬레이션·시계 불일치 기록은 채택 증거로 쓰지 않아요."))
-                    content.addView(text("이 검사는 폰에서 다시 돌린 결과와 별개예요. 검증 결과만 보관하며 현재 워치 설정을 바꾸지 않아요."))
-                }.onFailure { summary.text = "원본·설정·영상의 확인 상태가 바뀌었거나 자료를 읽지 못했어요. 저장한 자료는 보관하며 설정을 적용하지 않았어요." }
+                    if (excluded > 0) content.addView(text("사용할 수 없는 워치 기록 ${excluded}세트도 전체 분모에 포함했습니다. 중단·다른 설정·에뮬레이션·시계 불일치 기록은 채택 증거로 쓰지 않습니다."))
+                    content.addView(text("이 검사는 폰에서 다시 돌린 결과와 별개입니다. 검증 결과만 보관하며 현재 워치 설정을 바꾸지 않습니다."))
+                }.onFailure { summary.text = "원본·설정·영상의 확인 상태가 바뀌었거나 자료를 읽지 못했습니다. 저장한 자료는 보관하며 설정을 적용하지 않았습니다." }
                 content.addView(button("후보 목록") { showCandidates() })
             }
         }

@@ -103,7 +103,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                 focusAt = 0L
                 camera = p.bindToLifecycle(owner, if (front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA, group)
                 limitFps(!opening)
-            }.onFailure { toast("카메라를 열지 못했어요") }
+            }.onFailure { toast("카메라 열기 실패") }
         }, main)
     }
 
@@ -438,6 +438,8 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     private var downX = 0f
     private var downY = 0f
     private var dragRange = 1f
+    private var anchorY = 0f
+    private var velocity: android.view.VelocityTracker? = null
     private val slop = android.view.ViewConfiguration.get(context).scaledTouchSlop
     private fun applyBlur() { if (Build.VERSION.SDK_INT >= 31) preview.setRenderEffect(if (blur > .001f) RenderEffect.createBlurEffect(16 * d * blur, 16 * d * blur, Shader.TileMode.CLAMP) else null) }
     /** Finishes a finger-driven close: from wherever the stage is, glide to fully open or fully back on the card. */
@@ -463,21 +465,31 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         val action = event.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             pinched = false; dragging = false; downX = event.x; downY = event.y
+            velocity?.recycle(); velocity = android.view.VelocityTracker.obtain()
             dragFromTap = taps.any { it.first.contains(event.x, event.y) }
         }
+        velocity?.addMovement(event)
         if (photo == null && !taking) {
             scaleDetector.onTouchEvent(event)
             if (event.pointerCount > 1 || scaleDetector.isInProgress) pinched = true
         }
         // Swiping up reverses the opening: the stage follows the finger back toward the card.
-        if (action == MotionEvent.ACTION_MOVE && !dragging && !pinched && !dragFromTap && photo == null && !taking && event.pointerCount == 1 && animation?.isRunning != true && controls >= 1f) {
+        if (action == MotionEvent.ACTION_MOVE && !dragging && !pinched && photo == null && !taking && event.pointerCount == 1 && animation?.isRunning != true && controls >= 1f) {
             val dy = event.y - downY; val dx = event.x - downX
-            if (dy < -slop && -dy > kotlin.math.abs(dx) * 1.2f) { dragging = true; dragRange = frame.height() * .6f; parent?.requestDisallowInterceptTouchEvent(true) }
+            if (dy < -slop && -dy > kotlin.math.abs(dx) * 1.2f) { dragging = true; anchorY = event.y; dragRange = frame.height() * .5f; parent?.requestDisallowInterceptTouchEvent(true) }
         }
         if (dragging) {
             pinched = true
-            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) { dragging = false; settle(action == MotionEvent.ACTION_CANCEL || progress >= .8f); return true }
-            val pull = (downY - event.y).coerceAtLeast(0f)
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                dragging = false
+                velocity?.computeCurrentVelocity(1000)
+                val flingUp = (velocity?.yVelocity ?: 0f) < -700f * d
+                val flingDown = (velocity?.yVelocity ?: 0f) > 700f * d
+                // A flick decides by itself; a slow drag closes once it is past the middle.
+                settle(action == MotionEvent.ACTION_CANCEL || flingDown || (!flingUp && progress >= .6f))
+                return true
+            }
+            val pull = (anchorY - event.y).coerceAtLeast(0f)
             progress = (1f - pull / dragRange).coerceIn(0f, 1f)
             controls = ((progress - .55f) / .45f).coerceIn(0f, 1f)
             blur = (1f - (progress - .45f) / .4f).coerceIn(0f, 1f)
@@ -529,9 +541,9 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                     normalized
                 }
                 image.close()
-                main.execute { taking=false; result.onSuccess { if(released) it.recycle() else { photo?.recycle(); photo=it; photoSaved=false;shotAt=SystemClock.uptimeMillis();sampleAt=0; galleryThumb?.recycle();galleryThumb=thumbnail(it);flashAt=SystemClock.uptimeMillis();invalidate() } }.onFailure { toast("촬영하지 못했어요") } }
+                main.execute { taking=false; result.onSuccess { if(released) it.recycle() else { photo?.recycle(); photo=it; photoSaved=false;shotAt=SystemClock.uptimeMillis();sampleAt=0; galleryThumb?.recycle();galleryThumb=thumbnail(it);flashAt=SystemClock.uptimeMillis();invalidate() } }.onFailure { toast("촬영 실패") } }
             }
-            override fun onError(exception: ImageCaptureException) { main.execute { taking=false;toast("촬영하지 못했어요") } }
+            override fun onError(exception: ImageCaptureException) { main.execute { taking=false;toast("촬영 실패") } }
         })
     }
     fun importPhoto(bitmap: Bitmap) { photo?.recycle(); photo=normalize(bitmap);photoSaved=false;shotAt=SystemClock.uptimeMillis();sampleAt=0; galleryThumb?.recycle();galleryThumb=thumbnail(photo!!);if(photo !== bitmap) bitmap.recycle(); invalidate() }
@@ -582,9 +594,9 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                     if(target==0) worker.execute { val ok=ResultImageExport.save(context,bitmap,data.title);bitmap.recycle();main.execute {exporting=false;if(ok)photoSaved=true;toast(if(ok) "갤러리에 저장됨" else "사진 저장 실패")} }
                     else worker.execute {
                         val ok=ResultImageExport.share(context,bitmap,data.title,when(target){1->"com.instagram.android";2->"com.kakao.talk";else->null},target==1)
-                        bitmap.recycle(); main.execute { exporting=false; if(!ok)toast("공유할 앱을 열지 못했어요") }
+                        bitmap.recycle(); main.execute { exporting=false; if(!ok)toast("공유 앱 열기 실패") }
                     }
-                }.onFailure { exporting=false;toast("이미지를 만들지 못했어요") }
+                }.onFailure { exporting=false;toast("이미지 생성 실패") }
             }
         }
     }

@@ -25,11 +25,11 @@ internal class WorkoutCaptureStatus(context: Context) {
         val analyzing = ids.count { inbox.state(it) == CaptureState.ANALYZING || inbox.state(it) == CaptureState.RECEIVED && !inbox.analysisSucceeded(it) }
         val failed = ids.count { inbox.state(it) == CaptureState.ANALYSIS_FAILED }
         val message = when {
-            pending > 0 -> "워치 기록을 받는 중이에요 · 알려진 원본 ${received}/${ids.size}개 수신"
-            analyzing > 0 -> "속도와 움직임을 분석하고 있어요"
-            failed > 0 -> "일부 세트의 분석이 남아 있어요"
-            ids.isEmpty() -> "이 기록에서 확인된 센서 원본이 없어요"
-            else -> "받은 원본의 세부 분석을 확인할 수 있어요"
+            pending > 0 -> "워치 기록 수신 중 · 알려진 원본 ${received}/${ids.size}개 수신"
+            analyzing > 0 -> "속도와 움직임 분석 중"
+            failed > 0 -> "일부 세트 분석 미완료"
+            ids.isEmpty() -> "확인된 센서 원본 없음"
+            else -> "받은 원본의 세부 분석을 확인할 수 있습니다"
         }
         return JSONObject().put("known_capture_count", ids.size).put("received", received).put("pending", pending)
             .put("analyzing", analyzing).put("failed", failed).put("message", message).put("captures", rows)

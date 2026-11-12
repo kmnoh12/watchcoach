@@ -24,7 +24,7 @@ class WorkoutProfileActivity : ComponentActivity() {
             WorkoutProfileTheme {
                 if (loaded.isFailure || wearing.isFailure) {
                     Column(Modifier.safeDrawingPadding().padding(20.dp)) {
-                        Text("저장한 프로필을 열지 못했어요. 기존 정보는 유지돼요.", color = KColors.White)
+                        Text("저장한 프로필을 열지 못했습니다. 기존 정보는 유지됩니다.", color = KColors.White)
                         TextButton(onClick = ::finish) { Text("돌아가기") }
                     }
                 } else {
@@ -51,7 +51,7 @@ internal fun WorkoutProfileEditor(profile: WorkoutProfile, previous: WorkoutWear
     var side by rememberSaveable { mutableStateOf(previous?.side) }
     ProfileEditor(profile, onDismiss = back, extraContent = {
         Text("평소 워치 착용", color = KColors.White, fontSize = 17.sp)
-        Text("새 운동의 기본값이에요. 진행 중인 운동의 착용 조건은 바뀌지 않아요.", color = KColors.Muted, fontSize = 13.sp)
+        Text("새 운동의 기본값입니다. 진행 중인 운동의 착용 조건은 바뀌지 않습니다.", color = KColors.Muted, fontSize = 13.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("LEFT" to "왼손", "RIGHT" to "오른손").forEach { (value, label) ->
                 OutlinedButton(onClick = { side = value }, modifier = Modifier.weight(1f), shape = KShape.Control,
@@ -60,7 +60,7 @@ internal fun WorkoutProfileEditor(profile: WorkoutProfile, previous: WorkoutWear
         }
         Text("워치는 손등 쪽에 착용해 주세요.", color = KColors.Muted, fontSize = 13.sp)
         TextButton(onClick = { side = null }) { Text("착용 상태 미설정") }
-        Text("프로필은 폰에 저장해요. 이전 운동에 저장된 신체 정보는 바뀌지 않아요.",
+        Text("프로필은 폰에 저장됩니다. 이전 운동에 저장된 신체 정보는 바뀌지 않습니다.",
             color = KColors.Muted, fontSize = 12.sp)
     }) { draft ->
         save(DeviceWorkoutProfile(draft, side?.let { WorkoutWearingSelection(it, "OUTSIDE") }))

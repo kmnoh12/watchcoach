@@ -112,7 +112,7 @@ class ScreenshotTest {
         )
         val ui = CalibrationUi(
             exercises.map { LibraryEntry(it, 0, "당기기", 0) },
-            "워치와 폰 셀카 카메라로 내 동작을 함께 기록해요.",
+            "워치와 폰 셀카 카메라로 내 동작을 함께 기록합니다.",
             mapOf("a" to "보정 저장됨", "b" to "촬영하여 보정"), setOf("a", "b"),
         )
         CalibrationScreen(ui, { false }, { CalibrationButtonUi("보정 종료·저장", true) },
@@ -186,7 +186,7 @@ class ScreenshotTest {
         val ex = ExerciseUi(
             "lat_pull_down", "랫풀다운", "등, 이두", true, 90, 10, 20, 2, 4, 2, sets,
             volumeDone = 1050, volumeTarget = 2100,
-            history = HistoryUi("지난번 45×10 · 50×10 · 50×9", 1840, "55kg로 올리기", "모든 작업 세트를 목표 횟수까지 채웠어요", true),
+            history = HistoryUi("지난번 45×10 · 50×10 · 50×9", 1840, "55kg로 올리기", "모든 작업 세트를 목표 횟수까지 채웠습니다", true),
         )
         return WorkoutUiModel(
             "등·이두", false, false, now - 21 * 60_000L, 0L, 0L, 0, listOf(ex),
@@ -238,7 +238,7 @@ class ScreenshotTest {
 
     @Test
     fun dialogConfirm() = overlayShot("dialog_confirm", false) { dismiss ->
-        ConfirmDialog("운동을 종료할까요?", "지금까지의 기록은 저장되지 않아요.", "계속 운동", "종료", dismiss) {}
+        ConfirmDialog("운동을 종료할까요?", "지금까지의 기록은 저장되지 않습니다.", "계속 운동", "종료", dismiss) {}
     }
 
     @Test
@@ -258,7 +258,7 @@ class ScreenshotTest {
             listOf(
                 SegGroup("세트 종류", seg("일반", "웜업", "슈퍼", "드랍", "실패", "보조", selected = 1), "근육을 준비하기 위한 워밍업"),
                 SegGroup("그립", seg("노멀", "오버", "언더", "뉴트럴", "더보기", selected = 0), "표준 그립"),
-                SegGroup("운동 강도 (RPE)", seg("-", "6", "7", "8", "9", "10", "상세", selected = 4), "확실히 1개 더 할 수 있어요"),
+                SegGroup("운동 강도 (RPE)", seg("-", "6", "7", "8", "9", "10", "상세", selected = 4), "확실히 1개 더 가능"),
             ),
             listOf(SheetAction("다음 세트로 복제", false) {}, SheetAction("세트 삭제", true) {}),
         )
@@ -283,7 +283,7 @@ class ScreenshotTest {
     fun sheetPick() = overlayShot("sheet_pick", true) {
         ChoiceSheet(
             "운동 강도 (RPE)",
-            listOf("선택 안 함" to "", "10" to "더는 못 해요", "9.5" to "1개 정도 더 할 수 있을 것 같아요", "9" to "확실히 1개 더 할 수 있어요", "8.5" to "아마 2개 더 할 수 있어요", "8" to "확실히 2개 더 할 수 있어요", "7" to "꽤 할 만했어요", "6" to "웜업 정도예요"),
+            listOf("선택 안 함" to "", "10" to "더는 불가", "9.5" to "1개 정도 더 가능할 듯", "9" to "확실히 1개 더 가능", "8.5" to "아마 2개 더 가능", "8" to "확실히 2개 더 가능", "7" to "꽤 할 만함", "6" to "웜업 수준"),
             selected = "9.5",
         ) {}
     }

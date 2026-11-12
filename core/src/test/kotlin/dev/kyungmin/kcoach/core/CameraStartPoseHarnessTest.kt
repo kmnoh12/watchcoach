@@ -123,7 +123,7 @@ class CameraStartPoseHarnessTest {
         val diagnosis = c.guide.diagnose(weak, world, true)
         assertFalse(diagnosis.ready)
         assertEquals(13, diagnosis.joints.first { !it.ok }.index)
-        assertEquals("팔이 몸에 가려져요", diagnosis.blocker)
+        assertEquals("팔이 몸에 가려집니다", diagnosis.blocker)
     }
 
     /** Writes the per-exercise threshold sensitivity table to build/reports/camera-start-pose.md. */

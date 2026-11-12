@@ -19,7 +19,7 @@ class WorkoutPostureActivity : ComponentActivity() {
             WorkoutPostureScreen(answers, ::finish) { id, value ->
                 store.savePreparationAnswer(id, value)
                     .onSuccess { answers = it }
-                    .onFailure { Toast.makeText(this, "자세 설정을 저장하지 못했어요. 기존 선택을 유지해요.", Toast.LENGTH_LONG).show() }
+                    .onFailure { Toast.makeText(this, "자세 설정 저장 실패. 기존 선택은 유지됩니다.", Toast.LENGTH_LONG).show() }
             }
         }
     }

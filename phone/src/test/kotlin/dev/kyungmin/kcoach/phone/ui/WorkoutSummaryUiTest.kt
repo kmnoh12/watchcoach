@@ -33,7 +33,7 @@ class WorkoutSummaryUiTest {
         return WorkoutSummaryRead(FinishedWorkoutStore.Evidence(snapshot, "팔 운동", 30, 0), null,
             WorkoutHeartSummary(emptyList(), null, null, true), null,
             JSONObject().put("active_kcal", JSONObject.NULL).put("reason", "프로필 입력 후 확인"),
-            JSONObject().put("message", "이 기록에서 확인된 센서 원본이 없어요"))
+            JSONObject().put("message", "확인된 센서 원본 없음"))
     }
     @Test fun summaryDoesNotInventHeartOrCaloriesAndExercisesExpandAt390Dp() {
         compose.setContent { Column(Modifier.fillMaxSize().background(KColors.Bg).verticalScroll(rememberScrollState()).padding(20.dp)) { WorkoutSummaryContent(fixture()) } }
@@ -43,7 +43,7 @@ class WorkoutSummaryUiTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/workout_summary_top.png")
         compose.onNodeWithText("덤벨 컬").performScrollTo().performClick()
         compose.onNodeWithText("1세트 · 10.0 kg × 9회").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("이 기록에서 확인된 센서 원본이 없어요").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("확인된 센서 원본 없음").performScrollTo().assertIsDisplayed()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/workout_summary_missing.png")
     }
     @Test fun summarySupportsLargeTextWithoutLosingTheRecordAction() {

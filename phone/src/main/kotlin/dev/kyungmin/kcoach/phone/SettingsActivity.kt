@@ -25,8 +25,8 @@ class SettingsActivity : ComponentActivity() {
                 }
             }
             Toast.makeText(this@SettingsActivity,
-                if (saved.isSuccess) "오류 기록을 저장했어요. 저장한 ZIP 파일을 채팅에 첨부해 주세요."
-                else "오류 기록을 저장하지 못했어요. 저장 위치를 바꿔 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
+                if (saved.isSuccess) "오류 기록 저장 완료. 저장한 ZIP 파일을 채팅에 첨부해 주세요."
+                else "오류 기록 저장 실패. 저장 위치를 바꿔 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -45,11 +45,11 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             SettingsScreen(actions, progression, PersonalizationSetting.isEnabled(this), { on ->
                 if (PersonalizationSetting.setEnabled(this, on)) PersonalizationSetting.pushToWatch(this)
-                else Toast.makeText(this, "설정을 저장하지 못했어요. 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
+                else Toast.makeText(this, "설정 저장 실패. 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
             },
                 OneArmSetting.isEnabled(this), { on ->
                     if (!OneArmSetting.setEnabled(this, on))
-                        Toast.makeText(this, "설정을 저장하지 못했어요. 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "설정 저장 실패. 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
                 }, ManualAutoFinishSetting.isEnabled(this), { on -> ManualAutoFinishSetting.setEnabled(this, on) }) { next ->
                 store.save(next).onFailure { Log.e("KCoachEvent", "progression settings not saved", it) }
             }

@@ -54,8 +54,8 @@ object CameraTorsoOrientation {
             if (hypot(dx, dz) < .08) return null
             return Math.toDegrees(atan2(dz, dx))
         }
-        val shoulder = yaw(11, 12) ?: return blocked("몸 방향을 확인할 수 없어요")
-        val hip = yaw(23, 24) ?: return blocked("몸 방향을 확인할 수 없어요")
+        val shoulder = yaw(11, 12) ?: return blocked("몸 방향을 확인할 수 없습니다")
+        val hip = yaw(23, 24) ?: return blocked("몸 방향을 확인할 수 없습니다")
         if (abs(shoulder - hip) > 25) return blocked("어깨와 골반을 같은 방향으로 맞춰 주세요")
         val value = (shoulder + hip) / 2
         if (target.nearArm && abs(value) > CameraOrientationPolicy.TOLERANCE) {
@@ -68,7 +68,7 @@ object CameraTorsoOrientation {
                     p.y in torso.minOf { it.y }..torso.maxOf { it.y } && w.z > world[s].z + .03
                 if (minOf(p.visibility ?: 0.0, p.presence ?: 0.0, w.visibility ?: 1.0, w.presence ?: 1.0) < CameraCaptureGuide.MIN_CONFIDENCE ||
                     !listOf(w.x, w.y, w.z).all(Double::isFinite) || behindTorso)
-                    return blocked("팔이 몸에 가려져요", value)
+                    return blocked("팔이 몸에 가려집니다", value)
             }
         }
         return judge(value, target)
@@ -97,12 +97,12 @@ class CameraOrientationTracker {
         lastNs = ns
         if (image == null || world == null) { reset(); return CameraOrientation(null, false, "한 사람의 전신 관절이 보이게 해 주세요") }
         val raw = CameraTorsoOrientation.evaluate(image, world, left, target)
-        if (raw.yaw == null || raw.message in setOf("팔이 몸에 가려져요", "워치를 찬 팔이 카메라 가까이 오게 돌려 주세요")) {
+        if (raw.yaw == null || raw.message in setOf("팔이 몸에 가려집니다", "워치를 찬 팔이 카메라 가까이 오게 돌려 주세요")) {
             reset(); return raw
         }
         recent.addLast(raw.yaw)
         if (recent.size > CameraOrientationPolicy.WINDOW) recent.removeFirst()
-        if (recent.size < CameraOrientationPolicy.MIN_FRAMES) return raw.copy(accepted = false, message = "몸 방향을 확인하는 중이에요")
+        if (recent.size < CameraOrientationPolicy.MIN_FRAMES) return raw.copy(accepted = false, message = "몸 방향을 확인하는 중입니다")
         val median = recent.sorted()[recent.size / 2]
         val judged = CameraTorsoOrientation.judge(median, target, CameraOrientationPolicy.TOLERANCE +
             if (accepted) CameraOrientationPolicy.HYSTERESIS else 0.0)

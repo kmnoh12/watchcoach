@@ -23,7 +23,7 @@ class CalibrationResultScreenTest {
         compose.setContent { CalibrationResultScreen(clip, emptyList(), false, {}, { answer = it }, {}, { research++ }) }
         compose.onNodeWithText("10회 했나요?").assertExists()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/capture-count-initial.png")
-        compose.onNodeWithText("맞아요").performScrollTo().performClick(); assertEquals(10,answer)
+        compose.onNodeWithText("맞습니다").performScrollTo().performClick(); assertEquals(10,answer)
         compose.onNodeWithText("확인한 구간 저장").assertDoesNotExist()
         compose.onNodeWithText("연구 모드 · 상세 확인").assertDoesNotExist()
         compose.onNodeWithText("기타").performScrollTo().performClick()
@@ -75,18 +75,18 @@ class CalibrationResultScreenTest {
             assertEquals("file:///fixture/second.mp4", second.videoURIString)
             second.onErrorListener.onError(android.media.MediaPlayer(), 1, 0)
         }
-        compose.onNodeWithText("영상을 재생하지 못했어요. 촬영 자료를 다시 열어 주세요.").assertExists()
+        compose.onNodeWithText("영상을 재생하지 못했습니다. 촬영 자료를 다시 열어 주세요.").assertExists()
     }
 
     @Test fun loadingAndReadFailureAreNotShownAsAnEmptyCaptureList() {
         var retry = 0
         val loading = androidx.compose.runtime.mutableStateOf(true)
         compose.setContent { CalibrationResultScreen(null, emptyList(), false, {}, {}, {}, {},
-            loading = loading.value, error = if (loading.value) null else "촬영 자료를 읽지 못했어요. 다시 시도해 주세요.", retry = { retry++ }) }
+            loading = loading.value, error = if (loading.value) null else "촬영 자료를 읽지 못했습니다. 다시 시도해 주세요.", retry = { retry++ }) }
         compose.onNodeWithText("촬영 자료를 불러오는 중…").assertExists()
-        compose.onNodeWithText("아직 촬영 자료가 없어요.").assertDoesNotExist()
+        compose.onNodeWithText("아직 촬영 자료가 없습니다.").assertDoesNotExist()
         compose.runOnIdle { loading.value = false }
-        compose.onNodeWithText("아직 촬영 자료가 없어요.").assertDoesNotExist()
+        compose.onNodeWithText("아직 촬영 자료가 없습니다.").assertDoesNotExist()
         compose.onNodeWithText("다시 불러오기").performClick()
         assertEquals(1, retry)
     }
@@ -106,9 +106,9 @@ class CalibrationResultScreenTest {
             emptyList(), false, {}, {}, {}, {}, answerMismatch = { a, b, c, d -> sent.add(listOf(a, b, c, d)) }) }
         compose.onNodeWithText("2.5~4.5초 · 영상에서만 찾은 구간").performScrollTo().assertExists()
         compose.onNodeWithText("9.0~11.0초 · 센서 피크 재분석에서만 찾은 구간").assertExists()
-        compose.onNodeWithText("답은 이 기기에만 저장하고, 반복 라벨로는 쓰지 않아요.").assertExists()
-        compose.onAllNodesWithText("맞아요")[1 + 0].performScrollTo()
-        compose.onAllNodesWithText("맞아요").filter(hasClickAction()).let { nodes ->
+        compose.onNodeWithText("답은 이 기기에만 저장하고, 반복 라벨로는 쓰지 않습니다.").assertExists()
+        compose.onAllNodesWithText("맞습니다")[1 + 0].performScrollTo()
+        compose.onAllNodesWithText("맞습니다").filter(hasClickAction()).let { nodes ->
             nodes[nodes.fetchSemanticsNodes().size - 2].performClick()
         }
         assertEquals(listOf(listOf(2500, 4500, true, true)), sent)
@@ -117,14 +117,14 @@ class CalibrationResultScreenTest {
     @Test fun unalignedWatchLogSaysTheWindowsCannotBeComparedInsteadOfShowingNone() {
         compose.setContent { CalibrationResultScreen(clip.copy(confirmedCount = 10, watchCount = 9, watchSpansKnown = false),
             emptyList(), false, {}, {}, {}, {}) }
-        compose.onNodeWithText("센서 재분석 구간을 영상 시간에 맞출 수 없어 비교 결과는 미확인이에요.").performScrollTo().assertExists()
+        compose.onNodeWithText("센서 재분석 구간을 영상 시간에 맞출 수 없어 비교 결과는 미확인입니다.").performScrollTo().assertExists()
     }
 
     @Test fun aSuspectLastRepShowsANoteWithoutChangingTheCount() {
         var answer = -1
         compose.setContent { CalibrationResultScreen(clip.copy(confirmedCount = 10, watchCount = 11, watchSpansKnown = true, trailingSuspect = true),
             emptyList(), false, {}, { answer = it }, {}, {}) }
-        compose.onNodeWithText("폰 횟수 재분석에서 마지막 후보가 다른 반복보다 느리고 약하게 나왔어요. 시계를 본 동작인지 영상으로 확인해 주세요. 이 알림은 구간 비교와 별도 분석이에요.")
+        compose.onNodeWithText("폰 횟수 재분석에서 마지막 후보가 다른 반복보다 느리고 약하게 나왔습니다. 시계를 본 동작인지 영상으로 확인해 주세요. 이 알림은 구간 비교와 별도 분석입니다.")
             .performScrollTo().assertExists()
         assertEquals(-1, answer)
     }
@@ -172,11 +172,11 @@ class CalibrationResultScreenTest {
     @Test fun detailHasABackArrowAnExerciseSpecificGraphTitleAndAConfirmedDelete() {
         var back = 0; var deleted = 0
         val shown = clip.copy(graphTitle = "영상 속 팔뚝 방향", confirmedCount = 11, watchCount = 10,
-            message = "11회로 저장했어요. 워치는 10회로 세서 서로 달라요. 어디서 갈렸는지 반복 구간을 표시해 주세요.")
+            message = "11회로 저장했습니다. 워치는 10회로 세서 서로 달라요. 어디서 갈렸는지 반복 구간을 표시해 주세요.")
         compose.setContent { CalibrationResultScreen(shown, rows, false, {}, {}, { back++ }, {}, deleteClip = { deleted++ }) }
         compose.onNodeWithText("영상 속 팔뚝 방향").performScrollTo().assertExists()
         compose.onNodeWithText("영상 속 손목 높이").assertDoesNotExist()
-        compose.onNodeWithText("11회로 저장했어요. 워치는 10회로 세서 서로 달라요. 어디서 갈렸는지 반복 구간을 표시해 주세요.").assertExists()
+        compose.onNodeWithText("11회로 저장했습니다. 워치는 10회로 세서 서로 달라요. 어디서 갈렸는지 반복 구간을 표시해 주세요.").assertExists()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/capture-detail-mismatch.png")
         compose.onNodeWithContentDescription("뒤로").performClick(); assertEquals(1, back)
         compose.onNodeWithContentDescription("삭제").performClick()

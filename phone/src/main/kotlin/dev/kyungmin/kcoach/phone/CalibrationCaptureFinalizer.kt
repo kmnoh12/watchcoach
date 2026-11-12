@@ -34,5 +34,5 @@ internal fun captureStorageFull(error: Throwable): Boolean {
 }
 
 internal fun captureSaveFailureText(error: Throwable): String = if (captureStorageFull(error))
-    "저장 공간이 부족해서 종료 상태를 저장하지 못했어요. 공간을 확보한 뒤 저장을 다시 시도해 주세요."
-else "촬영 종료 상태를 저장하지 못했어요. 저장 상태를 확인한 뒤 다시 시도해 주세요."
+    "저장 공간이 부족해서 종료 상태를 저장하지 못했습니다. 공간을 확보한 뒤 저장을 다시 시도해 주세요."
+else "촬영 종료 상태를 저장하지 못했습니다. 저장 상태를 확인한 뒤 다시 시도해 주세요."

@@ -26,7 +26,7 @@ fun ManualCountSheet(title: String, targets: List<Int>, setNumbers: List<Int>, o
     val counts = values.map { it.toIntOrNull()?.takeIf { count -> count in 0..9_999 } }
     Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 22.dp, vertical = 12.dp)) {
         Text(title, color = KColors.White, fontSize = 22.sp, fontWeight = FontWeight.Medium)
-        Text("실제로 한 횟수를 입력해 주세요. 0회도 기록할 수 있어요.", color = KColors.Muted,
+        Text("실제로 한 횟수를 입력해 주세요. 0회도 기록할 수 있습니다.", color = KColors.Muted,
             fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
         Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
             targets.forEachIndexed { index, target ->

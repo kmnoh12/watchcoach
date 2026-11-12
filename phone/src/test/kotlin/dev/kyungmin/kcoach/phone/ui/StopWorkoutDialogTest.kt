@@ -24,7 +24,7 @@ class StopWorkoutDialogTest {
         androidx.compose.foundation.layout.Column(
             androidx.compose.ui.Modifier.background(KColors.Surface).padding(24.dp),
         ) {
-            StopWorkoutDialog("운동을 종료할까요?", "완료한 세트를 기록으로 저장할 수 있어요.",
+            StopWorkoutDialog("운동을 종료할까요?", "완료한 세트를 기록으로 저장할 수 있습니다.",
                 dismiss = { events.add("dismiss") }, onSave = { events.add("save") }, onDiscard = { events.add("discard") })
         }
     }
