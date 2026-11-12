@@ -7,6 +7,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import dev.kyungmin.kcoach.phone.ui.CalibrationActions
+import dev.kyungmin.kcoach.phone.ui.RecordEditRow
+import dev.kyungmin.kcoach.phone.ui.RecordEditSheet
+import dev.kyungmin.kcoach.phone.ui.RecordMenuItem
+import dev.kyungmin.kcoach.phone.ui.RecordMenuSheet
 import dev.kyungmin.kcoach.phone.ui.CalibrationButtonUi
 import dev.kyungmin.kcoach.phone.ui.LiveLine
 import dev.kyungmin.kcoach.phone.ui.LivePanelText
@@ -209,10 +213,10 @@ class MainActivity : ComponentActivity() {
     private val white = Color.rgb(237, 232, 220)
     private val muted = Color.rgb(143, 139, 130)
     private val faint = Color.rgb(92, 89, 82)
-    private val amber = Color.rgb(118, 219, 185)
-    private val amberDark = Color.rgb(118, 219, 185)
+    private val amber = Color.rgb(99, 214, 222)
+    private val amberDark = Color.rgb(99, 214, 222)
     private val blue = Color.rgb(163, 159, 152)
-    private val green = Color.rgb(118, 219, 185)
+    private val green = Color.rgb(99, 214, 222)
 
     private val routines = WorkoutData.defaultRoutines()
     private val routineLibraryStore by lazy { RoutineLibraryStore(this) }
@@ -1020,6 +1024,7 @@ class MainActivity : ComponentActivity() {
             openResult = { showWorkoutResult(lastWorkoutResult) },
             openRecord = { record -> openRecordResult(record) },
             monthChanged = { recordMonth = it },
+            recordMenu = { record -> showRecordMenu(record) { showRecords() } },
         )
         val title = lastWorkoutResult?.title
         showScaffold(ComposeView(this).apply {
@@ -1050,18 +1055,146 @@ class MainActivity : ComponentActivity() {
         showWorkoutResult(result)
     }
 
-    /** A record row opens the same result screen as the newest workout; pre-session logs fall back to that day's session. */
-    private fun loadRecordResult(record: WorkoutRecord): WorkoutResultUi? {
-        record.sessionId?.let { id -> loadFinishedWorkoutResult(id)?.let { return it } }
+    /** The saved session behind a record row; pre-session logs fall back to that day's session. */
+    private fun recordEvidence(record: WorkoutRecord): FinishedWorkoutStore.Evidence? {
+        val store = FinishedWorkoutStore(this)
+        record.sessionId?.let { id -> store.evidenceForSessions(setOf(id)).singleOrNull()?.let { return it } }
         val day = runCatching { LocalDate.parse(record.date).toEpochDay() }.getOrNull() ?: return null
-        val candidates = FinishedWorkoutStore(this).allEvidence().filter {
+        val candidates = store.allEvidence().filter {
             Instant.ofEpochMilli(it.snapshot.startedAtMs).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay() == day
         }
-        val evidence = candidates.firstOrNull { it.title == record.title }
+        return candidates.firstOrNull { it.title == record.title }
             ?: candidates.firstOrNull { it.minutes == record.minutes }
             ?: candidates.singleOrNull()
-            ?: return null
+    }
+
+    /** A record row opens the same result screen as the newest workout. */
+    private fun loadRecordResult(record: WorkoutRecord): WorkoutResultUi? {
+        val evidence = recordEvidence(record) ?: return null
         return loadFinishedWorkoutResult(evidence.snapshot.sessionId)
+    }
+
+    /** Three-dot menu of a finished record, shared by the records list and the result screen. */
+    private fun showRecordMenu(record: WorkoutRecord, afterChange: () -> Unit) {
+        showSheet { dismiss ->
+            RecordMenuSheet(
+                "${record.title} · ${record.date.replace("-", ".")}",
+                listOf(RecordMenuItem("이 기록으로 운동 시작"), RecordMenuItem("운동 기록 수정"), RecordMenuItem("운동 기록 삭제", destructive = true)),
+            ) { index ->
+                dismiss()
+                when (index) {
+                    0 -> startWorkoutFromRecord(record)
+                    1 -> showRecordEditor(record, afterChange)
+                    else -> confirmDeleteRecord(record, afterChange)
+                }
+            }
+        }
+    }
+
+    private fun startWorkoutFromRecord(record: WorkoutRecord) {
+        val evidence = recordEvidence(record)
+        if (evidence == null) {
+            Toast.makeText(this, "이 기록의 세트 정보를 찾지 못했습니다", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val exercises = evidence.snapshot.plannedSets.filter { it.completed }.groupBy { it.exerciseIndex }.toSortedMap().values.mapNotNull { sets ->
+            val definition = WorkoutData.catalog.firstOrNull { it.id == sets.first().exerciseId } ?: return@mapNotNull null
+            RoutineExercise(
+                definition,
+                sets.sortedBy { it.setIndex }.map {
+                    PlannedSet(
+                        it.weightKg, it.performedReps ?: it.targetReps,
+                        setType = SetType.entries.firstOrNull { type -> type.storageValue == it.setType || type.name == it.setType } ?: SetType.NORMAL,
+                        gripType = it.gripType, targetDurationSeconds = it.targetDurationSeconds,
+                    )
+                }.toMutableList(),
+                sets.first().exerciseRestSeconds,
+            )
+        }
+        if (exercises.isEmpty()) {
+            Toast.makeText(this, "이 기록으로 시작할 운동을 찾지 못했습니다", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val muscles = exercises.map { it.exercise.muscles }.distinct().joinToString("·")
+        startWorkout(WorkoutRoutine("record:${evidence.snapshot.sessionId}", record.title, muscles, "오늘", exercises.toMutableList()))
+    }
+
+    private fun showRecordEditor(record: WorkoutRecord, afterChange: () -> Unit) {
+        val evidence = recordEvidence(record)
+        if (evidence == null) {
+            Toast.makeText(this, "이 기록의 세트 정보를 찾지 못했습니다", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val done = evidence.snapshot.plannedSets.filter { it.completed }
+        // One-arm and timed sets carry extra state, so they stay as recorded.
+        val editable = done.filter { it.unilateral == null && it.exerciseKind != dev.kyungmin.kcoach.core.ExerciseKind.HOLD }
+            .sortedWith(compareBy({ it.exerciseIndex }, { it.setIndex }))
+        if (editable.isEmpty()) {
+            Toast.makeText(this, "수정할 수 있는 세트가 없습니다", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val rows = editable.map {
+            RecordEditRow(
+                it.exerciseIndex, it.setIndex, it.exerciseName.ifBlank { it.exerciseId }, "${it.setIndex + 1}세트",
+                showsWeight = it.weightKg != null,
+                weight = it.weightKg?.let { w -> if (w % 1.0 == 0.0) w.toInt().toString() else w.toString() }.orEmpty(),
+                reps = (it.performedReps ?: 0).toString(),
+            )
+        }
+        val note = if (editable.size < done.size) "원암·시간 운동 세트는 여기서 수정할 수 없습니다" else null
+        showSheet { dismiss ->
+            RecordEditSheet("운동 기록 수정", rows, note, onCancel = dismiss, onSave = {
+                val edits = HashMap<Pair<Int, Int>, Pair<Double?, Int>>()
+                for (row in rows) {
+                    val reps = row.reps.toIntOrNull()
+                    val weight = if (row.showsWeight) row.weight.toDoubleOrNull() else null
+                    if (reps == null || reps !in 0..9_999 || (row.showsWeight && (weight == null || weight < 0.0))) {
+                        Toast.makeText(this, "입력값을 확인해 주세요", Toast.LENGTH_SHORT).show()
+                        return@RecordEditSheet
+                    }
+                    edits[row.exerciseIndex to row.setIndex] = weight to reps
+                }
+                dismiss()
+                if (FinishedWorkoutStore(this).editSets(evidence.snapshot.sessionId, edits)) {
+                    historyCache = null
+                    Toast.makeText(this, "운동 기록 수정 완료", Toast.LENGTH_SHORT).show()
+                    afterChange()
+                } else {
+                    Toast.makeText(this, "운동 기록 수정 실패", Toast.LENGTH_SHORT).show()
+                }
+            })
+        }
+    }
+
+    private fun confirmDeleteRecord(record: WorkoutRecord, afterChange: () -> Unit) {
+        showPopup { dismiss ->
+            ConfirmDialog(
+                title = "운동 기록을 삭제할까요?",
+                message = "삭제한 기록은 되돌릴 수 없습니다. 기록 비교와 통계에서도 빠집니다.",
+                negative = "취소",
+                positive = "삭제",
+                dismiss = dismiss,
+            ) {
+                val sessionId = record.sessionId ?: recordEvidence(record)?.snapshot?.sessionId
+                val removed = if (sessionId != null) FinishedWorkoutStore(this).delete(sessionId)
+                else runCatching {
+                    // Logs from before sessions were stored: remove the matching row only.
+                    val day = LocalDate.parse(record.date).toEpochDay()
+                    workoutLogStore.remove { it.sessionId == null && it.epochDay == day && it.title == record.title && it.minutes == record.minutes && it.sets == record.sets }
+                }.isSuccess
+                if (removed) {
+                    if (sessionId != null && lastWorkoutResult?.sessionId == sessionId) {
+                        lastWorkoutResult = null
+                        getSharedPreferences("workout_results", MODE_PRIVATE).edit().remove("last").apply()
+                    }
+                    historyCache = null
+                    Toast.makeText(this, "운동 기록 삭제 완료", Toast.LENGTH_SHORT).show()
+                    afterChange()
+                } else {
+                    Toast.makeText(this, "운동 기록 삭제 실패", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun showRequestedWorkoutResult(request: Intent?): Boolean {
@@ -1121,6 +1254,13 @@ class MainActivity : ComponentActivity() {
         showStandalone(ComposeView(this).apply {
             setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { showRecords() },
                 summary = { dev.kyungmin.kcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) },
+                onMenu = {
+                    val record = workoutRecords().firstOrNull { it.sessionId == result.sessionId }
+                        ?: WorkoutRecord(LocalDate.now().toString(), result.title, result.durationMinutes, result.completedSets, 0, result.sessionId)
+                    showRecordMenu(record) {
+                        if (loadFinishedWorkoutResult(result.sessionId) != null) showWorkoutResult(loadFinishedWorkoutResult(result.sessionId)) else showRecords()
+                    }
+                },
                 editableSets = editableSets.map { "${it.exerciseName} · ${it.setIndex + 1}세트" +
                     (if (it.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.BOTH_COMPLETE) " · 반대손" else "") to requireNotNull(it.unilateral?.otherReps ?: it.performedReps) },
                 confirmReps = { index, reps ->
@@ -1756,21 +1896,14 @@ class MainActivity : ComponentActivity() {
         val today = LocalDate.now()
         val month = YearMonth.from(today)
         val logs = workoutLogStore.load()
-        val inMonth = logs.filter { LocalDate.ofEpochDay(it.epochDay).let { d -> YearMonth.from(d) == month } }
-        val bodyOf = WorkoutData.catalog.associate { it.id to it.bodyCategory }
-        val weekSets = BodyLoad.setsByPart(history.all, bodyOf::get, today.toEpochDay())
-        if (inMonth.isEmpty()) return StatsUi("${month.monthValue}월", emptyList(), emptyList(), weekSets)
-        val totals = WorkoutStats.between(logs, month.atDay(1).toEpochDay(), month.atEndOfMonth().toEpochDay())
+        val catalog = WorkoutData.catalog
         return StatsUi(
-            "${month.monthValue}월",
-            listOf(
-                "${totals.workouts}회" to "운동",
-                "${totals.minutes}분" to "총 시간",
-                "${totals.sets}세트" to "총 세트",
-                "%,dkg".format(totals.volumeKg) to "총 볼륨",
-            ),
-            WorkoutStats.byTitle(inMonth).map { (title, sets) -> title to "${sets}세트" },
-            weekSets,
+            monthLabel = "${month.monthValue}월",
+            workouts = logs,
+            history = history.all,
+            bodies = catalog.associate { it.id to it.bodyCategory },
+            weights = catalog.associate { it.id to BodyLoad.partWeights(it.bodyCategory, it.pattern, it.id) },
+            names = catalog.associate { it.id to it.name },
         )
     }
 
@@ -2800,7 +2933,7 @@ class MainActivity : ComponentActivity() {
         // Lists only ever get the light preview; a live 3D view per row is what made scrolling break.
         if (compact && ExercisePreviews.has(this, exercise.id)) return ExercisePreviewView(this, exercise.id)
         if (!compact && Exercise3DView.has(this, exercise.id)) {
-            val radiusDp = if (compact) 12 else 20
+            val radiusDp = if (compact) 12 else 10 // same as the sticky viewer clip (KShape.Panel, 10dp)
             return Exercise3DView(this, exercise.id).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(heightDp))
                 background = rounded(Color.rgb(52, 50, 46), radiusDp)
@@ -2817,7 +2950,7 @@ class MainActivity : ComponentActivity() {
             // share one native decoder, and two running at once (pager neighbours)
             // abort the process.
             val drawable = ImageDecoder.decodeDrawable(ImageDecoder.createSource(resources, animationRes))
-            val radiusDp = if (compact) 12 else 20
+            val radiusDp = if (compact) 12 else 10 // same as the sticky viewer clip (KShape.Panel, 10dp)
             FrameLayout(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -3212,7 +3345,7 @@ class MainActivity : ComponentActivity() {
         column.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         actions?.let { column.addView(it) }
         // Room under the content for the floating bar, which is drawn by the app-level tab bar view.
-        column.addView(View(this), matchParams(86))
+        if (selected != RootTab.STATS) column.addView(View(this), matchParams(86))
         root.addView(column, FrameLayout.LayoutParams(-1, -1))
         navSelected.intValue = selected.ordinal
         navVisible.value = true

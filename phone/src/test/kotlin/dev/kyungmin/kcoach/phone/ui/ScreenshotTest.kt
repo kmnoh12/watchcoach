@@ -67,16 +67,19 @@ class ScreenshotTest {
     fun stats() = shot("stats") {
         StatsScreen(
             StatsUi(
-                "10월",
-                listOf("4회" to "운동", "270분" to "총 시간", "96세트" to "총 세트", "40,809kg" to "총 볼륨"),
-                listOf("등·이두" to "32세트", "가슴·삼두" to "26세트", "어깨전문" to "24세트"),
-                mapOf("가슴" to 9, "등" to 14, "어깨" to 6, "삼두" to 5, "이두" to 3, "하체" to 0),
+                monthLabel = "10월",
+                workouts = listOf(dev.kyungmin.kcoach.core.WorkoutLog(java.time.LocalDate.now().toEpochDay(), "등·이두", 60, 20, 4080)),
+                history = listOf(dev.kyungmin.kcoach.core.ExerciseLog("bench", java.time.LocalDate.now().toEpochDay(),
+                    List(12) { dev.kyungmin.kcoach.core.LoggedSet(50.0, 10) }, startedAtMs = System.currentTimeMillis() - 3_600_000)),
+                bodies = mapOf("bench" to "가슴"),
+                weights = mapOf("bench" to mapOf("가슴" to 1.0, "전면어깨" to 0.5)),
+                names = mapOf("bench" to "벤치프레스"),
             ),
         )
     }
 
     @Test
-    fun statsEmpty() = shot("stats_empty") { StatsScreen(StatsUi("10월", emptyList(), emptyList())) }
+    fun statsEmpty() = shot("stats_empty") { StatsScreen(StatsUi("10월")) }
 
     @Test
     fun menu() = shot("menu") { MenuScreen("0.7.1", MenuActions({}, { null }, {})) }
@@ -200,7 +203,7 @@ class ScreenshotTest {
         val context = androidx.compose.ui.platform.LocalContext.current
         ActiveWorkoutScreen(
             workoutModel(false), noActions(),
-            LiveLine("Watch8 연결됨 · 랫풀다운 · 세트 3", "t").also { it.setTextColor(0xFF76DBB9.toInt()) },
+            LiveLine("Watch8 연결됨 · 랫풀다운 · 세트 3", "t").also { it.setTextColor(0xFF63D6DE.toInt()) },
             LiveLine("7/10회 · 55kg · 심박 112bpm", "t"),
         ) { android.view.View(context) }
     }

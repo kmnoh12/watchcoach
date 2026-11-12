@@ -80,13 +80,28 @@ fun rememberEntered(): Boolean {
     return entered
 }
 
+/** A short tick for a tap; every tappable surface goes through this so the whole app feels the same. */
+@Composable
+fun rememberTapHaptic(): () -> Unit {
+    val view = androidx.compose.ui.platform.LocalView.current
+    return remember(view) { { view.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK) } }
+}
+
+/** Plain clickable that also ticks, for surfaces that do not use the press shrink. */
+@Composable
+fun Modifier.tapClickable(onClick: () -> Unit): Modifier {
+    val tick = rememberTapHaptic()
+    return this.clickable { tick(); onClick() }
+}
+
 /** Press feedback shared by every tappable surface: a small shrink on the UI curve. */
 @Composable
 fun Modifier.pressable(onClick: () -> Unit): Modifier {
+    val tick = rememberTapHaptic()
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, Motion.ui(), label = "press")
-    return this.scale(scale).clickable(interactionSource = source, indication = null, onClick = onClick)
+    return this.scale(scale).clickable(interactionSource = source, indication = null, onClick = { tick(); onClick() })
 }
 
 /**

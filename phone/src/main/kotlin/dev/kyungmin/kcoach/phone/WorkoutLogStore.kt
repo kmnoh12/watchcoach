@@ -18,6 +18,13 @@ class WorkoutLogStore(context: Context) {
         updated
     }
 
+    /** Drops every log the predicate matches; used when a record is deleted or about to be re-projected. */
+    fun remove(match: (WorkoutLog) -> Boolean): List<WorkoutLog> = synchronized(lock) {
+        val updated = load().filterNot(match)
+        check(prefs.edit().putString(KEY, WorkoutLogCodec.encode(updated)).commit()) { "Failed to save workout log" }
+        updated
+    }
+
     private companion object {
         val lock = Any()
         const val KEY = "logs"

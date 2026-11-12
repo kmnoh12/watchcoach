@@ -333,7 +333,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
             text(c,label,x-(widths[i]-4*d)/2,tabsY,13*d,if (ratio==i) Color.WHITE else Color.rgb(143,139,130),true,opacity=controls)
             taps += RectF(x-widths[i]/2-12*d,tabsY-4*d,x+widths[i]/2+12*d,tabsY+30*d) to { chooseRatio(i) }
         }
-        paint.color=Color.rgb(118,219,185); paint.alpha=(255*controls).toInt(); c.drawCircle(center,tabsY+25*d,2*d,paint)
+        paint.color=Color.rgb(99,214,222); paint.alpha=(255*controls).toInt(); c.drawCircle(center,tabsY+25*d,2*d,paint)
         val cy = tabsY+34*d+33*d
         fun circle(x: Float, radius: Float, color: Int, atY: Float = cy, opacity: Float = controls) { paint.color=color; paint.alpha=(255*opacity).toInt(); paint.style=Paint.Style.FILL; c.drawCircle(x,atY,radius*d,paint) }
         val closeRect = RectF(f.left+11*d,f.top+10*d,f.left+48.4f*d,f.top+47.4f*d)
@@ -380,7 +380,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                 val pop = curve.getInterpolation(((SystemClock.uptimeMillis()-shotAt-i*30)/280f).coerceIn(0f,1f))
                 val actionY = cy+10*d*(1-pop)
                 val opacity = controls*pop
-                circle(x,27f,if(i==0) Color.rgb(118,219,185) else Color.rgb(28,27,25),actionY,opacity)
+                circle(x,27f,if(i==0) Color.rgb(99,214,222) else Color.rgb(28,27,25),actionY,opacity)
                 drawIcon(c,if(i==0 && photoSaved) 6 else i,x,actionY,22*d,if(i==0) Color.rgb(4,20,14) else Color.rgb(237,232,220),opacity)
                 paint.textSize=11*d; paint.typeface=Typeface.DEFAULT
                 text(c,label,x-paint.measureText(label)/2,actionY+34*d,11*d,Color.rgb(237,232,220),right=false,opacity=opacity)
@@ -636,7 +636,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         text(c, "${data.volume}kg · ${data.setCount}세트", x, y+17.72f*u, 3.1f*u, ink(colors[0]), true, opacity = opacity)
         paint.textSize = 2.8f*u; paint.typeface = Typeface.DEFAULT_BOLD
         val badge = RectF(x, y+23.66f*u, x+paint.measureText(data.verdict)+3.6f*u, y+28.58f*u)
-        paint.color = Color.rgb(118,219,185); paint.alpha = (255*opacity).toInt(); c.drawRoundRect(badge, u, u, paint)
+        paint.color = Color.rgb(99,214,222); paint.alpha = (255*opacity).toInt(); c.drawRoundRect(badge, u, u, paint)
         text(c, data.verdict, x+1.8f*u, badge.top+.5f*u, 2.8f*u, Color.rgb(11,11,10), true, opacity = opacity)
         text(c, "WATCHGYM", safe.right-3.6f*u, y+.2f*u, 2.6f*u, ink(colors[1]), true, true, opacity*.85f)
         val line = 3.1f*u*1.55f

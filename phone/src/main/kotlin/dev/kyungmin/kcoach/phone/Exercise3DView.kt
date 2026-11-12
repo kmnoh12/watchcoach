@@ -15,16 +15,31 @@ import kotlin.math.abs
 
 /**
  * Plays the machine-viewer 3D rep for one exercise from the bundled assets/viewer3d page (three.js,
- * no network). One finger drag turns the camera; a mostly vertical drag is left to the page scroll.
+ * no network); [page] shows another bundled page instead, such as the statistics body figure. One finger drag turns the camera; a mostly vertical drag is left to the page scroll.
  */
 @SuppressLint("SetJavaScriptEnabled", "ViewConstructor")
-class Exercise3DView(context: Context, exerciseId: String) : FrameLayout(context) {
+class Exercise3DView(context: Context, exerciseId: String, page: String? = null, background: Int = Color.rgb(52, 50, 46)) : FrameLayout(context) {
     private val web = WebView(context)
+    private var fatigueJson: String? = null
+    private var pageReady = false
+
+    /** Keep the latest value even when Compose updates before the page finishes loading. */
+    fun setFatigue(fatigue: Map<String, Double>) {
+        val json = JSONObject(fatigue).toString()
+        if (fatigueJson == json) return
+        fatigueJson = json
+        paintFatigue()
+    }
+
+    private fun paintFatigue() {
+        if (pageReady) fatigueJson?.let { web.evaluateJavascript("window.setFatigue && window.setFatigue($it)", null) }
+    }
+
     private var downX = 0f
     private var downY = 0f
 
     init {
-        web.setBackgroundColor(Color.rgb(52, 50, 46))
+        web.setBackgroundColor(background)
         web.settings.apply {
             javaScriptEnabled = true
             allowFileAccess = false
@@ -34,6 +49,11 @@ class Exercise3DView(context: Context, exerciseId: String) : FrameLayout(context
         web.isVerticalScrollBarEnabled = false
         web.isHorizontalScrollBarEnabled = false
         web.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+                pageReady = true
+                paintFatigue()
+            }
+
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 if (request.url.host != HOST) return null
                 val path = request.url.path.orEmpty().trimStart('/')
@@ -50,7 +70,7 @@ class Exercise3DView(context: Context, exerciseId: String) : FrameLayout(context
             false
         }
         addView(web, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        web.loadUrl("https://$HOST/index.html?ex=$exerciseId")
+        web.loadUrl(if (page != null) "https://$HOST/$page" else "https://$HOST/index.html?ex=$exerciseId")
     }
 
     override fun onDetachedFromWindow() {

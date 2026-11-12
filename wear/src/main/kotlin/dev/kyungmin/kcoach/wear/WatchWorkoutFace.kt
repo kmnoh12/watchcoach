@@ -366,7 +366,7 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     }
     companion object {
         val BONE = Color.rgb(237, 232, 220)
-        val SAGE = Color.rgb(118, 219, 185)
+        val SAGE = Color.rgb(99, 214, 222)
         /** Rest: a soft yellow. */
         val YELLOW = Color.rgb(255, 222, 112)
         /** Over the target: a light amber, kept distinct from the rest yellow. */

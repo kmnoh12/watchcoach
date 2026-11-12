@@ -286,7 +286,7 @@ async function show(models, cameraReady) {
     world.add(m.group); shown.push(m);
   });
   if (h) {
-    const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x5aa9e6, flatShading: true }));
+    const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x63d6de, flatShading: true }));
     mesh.frustumCulled = false; mesh.visible = humanOn; shown[0].human = h; shown[0].humanMesh = mesh; shown[0].group.add(mesh);
   }
   setAct(act);

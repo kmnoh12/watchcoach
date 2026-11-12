@@ -70,6 +70,33 @@ internal class FinishedWorkoutStore(private val context: Context) {
         project(key, record)
     }
 
+    /** Deletes one finished session and everything projected from it (log row, exercise history). */
+    fun delete(sessionId: String): Boolean = synchronized(lock) {
+        if (!prefs.edit().remove("session:$sessionId").commit()) return@synchronized false
+        WorkoutLogStore(context).remove { it.sessionId == sessionId }
+        ExerciseHistoryStore(context).removeSession(sessionId)
+        true
+    }
+
+    /** Applies typed weights/reps to completed sets (marked manual so later analysis cannot overwrite them) and projects again. */
+    fun editSets(sessionId: String, edits: Map<Pair<Int, Int>, Pair<Double?, Int>>): Boolean = synchronized(lock) {
+        val key = "session:$sessionId"
+        val record = prefs.getString(key, null)?.let(::JSONObject) ?: return@synchronized false
+        val snapshot = WorkoutSnapshotCodec.decode(record.getString("snapshot"))
+        val sets = snapshot.plannedSets.map {
+            val edit = edits[it.exerciseIndex to it.setIndex]
+            if (edit != null && it.completed) it.copy(weightKg = edit.first, performedReps = edit.second, repSource = SetRepSource.MANUAL) else it
+        }
+        val updated = snapshot.copy(plannedSets = sets, performedReps = sets.filter { it.completed }
+            .groupBy { it.exerciseId }.mapValues { (_, list) -> list.sumOf { it.performedReps ?: 0 } })
+        record.put("snapshot", WorkoutSnapshotCodec.encode(updated)).put("projected", false)
+        if (!prefs.edit().putString(key, record.toString()).commit()) return@synchronized false
+        WorkoutLogStore(context).remove { it.sessionId == sessionId }
+        ExerciseHistoryStore(context).removeSession(sessionId)
+        project(key, record)
+        true
+    }
+
     fun reconcile(sessionId: String, indexedOnly: Boolean = false) = synchronized(lock) {
         val read = SetAnalysisStore(context).readForSession(sessionId, allowLegacyScan = !indexedOnly)
         SessionStore(context).confirmReps(sessionId, read.rows).getOrThrow()

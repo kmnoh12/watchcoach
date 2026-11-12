@@ -22,6 +22,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -79,7 +80,7 @@ private fun TabPage(title: String, right: String, rightIcon: KIcon? = null, righ
             if (rightIcon != null) {
                 if (rightAction == null) KIcon(rightIcon, KColors.Muted, Modifier.padding(start = 4.dp), 22.dp)
                 else Box(Modifier.size(48.dp).clip(KShape.Control).semantics { contentDescription = "설정" }
-                    .clickable(onClick = rightAction), contentAlignment = Alignment.Center) { KIcon(rightIcon, KColors.White, size = 24.dp) }
+                    .tapClickable(rightAction), contentAlignment = Alignment.Center) { KIcon(rightIcon, KColors.White, size = 24.dp) }
             }
         }
         content()
@@ -126,6 +127,8 @@ class RecordsActions(
     val openResult: () -> Unit,
     val openRecord: (WorkoutRecord) -> Unit,
     val monthChanged: (YearMonth) -> Unit,
+    /** The three-dot menu of a record row: start from it, edit it, delete it. */
+    val recordMenu: (WorkoutRecord) -> Unit = {},
 )
 
 @Composable
@@ -219,7 +222,7 @@ fun RecordsScreen(
         if (monthRecords.isEmpty()) {
             Text(if (records.isEmpty()) "아직 기록 없음" else "이 달 기록 없음", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 18.dp))
         }
-        monthRecords.forEach { record -> RecordCard(record) { actions.openRecord(record) } }
+        monthRecords.forEach { record -> RecordCard(record, onMenu = { actions.recordMenu(record) }) { actions.openRecord(record) } }
     }
 }
 
@@ -265,21 +268,24 @@ private fun CalendarGrid(month: YearMonth, records: List<WorkoutRecord>) {
 }
 
 @Composable
-private fun RecordCard(record: WorkoutRecord, onClick: () -> Unit) {
+private fun RecordCard(record: WorkoutRecord, onMenu: () -> Unit, onClick: () -> Unit) {
     Column {
         Row(
-            Modifier.fillMaxWidth().pressable(onClick).padding(start = 2.dp, top = 12.dp, bottom = 12.dp),
+            Modifier.fillMaxWidth().pressable(onClick).padding(start = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
                 Text(record.title, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
                 Text(record.date.replace("-", "."), color = KColors.Muted, fontSize = 12.sp)
             }
-            Column(horizontalAlignment = Alignment.End) {
+            Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.End) {
                 Text("${record.minutes}분 · ${record.sets}세트", color = KColors.Soft, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 Text("%,dkg".format(record.volumeKg), color = KColors.Muted, fontSize = 12.sp)
             }
-            KIcon(KIcon.Forward, KColors.Muted, Modifier.padding(start = 8.dp), 18.dp)
+            // Its own tap target: the rest of the row still opens the record detail.
+            Box(Modifier.padding(start = 2.dp).size(44.dp).pressable(onMenu), contentAlignment = Alignment.Center) {
+                KIcon(KIcon.Dots, KColors.Muted, size = 20.dp)
+            }
         }
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(KColors.Hairline))
     }
@@ -287,44 +293,60 @@ private fun RecordCard(record: WorkoutRecord, onClick: () -> Unit) {
 
 class StatsUi(
     val monthLabel: String,
-    val metrics: List<Pair<String, String>>,
-    val byRoutine: List<Pair<String, String>>,
-    /** Sets per body part over the last seven days. */
-    val weekSets: Map<String, Int> = emptyMap(),
+    val workouts: List<dev.kyungmin.kcoach.core.WorkoutLog> = emptyList(),
+    val history: List<dev.kyungmin.kcoach.core.ExerciseLog> = emptyList(),
+    val bodies: Map<String, String> = emptyMap(),
+    val weights: Map<String, Map<String, Double>> = emptyMap(),
+    val names: Map<String, String> = emptyMap(),
+    val nowMs: Long = System.currentTimeMillis(),
 )
 
 @Composable
 fun StatsScreen(ui: StatsUi) {
+    val today = remember(ui) { java.time.Instant.ofEpochMilli(ui.nowMs).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay() }
+    var radarDays by remember { mutableStateOf(7) }
+    var cumulativeDays by remember { mutableStateOf(0) }
+    val week = remember(ui, today) { dev.kyungmin.kcoach.core.StatsAnalytics.weekVolumes(ui.workouts, today) }
+    val lastWeek = remember(ui, today) { dev.kyungmin.kcoach.core.StatsAnalytics.weekVolumes(ui.workouts, today, true) }
+    val current = remember(ui, today, radarDays) {
+        dev.kyungmin.kcoach.core.StatsAnalytics.volumeByGroup(ui.history, ui.bodies::get, ui.weights::get, today, radarDays)
+    }
+    val previous = remember(ui, today, radarDays) {
+        dev.kyungmin.kcoach.core.StatsAnalytics.volumeByGroup(ui.history, ui.bodies::get, ui.weights::get, today, radarDays, true)
+    }
+    val records = remember(ui) { dev.kyungmin.kcoach.core.StatsAnalytics.records(ui.history, ui.nowMs) }
+    val selected = remember(ui, today, cumulativeDays) {
+        ui.workouts.filter { dev.kyungmin.kcoach.core.StatsAnalytics.inPeriod(it.epochDay, today, cumulativeDays) }
+    }
     TabPage("통계", ui.monthLabel) {
-        Spacer(Modifier.height(24.dp))
-        Text("최근 7일", color = KColors.Soft, fontSize = 15.sp)
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            BodyMap(dev.kyungmin.kcoach.core.BodyLoad.intensity(ui.weekSets), Modifier.weight(1.5f))
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                listOf("가슴", "등", "어깨", "삼두", "이두", "하체").forEach { part ->
-                    val sets = ui.weekSets[part] ?: 0
-                    Row(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
-                        Text(part, color = if (sets > 0) KColors.White else KColors.Muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                        Text(if (sets > 0) "${sets}세트" else "-", color = if (sets > 0) KColors.Accent else KColors.Faint, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    }
-                    HairlineRule()
-                }
+        StatsHeading("근육 피로도")
+        StatsFatigue(ui)
+        StatsHeading("이번 주 볼륨")
+        StatsWeekSummary(week, lastWeek)
+        StatsWeekChart(week, lastWeek)
+        StatsLegend("이번 주", "지난주")
+        StatsHeading("부위별 볼륨", radarDays, { radarDays = it })
+        StatsRadarChart(current, previous, radarDays != 0)
+        StatsLegend(if (radarDays == 0) "전체 기간" else "이번 기간", if (radarDays == 0) null else "직전 기간")
+        StatsHeading("새 기록")
+        StatsRecords(records, ui.names, today)
+        StatsHeading("누적 기록", cumulativeDays, { cumulativeDays = it })
+        MetricGrid(listOf(
+            "${statsNumber(selected.size.toDouble())}회" to "운동",
+            "${statsNumber(selected.sumOf { it.minutes.toLong() }.toDouble())}분" to "총 시간",
+            "${statsNumber(selected.sumOf { it.sets.toLong() }.toDouble())}세트" to "총 세트",
+            "${statsNumber(selected.sumOf { it.volumeKg.toLong() }.toDouble())}kg" to "총 볼륨",
+        ))
+        HairlineRule()
+        StatsHeading("루틴별 세트", trailing = if (cumulativeDays == 0) "전체" else "최근 ${cumulativeDays}일")
+        dev.kyungmin.kcoach.core.WorkoutStats.byTitle(selected).forEach { (title, sets) ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(title, color = KColors.Soft, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                Text("${statsNumber(sets.toDouble())}세트", color = KColors.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
             }
+            HairlineRule()
         }
-        Spacer(Modifier.height(30.dp))
-        if (ui.metrics.isEmpty()) {
-            Text("이번 달 기록 없음", color = KColors.Soft, fontSize = 15.sp)
-            Spacer(Modifier.height(4.dp))
-            Text("운동을 끝내면 여기에 쌓입니다", color = KColors.Muted, fontSize = 13.sp)
-        } else {
-            Text("이번 달", color = KColors.Soft, fontSize = 15.sp)
-            Spacer(Modifier.height(6.dp))
-            MetricGrid(ui.metrics)
-            Spacer(Modifier.height(28.dp))
-            SectionCard("루틴별 세트", ui.byRoutine)
-        }
+        Spacer(Modifier.height(94.dp))
     }
 }
 

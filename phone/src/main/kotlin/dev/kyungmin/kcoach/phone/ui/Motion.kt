@@ -42,10 +42,10 @@ object KColors {
     val Faint = Color(0xFF5C5952)
     val Hairline = Color(0xFF1E1D1A)
     /** Sage: the lead colour for actions and state (primary buttons, today, current set, progress). */
-    val Accent = Color(0xFF76DBB9)
+    val Accent = Color(0xFF63D6DE)
     val Sage = Accent
     val OnAccent = Color(0xFF04140E)
-    val AccentWash = Color(0xFF0F2A22)
+    val AccentWash = Color(0xFF0B2A2D)
     val Red = Color(0xFFE5483B)
     /** Red with a touch of coral: the filled destructive button (end without saving), white text on top. */
     val DangerFill = Color(0xFFF0594B)

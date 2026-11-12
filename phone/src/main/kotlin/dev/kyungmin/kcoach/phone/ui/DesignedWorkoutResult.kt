@@ -60,7 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal val ResultMint = Color(0xFF76DBB9)
+internal val ResultMint = Color(0xFF63D6DE)
 internal val ResultBone = Color(0xFFEDE8DC)
 internal val ResultRaised = Color(0xFF242424)
 internal val ResultHair = Color(0xFF353535)
@@ -75,7 +75,7 @@ internal const val ResultCameraControls = 120
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () -> Unit,
-    estimated: List<Pair<String, Int>>, confirm: (Int, Int) -> Unit) {
+    estimated: List<Pair<String, Int>>, confirm: (Int, Int) -> Unit, onMenu: (() -> Unit)? = null) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -120,14 +120,6 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
     }
     DisposableEffect(owner) { onDispose { camera?.release() } }
     BackHandler(cameraOpen) { camera?.close() }
-    var estimateIndex by remember { mutableStateOf<Int?>(null) }
-    var estimateText by remember { mutableStateOf("") }
-    estimateIndex?.let { index ->
-        AlertDialog(onDismissRequest = { estimateIndex = null }, title = { Text("반대손 횟수") }, text = {
-            BasicTextField(estimateText, { estimateText = it.filter(Char::isDigit).take(4) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-        }, confirmButton = { TextButton(onClick = { estimateText.toIntOrNull()?.takeIf { it in 0..9999 }?.let { confirm(index, it); estimateIndex = null } }) { Text("확정") } },
-            dismissButton = { TextButton(onClick = { estimateIndex = null }) { Text("취소") } })
-    }
     // Pull down at the very top to open the camera: a haptic tick marks the release point, letting go opens it.
     val haptics = LocalHapticFeedback.current
     val pullLimit = 72f * density
@@ -166,7 +158,10 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
             Column(Modifier.weight(1f).verticalScroll(scroll, enabled = !cameraOpen)) {
                 Row(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp).height(33.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable(onClick = back).padding(end = 16.dp))
-                    Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp)
+                    Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    if (onMenu != null) Box(Modifier.offset(x = 11.dp).requiredSize(44.dp).clickable(onClick = onMenu), contentAlignment = Alignment.Center) {
+                        KIcon(KIcon.Dots, Color.White, size = 22.dp)
+                    }
                 }
                 val fade = (scroll.value / (120f * density)).coerceIn(0f, 1f)
                 Box(Modifier.align(Alignment.CenterHorizontally).padding(top = (ResultCameraTop - 33).dp).width(cameraFrameWidth).height(132.dp + (pullShown / density).dp)
@@ -188,7 +183,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                     Spacer(Modifier.height(12.dp))
                     read?.let { data ->
                         ResultNumbers(data)
-                        Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0F2A22)).padding(13.dp, 11.dp)) {
+                        Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0B2A2D)).padding(13.dp, 11.dp)) {
                             Text(data.verdict, color = ResultMint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                             Text(data.comparison, color = ResultMuted, fontSize = 12.sp)
                         }
@@ -196,12 +191,6 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                         Spacer(Modifier.height(12.dp))
                     } ?: Text(if (readFailed) "운동 기록 불러오기 실패" else "운동 기록 불러오는 중", color = ResultMuted)
                     if (readFailed) TextButton(onClick = { retry++ }) { Text("다시 시도", color = ResultMint) }
-                    estimated.forEachIndexed { i, (label, reps) ->
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("$label · ${reps}회", color = ResultMuted, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { estimateText = reps.toString(); estimateIndex = i }) { Text("수정", color = ResultMint) }
-                        }
-                    }
                 }
             }
             Row(Modifier.fillMaxWidth().background(Color.Black).padding(16.dp, 12.dp, 16.dp, 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -243,7 +232,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                     Spacer(Modifier.height(12.dp)); ResultNumbers(data, true)
                     if (!detailed) {
                         val record = data.exercises.firstOrNull { e -> e.sets.any { it.record } }
-                        if (record != null) Column(Modifier.padding(vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xFF0F2A22)).padding(11.dp, 9.dp)) {
+                        if (record != null) Column(Modifier.padding(vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xFF0B2A2D)).padding(11.dp, 9.dp)) {
                             Text("최고 기록", color = ResultMint, fontSize = 12.sp); Text("${record.name} ${record.sets.first { it.record }.today}", color = ResultBone, fontSize = 14.sp)
                         }
                         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("종목", color = ResultMuted, fontSize = 11.sp); Text("최고 세트", color = ResultMuted, fontSize = 11.sp) }
@@ -299,7 +288,7 @@ private fun PullHint(modifier: Modifier, visible: Float) {
 
 @Composable
 internal fun ResultButton(label: String, mint: Boolean, modifier: Modifier = Modifier, font: Int = 15, action: () -> Unit) {
-    Box(modifier.clip(RoundedCornerShape(ResultCameraRadius.dp)).background(if (mint) ResultMint else ResultRaised).clickable(onClick = action).padding(horizontal = 12.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(RoundedCornerShape(ResultCameraRadius.dp)).background(if (mint) ResultMint else ResultRaised).tapClickable(action).padding(horizontal = 12.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (mint) Color(0xFF04140E) else ResultBone, fontSize = font.sp, fontWeight = FontWeight.SemiBold)
     }
 }

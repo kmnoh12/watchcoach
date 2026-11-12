@@ -264,10 +264,10 @@ private fun ExerciseRow(
                 modifier = Modifier.padding(end = 4.dp),
             )
         }
-        Box(Modifier.size(38.dp, 48.dp).clickable(onClick = onInfo), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(38.dp, 48.dp).tapClickable(onInfo), contentAlignment = Alignment.Center) {
             KIcon(KIcon.Info, KColors.Muted, size = 20.dp)
         }
-        Box(Modifier.size(40.dp, 48.dp).clickable(onClick = onMenu), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(40.dp, 48.dp).tapClickable(onMenu), contentAlignment = Alignment.Center) {
             KIcon(KIcon.Dots, if (showHandle) KColors.Accent else KColors.Muted, size = 22.dp)
         }
     }

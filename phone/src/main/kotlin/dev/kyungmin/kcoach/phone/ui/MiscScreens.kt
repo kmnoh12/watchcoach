@@ -155,8 +155,8 @@ class ResultUi(
 
 @Composable
 fun WorkoutResultScreen(result: ResultUi, back: () -> Unit, toRecords: () -> Unit, summary: (@Composable () -> Unit)? = null,
-    editableSets: List<Pair<String, Int>> = emptyList(), confirmReps: (Int, Int) -> Unit = { _, _ -> }) {
-    DesignedWorkoutResult(result, back, toRecords, editableSets, confirmReps)
+    editableSets: List<Pair<String, Int>> = emptyList(), confirmReps: (Int, Int) -> Unit = { _, _ -> }, onMenu: (() -> Unit)? = null) {
+    DesignedWorkoutResult(result, back, toRecords, editableSets, confirmReps, onMenu)
 }
 
 /** How long each repetition took, one bar per rep: the fastest in sage, the slowest in bone, the rest muted. */

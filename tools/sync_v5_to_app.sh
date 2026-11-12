@@ -10,11 +10,11 @@ mkdir -p "$STATE"
 LOCK="$STATE/lock"
 mkdir "$LOCK" 2>/dev/null || { [ -n "$(find "$LOCK" -mmin +10 2>/dev/null)" ] && rmdir "$LOCK"; exit 0; }
 trap 'rmdir "$LOCK"' EXIT
-FP=$( { find "$VIEWER/v5-catalog" -maxdepth 2 -name '*.json' -exec stat -f '%m %z %N' {} +; stat -f '%m %z %N' "$ROOT/tools/viewer3d/index.html" "$ROOT/tools/viewer3d/camera_views.json" "$ROOT/phone/src/main/assets/viewer3d/exercise_models.json"; } 2>/dev/null | sort | shasum | cut -d' ' -f1)
+FP=$( { find "$VIEWER/v5-catalog" -maxdepth 2 -name '*.json' -exec stat -f '%m %z %N' {} +; stat -f '%m %z %N' "$ROOT/tools/viewer3d/index.html" "$ROOT/tools/viewer3d/human_stats.html" "$ROOT/tools/viewer3d/camera_views.json" "$ROOT/phone/src/main/assets/viewer3d/exercise_models.json"; } 2>/dev/null | sort | shasum | cut -d' ' -f1)
 [ "$FP" = "$(cat "$STATE/fingerprint" 2>/dev/null)" ] && exit 0
 echo "$(date '+%F %T') change detected, rebuilding" >> "$STATE/sync.log"
 if /usr/bin/python3 "$ROOT/tools/build_app3d_v5.py" --extra "$EXTRA" >> "$STATE/sync.log" 2>&1; then
-  FP2=$( { find "$VIEWER/v5-catalog" -maxdepth 2 -name '*.json' -exec stat -f '%m %z %N' {} +; stat -f '%m %z %N' "$ROOT/tools/viewer3d/index.html" "$ROOT/tools/viewer3d/camera_views.json" "$ROOT/phone/src/main/assets/viewer3d/exercise_models.json"; } 2>/dev/null | sort | shasum | cut -d' ' -f1)
+  FP2=$( { find "$VIEWER/v5-catalog" -maxdepth 2 -name '*.json' -exec stat -f '%m %z %N' {} +; stat -f '%m %z %N' "$ROOT/tools/viewer3d/index.html" "$ROOT/tools/viewer3d/human_stats.html" "$ROOT/tools/viewer3d/camera_views.json" "$ROOT/phone/src/main/assets/viewer3d/exercise_models.json"; } 2>/dev/null | sort | shasum | cut -d' ' -f1)
   echo "$FP2" > "$STATE/fingerprint"; echo "$(date '+%F %T') ok" >> "$STATE/sync.log"
 else
   echo "$(date '+%F %T') FAILED (will retry)" >> "$STATE/sync.log"

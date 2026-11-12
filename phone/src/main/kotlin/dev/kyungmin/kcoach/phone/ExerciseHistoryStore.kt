@@ -20,6 +20,13 @@ class ExerciseHistoryStore(context: Context) {
         updated
     }
 
+    /** Removes the logs one finished session contributed, so comparisons and records forget it. */
+    fun removeSession(sessionId: String): ExerciseHistory = synchronized(lock) {
+        val updated = ExerciseHistory(load().all.filterNot { it.sessionId == sessionId })
+        check(prefs.edit().putString(KEY, ExerciseHistoryCodec.encode(updated.all)).commit()) { "Failed to save exercise history" }
+        updated
+    }
+
     private companion object {
         val lock = Any()
         const val KEY = "logs"

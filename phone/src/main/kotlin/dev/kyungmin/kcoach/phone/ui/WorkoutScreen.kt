@@ -420,7 +420,7 @@ private fun ExercisePage(
                 layout(placeable.width, placeable.height) { placeable.place(0, 0) }
             },
     ) {
-        Box(Modifier.fillMaxSize().clip(KShape.Control)) {
+        Box(Modifier.fillMaxSize().clip(KShape.Panel)) {
             AndroidView(
                 factory = { animationView(exerciseIndex) },
                 modifier = Modifier.align(Alignment.Center).fillMaxWidth().requiredHeight(imageHeight),
@@ -531,7 +531,7 @@ private fun Cell(
         modifier.padding(horizontal = 4.dp).height(40.dp * grow)
             .clip(KShape.Control)
             .background(fill)
-            .then(if (editing == true) Modifier else Modifier.clickable { onClick() }),
+            .then(if (editing == true) Modifier else Modifier.tapClickable { onClick() }),
         contentAlignment = Alignment.Center,
     ) {
         if (editing == true && editValue != null) {

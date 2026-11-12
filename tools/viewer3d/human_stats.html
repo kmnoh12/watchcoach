@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>워치짐 통계 인체</title>
+<style>
+  html,body { margin:0; height:100%; background:#000; overflow:hidden; font:11px/1 -apple-system, "Apple SD Gothic Neo", system-ui, sans-serif; }
+  #stage { position:fixed; inset:0; touch-action:pan-y; }
+  canvas { position:absolute; left:0; top:0; display:block; }
+</style>
+<script type="importmap">{ "imports": { "three": "./three/three.module.js" } }</script>
+</head>
+<body>
+<main id="stage"></main>
+<script>
+// Available before the asynchronous mesh load; an early native update is never lost.
+window.statsFatigue = {};
+window.setFatigue = map => {
+  window.statsFatigue = map || {};
+  if (window.paintFatigue) window.paintFatigue();
+};
+</script>
+<script type="module">
+import * as THREE from "three";
+
+// The V5 low-poly man in his rest A-pose (arms away from the body, feet apart), straight from base.json.
+// Left figure shows the front and right the back, each turned 30 degrees. Static: drawn once, repainted on resize.
+const YAW = Math.PI / 6;
+const stage = document.getElementById("stage");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 1);
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a3a, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(2, -3, 5); scene.add(sun);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
+camera.up.set(0, 0, 1);
+camera.position.set(0, -6, 0.9);
+camera.lookAt(0, 0, 0.9);
+const figures = new THREE.Group(); scene.add(figures);
+
+function resize() {
+  const r = stage.getBoundingClientRect();
+  renderer.setSize(r.width, r.height);
+  const aspect = r.width / r.height;
+  // Height 1.8 m plus margin; each figure needs about 1 m of the width (arms out).
+  const halfH = Math.max(0.98, 1.38 / aspect);   // the camera already sits at body-centre height
+  camera.left = -halfH * aspect; camera.right = halfH * aspect; camera.top = halfH; camera.bottom = -halfH;
+  camera.updateProjectionMatrix();
+  figures.children.forEach((m, i) => m.position.x = (i ? 1 : -1) * halfH * aspect / 2);
+  renderer.render(scene, camera);
+}
+
+async function load() {
+  const response = await fetch("human_v5/base.json");
+  if (!response.ok) throw Error("V5 model missing");
+  const base = await response.json();
+  const points = new Float32Array(base.rest);
+  // Native updates replace the fatigue map without reloading the mesh or resetting rotations.
+
+  const grey = new THREE.Color(0xe4e6e8), aqua = new THREE.Color(0x63d6de), deep = new THREE.Color(0x0a9fb4);
+  // Each muscle is a set of whole faces of this exact mesh, picked by eye along its creases, like filling shapes with a paint bucket.
+  // Lists name the body's left side (+x); the mesh is mirror-symmetric, so the right side is found by mirroring. No face is in two lists.
+  // Hands, feet, head, neck, the armpit hollows and the groin stay grey.
+  const MUSCLE_FACES = {
+    // Pectoralis major: clavicular band under the collarbone, the sternal plate, the strip tapering into the armpit,
+    // the shelf underneath whose outer end rises into the front armpit fold, and the sternum groove so both pecs read as one chest.
+    "가슴": [78, 93, 110, 118, 88, 77, 149, 171, 177, 138, 151, 166, 169, 63, 80, 7, 11, 12, 16, 20],
+    // Deltoid cap in three heads, ending at the row where the upper arm starts: front (top-front and front of the cap),
+    // side (outer cap), rear (back of the cap).
+    "전면어깨": [174, 157, 196, 218, 202, 222, 206],
+    "측면어깨": [245, 253, 283, 287, 274],
+    "후면어깨": [251, 250, 261, 216, 220, 224, 231, 176, 195],
+    // 승모 is the upper trapezius, the part a shrug works: neck slopes and shoulder tops (also seen from the front) and,
+    // on the back, everything above the line in MUSCLE_CUTS. The middle and lower trapezius belong to 등, because rows and
+    // pulldowns work them together with the lats.
+    "승모": [67, 79, 97, 184, 71, 13, 128, 150, 115, 200],
+    // Back: middle and lower trapezius down the spine to the V point, the shoulder-blade muscles beside them, the lat wings
+    // from the back armpit down to the waist, and the lower back.
+    "등": [18, 2, 17, 51, 72, 96, 182, 187, 147, 139, 105, 98, 109, 56, 23, 100, 82, 39, 346],
+    // Abs from the pec shelf down to the lower belly, plus the obliques on the flank.
+    "코어": [74, 31, 104, 59, 111, 40, 76, 95, 36, 65, 19, 94, 6, 106, 116, 127, 129, 134],
+    // Upper arm below the deltoid: front and outer-front faces are biceps, back and outer-back faces triceps; the inner faces
+    // are split by whether they sit in front of or behind the arm's middle.
+    "이두": [293, 228, 264, 297, 269, 309, 310, 304, 289, 314, 199, 209, 257, 298],
+    "삼두": [279, 211, 263, 259, 295, 302, 320, 292, 308, 322, 219, 241, 296, 194],
+    // Whole limb segments are listed by their bone below; these are the extra faces they also own:
+    // the elbow-top face for the forearm, the buttock tops for the legs.
+    "하체": [55, 54, 47, 34, 33],
+  };
+  // Where a muscle edge runs through the middle of a big face, the face is cut along a straight line and each piece is painted
+  // separately (the pieces lie in the same plane, so the body's shape does not change). The line is given in back view as
+  // [x, z] points on the left side and is mirrored for the right.
+  const MUSCLE_CUTS = [
+    // Lower edge of the upper trapezius: from the spine at about the third back vertebra up to the top inner corner of the
+    // shoulder blade, where it meets the existing edge that runs on to the shoulder tip.
+    { faces: [119, 41, 26], line: [[0, 1.38], [0.149, 1.414]], above: "승모", below: "등" },
+  ];
+  // Every face moved mainly by these bones belongs to that whole-limb group (the hand, foot and toes are excluded by not being listed).
+  const LIMB_BONES = { "하체": /^(thigh|calf)_/ };
+  const tri = base.triangles, faces = tri.length / 3;
+  const corner = (f, k) => tri[f * 3 + k];
+  const mainBone = f => {
+    const sum = {};
+    for (let k = 0; k < 3; k++) { const v = corner(f, k); base.joints[v].forEach((j, n) => sum[j] = (sum[j] || 0) + base.weights[v][n]); }
+    return base.bone_names[+Object.keys(sum).reduce((a, b) => sum[a] >= sum[b] ? a : b)];
+  };
+  const at = (x, y, z) => [x, y, z].map(c => Math.round(c * 1e4)).join();
+  const vertexAt = new Map(); for (let v = 0; v < points.length / 3; v++) vertexAt.set(at(points[v * 3], points[v * 3 + 1], points[v * 3 + 2]), v);
+  const mirrorVertex = v => vertexAt.get(at(-points[v * 3] || 0, points[v * 3 + 1], points[v * 3 + 2]));
+  const faceOf = new Map(); for (let f = 0; f < faces; f++) faceOf.set([0, 1, 2].map(k => corner(f, k)).sort((a, b) => a - b).join(), f);
+  const mirrorFace = f => faceOf.get([0, 1, 2].map(k => mirrorVertex(corner(f, k))).sort((a, b) => a - b).join());
+  const facePart = new Map();
+  // The skin weights are not quite symmetric at the hip and ankle, so the left side decides and is mirrored; only faces with
+  // no mirror twin (a few wrist triangles are split the other way) decide for themselves.
+  const leftSide = f => [0, 1, 2].reduce((s, k) => s + points[corner(f, k) * 3], 0) > 0;
+  const limbOf = f => { const bone = mainBone(f); return Object.keys(LIMB_BONES).find(name => LIMB_BONES[name].test(bone)); };
+  for (let f = 0; f < faces; f++) {
+    const twin = mirrorFace(f);
+    if (!leftSide(f) && twin !== undefined) continue;
+    const name = limbOf(f); if (!name) continue;
+    facePart.set(f, name); if (twin !== undefined) facePart.set(twin, name);
+  }
+  for (const [name, list] of Object.entries(MUSCLE_FACES)) for (const f of list) { facePart.set(f, name); facePart.set(mirrorFace(f), name); }
+  const cutOf = new Map();
+  for (const cut of MUSCLE_CUTS) for (const f of cut.faces) { cutOf.set(f, cut); cutOf.set(mirrorFace(f), cut); }
+  const colorOf = name => {
+    const fatigue = Number(window.statsFatigue[name] || 0);
+    if (!(fatigue > 0)) return grey.clone();
+    // Light body, fatigue brightens into the brand aqua by 60%, then deepens toward a stronger teal at 100%.
+    const t = Math.max(0.2, Math.min(1, fatigue));
+    return t < 0.6 ? grey.clone().lerp(aqua, t / 0.6) : aqua.clone().lerp(deep, (t - 0.6) / 0.4);
+  };
+  const position = [], color = [], names = [];
+  const emit = (poly, name) => { for (let i = 1; i + 1 < poly.length; i++) for (const p of [poly[0], poly[i], poly[i + 1]]) { position.push(...p); names.push(name); color.push(0, 0, 0); } };
+  for (let f = 0; f < faces; f++) {
+    const poly = [0, 1, 2].map(k => { const v = corner(f, k); return [points[v * 3], points[v * 3 + 1], points[v * 3 + 2]]; });
+    const cut = cutOf.get(f);
+    if (!cut) { emit(poly, facePart.get(f)); continue; }
+    // Signed side of the cut line, measured in the back view with |x| so one line serves both sides.
+    const [[x1, z1], [x2, z2]] = cut.line;
+    const side = p => (x2 - x1) * (p[2] - z1) - (z2 - z1) * (Math.abs(p[0]) - x1);
+    const above = [], below = [];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % 3], sp = side(p), sq = side(q);
+      (sp >= 0 ? above : below).push(p);
+      if ((sp > 0 && sq < 0) || (sp < 0 && sq > 0)) { const t = sp / (sp - sq), m = p.map((c, k) => c + (q[k] - c) * t); above.push(m); below.push(m); }
+    });
+    if (above.length >= 3) emit(above, cut.above);
+    if (below.length >= 3) emit(below, cut.below);
+  }
+  const flat = new THREE.BufferGeometry();
+  flat.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
+  flat.setAttribute("color", new THREE.Float32BufferAttribute(color, 3));
+  flat.computeVertexNormals();
+  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  // The model faces -Y: the front turns 30 degrees one way and the back the other, so the arms nearest the centre stay apart.
+  [-YAW, Math.PI - YAW].forEach(yaw => { const m = new THREE.Mesh(flat, material); m.rotation.z = yaw; figures.add(m); });
+  const colors = flat.getAttribute("color");
+  window.paintFatigue = () => {
+    names.forEach((name, i) => { const c = colorOf(name); colors.setXYZ(i, c.r, c.g, c.b); });
+    colors.needsUpdate = true;
+    renderer.render(scene, camera);
+  };
+  window.paintFatigue();
+  resize();
+  // A sideways finger drag turns the figure under the finger (left half = front figure, right half = back figure);
+  // vertical drags are left to the page scroll (touch-action: pan-y).
+  let lastX = null, which = 0;
+  stage.addEventListener("pointerdown", e => {
+    lastX = e.clientX;
+    const r = stage.getBoundingClientRect();
+    which = e.clientX - r.left < r.width / 2 ? 0 : 1;
+  });
+  stage.addEventListener("pointermove", e => {
+    if (lastX === null) return;
+    const dx = e.clientX - lastX; lastX = e.clientX;
+    figures.children[which].rotation.z += dx * 0.012;
+    renderer.render(scene, camera);
+  });
+  const release = () => { lastX = null; };
+  stage.addEventListener("pointerup", release); stage.addEventListener("pointercancel", release); stage.addEventListener("pointerleave", release);
+}
+addEventListener("resize", resize);
+load().catch(() => {});
+</script>
+</body>
+</html>

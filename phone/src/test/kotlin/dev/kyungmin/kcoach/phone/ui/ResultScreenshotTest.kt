@@ -65,7 +65,7 @@ class ResultScreenshotTest {
                 Text("등·이두 완료", color = ResultBone, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
                 ResultNumbers(data)
-                Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0F2A22)).padding(13.dp, 11.dp)) {
+                Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0B2A2D)).padding(13.dp, 11.dp)) {
                     Text(data.verdict, color = ResultMint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     Text(data.comparison, color = ResultMuted, fontSize = 12.sp)
                 }
