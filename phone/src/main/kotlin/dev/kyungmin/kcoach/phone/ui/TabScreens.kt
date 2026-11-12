@@ -17,6 +17,10 @@ import androidx.compose.foundation.border
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -148,7 +152,24 @@ fun RecordsScreen(
             }
             Spacer(Modifier.height(18.dp))
         }
-        Column(Modifier.fillMaxWidth().clip(KShape.Control).background(KColors.Surface).padding(16.dp, 18.dp)) {
+        val swipeStep = with(androidx.compose.ui.platform.LocalDensity.current) { 56.dp.toPx() }
+        Column(
+            Modifier.fillMaxWidth().clip(KShape.Control).background(KColors.Surface)
+                .pointerInput(Unit) {
+                    var drag = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { drag = 0f },
+                        onDragCancel = { drag = 0f },
+                        onDragEnd = {
+                            // Swipe left = next month, swipe right = previous month.
+                            if (drag <= -swipeStep) { month = month.plusMonths(1); actions.monthChanged(month) }
+                            else if (drag >= swipeStep) { month = month.minusMonths(1); actions.monthChanged(month) }
+                            drag = 0f
+                        },
+                    ) { _, delta -> drag += delta }
+                }
+                .padding(16.dp, 18.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MonthArrow(KIcon.Back) {
                     month = month.minusMonths(1)
@@ -179,9 +200,13 @@ fun RecordsScreen(
                 targetState = month,
                 // Digits of two months must never overlap: the old grid leaves
                 // first, the new one arrives after it.
+                // The grid slides the way the finger moved: next month comes in from the right.
                 transitionSpec = {
-                    fadeIn(tween(Motion.UI_MS / 2, delayMillis = Motion.UI_MS / 2, easing = Motion.UiEasing)) togetherWith
-                        fadeOut(tween(Motion.UI_MS / 2, easing = Motion.UiEasing))
+                    val dir = if (targetState > initialState) 1 else -1
+                    (slideInHorizontally(tween(Motion.UI_MS, easing = Motion.UiEasing)) { it / 3 * dir } +
+                        fadeIn(tween(Motion.UI_MS, easing = Motion.UiEasing))) togetherWith
+                        (slideOutHorizontally(tween(Motion.UI_MS, easing = Motion.UiEasing)) { -it / 3 * dir } +
+                            fadeOut(tween(Motion.UI_MS / 2, easing = Motion.UiEasing)))
                 },
                 label = "calendar",
             ) { m -> CalendarGrid(m, records) }

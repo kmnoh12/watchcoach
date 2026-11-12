@@ -14,6 +14,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -311,23 +313,19 @@ private fun ExercisePage(
     val restingSetIndex = model.restingSet?.takeIf { it.first == exerciseIndex }?.second
     val scroll = rememberScrollState()
     val imageHeight by animateDpAsState(if (keypadOpen) 92.dp else 190.dp, Motion.panel(), label = "image")
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    // 0 = full viewer, 1 = flattened to half height while the list scrolls under it.
+    // Collapsed viewer is a 19.5:9 (width:height) strip.
+    val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+    val flatHeight = ((screenWidthDp - 32) * 9f / 19.5f).dp
+    val shrinkBy = (imageHeight - flatHeight).coerceAtLeast(0.dp)
+    val collapse: () -> Float = {
+        val room = with(density) { shrinkBy.toPx() }.coerceAtLeast(1f)
+        (scroll.value / room).coerceIn(0f, 1f)
+    }
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp)) {
-        Box(Modifier.fillMaxWidth().height(imageHeight)) {
-            AndroidView(
-                factory = { animationView(exerciseIndex) },
-                modifier = Modifier.fillMaxSize().clip(KShape.Control),
-                onRelease = ::stopAnimatedImages,
-            )
-            if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
-                LivePanel(liveTitle, liveTelemetry, Modifier.align(Alignment.BottomEnd).padding(12.dp))
-            }
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(exercise.name, color = KColors.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Box(Modifier.size(40.dp).clickable { actions.onExerciseInfo(exerciseIndex) }, contentAlignment = Alignment.Center) { KIcon(KIcon.Info, KColors.Muted, size = 20.dp) }
-        }
-        Text(exercise.muscles, color = KColors.Muted, fontSize = 13.sp)
+        Spacer(Modifier.height(imageHeight + 10.dp))
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text("목표 ", color = KColors.Accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -411,6 +409,45 @@ private fun ExercisePage(
             modifier = Modifier.padding(top = 8.dp),
         )
         Spacer(Modifier.height(if (keypadOpen) 24.dp else 40.dp))
+    }
+    // Sticky viewer: the list scrolls under it and it flattens to half height; the model keeps its size.
+    Box(
+        Modifier.fillMaxWidth().background(KColors.Bg).padding(horizontal = 16.dp)
+            .layout { measurable, constraints ->
+                val full = imageHeight.roundToPx()
+                val h = full - (shrinkBy.roundToPx() * collapse()).toInt()
+                val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+            },
+    ) {
+        Box(Modifier.fillMaxSize().clip(KShape.Control)) {
+            AndroidView(
+                factory = { animationView(exerciseIndex) },
+                modifier = Modifier.align(Alignment.Center).fillMaxWidth().requiredHeight(imageHeight),
+                onRelease = ::stopAnimatedImages,
+            )
+            Column(Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 10.dp, end = 54.dp)) {
+                Text(exercise.name, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                Text(
+                    exercise.muscles, color = KColors.Soft, fontSize = 12.sp, maxLines = 1,
+                    modifier = Modifier.graphicsLayer { alpha = 1f - collapse() },
+                )
+            }
+            Box(Modifier.align(Alignment.TopEnd).size(44.dp).clickable { actions.onExerciseInfo(exerciseIndex) }, contentAlignment = Alignment.Center) {
+                KIcon(KIcon.Info, KColors.Soft, size = 20.dp)
+            }
+            if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
+                LivePanel(
+                    liveTitle, liveTelemetry,
+                    Modifier.align(Alignment.BottomEnd).padding(12.dp).graphicsLayer {
+                        val k = 1f - 0.3f * collapse()
+                        scaleX = k; scaleY = k
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
+                    },
+                )
+            }
+        }
+    }
     }
 }
 
