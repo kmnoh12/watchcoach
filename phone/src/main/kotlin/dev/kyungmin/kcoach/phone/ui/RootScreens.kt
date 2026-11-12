@@ -46,6 +46,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -132,16 +138,25 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 14.dp, vertical = 12.dp)
-            .shadow(14.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
+            // A pressed-in groove: a thin light rim just outside the bottom-right edge, no dark edge, so nothing outlines the bar against the page.
+            .drawBehind {
+                val r = CornerRadius(10.dp.toPx())
+                drawRoundRect(Color.White.copy(alpha = 0.2f), topLeft = Offset(1.5.dp.toPx(), 1.5.dp.toPx()), size = size, cornerRadius = r)
+            }
             .clip(shape)
-            .background(KColors.Surface)
-            .border(0.5.dp, KColors.Hairline, shape)
+            .background(Color(0xFF2A2927))
+            .drawWithContent {
+                drawContent()
+                val light = 1.dp.toPx()
+                drawRect(Color.White.copy(alpha = 0.14f), topLeft = Offset(0f, size.height - light), size = Size(size.width, light))
+                drawRect(Color.White.copy(alpha = 0.14f), topLeft = Offset(size.width - light, 0f), size = Size(light, size.height))
+            }
             .padding(4.dp),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().height(48.dp)) {
             val innerPx = constraints.maxWidth.toFloat()
-            // Selected button is 96 x 48 dp (2:1), independent of the phone's width.
-            val thumbWidth = with(density) { 96.dp.toPx() }
+            // Selected button is 86.2 x 43.1 dp, independent of the phone's width.
+            val thumbWidth = with(density) { 86.2.dp.toPx() }
             val unit = (innerPx - thumbWidth) / (count - 1)
             val expansion = thumbWidth / unit - 1f
             // Animate only endpoint widths; skipped tabs never expand.
@@ -159,17 +174,18 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
 
             Box(
                 Modifier
+                    .align(Alignment.CenterStart)
                     .offset { IntOffset(thumbLeft.roundToInt(), 0) }
                     .width(with(density) { thumbWidth.toDp() })
-                    .fillMaxHeight()
+                    .height(43.1.dp)
+                    .shadow(3.dp, KShape.Control, ambientColor = Color.Black, spotColor = Color.Black)
                     .clip(KShape.Control)
-                    .background(KColors.AccentWash)
-                    .border(1.dp, KColors.Accent, KShape.Control),
+                    .background(Brush.linearGradient(listOf(Color(0xFF7CE0E7), Color(0xFF4FC8D1)))),
             )
             Row(Modifier.fillMaxSize()) {
                 NavItems.forEachIndexed { index, (icon, title) ->
                     val chosen = if (expansion != 0f) ((weight(index) - 1f) / expansion).coerceIn(0f, 1f) else if (index == target) 1f else 0f
-                    val tint = lerp(KColors.Muted, KColors.Accent, chosen)
+                    val tint = lerp(Color(0xFFF4F1EA), Color(0xFF04140E), chosen)
                     Row(
                         Modifier.weight(weight(index)).fillMaxHeight().testTag("nav-item-$index"),
                         horizontalArrangement = Arrangement.Center,
@@ -184,7 +200,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                         KIcon(icon, tint, modifier = Modifier.offset(y = iconCenterCorrection), size = 22.dp)
                         if (chosen > 0.7f) {
                             Spacer(Modifier.width(6.dp))
-                            Text(title, color = tint, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false)
+                            Text(title, color = tint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                         }
                     }
                 }
