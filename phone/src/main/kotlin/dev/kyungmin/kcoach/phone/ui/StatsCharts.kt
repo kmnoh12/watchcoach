@@ -76,6 +76,7 @@ internal fun StatsHeading(title: String, days: Int? = null, onPeriod: (Int) -> U
     Box(Modifier.fillMaxWidth().height(0.5.dp).background(KColors.Hairline))
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 internal fun StatsFatigue(ui: StatsUi) {
     var step by remember(ui) { mutableStateOf(0) }
@@ -111,6 +112,9 @@ internal fun StatsFatigue(ui: StatsUi) {
                 valueRange = -32f..32f, steps = 63,
                 colors = SliderDefaults.colors(thumbColor = KColors.Accent, activeTrackColor = KColors.Accent,
                     inactiveTrackColor = KColors.Selected, activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
+                thumb = { SliderDefaults.Thumb(remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, colors = SliderDefaults.colors(thumbColor = KColors.Accent), thumbSize = androidx.compose.ui.unit.DpSize(4.dp, 24.5.dp)) },
+                track = { state -> SliderDefaults.Track(state, Modifier.height(12.dp), colors = SliderDefaults.colors(thumbColor = KColors.Accent, activeTrackColor = KColors.Accent,
+                    inactiveTrackColor = KColors.Selected, activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent), thumbTrackGapSize = 3.dp) },
                 modifier = Modifier.fillMaxWidth().height(28.dp).semantics { contentDescription = "시각, 지금 기준 앞뒤 4일을 3시간 간격으로" })
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 listOf("4일 전", "지금", "4일 뒤").forEach { Text(it, color = KColors.Faint, fontSize = 11.sp) }

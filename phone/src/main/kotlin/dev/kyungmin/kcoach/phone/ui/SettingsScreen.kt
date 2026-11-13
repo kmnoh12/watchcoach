@@ -97,7 +97,7 @@ fun SettingsScreen(
     }
 }
 
-private val GROUP_BORDER = Color(0xFF3F3D39)
+private val GROUP_BORDER = Color(0xFF3A3D41)
 
 @Composable
 private fun PersonalizationSection(enabled: Boolean, onChange: (Boolean) -> Unit) {

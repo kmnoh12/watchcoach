@@ -48,8 +48,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.testTag
@@ -129,6 +131,8 @@ class RecordsActions(
     val monthChanged: (YearMonth) -> Unit,
     /** The three-dot menu of a record row: start from it, edit it, delete it. */
     val recordMenu: (WorkoutRecord) -> Unit = {},
+    /** Delete the chosen rows after a confirmation; the flag is true when the user asked for every record of every month. */
+    val deleteRecords: (List<WorkoutRecord>, Boolean) -> Unit = { _, _ -> },
 )
 
 @Composable
@@ -139,126 +143,161 @@ fun RecordsScreen(
     actions: RecordsActions,
 ) {
     var month by remember { mutableStateOf(initialMonth) }
-    TabPage("운동 기록", "", KIcon.Plus) {
-        Spacer(Modifier.height(30.dp))
-        if (lastResultTitle != null) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .clip(KShape.Control)
-                    .border(0.5.dp, Color(0xFF3F3D39), KShape.Control)
-                    .pressable(actions.openResult),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("최근 완료 결과 · $lastResultTitle", color = KColors.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+    var selecting by remember { mutableStateOf(false) }
+    // A selection belongs to the visible month and never includes hidden rows.
+    var selected by remember(month, records) { mutableStateOf<Set<WorkoutRecord>>(emptySet()) }
+    val monthRecords = records.filter { it.date.startsWith(month.toString()) }
+    androidx.activity.compose.BackHandler(selecting) { selecting = false; selected = emptySet() }
+    Column(Modifier.fillMaxSize().background(KColors.Bg)
+        .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
+        Row(Modifier.fillMaxWidth().height(76.dp).padding(top = 14.dp).testTag("records-header"),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (selecting) {
+                val allChosen = monthRecords.isNotEmpty() && selected.containsAll(monthRecords)
+                val tick = rememberTapHaptic()
+                Column(Modifier.width(40.dp).testTag("select-all")
+                    .semantics { this.selected = allChosen }
+                    .clickable { tick(); selected = if (allChosen) emptySet() else monthRecords.toSet() },
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    RecordSelectionCircle(allChosen)
+                    Text("전체", color = KColors.Soft, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
+                }
+                Text(androidx.compose.ui.text.buildAnnotatedString {
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = KColors.Accent, fontWeight = FontWeight.Medium)) { append("${selected.size}") }
+                    append("개 선택됨")
+                }, color = KColors.White, fontSize = 21.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.4).sp, maxLines = 1, style = RecordNumerals, modifier = Modifier.weight(1f))
+                Box(Modifier.height(40.dp).clickable { tick(); selecting = false; selected = emptySet() }
+                    .padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                    Text("취소", color = KColors.Soft, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                }
+                val canDelete = selected.isNotEmpty()
+                Row(Modifier.height(40.dp).clip(RoundedCornerShape(10.dp))
+                    .background(KColors.DangerFill.copy(alpha = if (canDelete) 1f else 0.3f))
+                    .clickable(enabled = canDelete) { tick(); actions.deleteRecords(selected.toList(), false) }
+                    .padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    val ink = Color(0xFF2A0B08).copy(alpha = if (canDelete) 1f else 0.5f)
+                    KIcon(KIcon.Trash, ink, size = 18.dp)
+                    Text("삭제", color = ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Text("운동 기록", color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp)
             }
-            Spacer(Modifier.height(18.dp))
         }
         val swipeStep = with(androidx.compose.ui.platform.LocalDensity.current) { 56.dp.toPx() }
-        Column(
-            Modifier.fillMaxWidth().clip(KShape.Control).background(KColors.Surface)
-                .pointerInput(Unit) {
-                    var drag = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { drag = 0f },
-                        onDragCancel = { drag = 0f },
-                        onDragEnd = {
-                            // Swipe left = next month, swipe right = previous month.
-                            if (drag <= -swipeStep) { month = month.plusMonths(1); actions.monthChanged(month) }
-                            else if (drag >= swipeStep) { month = month.minusMonths(1); actions.monthChanged(month) }
-                            drag = 0f
-                        },
-                    ) { _, delta -> drag += delta }
-                }
-                .padding(16.dp, 18.dp),
-        ) {
+        Column(Modifier.fillMaxWidth().testTag("records-calendar")
+            .clip(RoundedCornerShape(14.dp)).background(KColors.Surface)
+            .pointerInput(Unit) {
+                var drag = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { drag = 0f }, onDragCancel = { drag = 0f },
+                    onDragEnd = {
+                        if (drag <= -swipeStep) { month = month.plusMonths(1); actions.monthChanged(month) }
+                        else if (drag >= swipeStep) { month = month.minusMonths(1); actions.monthChanged(month) }
+                        drag = 0f
+                    },
+                ) { _, delta -> drag += delta }
+            }.padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MonthArrow(KIcon.Back) {
-                    month = month.minusMonths(1)
-                    actions.monthChanged(month)
-                }
-                AnimatedContent(
-                    targetState = month,
-                    modifier = Modifier.weight(1f),
+                MonthArrow(KIcon.Back) { month = month.minusMonths(1); actions.monthChanged(month) }
+                AnimatedContent(targetState = month, modifier = Modifier.weight(1f),
                     transitionSpec = {
                         fadeIn(tween(Motion.UI_MS / 2, delayMillis = Motion.UI_MS / 2, easing = Motion.UiEasing)) togetherWith
                             fadeOut(tween(Motion.UI_MS / 2, easing = Motion.UiEasing))
-                    },
-                    label = "month",
-                ) { m ->
-                    Text(
-                        "${m.year}년 ${m.monthValue}월",
-                        color = KColors.White, fontSize = 20.sp, fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
-                    )
+                    }, label = "month") { m ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.Bottom) {
+                        Text("${m.year}년", color = KColors.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                            style = RecordNumerals, modifier = Modifier.alignByBaseline())
+                        Text("${m.monthValue}월", color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.alignByBaseline())
+                    }
                 }
-                MonthArrow(KIcon.Forward) {
-                    month = month.plusMonths(1)
-                    actions.monthChanged(month)
-                }
+                MonthArrow(KIcon.Forward) { month = month.plusMonths(1); actions.monthChanged(month) }
             }
-            Spacer(Modifier.height(14.dp))
-            AnimatedContent(
-                targetState = month,
-                // Digits of two months must never overlap: the old grid leaves
-                // first, the new one arrives after it.
-                // The grid slides the way the finger moved: next month comes in from the right.
-                transitionSpec = {
-                    val dir = if (targetState > initialState) 1 else -1
-                    (slideInHorizontally(tween(Motion.UI_MS, easing = Motion.UiEasing)) { it / 3 * dir } +
-                        fadeIn(tween(Motion.UI_MS, easing = Motion.UiEasing))) togetherWith
-                        (slideOutHorizontally(tween(Motion.UI_MS, easing = Motion.UiEasing)) { -it / 3 * dir } +
-                            fadeOut(tween(Motion.UI_MS / 2, easing = Motion.UiEasing)))
-                },
-                label = "calendar",
-            ) { m -> CalendarGrid(m, records) }
+            Spacer(Modifier.height(4.dp))
+            AnimatedContent(targetState = month, transitionSpec = {
+                val dir = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(tween(Motion.UI_MS, easing = Motion.UiEasing)) { it / 3 * dir } +
+                    fadeIn(tween(Motion.UI_MS, easing = Motion.UiEasing))) togetherWith
+                    (slideOutHorizontally(tween(Motion.UI_MS, easing = Motion.UiEasing)) { -it / 3 * dir } +
+                        fadeOut(tween(Motion.UI_MS / 2, easing = Motion.UiEasing)))
+            }, label = "calendar") { m -> CalendarGrid(m, records) }
         }
-        Spacer(Modifier.height(26.dp))
-        Text("최근 운동", color = KColors.Muted, fontSize = 13.sp)
-        Spacer(Modifier.height(6.dp))
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(KColors.Hairline))
-        val monthRecords = records.filter { it.date.startsWith(month.toString()) }
+        Row(Modifier.padding(start = 2.dp, top = 24.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${month.monthValue}월 기록", color = KColors.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("·", color = KColors.Faint)
+            Text("${monthRecords.size}회", color = KColors.Soft, fontSize = 14.sp, fontWeight = FontWeight.Medium, style = RecordNumerals)
+        }
         if (monthRecords.isEmpty()) {
             Text(if (records.isEmpty()) "아직 기록 없음" else "이 달 기록 없음", color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 18.dp))
         }
-        monthRecords.forEach { record -> RecordCard(record, onMenu = { actions.recordMenu(record) }) { actions.openRecord(record) } }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            monthRecords.forEach { record ->
+                RecordCard(record, selecting, record in selected, onMenu = { actions.recordMenu(record) },
+                    onLongClick = { selecting = true; selected = selected + record }) {
+                    if (selecting) selected = if (record in selected) selected - record else selected + record
+                    else actions.openRecord(record)
+                }
+            }
+        }
+        Spacer(Modifier.height(100.dp))
+    }
+}
+
+// Local to records: these shades and tabular numerals are not new global theme tokens.
+private val RecordDay = Color(0xFF979BA0)
+private val RecordWash = Color(0xFF0E3A40)
+private val RecordWash2 = Color(0xFF0B2A2D)
+private val RecordAccent2 = Color(0xFF7FB9BE)
+private val RecordNumerals = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum")
+
+@Composable
+private fun RecordSelectionCircle(checked: Boolean) {
+    Box(Modifier.size(26.dp).clip(CircleShape)
+        .background(if (checked) KColors.Accent else Color.Transparent)
+        .border(2.dp, if (checked) KColors.Accent else KColors.Muted, CircleShape), contentAlignment = Alignment.Center) {
+        if (checked) KIcon(KIcon.Check, KColors.OnAccent, size = 15.dp)
     }
 }
 
 @Composable
 private fun MonthArrow(icon: KIcon, onClick: () -> Unit) {
-    Box(Modifier.size(42.dp).pressable(onClick), contentAlignment = Alignment.Center) {
-        KIcon(icon, KColors.Muted, size = 22.dp)
+    Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(KColors.SurfaceRaised)
+        .semantics { contentDescription = if (icon == KIcon.Back) "이전 달" else "다음 달" }
+        .pressable(onClick), contentAlignment = Alignment.Center) {
+        KIcon(icon, KColors.Soft, size = 17.dp)
     }
 }
 
 @Composable
 private fun CalendarGrid(month: YearMonth, records: List<WorkoutRecord>) {
-    val recorded = records
-        .filter { it.date.startsWith(month.toString()) }
-        .map { LocalDate.parse(it.date).dayOfMonth }
-        .toSet()
-    val offset = month.atDay(1).dayOfWeek.value % 7
-    val cells: List<Int?> = List(offset) { null } + (1..month.lengthOfMonth()).toList()
-    Column {
+    val recorded = records.filter { it.date.startsWith(month.toString()) }.map { LocalDate.parse(it.date).dayOfMonth }.toSet()
+    val today = LocalDate.now()
+    val cells: List<Int?> = List(month.atDay(1).dayOfWeek.value % 7) { null } + (1..month.lengthOfMonth()).toList()
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth()) {
             listOf("일", "월", "화", "수", "목", "금", "토").forEach {
-                Text(it, color = KColors.Muted, fontSize = 12.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                Text(it, color = KColors.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center, modifier = Modifier.weight(1f).padding(top = 6.dp, bottom = 5.dp))
             }
         }
         cells.chunked(7).forEach { week ->
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            Row(Modifier.fillMaxWidth()) {
                 for (i in 0 until 7) {
                     val day = week.getOrNull(i)
-                    Column(Modifier.weight(1f).height(44.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.weight(1f).height(34.dp), contentAlignment = Alignment.Center) {
                         if (day != null) {
                             val has = day in recorded
-                            val fill by animateColorAsState(if (has) KColors.Bone else Color.Transparent, Motion.ui(), label = "day")
-                            Box(Modifier.clip(CircleShape).background(fill).padding(horizontal = 9.dp, vertical = 4.dp)) {
-                                Text(day.toString(), color = if (has) KColors.OnAccent else KColors.Muted, fontSize = 15.sp, fontWeight = if (has) FontWeight.Medium else FontWeight.Normal)
+                            val shape = RoundedCornerShape(8.dp)
+                            Box(Modifier.size(32.dp, 30.dp).clip(shape).background(if (has) RecordWash else Color.Transparent)
+                                .then(if (month.atDay(day) == today) Modifier.border(1.5.dp, KColors.Bone, shape) else Modifier),
+                                contentAlignment = Alignment.Center) {
+                                Text(day.toString(), color = if (has) KColors.Accent else RecordDay, fontSize = 14.sp,
+                                    fontWeight = if (has) FontWeight.Bold else FontWeight.Normal, style = RecordNumerals)
                             }
-                            if (has) Text("•", color = KColors.Bone, fontSize = 13.sp)
                         }
                     }
                 }
@@ -268,26 +307,38 @@ private fun CalendarGrid(month: YearMonth, records: List<WorkoutRecord>) {
 }
 
 @Composable
-private fun RecordCard(record: WorkoutRecord, onMenu: () -> Unit, onClick: () -> Unit) {
-    Column {
-        Row(
-            Modifier.fillMaxWidth().pressable(onClick).padding(start = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
-                Text(record.title, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                Text(record.date.replace("-", "."), color = KColors.Muted, fontSize = 12.sp)
-            }
-            Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.End) {
-                Text("${record.minutes}분 · ${record.sets}세트", color = KColors.Soft, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text("%,dkg".format(record.volumeKg), color = KColors.Muted, fontSize = 12.sp)
-            }
-            // Its own tap target: the rest of the row still opens the record detail.
-            Box(Modifier.padding(start = 2.dp).size(44.dp).pressable(onMenu), contentAlignment = Alignment.Center) {
-                KIcon(KIcon.Dots, KColors.Muted, size = 20.dp)
-            }
+private fun RecordCard(record: WorkoutRecord, selecting: Boolean, checked: Boolean, onMenu: () -> Unit, onLongClick: () -> Unit, onClick: () -> Unit) {
+    val date = LocalDate.parse(record.date)
+    val shape = RoundedCornerShape(14.dp)
+    Row(Modifier.fillMaxWidth().testTag("record-${record.sessionId ?: record.date}")
+        .semantics { if (selecting) this.selected = checked }
+        .clip(shape).background(if (checked) KColors.Selected else KColors.Surface)
+        // Border draws inside the existing bounds; selection never changes row size.
+        .border(1.5.dp, if (checked) KColors.Accent else Color.Transparent, shape)
+        .pressableLong(onLongClick, onClick)
+        .padding(start = 12.dp, end = if (selecting) 14.dp else 6.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (selecting) RecordSelectionCircle(checked)
+        Column(Modifier.size(48.dp, 52.dp).clip(RoundedCornerShape(10.dp)).background(RecordWash2),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text("${date.dayOfMonth}", color = KColors.Accent, fontSize = 20.sp, fontWeight = FontWeight.Medium, style = RecordNumerals)
+            Text(listOf("월", "화", "수", "목", "금", "토", "일")[date.dayOfWeek.value - 1],
+                color = RecordAccent2, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
-        Box(Modifier.fillMaxWidth().height(0.5.dp).background(KColors.Hairline))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(record.title, color = KColors.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.3).sp,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text("${record.minutes}분 · ${record.sets}세트", color = KColors.Soft, fontSize = 13.sp, maxLines = 1, style = RecordNumerals)
+        }
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(androidx.compose.ui.text.buildAnnotatedString {
+                append("%,d".format(java.util.Locale.US, record.volumeKg))
+                withStyle(androidx.compose.ui.text.SpanStyle(color = KColors.Muted, fontSize = 12.sp, fontWeight = FontWeight.Normal)) { append(" kg") }
+            }, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.2).sp, style = RecordNumerals)
+            Text("볼륨", color = KColors.Muted, fontSize = 12.sp)
+        }
+        if (!selecting) Box(Modifier.size(30.dp, 40.dp).semantics { contentDescription = "${record.title} 메뉴" }.pressable(onMenu),
+            contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 20.dp) }
     }
 }
 
@@ -497,7 +548,7 @@ private fun UpdateButton(action: OtaAction, label: String, onClick: () -> Unit) 
             .height(58.dp)
             .clip(KShape.Control)
             .background(fill)
-            .then(if (outlined) Modifier.border(0.5.dp, Color(0xFF3F3D39), KShape.Control) else Modifier)
+            .then(if (outlined) Modifier.border(0.5.dp, Color(0xFF3A3D41), KShape.Control) else Modifier)
             .then(if (working) Modifier else Modifier.pressable(onClick)),
         contentAlignment = Alignment.Center,
     ) {
@@ -532,7 +583,7 @@ private fun MenuTipBox() {
     }
     Box(
         Modifier.fillMaxWidth().heightIn(min = 72.dp).clip(KShape.Control)
-            .border(0.5.dp, Color(0xFF3F3D39), KShape.Control).padding(horizontal = 16.dp, vertical = 14.dp),
+            .border(0.5.dp, Color(0xFF3A3D41), KShape.Control).padding(horizontal = 16.dp, vertical = 14.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(MENU_TIPS[index], color = KColors.Soft, fontSize = 14.sp, maxLines = 2)

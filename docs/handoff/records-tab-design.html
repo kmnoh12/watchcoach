@@ -1,0 +1,148 @@
+<meta charset="utf-8">
+<title>운동 기록 탭 시안 v2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: two phone frames side by side. Inside each: surfaces climb one step per layer (page → card → inset → picked),
+   text sits on three tiers, teal only where a record exists or something is picked, red only on 삭제. Single dark look by choice. */
+:root {
+  --page:#111110; --bg:#000; --s1:#161615; --s2:#232220; --s3:#2F2E2B; --frame:rgba(255,255,255,.06);
+  --hi:rgba(255,255,255,.045); --hi2:rgba(255,255,255,.07);
+  --t1:#F6F2E9; --t2:#BDB8AD; --day:#9A958B; --t3:#7E7A71; --t4:#57544E;
+  --accent:#63D6DE; --accent2:#7FB9BE; --wash:#0E3A40; --wash2:#0B2A2D; --on:#04140E;
+  --red:#FF6B5E; --onred:#2A0B08;
+  --bar:#2A2927; --bar-ic:#F4F1EA; --bar-hi:rgba(255,255,255,.14); --bar-hi2:rgba(255,255,255,.2);
+  --tab-a:#7CE0E7; --tab-b:#4FC8D1; --tab-in:rgba(255,255,255,.35); --tab-sh:rgba(0,60,70,.4); --tab-drop:rgba(0,0,0,.7);
+  --kr:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",system-ui,sans-serif;
+  --num:Roboto,"Noto Sans KR",system-ui,sans-serif;
+  color-scheme:dark;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--page); color:var(--t1); font-family:var(--kr);
+  padding-block:20px 40px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width:860px; margin:0 auto; }
+.wrap > h1 { font-size:17px; font-weight:500; margin:0 0 4px; }
+.sub { color:var(--t3); font-size:13px; margin:0 0 20px; }
+.phones { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 392px)); gap:24px; justify-content:center; }
+.cap { color:var(--t2); font-size:13px; font-weight:500; margin:0 0 8px; }
+.phone { position:relative; background:var(--bg); border-radius:24px; padding:0 16px 100px; overflow:hidden; min-width:0;
+  box-shadow:inset 0 0 0 1px var(--frame); }
+svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+.n { font-family:var(--num); font-variant-numeric:tabular-nums; }
+
+/* Header: both modes reserve the same height so the calendar never jumps when selection starts. */
+.top { display:flex; align-items:center; gap:12px; height:76px; padding-top:14px; }
+.top h2 { margin:0; font-size:28px; font-weight:700; letter-spacing:-.6px; }
+.sall { display:flex; flex-direction:column; align-items:center; gap:4px; width:40px; flex:none; font-size:11.5px; font-weight:500; color:var(--t2); }
+.top .count { flex:1; min-width:0; margin:0; white-space:nowrap; font-size:21px; font-weight:700; letter-spacing:-.4px; color:var(--t1); }
+.top .count .n { color:var(--accent); font-weight:500; font-size:23px; margin-right:1px; }
+.cancel { height:40px; padding:0 8px; display:grid; place-items:center; font-size:15px; font-weight:500; color:var(--t2); flex:none; }
+.del { display:flex; align-items:center; gap:5px; height:40px; padding:0 13px 0 11px; border-radius:10px; flex:none;
+  background:var(--red); color:var(--onred); font-weight:700; font-size:15px; box-shadow:inset 0 1px 0 var(--bar-hi2); }
+.del svg { width:18px; height:18px; stroke-width:2.2; }
+
+/* Selection circle (deliberately round, gallery-style); check drawn as a stroke, not a glyph. */
+.circ { width:26px; height:26px; border-radius:50%; border:2px solid var(--t3); display:grid; place-items:center; flex:none; color:var(--on); }
+.circ svg { width:15px; height:15px; stroke-width:3; opacity:0; }
+.circ.on { background:var(--accent); border-color:var(--accent); }
+.circ.on svg { opacity:1; }
+
+/* Calendar: support role — one card, compact, marks only the days that hold a record. */
+.cal { background:var(--s1); border-radius:14px; padding:10px 10px 8px; box-shadow:inset 0 1px 0 var(--hi); }
+.mnav { display:flex; align-items:center; justify-content:space-between; padding:0 0 4px; }
+.mnav .m { display:flex; align-items:baseline; gap:5px; }
+.mnav .m .y { font-size:13px; color:var(--t3); font-weight:500; }
+.mnav .m b { font-size:17px; font-weight:700; letter-spacing:-.3px; }
+.mnav span.btn { width:32px; height:32px; border-radius:8px; background:var(--s2); display:grid; place-items:center; color:var(--t2); box-shadow:inset 0 1px 0 var(--hi); }
+.mnav svg { width:17px; height:17px; stroke-width:2.1; }
+.grid { display:grid; grid-template-columns:repeat(7, 1fr); row-gap:2px; text-align:center; }
+.grid i { font-style:normal; font-size:11px; font-weight:500; color:var(--t3); padding:6px 0 5px; }
+.grid em { font-style:normal; height:34px; display:grid; place-items:center; }
+.grid em span { width:32px; height:30px; display:grid; place-items:center; border-radius:8px; font-family:var(--num); font-size:14px; color:var(--day); font-variant-numeric:tabular-nums; }
+.grid em.has span { background:var(--wash); color:var(--accent); font-weight:700; }
+.grid em.today span { box-shadow:inset 0 0 0 1.5px var(--t1); }
+
+/* List: the main role. */
+.lh { display:flex; align-items:baseline; gap:6px; margin:24px 2px 10px; }
+.lh b { font-size:16px; font-weight:700; letter-spacing:-.2px; }
+.lh .dot { color:var(--t4); }
+.lh .c { font-size:14px; color:var(--t2); font-weight:500; }
+.list { display:flex; flex-direction:column; gap:8px; }
+.row { display:flex; align-items:center; gap:12px; min-height:76px; padding:12px 6px 12px 12px; background:var(--s1); border-radius:14px;
+  box-shadow:inset 0 1px 0 var(--hi), inset 0 0 0 1.5px transparent; }
+.row.selmode { padding-right:14px; }
+.row.pick { background:var(--s2); box-shadow:inset 0 1px 0 var(--hi2), inset 0 0 0 1.5px var(--accent); }
+.date { width:46px; height:52px; border-radius:10px; background:var(--wash2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; flex:none;
+  box-shadow:inset 0 1px 0 var(--hi); }
+.date b { font-family:var(--num); font-size:20px; font-weight:500; line-height:1; color:var(--accent); font-variant-numeric:tabular-nums; }
+.date small { font-size:11px; line-height:1; color:var(--accent2); font-weight:500; }
+.info { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
+.info b { font-size:16px; font-weight:700; letter-spacing:-.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.info span { font-size:13px; color:var(--t2); white-space:nowrap; }
+.info span i { font-style:normal; color:var(--t4); margin:0 4px; }
+.vol { text-align:right; display:flex; flex-direction:column; gap:5px; flex:none; }
+.vol b { font-family:var(--num); font-size:17px; font-weight:500; letter-spacing:-.2px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.vol b small { font-size:12px; color:var(--t3); font-weight:400; margin-left:2px; }
+.vol span { font-size:12px; color:var(--t3); }
+.dots { width:30px; height:40px; display:grid; place-items:center; color:var(--t3); flex:none; }
+.dots svg { width:20px; }
+
+/* Confirmed tab bar — values unchanged from the approved design, only lifted into tokens. */
+.tabbar { position:absolute; left:14px; right:14px; bottom:14px; display:flex; background:var(--bar); border-radius:10px; padding:4px; box-shadow:inset -1px -1px 1px var(--bar-hi), 1.5px 1.5px 1px var(--bar-hi2); }
+.tabbar div { flex:1; height:48px; display:flex; align-items:center; justify-content:center; gap:6px; color:var(--bar-ic); border-radius:6px; font-size:14px; font-weight:500; }
+.tabbar div.on { flex:0 0 86.2px; height:45.3px; align-self:center; background:linear-gradient(145deg,var(--tab-a),var(--tab-b)); box-shadow:inset 1px 1px 1.5px var(--tab-in), inset -2px -2px 4px var(--tab-sh), 2px 3px 6px var(--tab-drop); color:var(--on); font-weight:600; }
+</style>
+<div class="wrap">
+  <h1>운동 기록 탭 시안 v2</h1>
+  <p class="sub">왼쪽이 평소, 오른쪽이 꾹 눌러 선택 모드에 들어간 모습이야.</p>
+  <div class="phones" id="phones"></div>
+</div>
+<script>
+const I = {
+  left:'<svg viewBox="0 0 24 24"><path d="M15 5 8 12 15 19"/></svg>', right:'<svg viewBox="0 0 24 24"><path d="M9 5 16 12 9 19"/></svg>',
+  dots:'<svg viewBox="0 0 24 24"><path d="M5 12H5.01M12 12H12.01M19 12H19.01" stroke-width="3"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7.5"/></svg>',
+  trash:'<svg viewBox="0 0 24 24"><path d="M5 7H19M10 7V4.5H14V7M7 7 8 20H16L17 7M10 11V16M14 11V16"/></svg>',
+  home:'<svg viewBox="0 0 24 24"><path d="M4 11 12 4 20 11M6.5 9.5V20H17.5V9.5"/></svg>',
+  cal:'<svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10H20M8 3.5V7M16 3.5V7"/></svg>',
+  stat:'<svg viewBox="0 0 24 24"><path d="M6 20V13M12 20V6M18 20V10"/></svg>',
+  lib:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/></svg>',
+  menu:'<svg viewBox="0 0 24 24"><path d="M5 7H19M5 12H19M5 17H19"/></svg>',
+};
+const records = [
+  { d:9, w:'금', t:'가슴·삼두', m:81, s:26, v:10450 },
+  { d:5, w:'월', t:'등·이두', m:68, s:22, v:7840 },
+  { d:3, w:'토', t:'어깨전문', m:74, s:24, v:9120 },
+];
+const has = new Set(records.map(r => r.d));
+const circ = on => '<div class="circ'+(on?' on':'')+'">'+I.check+'</div>';
+function calendar() {
+  const first = 4; // 2026-10-01 is a Thursday
+  let h = ['일','월','화','수','목','금','토'].map(x => '<i>'+x+'</i>').join('');
+  for (let i = 0; i < first; i++) h += '<em></em>';
+  for (let d = 1; d <= 31; d++) h += '<em class="'+(has.has(d)?'has':'')+(d===9?' today':'')+'"><span>'+d+'</span></em>';
+  return '<div class="cal"><div class="mnav"><span class="btn">'+I.left+'</span><div class="m"><span class="y n">2026년</span><b>10월</b></div><span class="btn">'+I.right+'</span></div><div class="grid">'+h+'</div></div>';
+}
+function rows(sel) {
+  return '<div class="list">' + records.map(r => {
+    const pick = sel && sel.has(r.d);
+    return '<div class="row'+(sel?' selmode':'')+(pick?' pick':'')+'">'
+      + (sel ? circ(pick) : '')
+      + '<div class="date"><b>'+r.d+'</b><small>'+r.w+'</small></div>'
+      + '<div class="info"><b>'+r.t+'</b><span><span class="n">'+r.m+'</span>분<i>·</i><span class="n">'+r.s+'</span>세트</span></div>'
+      + '<div class="vol"><b>'+r.v.toLocaleString()+'<small>kg</small></b><span>볼륨</span></div>'
+      + (sel ? '' : '<div class="dots">'+I.dots+'</div>') + '</div>';
+  }).join('') + '</div>';
+}
+function phone(label, sel) {
+  const all = sel && sel.size === records.length;
+  const top = sel
+    ? '<div class="top"><div class="sall">'+circ(all)+'전체</div><h2 class="count"><span class="n">'+sel.size+'</span>개 선택됨</h2><div class="cancel">취소</div><div class="del">'+I.trash+'삭제</div></div>'
+    : '<div class="top"><h2>운동 기록</h2></div>';
+  const bar = '<div class="tabbar">'+[['home',0],['cal',1],['stat',0],['lib',0],['menu',0]].map(([k,on]) => '<div class="'+(on?'on':'')+'">'+I[k]+(on?'<span>기록</span>':'')+'</div>').join('')+'</div>';
+  return '<div><p class="cap">'+label+'</p><div class="phone">'+top+calendar()
+    +'<div class="lh"><b>10월 기록</b><span class="dot">·</span><span class="c"><span class="n">3</span>회</span></div>'
+    +rows(sel)+bar+'</div></div>';
+}
+document.getElementById('phones').innerHTML = phone('평소', null) + phone('꾹 눌러서 선택 중', new Set([3,5]));
+</script>

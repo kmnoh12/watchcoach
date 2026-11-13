@@ -1025,6 +1025,7 @@ class MainActivity : ComponentActivity() {
             openRecord = { record -> openRecordResult(record) },
             monthChanged = { recordMonth = it },
             recordMenu = { record -> showRecordMenu(record) { showRecords() } },
+            deleteRecords = { list, all -> confirmDeleteRecords(list, all) { showRecords() } },
         )
         val title = lastWorkoutResult?.title
         showScaffold(ComposeView(this).apply {
@@ -1166,6 +1167,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Removes one record and everything that points at it; false when nothing could be removed. */
+    private fun deleteRecordNow(record: WorkoutRecord): Boolean {
+        val sessionId = record.sessionId ?: recordEvidence(record)?.snapshot?.sessionId
+        val removed = if (sessionId != null) FinishedWorkoutStore(this).delete(sessionId)
+        else runCatching {
+            // Logs from before sessions were stored: remove the matching row only.
+            val day = LocalDate.parse(record.date).toEpochDay()
+            workoutLogStore.remove { it.sessionId == null && it.epochDay == day && it.title == record.title && it.minutes == record.minutes && it.sets == record.sets }
+        }.isSuccess
+        if (removed) {
+            if (sessionId != null && lastWorkoutResult?.sessionId == sessionId) {
+                lastWorkoutResult = null
+                getSharedPreferences("workout_results", MODE_PRIVATE).edit().remove("last").apply()
+            }
+            historyCache = null
+        }
+        return removed
+    }
+
+    private fun confirmDeleteRecords(records: List<WorkoutRecord>, all: Boolean, afterChange: () -> Unit) {
+        if (records.isEmpty()) return
+        showPopup { dismiss ->
+            ConfirmDialog(
+                title = if (all) "모든 운동 기록을 삭제할까요?" else "운동 기록 ${records.size}개를 삭제할까요?",
+                message = (if (all) "저장된 모든 기록(${records.size}개)이 삭제됩니다. " else "") +
+                    "삭제한 기록은 되돌릴 수 없습니다. 기록 비교와 통계에서도 빠집니다.",
+                negative = "취소",
+                positive = "삭제",
+                dismiss = dismiss,
+            ) {
+                val failed = records.count { !deleteRecordNow(it) }
+                Toast.makeText(this, if (failed == 0) "운동 기록 ${records.size}개 삭제 완료" else "${failed}개는 삭제하지 못했습니다", Toast.LENGTH_SHORT).show()
+                afterChange()
+            }
+        }
+    }
+
     private fun confirmDeleteRecord(record: WorkoutRecord, afterChange: () -> Unit) {
         showPopup { dismiss ->
             ConfirmDialog(
@@ -1175,19 +1213,7 @@ class MainActivity : ComponentActivity() {
                 positive = "삭제",
                 dismiss = dismiss,
             ) {
-                val sessionId = record.sessionId ?: recordEvidence(record)?.snapshot?.sessionId
-                val removed = if (sessionId != null) FinishedWorkoutStore(this).delete(sessionId)
-                else runCatching {
-                    // Logs from before sessions were stored: remove the matching row only.
-                    val day = LocalDate.parse(record.date).toEpochDay()
-                    workoutLogStore.remove { it.sessionId == null && it.epochDay == day && it.title == record.title && it.minutes == record.minutes && it.sets == record.sets }
-                }.isSuccess
-                if (removed) {
-                    if (sessionId != null && lastWorkoutResult?.sessionId == sessionId) {
-                        lastWorkoutResult = null
-                        getSharedPreferences("workout_results", MODE_PRIVATE).edit().remove("last").apply()
-                    }
-                    historyCache = null
+                if (deleteRecordNow(record)) {
                     Toast.makeText(this, "운동 기록 삭제 완료", Toast.LENGTH_SHORT).show()
                     afterChange()
                 } else {
@@ -1252,7 +1278,7 @@ class MainActivity : ComponentActivity() {
         val editableSets = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
             ?.snapshot?.plannedSets?.filter { it.completed && (it.unilateral?.stage == dev.kyungmin.kcoach.core.UnilateralStage.BOTH_COMPLETE || it.repSource == SetRepSource.ESTIMATED) }.orEmpty()
         showStandalone(ComposeView(this).apply {
-            setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { showRecords() },
+            setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { recordMonth = YearMonth.now(); showRecords() },
                 summary = { dev.kyungmin.kcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) },
                 onMenu = {
                     val record = workoutRecords().firstOrNull { it.sessionId == result.sessionId }
@@ -3458,7 +3484,8 @@ class MainActivity : ComponentActivity() {
             FloatingTabBar(navSelected.intValue, navVisible.value) { index ->
                 when (RootTab.values()[index]) {
                     RootTab.HOME -> showHome()
-                    RootTab.RECORDS -> showRecords()
+                    // Coming from another tab always opens the current month; tapping the tab again keeps the month being browsed.
+                    RootTab.RECORDS -> { if (currentTab != RootTab.RECORDS) recordMonth = YearMonth.now(); showRecords() }
                     RootTab.STATS -> showStats()
                     RootTab.CALIBRATION -> showCalibration()
                     RootTab.MENU -> showMenu()

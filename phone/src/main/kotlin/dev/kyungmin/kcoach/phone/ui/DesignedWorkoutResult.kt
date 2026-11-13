@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal val ResultMint = Color(0xFF63D6DE)
-internal val ResultBone = Color(0xFFEDE8DC)
+internal val ResultBone = Color(0xFFF1F4F6)
 internal val ResultRaised = Color(0xFF242424)
 internal val ResultHair = Color(0xFF353535)
 internal val ResultMuted = Color(0xFF909090)
@@ -222,7 +222,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
             }
             Row(Modifier.padding(vertical = 10.dp).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color.Black).padding(3.dp)) {
                 listOf("요약형", "상세형").forEachIndexed { i, label ->
-                    Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(if (detailed == (i == 1)) Color(0xFF262522) else Color.Black).clickable { detailed = i == 1 }.padding(7.dp), contentAlignment = Alignment.Center) { Text(label, color = ResultBone, fontSize = 13.sp) }
+                    Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(if (detailed == (i == 1)) Color(0xFF2D2F33) else Color.Black).clickable { detailed = i == 1 }.padding(7.dp), contentAlignment = Alignment.Center) { Text(label, color = ResultBone, fontSize = 13.sp) }
                 }
             }
             read?.let { data ->

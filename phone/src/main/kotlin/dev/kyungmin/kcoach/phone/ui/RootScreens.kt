@@ -17,6 +17,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -110,6 +112,22 @@ fun Modifier.pressable(onClick: () -> Unit): Modifier {
     return this.scale(scale).clickable(interactionSource = source, indication = null, onClick = { tick(); onClick() })
 }
 
+/** [pressable] that also reacts to a long press (a firmer haptic): used by lists that enter a selection mode. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.pressableLong(onLongClick: () -> Unit, onClick: () -> Unit): Modifier {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, Motion.ui(), label = "press")
+    val tick = rememberTapHaptic()
+    val view = androidx.compose.ui.platform.LocalView.current
+    return this.scale(scale).combinedClickable(
+        interactionSource = source, indication = null,
+        onLongClick = { view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); onLongClick() },
+        onClick = { tick(); onClick() },
+    )
+}
+
 /**
  * Tab bar that floats above the screen. Only the chosen tab shows its label and widens; press and slide to move
  * the highlight along with the finger, release to switch. The bar stays alive across tab changes, so it can animate.
@@ -144,7 +162,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                 drawRoundRect(Color.White.copy(alpha = 0.2f), topLeft = Offset(1.5.dp.toPx(), 1.5.dp.toPx()), size = size, cornerRadius = r)
             }
             .clip(shape)
-            .background(Color(0xFF2A2927))
+            .background(Color(0xFF292B2E))
             .drawWithContent {
                 drawContent()
                 val light = 1.dp.toPx()
@@ -185,7 +203,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
             Row(Modifier.fillMaxSize()) {
                 NavItems.forEachIndexed { index, (icon, title) ->
                     val chosen = if (expansion != 0f) ((weight(index) - 1f) / expansion).coerceIn(0f, 1f) else if (index == target) 1f else 0f
-                    val tint = lerp(Color(0xFFF4F1EA), Color(0xFF04140E), chosen)
+                    val tint = lerp(Color(0xFFF1F4F6), Color(0xFF04140E), chosen)
                     Row(
                         Modifier.weight(weight(index)).fillMaxHeight().testTag("nav-item-$index"),
                         horizontalArrangement = Arrangement.Center,
@@ -304,7 +322,7 @@ fun HomeScreen(ui: HomeUi, running: RunningUi?, actions: HomeActions) {
 }
 
 /** Brighter than KColors.Hairline so the routine list rows read as separate rows on the near-black home. */
-private val ROUTINE_DIVIDER = Color(0xFF302E2B)
+private val ROUTINE_DIVIDER = Color(0xFF2F3135)
 
 @Composable
 private fun WeekStrip(week: List<WeekDayUi>) {
@@ -349,7 +367,7 @@ private fun RestHero(row: RoutineRowUi2, onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
             .clip(KShape.Control)
-            .border(0.5.dp, Color(0xFF383631), KShape.Control)
+            .border(0.5.dp, Color(0xFF363A3E), KShape.Control)
             .pressable(onClick)
             .padding(start = 12.dp, top = 12.dp, end = 8.dp, bottom = 10.dp),
         verticalAlignment = Alignment.Bottom,
@@ -414,7 +432,7 @@ private fun ActionButton(text: String, background: Color, content: Color, outlin
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(KShape.Control)
             .background(background)
-            .then(if (outlined) Modifier.border(0.5.dp, Color(0xFF3F3D39), KShape.Control) else Modifier)
+            .then(if (outlined) Modifier.border(0.5.dp, Color(0xFF3A3D41), KShape.Control) else Modifier)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

@@ -65,7 +65,7 @@ data class RecordUi(
 data class RecordBannerUi(val id: Long, val record: RecordUi)
 
 private const val BANNER_VISIBLE_MS = 5_000L
-private val PREVIOUS_BAR = Color(0xFF403E3A)
+private val PREVIOUS_BAR = Color(0xFF3C3F43)
 
 /** Records in the order they matter: top weight first, estimates last. */
 @Composable
