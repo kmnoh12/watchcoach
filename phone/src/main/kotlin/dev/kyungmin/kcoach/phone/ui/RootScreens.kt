@@ -155,7 +155,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().height(48.dp)) {
             val innerPx = constraints.maxWidth.toFloat()
-            // Selected button is 86.2 x 43.1 dp, independent of the phone's width.
+            // Selected button is 86.2 x 45.3 dp, independent of the phone's width.
             val thumbWidth = with(density) { 86.2.dp.toPx() }
             val unit = (innerPx - thumbWidth) / (count - 1)
             val expansion = thumbWidth / unit - 1f
@@ -177,7 +177,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                     .align(Alignment.CenterStart)
                     .offset { IntOffset(thumbLeft.roundToInt(), 0) }
                     .width(with(density) { thumbWidth.toDp() })
-                    .height(43.1.dp)
+                    .height(45.3.dp)
                     .shadow(3.dp, KShape.Control, ambientColor = Color.Black, spotColor = Color.Black)
                     .clip(KShape.Control)
                     .background(Brush.linearGradient(listOf(Color(0xFF7CE0E7), Color(0xFF4FC8D1)))),
