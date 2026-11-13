@@ -1,10 +1,10 @@
 <div align="center">
 
-# 워치짐
+# 워치코치
 
 **손목에 찬 Galaxy Watch8가 세트를 세고, 폰이 기록과 다음 목표를 챙겨주는 개인용 근비대 코치.**
 
-[![최신 릴리스](https://img.shields.io/github/v/release/kmnoh12/watchgym?label=%EB%A6%B4%EB%A6%AC%EC%8A%A4&color=76DBB9)](https://github.com/kmnoh12/watchgym/releases/latest)
+[![최신 릴리스](https://img.shields.io/github/v/release/kmnoh12/watchcoach?label=%EB%A6%B4%EB%A6%AC%EC%8A%A4&color=76DBB9)](https://github.com/kmnoh12/watchcoach/releases/latest)
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)](#모듈)
 [![Wear OS](https://img.shields.io/badge/Wear_OS-4285F4?logo=wearos&logoColor=white)](#모듈)
 [![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)](#모듈)
@@ -17,14 +17,14 @@
 
 ## 소개
 
-워치짐은 헬스장에서 폰을 꺼내지 않고 운동하기 위한 앱이다. 워치를 찬 손목의 움직임으로 반복 횟수를 세고, 세트가 끝나면 휴식을 알려주고, 폰에는 그 기록을 쌓아 다음 세트와 다음 운동의 목표를 제안한다.
+워치코치은 헬스장에서 폰을 꺼내지 않고 운동하기 위한 앱이다. 워치를 찬 손목의 움직임으로 반복 횟수를 세고, 세트가 끝나면 휴식을 알려주고, 폰에는 그 기록을 쌓아 다음 세트와 다음 운동의 목표를 제안한다.
 목표는 하나다. 운동하는 동안에는 시선을 기구에 두고, 기록과 계산은 앱이 알아서 하게 하는 것.
 
 개인 사용을 위해 만든 앱이라 Galaxy Watch8과 Android 폰 한 쌍에 맞춰져 있다. 폰과 워치 앱은 서로 따로 설치되지만 같은 세션을 공유하고, 워치에서 끝낸 세트는 폰의 기록 달력에 그대로 들어간다.
 
 ## 설치
 
-[최신 릴리스](https://github.com/kmnoh12/watchgym/releases/latest)에서 폰용 `kcoach-phone.apk`와 워치용 `kcoach-watch.apk`를 받는다. 개인용 서명 앱이라 Play 스토어에는 없고, 이미 설치된 앱은 앱 안 업데이트로 새 버전을 받는다. 폰 Android 10 이상(minSdk 29), Wear OS 3 이상(minSdk 30)이 필요하고, 측정은 Galaxy Watch8 기준으로 맞춰져 있다.
+[최신 릴리스](https://github.com/kmnoh12/watchcoach/releases/latest)에서 폰용 APK와 워치용 APK를 받는다. 개인용 서명 앱이라 Play 스토어에는 없고, 이미 설치된 앱은 앱 안 업데이트로 새 버전을 받는다. 폰 Android 10 이상(minSdk 29), Wear OS 3 이상(minSdk 30)이 필요하고, 측정은 Galaxy Watch8 기준으로 맞춰져 있다.
 
 ## 주요 기능
 
@@ -82,7 +82,7 @@
 
 ## 현재 단계
 
-폰 0.2.x, 워치 0.2.x 개발 단계이고, 현재 최신 릴리스는 폰 0.2.27 · 워치 0.2.18이다. 스마트폰 앱에는 Obsidian 운동 기록을 기준으로 한 4개 기본 루틴과 실제 운동 라이브러리가 들어 있다. 운동별 3D 동작 모델과 움직이는 미리보기도 앱 안에 함께 들어 있다.
+폰 0.2.x, 워치 0.2.x 개발 단계다. 최신 버전은 [릴리스 페이지](https://github.com/kmnoh12/watchcoach/releases/latest)에서 확인할 수 있다. 스마트폰 앱에는 Obsidian 운동 기록을 기준으로 한 4개 기본 루틴과 실제 운동 라이브러리가 들어 있다. 운동별 3D 동작 모델과 움직이는 미리보기도 앱 안에 함께 들어 있다.
 아직 검증하지 못한 부분도 분명히 적어둔다. 실제 워치 하드웨어 센서와 Health Services 심박수는 아직 검증하지 않았다. 일부 3D 동작은 로우폴리 모델의 한계로 완벽하지 않다.
 `core`는 기기 없이 단위 테스트할 수 있도록 Android 의존성을 분리했다.
 
