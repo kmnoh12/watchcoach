@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>워치짐 기구 뷰어</title>
+<style>
+  :root { --bg:#0e0f0f; --panel:#161818; --line:#262a29; --text:#ece8e1; --dim:#8d8a84; --sage:#76DBB9; --warn:#e8b45a; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font:14px/1.4 -apple-system, "Apple SD Gothic Neo", system-ui, sans-serif; }
+  #app { display:grid; grid-template-columns:300px 1fr; height:100%; }
+  aside { background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; min-height:0; }
+  .top { padding:14px 14px 8px; }
+  h1 { font-size:15px; margin:0 0 10px; font-weight:650; letter-spacing:-.01em; }
+  input[type=search] { width:100%; padding:9px 11px; background:#0e0f0f; border:1px solid var(--line); color:var(--text); border-radius:8px; font-size:14px; outline:none; }
+  input[type=search]:focus { border-color:var(--sage); }
+  .tabs { display:flex; gap:6px; margin-top:10px; }
+  .tabs button, .cats button { background:none; border:1px solid var(--line); color:var(--dim); padding:4px 9px; border-radius:6px; font-size:12.5px; cursor:pointer; }
+  .tabs button.on, .cats button.on { color:#0e0f0f; background:var(--sage); border-color:var(--sage); }
+  .cats { display:flex; flex-wrap:wrap; gap:5px; padding:0 14px 10px; }
+  #list { overflow:auto; flex:1; padding:0 6px 14px; }
+  .item { padding:8px 10px; border-radius:7px; cursor:pointer; display:flex; justify-content:space-between; gap:8px; }
+  .item:hover { background:#1e2121; }
+  .item.on { background:#20302b; }
+  .item .sub { color:var(--dim); font-size:12px; white-space:nowrap; }
+  .item > span, #title { user-select:text; -webkit-user-select:text; }   /* triple-click selects just the name or just the id, so it can be copied */
+  .item.none { color:var(--dim); }
+  .item.none .sub { color:var(--warn); }
+  main { position:relative; min-width:0; }
+  canvas { display:block; }
+  #hud { position:absolute; left:16px; top:14px; right:16px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; }
+  #title { font-size:20px; font-weight:650; }
+  #models { color:var(--dim); font-size:13px; margin-top:3px; }
+  #opts { margin-top:8px; display:flex; flex-direction:column; gap:6px; pointer-events:auto; }
+  #opts .row { display:flex; gap:5px; flex-wrap:wrap; align-items:center; } #opts .lab { color:var(--dim); font-size:12px; width:34px; }
+  #opts button { background:rgba(22,24,24,.85); border:1px solid var(--line); color:var(--dim); padding:4px 9px; border-radius:6px; font-size:12.5px; cursor:pointer; }
+  #opts button.on { color:#0e0f0f; background:var(--sage); border-color:var(--sage); }
+  #status { font-size:12px; color:var(--dim); text-align:right; }
+  #status .ok { color:var(--sage); } #status .bad { color:var(--warn); }
+  #bar { position:absolute; left:16px; right:16px; bottom:16px; background:rgba(22,24,24,.92); border:1px solid var(--line); border-radius:12px; padding:10px 14px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  #bar button { background:#20302b; color:var(--sage); border:1px solid #2f4a41; padding:8px 14px; border-radius:8px; font-size:14px; cursor:pointer; font-weight:600; }
+  #bar button.ghost { background:none; color:var(--dim); border-color:var(--line); font-weight:500; padding:6px 10px; font-size:13px; }
+  #bar button.ghost.on { color:var(--sage); border-color:#2f4a41; }
+  #act { flex:1; min-width:160px; accent-color:var(--sage); }
+  #actv { width:40px; text-align:right; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .views { display:flex; gap:4px; }
+  #empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--dim); text-align:center; pointer-events:none; padding:20px; }
+  #toast { position:absolute; top:60px; left:50%; transform:translateX(-50%); background:#20302b; color:var(--sage); padding:6px 12px; border-radius:8px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; }
+  @media (max-width:760px) { #app { grid-template-columns:1fr; grid-template-rows:42% 58%; } aside { border-right:none; border-bottom:1px solid var(--line); } }
+  .item > span:first-child { min-width:0; }
+  .item .sub { max-width:42%; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; align-self:center; }
+  .item:focus-visible { outline:2px solid var(--sage); outline-offset:-2px; }
+  .item.fam { margin-top:8px; padding:10px; font-weight:650; background:#252929; border:1px solid #3b4240; border-left:3px solid #737e79; }
+  .item.fam:hover { background:#303635; }
+  .item.fam .sub { color:#b9c2bd; font-weight:500; }
+  .item.fam.expanded { background:#1d302b; border-color:#38584b; border-left-color:var(--sage); border-radius:7px 7px 0 0; color:#b1f0d9; }
+  .item.fam.expanded:hover { background:#263d34; }
+  .item.fam.expanded .sub { color:#a2c4b6; }
+  .disclosure { display:inline-block; width:18px; color:#b9c2bd; }
+  .expanded .disclosure { color:var(--sage); }
+  .item.child { position:relative; margin-left:12px; padding:9px 10px 9px 23px; border-left:2px solid #38584b; border-radius:0; }
+  .item.child::before { content:""; position:absolute; left:0; top:19px; width:12px; border-top:1px solid #38584b; }
+  .item.child.last-child { margin-bottom:8px; border-radius:0 0 0 7px; }
+  .item.on { background:#244438; box-shadow:inset -3px 0 var(--sage); color:#c3f9e3; }
+  .item.on .sub { color:#a2c4b6; }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="top">
+      <h1>워치짐 기구 뷰어</h1>
+      <input id="q" type="search" placeholder="운동이나 기구 검색 (예: 로우, 레그 컬)">
+      <div class="tabs"><button data-tab="ex" class="on">앱 운동</button><button data-tab="mc">기구</button></div>
+    </div>
+    <div class="cats" id="cats"></div>
+    <div id="list"></div>
+  </aside>
+  <main id="stage">
+    <div id="hud"><div><div id="title"></div><div id="models"></div><div id="opts"></div></div><div id="status"></div></div>
+    <div id="empty">왼쪽에서 운동이나 기구를 골라줘</div>
+    <div id="toast"></div>
+    <div id="bar">
+      <button id="play">▶ 1회 반복</button>
+      <button id="loop" class="ghost">반복 재생</button>
+      <button id="humanBtn" class="ghost" hidden>사람 보기</button>
+      <input id="act" type="range" min="0" max="1" step="0.001" value="0">
+      <span id="actv">0%</span>
+      <div class="views">
+        <button class="ghost" data-view="q">비스듬히</button><button class="ghost" data-view="side">옆</button><button class="ghost" data-view="front">앞</button><button class="ghost" data-view="top">위</button>
+      </div>
+    </div>
+  </main>
+</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const KNAME = {
+  ab_wheel:"앱휠", adjustable_bench:"각도 조절 벤치", assisted_pullup:"어시스티드 풀업 머신", bar:"바", barbell:"바벨", belt_squat:"벨트 스쿼트 머신", bench:"벤치프레스 벤치",
+  cable_crossover:"케이블 크로스오버", cable_tower:"케이블 타워", chest_press_machine:"체스트 프레스 머신(핀)", decline_bench:"디클라인 벤치", decline_sit_up:"디클라인 싯업 벤치",
+  dip_machine:"딥스 머신", dumbbell:"덤벨", exercise_mat:"운동 매트", ez_bar:"이지바", flat_bench:"플랫 벤치", functional_trainer:"펑셔널 트레이너", glute_kickback_machine:"글루트 킥백 머신",
+  hack_squat:"핵 스쿼트", handle_d:"D 손잡이", handle_rope:"로프 손잡이", handle_straight:"스트레이트 바 손잡이", high_pulley:"하이 풀리", hip_abductor:"힙 어브덕터/어덕터",
+  hip_thrust_machine:"힙 쓰러스트 머신", hyperextension:"하이퍼익스텐션", inverted_row_bar:"인버티드 로우 바", kettlebell:"케틀벨", landmine:"랜드마인", lat_pulldown:"랫 풀다운",
+  lateral_raise_machine:"레터럴 레이즈 머신", leg_extension:"레그 익스텐션", leg_press_45:"45도 레그 프레스", leg_press_horizontal:"수평 레그 프레스", lying_leg_curl:"라잉 레그 컬",
+  nordic_pad:"노르딕 컬 패드", pec_deck:"펙덱(플라이/리버스 플라이)", pendulum_squat:"펜듈럼 스쿼트", plate_row:"플레이트 로우", plyo_box:"플라이오 박스", power_rack:"파워 랙",
+  preacher_bench:"프리처 벤치", preacher_machine:"프리처 컬 머신", pullover_machine:"풀오버 머신", pullup_bar:"풀업 바", pullup_dip_tower:"풀업·딥스 타워", seated_cable_row:"케이블 시티드 로우",
+  seated_calf:"시티드 카프", seated_leg_curl:"시티드 레그 컬", seated_row_machine:"머신 시티드 로우(핀)", shoulder_press_machine:"숄더 프레스 머신", shrug_machine:"슈러그 머신",
+  smith:"스미스", smith_machine:"스미스 머신", standing_calf:"스탠딩 카프", standing_leg_curl:"스탠딩 레그 컬", tbar_row_machine:"티바 로우 머신", trap_bar:"트랩바", viking_press:"바이킹 프레스", weight_plate:"원판",
+};
+const HEIGHT_L = { low: "바닥", knee: "무릎~허벅지", mid: "중간", high: "높게" };
+const GRIP_L = { d: "D 핸들", straight: "일자바", ez: "이지바", rope: "로프", v_bar: "V바", neutral: "뉴트럴 그립", mag: "맥 그립", triangle: "삼각 핸들", ankle: "발목 스트랩", lat: "랫 바" };
+const MODE_L = { fly: "펙덱 플라이", reverse: "리버스 플라이" };
+const DEFAULT_PULL = { low: "up", knee: "up", mid: "forward", high: "down" };
+const DEFAULT_FLY = { low: "fly_low", knee: "fly_low", mid: "fly_mid", high: "fly_high" };
+function parseKey(k) { const [base, ...o] = k.split("~"); const c = { base }; for (const x of o) { const [a, b] = x.split("="); c[a] = b; } return c; }
+function kname(n) {
+  if (!n.includes("~")) return KNAME[n] || n;
+  const c = parseKey(n);
+  return [KNAME[c.base] || c.base, c.m && MODE_L[c.m], c.h && HEIGHT_L[c.h], c.g && GRIP_L[c.g]].filter(Boolean).join(" · ");
+}
+const baseOf = n => n.split("~")[0];
+const optModels = { cable_tower: { h: ["low", "knee", "mid", "high"], g: ["d", "straight", "ez", "rope", "v_bar", "triangle", "ankle"] },
+                    cable_crossover: { h: ["low", "mid", "high"], g: [] }, lat_pulldown: { h: [], g: ["lat", "mag", "d", "straight", "rope", "neutral"] }, pec_deck: { m: ["fly", "reverse"], h: [], g: [] } };
+const defaultModel = m => m === "cable_tower" ? "cable_tower~h=mid~g=d~p=forward" : m === "cable_crossover" ? "cable_crossover~h=mid~g=d~p=fly_mid" : m === "lat_pulldown" ? "lat_pulldown~g=lat" : m === "pec_deck" ? "pec_deck~m=fly" : m;
+
+// ---------- scene ----------
+const stage = document.getElementById("stage");
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1b1d1d);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
+camera.up.set(0, 0, 1);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a3a, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(2, -3, 5); scene.add(sun);
+const grid = new THREE.GridHelper(12, 24, 0x3a403e, 0x2a2e2d); grid.rotation.x = Math.PI / 2; scene.add(grid);
+const world = new THREE.Group(); scene.add(world);
+
+function resize() { const r = stage.getBoundingClientRect(); renderer.setSize(r.width, r.height); camera.aspect = r.width / r.height; camera.updateProjectionMatrix(); }
+addEventListener("resize", resize); resize();
+
+// ---------- models ----------
+const cache = {};      // name -> parsed data
+let shown = [];        // [{name, group, objs:[{mesh, steps:[{p,q,s}]}], n}]
+let current = null;    // {kind, id, models}
+let act = 0;
+// ---------- seated avatar (poses measured by the human fit tests; three samples blended along act) ----------
+let humanList = new Set(), humanOn = true;
+try { humanOn = localStorage.getItem("humanOn") !== "0"; } catch (e) {}
+const humanCache = {};
+// Default = live V5 catalog (the same files the phone app is built from, read straight from v5-catalog/, so a publish shows up on reload).
+// ?human=old: previous fits. ?human=v5-guide: the older review folders.
+const HUMAN_MODE = new URLSearchParams(location.search).get("human") || "live";
+const GUIDE_REVIEW = HUMAN_MODE !== "old";
+const GUIDE_FRONT = GUIDE_REVIEW && new URLSearchParams(location.search).get("front") === "moderate";
+const GUIDE_DIRECTORY = HUMAN_MODE === "live" ? "v5-catalog" : (GUIDE_FRONT ? "v5-guide-front" : "v5-guide");
+let guideManifest = null, guideBasePromise;
+const guideErrors = new Set();
+const BONE_NAMES = ["pelvis", "spine_03", "neck_01"];   // bones the first view reads (see the q-view block below)
+async function loadHumanList() {
+  const lists = await Promise.all(["human_bin", "human"].map(async dir => {
+    try { const r = await fetch(`${dir}/index.json?t=${Date.now()}`, { cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
+  }));
+  humanList = new Set(lists.flat());
+  if (GUIDE_REVIEW) {
+    try {
+      const r = await fetch(`${GUIDE_DIRECTORY}/manifest.json`, { cache: "no-store" });
+      if (!r.ok) throw Error("guide manifest unavailable");
+      const m = await r.json();
+      if (!Array.isArray(m.clips) || m.clips.some(c => typeof c.id !== "string" || !Number.isInteger(c.frames) || c.frames < 1)) throw Error("invalid guide manifest");
+      guideManifest = new Map(m.clips.map(c => [c.id, c]));
+      for (const key of guideManifest.keys()) humanList.add(key);
+    } catch (e) { console.warn("guide review unavailable", e); }
+  }
+}
+function halfFloat(h) {
+  const s = h & 32768 ? -1 : 1, e = h >> 10 & 31, m = h & 1023;
+  return s * (e === 0 ? 2 ** -14 * m / 1024 : e === 31 ? (m ? NaN : Infinity) : 2 ** (e - 15) * (1 + m / 1024));
+}
+let humanBasePromise;
+function validatePhases(acts) {
+  if (!acts || !acts.length) throw Error("empty animation phases");
+  for (let i = 0; i < acts.length; i++) {
+    if (!Number.isFinite(acts[i]) || acts[i] < 0 || acts[i] > 1 || (i && acts[i] <= acts[i - 1])) throw Error("invalid animation phases");
+  }
+  return acts;
+}
+function phaseBracket(acts, a) {
+  if (!Number.isFinite(a)) throw Error("invalid animation phase");
+  const n = acts.length;
+  if (!n) throw Error("empty animation phases");
+  if (n === 1 || a <= acts[0]) return [0, 0, 0];
+  if (a >= acts[n - 1]) return [n - 1, n - 1, 0];
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (acts[mid] <= a) lo = mid; else hi = mid;
+  }
+  return [lo, hi, (a - acts[lo]) / (acts[hi] - acts[lo])];
+}
+function fetchHumanBase() {
+  if (!humanBasePromise) humanBasePromise = (async () => {
+    const r = await fetch("human_bin/human_base.bin"); if (!r.ok) throw Error("human base unavailable");
+    const a = await r.arrayBuffer(), d = new DataView(a);
+    if (a.byteLength < 24 || d.getUint32(0, true) !== 0x31424748) throw Error("invalid human base");
+    const vertices = d.getUint32(4, true), triangles = d.getUint32(8, true), bones = d.getUint32(12, true);
+    const influences = d.getUint32(16, true), nameBytes = d.getUint32(20, true);
+    if (influences !== 4 || a.byteLength !== 24 + vertices * 24 + triangles * 6 + nameBytes) throw Error("invalid human base size");
+    let offset = 24;
+    const points = new Float32Array(vertices * 3); for (let i = 0; i < points.length; i++, offset += 4) points[i] = d.getFloat32(offset, true);
+    const tris = new Uint16Array(triangles * 3); for (let i = 0; i < tris.length; i++, offset += 2) tris[i] = d.getUint16(offset, true);
+    const joints = new Uint8Array(a, offset, vertices * 4); offset += joints.length;
+    const weights = new Float32Array(vertices * 4); for (let i = 0; i < weights.length; i++, offset += 2) weights[i] = d.getUint16(offset, true) / 65535;
+    const names = new TextDecoder().decode(new Uint8Array(a, offset, nameBytes)).split("\0");
+    const found = {}; names.forEach((n, i) => { if (BONE_NAMES.includes(n)) found[n] = i; });   // bones the first view needs
+    // The fitted bind pose is not stored in HGB1. Its x is known from the fitted rig (dual quaternion fit:
+    // the root sits at x = 0.33 in every motion), y/z from the pelvis joint measured by the view (boneRest).
+    const BX = 0.33, rest = new Float32Array(vertices * 3);
+    for (let v = 0; v < vertices; v++) rest[v * 3] = BX;
+    return { points, tris, joints, weights, bones, names, found, rest };
+  })().catch(e => { humanBasePromise = null; throw e; });
+  return humanBasePromise;
+}
+function humanFrame(h, frame) {
+  if (h.frames) return h.frames[frame];
+  if (h.skinFrames.has(frame)) return h.skinFrames.get(frame);
+  const b = h.base, P = b.points, out = new Float32Array(P.length), start = frame * b.bones * 12;
+  for (let v = 0; v < P.length / 3; v++) {
+    const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
+    for (let j = 0; j < 4; j++) {
+      const w = b.weights[v * 4 + j]; if (!w) continue;
+      const k = start + b.joints[v * 4 + j] * 12, M = h.matrices;
+      out[v * 3] += w * (M[k] * x + M[k + 1] * y + M[k + 2] * z + M[k + 3]);
+      out[v * 3 + 1] += w * (M[k + 4] * x + M[k + 5] * y + M[k + 6] * z + M[k + 7]);
+      out[v * 3 + 2] += w * (M[k + 8] * x + M[k + 9] * y + M[k + 10] * z + M[k + 11]);
+    }
+  }
+  h.skinFrames.set(frame, out);
+  if (h.skinFrames.size > 3) h.skinFrames.delete(h.skinFrames.keys().next().value);
+  return out;
+}
+async function fetchHumanBinary(machine) {
+  const r = await fetch(`human_bin/${encodeURIComponent(machine)}.bin?t=${Date.now()}`); if (!r.ok) return null;
+  const a = await r.arrayBuffer(), d = new DataView(a);
+  if (a.byteLength < 12 || d.getUint32(0, true) !== 0x31414748) throw Error("invalid human animation");
+  const n = d.getUint32(4, true), bones = d.getUint32(8, true), base = await fetchHumanBase();
+  if (!n || bones !== base.bones || a.byteLength !== 12 + n * 4 + n * bones * 24) throw Error("invalid human animation size");
+  const acts = new Float32Array(n); for (let i = 0; i < n; i++) acts[i] = d.getFloat32(12 + i * 4, true);
+  validatePhases(acts);
+  const matrices = new Float32Array(n * bones * 12), offset = 12 + n * 4;
+  for (let i = 0; i < matrices.length; i++) { matrices[i] = halfFloat(d.getUint16(offset + i * 2, true)); if (!Number.isFinite(matrices[i])) throw Error("nonfinite human matrix"); }
+  const h = { acts, base, matrices, skinFrames: new Map(), format: "affine-binary" };
+  const g = new THREE.BufferGeometry(), pos = new THREE.BufferAttribute(humanFrame(h, 0).slice(), 3); pos.setUsage(THREE.DynamicDrawUsage);
+  g.setAttribute("position", pos); g.setIndex(new THREE.BufferAttribute(base.tris, 1)); h.geom = g;
+  return h;
+}
+function validatePointCache(d, expectedVertices = null) {
+  validatePhases(d.acts);
+  if (!Array.isArray(d.frames) || d.frames.length !== d.acts.length || !Array.isArray(d.frames[0]) || !d.frames[0].length || d.frames[0].length % 3) throw Error("invalid human frame count");
+  const stride = d.frames[0].length, vertices = stride / 3;
+  if (expectedVertices !== null && vertices !== expectedVertices) throw Error("human model/clip mismatch");
+  if (!Array.isArray(d.tris) || !d.tris.length || d.tris.length % 3 || d.tris.some(i => !Number.isInteger(i) || i < 0 || i >= vertices)) throw Error("invalid human triangles");
+  for (const f of d.frames) if (!Array.isArray(f) || f.length !== stride || f.some(x => typeof x !== "number" || !Number.isFinite(Math.fround(x)))) throw Error("invalid human positions");
+  return vertices;
+}
+function pointHuman(d, base = null) {
+  validatePointCache(d, base ? base.points.length / 3 : null);
+  if (base && (d.tris.length !== base.tris.length || d.tris.some((v, i) => v !== base.tris[i]))) throw Error("human topology mismatch");
+  const frames = d.frames.map(f => new Float32Array(f));
+  const g = new THREE.BufferGeometry(), pos = new THREE.BufferAttribute(frames[0].slice(), 3); pos.setUsage(THREE.DynamicDrawUsage);
+  g.setAttribute("position", pos); g.setIndex(d.tris);
+  return { acts: d.acts, frames, geom: g, base, fit_ms: d.fit_ms, format: "point-cache" };
+}
+function fetchGuideBase() {
+  if (!guideBasePromise) guideBasePromise = (async () => {
+    const r = await fetch(`${GUIDE_DIRECTORY}/base.json`, { cache: "no-store" }); if (!r.ok) throw Error("guide base unavailable");
+    const d = await r.json();
+    validatePointCache({ acts: [0], frames: [d.rest], tris: d.triangles }, d.vertices);
+    if (!Array.isArray(d.bone_names) || !d.bone_names.length || !Array.isArray(d.joints) || !Array.isArray(d.weights) || d.joints.length !== d.vertices || d.weights.length !== d.vertices) throw Error("invalid guide skin");
+    for (let v = 0; v < d.vertices; v++) {
+      const j = d.joints[v], w = d.weights[v];
+      if (!Array.isArray(j) || !Array.isArray(w) || j.length !== 4 || w.length !== 4 || j.some(x => !Number.isInteger(x) || x < 0 || x >= d.bone_names.length) || w.some(x => !Number.isFinite(x) || x < 0) || Math.abs(w.reduce((a,b) => a+b, 0) - 1) > 1e-4) throw Error("invalid guide skin weights");
+    }
+    return { points: new Float32Array(d.rest), tris: d.triangles, names: d.bone_names, joints: d.joints.flat(), weights: d.weights.flat(), bones: d.bone_names.length };
+  })().catch(e => { guideBasePromise = null; throw e; });
+  return guideBasePromise;
+}
+async function fetchGuideHuman(machine) {
+  const meta = guideManifest && guideManifest.get(machine); if (!meta) return null;
+  const [r, base] = await Promise.all([fetch(`${GUIDE_DIRECTORY}/${encodeURIComponent(machine)}.json`, { cache: "no-store" }), fetchGuideBase()]);
+  if (!r.ok) throw Error("guide motion unavailable");
+  const d = await r.json();
+  if (d.machine !== machine || d.frames?.length !== meta.frames || !Array.isArray(meta.acts) || !Array.isArray(d.acts) || d.acts.length !== meta.acts.length || d.acts.some((a,i) => a !== meta.acts[i])) throw Error("guide motion/manifest mismatch");
+  return { ...pointHuman(d, base), reviewGuide: true, frontModerated: GUIDE_FRONT };
+}
+async function fetchHuman(machine) {
+  if (humanCache[machine]) return humanCache[machine];
+  if (GUIDE_REVIEW) {
+    try { const h = await fetchGuideHuman(machine); if (h) return (humanCache[machine] = h); }
+    catch (e) { guideErrors.add(machine); console.warn("guide review fallback", machine, e); }
+  }
+  try { const h = await fetchHumanBinary(machine); if (h) return (humanCache[machine] = h); } catch (e) { console.warn("human binary fallback", machine, e); }
+  const r = await fetch(`human/${encodeURIComponent(machine)}.json?t=${Date.now()}`); if (!r.ok) return null;
+  const d = await r.json();
+  return (humanCache[machine] = pointHuman(d));
+}
+function poseHuman(m, a) {
+  const h = m.human; if (!h) return;
+  const [i, j, t] = phaseBracket(h.acts, a);
+  const A = humanFrame(h, i), B = humanFrame(h, j), P = h.geom.attributes.position.array;
+  for (let k = 0; k < P.length; k++) P[k] = A[k] + (B[k] - A[k]) * t;
+  h.geom.attributes.position.needsUpdate = true;
+}
+
+function parse(d) {
+  validatePhases(d.acts);
+  const objs = d.objects.map(o => {
+    if (!o.m.length || (o.m.length !== 1 && o.m.length !== d.acts.length)) throw Error("invalid equipment frame count");
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(o.verts, 3));
+    g.setIndex(o.tris);
+    const ng = g.toNonIndexed(); ng.computeVertexNormals();
+    const steps = o.m.map(a => { const m = new THREE.Matrix4().fromArray(a); const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s); return { p, q, s }; });
+    return { geom: ng, color: o.color, steps };
+  });
+  return { ...d, parsed: objs };
+}
+
+async function fetchModel(name) {
+  if (HUMAN_MODE === "live") {   // the equipment this V5 person was fitted to (else the normal machine file)
+    const v = await fetch(`${GUIDE_DIRECTORY}/equipment/${name}.json`, { cache: "no-store" });
+    if (v.ok) return parse(await v.json());
+  }
+  const r = await fetch(`data/${name}.json?v=${manifest[name] || Date.now()}`);
+  if (!r.ok) return null;
+  return parse(await r.json());
+}
+
+function buildGroup(name, d) {
+  const group = new THREE.Group();
+  const objs = d.parsed.map(o => {
+    const mat = new THREE.MeshLambertMaterial({ color: new THREE.Color(...o.color), flatShading: true });
+    const mesh = new THREE.Mesh(o.geom, mat); mesh.matrixAutoUpdate = false; group.add(mesh);
+    return { mesh, steps: o.steps };
+  });
+  return { name, group, objs, n: d.acts.length, acts: d.acts, faces: d.faces };
+}
+
+const tp = new THREE.Vector3(), tq = new THREE.Quaternion(), ts = new THREE.Vector3();
+function pose(m, a) {
+  for (const o of m.objs) {
+    const n = o.steps.length;
+    if (n === 1) { o.mesh.matrix.compose(o.steps[0].p, o.steps[0].q, o.steps[0].s); continue; }
+    const [i, j, t] = phaseBracket(m.acts, a), A = o.steps[i], B = o.steps[j];
+    tp.lerpVectors(A.p, B.p, t); tq.slerpQuaternions(A.q, B.q, t); ts.lerpVectors(A.s, B.s, t);
+    o.mesh.matrix.compose(tp, tq, ts);
+  }
+}
+function setAct(a) {
+  const limits = GUIDE_REVIEW && shown.length === 1 && ["arnold_press", "barbell_overhead_press", "cable_overhead_extension"].includes(shown[0].name) ? (guideManifest?.get(shown[0].name)?.playback_range || [0, 1]) : [0, 1];   // V5 app clips keep the full slider range
+  actEl.min = limits[0]; actEl.max = limits[1]; a = Math.max(limits[0], Math.min(limits[1], a));
+  act = a; for (const m of shown) { pose(m, a); poseHuman(m, a); } actEl.value = a; actv.textContent = Math.round(a * 100) + "%"; }
+
+function bounds() {
+  const box = new THREE.Box3();
+  world.updateMatrixWorld(true);
+  for (const m of shown) box.expandByObject(m.group);
+  return box;
+}
+
+// ---------- first view: read the frame-zero mesh, never alter the human pose ----------
+const FRONT_DEG = 40, ELEV_DEG = 25, LYING_Z = 0.45;
+const viewFrames = new WeakMap();
+function facingOf(h) {
+  if (!h || !h.base) return null;
+  if (viewFrames.has(h)) return viewFrames.get(h);
+  const P = humanFrame(h, 0), b = h.base;
+  // Weighted vertex centres, not affine matrix translations (which include inverse bind).
+  const centre = name => {
+    const bone = b.names.indexOf(name); if (bone < 0) return null;
+    const c = new THREE.Vector3(); let total = 0;
+    for (let v = 0; v < P.length / 3; v++) for (let j = 0; j < 4; j++) {
+      const k = v * 4 + j; if (b.joints[k] !== bone) continue;
+      const w = b.weights[k]; total += w;
+      c.x += P[v * 3] * w; c.y += P[v * 3 + 1] * w; c.z += P[v * 3 + 2] * w;
+    }
+    return total > 1e-6 ? c.divideScalar(total) : null;
+  };
+  const left = centre("clavicle_l"), right = centre("clavicle_r"),
+        neck = centre("neck_01"), pelvis = centre("pelvis");
+  if (!left || !right || !neck || !pelvis) return null;
+  const up = neck.sub(pelvis), across = left.sub(right);
+  if (up.lengthSq() < 1e-6 || across.lengthSq() < 1e-6) return null;
+  // Bind mesh: anatomical left is +X, head is +Z, nose/chest is -Y.
+  // left cross up is therefore the chest front. Frame-zero vertices already carry
+  // every fitted model's yaw, including the 180-degree cable/pulldown variants.
+  const front = new THREE.Vector3().crossVectors(across, up).normalize();
+  if (front.lengthSq() < 1e-6) return null;
+  const lying = Math.abs(up.clone().normalize().z) < LYING_Z;
+  // For horizontal torsos use the headward axis: a side/head diagonal above the body.
+  const heading = (lying ? up : front).clone().setZ(0);
+  if (heading.lengthSq() < 1e-6) return null;
+  const result = { front, heading: heading.normalize(), lying };
+  viewFrames.set(h, result); return result;
+}
+function machineBehindPenalty(d, human) {
+  const c = shown[0] && shown[0].machineCenter; if (!c || !human) return 0;
+  const P = humanFrame(human.human, 0), centre = new THREE.Vector3();
+  for (let v = 0; v < P.length; v += 3) centre.add(new THREE.Vector3(P[v], P[v + 1], P[v + 2]));
+  centre.divideScalar(P.length / 3); human.mesh.localToWorld(centre);
+  return d.x * (c.x - centre.x) + d.y * (c.y - centre.y);
+}
+function qViewDir(human) {
+  const facing = human && facingOf(human.human); if (!facing) return null;
+  const sideDir = sign => {
+    // Lying: 40 degrees from the body's side, toward its head; upright: 40 from front.
+    const angle = sign * (facing.lying ? 90 - FRONT_DEG : FRONT_DEG) * Math.PI / 180;
+    const f = facing.heading, c = Math.cos(angle), s = Math.sin(angle);
+    const d = new THREE.Vector3(f.x * c - f.y * s, f.x * s + f.y * c, 0);
+    let elevation = ELEV_DEG * Math.PI / 180;
+    // A bent standing torso (deadlift) can put 25 degrees just behind the chest.
+    // Lower slightly to stay in front; prone/lying bodies retain the above-body view.
+    if (!facing.lying && facing.front.z < 0) {
+      const limit = Math.atan2(d.dot(facing.front), -facing.front.z) - 2 * Math.PI / 180;
+      elevation = Math.min(elevation, Math.max(0, limit));
+    }
+    return d.setZ(Math.tan(elevation)).normalize();
+  };
+  const a = sideDir(1), b = sideDir(-1);
+  return machineBehindPenalty(b, human) < machineBehindPenalty(a, human) ? b : a;
+}
+
+const humanBtn = document.getElementById("humanBtn");
+humanBtn.onclick = () => { humanOn = !humanOn; try { localStorage.setItem("humanOn", humanOn ? "1" : "0"); } catch (e) {} for (const m of shown) if (m.humanMesh) m.humanMesh.visible = humanOn; humanBtn.classList.toggle("on", humanOn); humanBtn.textContent = humanOn ? "사람 끄기" : "사람 보기"; };
+let showRequest = 0;
+async function show(models, keepCam = false) {
+  const request = ++showRequest;
+  const loaded = [];
+  for (const n of models) { cache[n] = cache[n] || await fetchModel(n); if (cache[n]) loaded.push(n); }
+  if (request !== showRequest) return;
+  world.clear(); shown = [];
+  let x = 0;
+  loaded.forEach((n, i) => {
+    const m = buildGroup(n, cache[n]); pose(m, 0);
+    const b = new THREE.Box3().setFromObject(m.group);
+    if (i > 0) x += 0.4 - b.min.x;     // accessories line up to the right of the main machine
+    m.group.position.x = x; x += b.max.x;
+    m.machineCenter = m.group.localToWorld(b.getCenter(new THREE.Vector3()));   // rest-pose centre in world space, for the first view
+    world.add(m.group); shown.push(m);
+  });
+  humanBtn.hidden = true;
+  const humanKey = shown.length === 1 ? (humanList.has(shown[0].name) ? shown[0].name : (shown[0].name.includes("~") ? null : baseOf(shown[0].name))) : null;
+  if (humanKey && humanList.has(humanKey)) {
+    const h = await fetchHuman(humanKey);
+    if (request !== showRequest) return;
+    if (h) {
+      const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x5aa9e6, flatShading: true }));
+      mesh.frustumCulled = false; mesh.visible = humanOn; shown[0].human = h; shown[0].humanMesh = mesh; shown[0].group.add(mesh);
+      humanBtn.hidden = false; humanBtn.classList.toggle("on", humanOn); humanBtn.textContent = humanOn ? "사람 끄기" : "사람 보기";
+    }
+  }
+  setAct(act);
+  document.getElementById("empty").style.display = shown.length ? "none" : "flex";
+  if (!shown.length && models.length) document.getElementById("empty").textContent = "이 기구는 아직 3D 모델이 없어";
+  modelsEl.textContent = loaded.map(kname).join(" + ") + (shown.length ? `  ·  ${shown.reduce((s, m) => s + m.faces, 0)}면` : "");
+  if (GUIDE_REVIEW && shown.length === 1) modelsEl.textContent += shown[0].human?.reviewGuide ? (shown[0].human.frontModerated ? " · V5 앞쪽 완화 비교 중" : " · V5 동작 확인 중") : guideErrors.has(humanKey) ? " · 검토본 오류, 기존 모델 표시" : " · 기존 모델 표시";
+  const playbackRange = GUIDE_REVIEW && guideManifest?.get(humanKey)?.playback_range;
+  if (playbackRange) modelsEl.textContent += ` · ${Math.round(playbackRange[0]*100)}–${Math.round(playbackRange[1]*100)}% 반복`;
+  if (!keepCam) setView("q");
+}
+
+function setView(v) {
+  if (!shown.length) return;
+  const b = bounds(), c = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3()).length();
+  const cableFront = shown.some(m => /^(cable_|functional_|lat_pulldown|high_pulley)/.test(m.name));   // handles are on the -Y side of cable stations
+  const human = shown.length === 1 && shown[0].humanMesh ? { mesh: shown[0].humanMesh, human: shown[0].human } : null;   // the person decides the first view when there is a fit for this machine
+  const dir = (v === "q" ? qViewDir(human) : null) || (v === "q" ? [0.9, cableFront ? -0.8 : 0.8, 0.45] : { side: [1, 0, 0.08], front: [0, -1, 0.12], top: [0.001, -0.15, 1] }[v]);
+  camera.position.copy(c).add(new THREE.Vector3(...dir).normalize().multiplyScalar(size * 1.7));
+  controls.target.copy(c); controls.update();
+  document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+}
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => setView(b.dataset.view));
+
+// ---------- rep playback ----------
+const actEl = document.getElementById("act"), actv = document.getElementById("actv");
+let anim = null, looping = false;
+const REP = 2600; // ms for one full rep: 0 -> 1 -> 0
+function ease(t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+const ALT_MIRROR = new Set(["alternating_dumbbell_curl", "alternating_hammer_curl"]);   // one arm per rep: the way back is the mirrored (other) arm
+function repMeta() { return GUIDE_REVIEW && shown.length === 1 ? guideManifest?.get(shown[0].name) : null; }
+function repMs() { return repMeta()?.playback_ms || (shown.length === 1 && ALT_MIRROR.has(shown[0].name) ? REP * 2 : REP); }   // alternating curls play at half speed
+function repRange() { return repMeta()?.playback_range || [0, 1]; }
+function playRep() { setAct(repRange()[0]); anim = { t0: performance.now() }; }
+document.getElementById("play").onclick = playRep;
+const loopBtn = document.getElementById("loop");
+loopBtn.onclick = () => { looping = !looping; loopBtn.classList.toggle("on", looping); if (looping && !anim) playRep(); };
+actEl.oninput = () => { anim = null; looping = false; loopBtn.classList.remove("on"); setAct(+actEl.value); };
+
+renderer.setAnimationLoop(now => {
+  if (anim) {
+    const t = (now - anim.t0) / repMs();
+    const [start, end] = repRange();
+    if (t >= 1) { setAct(start); anim = looping ? { t0: now } : null; }
+    else setAct(start + (end - start) * (repMeta()?.playback_mode === "cycle" ? t : (t < .5 ? ease(t * 2) : ease((1 - t) * 2))));
+  }
+  if (shown.length === 1 && ALT_MIRROR.has(shown[0].name)) shown[0].group.scale.x = anim && (now - anim.t0) / repMs() >= .5 ? -1 : 1;
+  controls.update(); renderer.render(scene, camera);
+});
+
+// ---------- list ----------
+let exercises = [], catOrder = [], machines = [], tab = "ex", cat = "전체";
+const listEl = document.getElementById("list"), catsEl = document.getElementById("cats"), q = document.getElementById("q");
+const titleEl = document.getElementById("title"), modelsEl = document.getElementById("models");
+const norm = s => s.toLowerCase().replace(/\s+/g, "");
+
+function renderCats() {
+  catsEl.innerHTML = "";
+  if (tab !== "ex") return;
+  const cats = ["전체", ...catOrder, ...[...new Set(exercises.map(e => e.cat))].filter(c => !catOrder.includes(c))];
+  for (const c of cats) { const b = document.createElement("button"); b.textContent = c; b.className = c === cat ? "on" : ""; b.onclick = () => { cat = c; renderCats(); renderList(); }; catsEl.append(b); }
+}
+const openFam = new Set();   // families the user expanded ("분류/패밀리"); a search opens every family, like the app
+function saveUi() { try { localStorage.setItem("wg-viewer-ui", JSON.stringify({ tab, cat, q: q.value, fams: [...openFam] })); } catch {} }
+function renderList() {
+  saveUi();
+  const s = norm(q.value);
+  listEl.innerHTML = "";
+  const rows = [];
+  if (tab === "ex") {
+    const bodyRank = c => { const i = catOrder.indexOf(c); return i < 0 ? 99 : i; };
+    const hits = exercises.map((e, i) => [e, i]).sort((a, b) => bodyRank(a[0].cat) - bodyRank(b[0].cat) || a[1] - b[1]).map(x => x[0]).filter(e => (cat === "전체" || e.cat === cat) && (!s || norm(e.name).includes(s) || e.id.includes(s) || (e.family && norm(e.family).includes(s)) || e.models.some(m => norm(kname(m)).includes(s) || norm(KNAME[baseOf(m)] || "").includes(s))));
+    const asRow = (e, child) => ({ key: e.id, label: e.name, sub: e.models.length ? kname(e.models[0]) : "모델 없음", none: !e.models.length, child, open: () => pick("ex", e.id, e.name, e.models) });
+    const emitted = new Set();
+    for (const e of hits) {
+      const members = e.family ? hits.filter(x => x.family === e.family && x.cat === e.cat) : [];
+      if (members.length >= 2) {                         // same rule as the app: 2+ of one family in a body category fold into one row
+        const fk = e.cat + "/" + e.family;
+        if (emitted.has(fk)) continue;
+        emitted.add(fk);
+        const open = !!s || openFam.has(fk);
+        rows.push({ key: "fam:" + fk, label: e.family, sub: members.length + "개", fam: true, expanded: open, open: () => { openFam.has(fk) ? openFam.delete(fk) : openFam.add(fk); renderList(); } });
+        if (open) members.forEach((m, i) => rows.push({ ...asRow(m, true), lastChild: i === members.length - 1 }));
+      } else rows.push(asRow(e, false));
+    }
+  } else {
+    for (const m of machines.filter(m => !s || norm(kname(m)).includes(s) || m.includes(s)))
+      rows.push({ key: m, label: kname(m), sub: exercises.filter(e => e.models.some(x => baseOf(x) === m)).length + "개 운동", open: () => pick("mc", m, kname(m), [defaultModel(m)]) });
+  }
+  for (const r of rows) {
+    const d = document.createElement("div");
+    d.className = "item" + (r.none ? " none" : "") + (r.child ? " child" : "") + (r.lastChild ? " last-child" : "") + (r.fam ? " fam" : "") + (r.expanded ? " expanded" : "") + (current && current.id === r.key ? " on" : "");
+    d.innerHTML = `<span></span><span class="sub"></span>`; d.children[0].textContent = r.label; d.children[1].textContent = r.sub;
+    d.setAttribute("role", "button"); d.tabIndex = 0;
+    if (r.fam) {
+      d.setAttribute("aria-expanded", String(r.expanded));
+      const arrow = document.createElement("span"); arrow.className = "disclosure"; arrow.textContent = r.expanded ? "▾" : "▸"; arrow.setAttribute("aria-hidden", "true"); d.children[0].prepend(arrow);
+    } else if (current && current.id === r.key) d.setAttribute("aria-current", "true");
+    d.onkeydown = event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); r.open(); } };
+    d.onclick = r.open; listEl.append(d);
+  }
+}
+const optsEl = document.getElementById("opts");
+function renderOpts() {
+  optsEl.innerHTML = "";
+  const key = current && current.models.find(m => m.includes("~"));
+  if (!key) return;
+  const c = parseKey(key), o = optModels[c.base]; if (!o) return;
+  const row = (lab, vals, labels, cur, set) => {
+    if (!vals.length) return; const r = document.createElement("div"); r.className = "row"; r.innerHTML = `<span class="lab">${lab}</span>`;
+    for (const v of vals) { const b = document.createElement("button"); b.textContent = labels[v]; b.className = v === cur ? "on" : ""; b.onclick = () => set(v); r.append(b); }
+    optsEl.append(r);
+  };
+  const apply = async n => {
+    const nk = c.base === "pec_deck" ? `pec_deck~m=${n.m}` : c.base === "lat_pulldown" ? `lat_pulldown~g=${n.g}`
+      : `${c.base}~h=${n.h}~g=${n.g}~p=${n.h === c.h ? c.p : (c.base === "cable_crossover" ? DEFAULT_FLY : DEFAULT_PULL)[n.h]}`;
+    current.models = [nk]; await show(current.models, true); renderOpts();
+  };
+  if (o.m) row("모드", o.m, MODE_L, c.m, m => apply({ m }));
+  row("높이", o.h, HEIGHT_L, c.h, h => apply({ h, g: c.g }));
+  row("그립", o.g, GRIP_L, c.g, g => apply({ h: c.h, g }));
+}
+async function pick(kind, id, label, models) {
+  if (current && current.kind === kind && current.id === id && JSON.stringify(current.models) === JSON.stringify(models)) return;   // already open: re-clicking (a double/triple click to copy the name) must not rebuild the list and drop the selection
+  current = { kind, id, models }; titleEl.textContent = label; act = 0; anim = null;
+  renderList(); await show(models); renderOpts(); playRep();
+  try { localStorage.setItem("wg-viewer-last", JSON.stringify({ kind, id, label, models })); } catch {}
+}
+document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b)); renderCats(); renderList(); });
+q.oninput = renderList;
+
+// ---------- live link to Blender (Blender writes manifest/status; this page only polls static files) ----------
+const statusEl = document.getElementById("status");
+const toast = document.getElementById("toast");
+function flash(t) { toast.textContent = t; toast.style.opacity = 1; clearTimeout(flash.h); flash.h = setTimeout(() => toast.style.opacity = 0, 1800); }
+let manifest = {};
+const getJSON = async p => (await fetch(`${p}?t=${Date.now()}`, { cache: "no-store" })).json();
+async function poll() {
+  try {
+    const m = await getJSON("manifest.json");
+    const changed = Object.keys(m).filter(n => manifest[n] && manifest[n] !== m[n]);
+    const first = !Object.keys(manifest).length; manifest = m;
+    if (first || machines.length !== Object.keys(m).filter(k => !k.includes("~")).length) { machines = Object.keys(m).filter(k => !k.includes("~")).sort(); if (tab === "mc") renderList(); }
+    for (const n of changed) delete cache[n];
+    const hit = changed.filter(n => current && current.models.includes(n));
+    if (hit.length) { await show(current.models, true); flash(`${hit.map(kname).join(", ")} 블렌더 변경 반영됨`); }
+  } catch {}
+  try {
+    const s = await getJSON("status.json");
+    const live = Date.now() / 1000 - s.heartbeat < 6;
+    const bl = !live ? `<span class="bad">블렌더 꺼짐 · 마지막 모델로 보는 중</span>` : s.scene ? `<span class="ok">블렌더 연결됨 · 실시간 반영</span>` : `<span class="bad">블렌더에 figure.blend가 안 열려 있음</span>`;
+    const busy = live && s.busy ? ` · ${kname(s.busy)} 갱신 중` : live && s.pending.length ? ` · ${s.pending.length}개 대기` : "";
+    const err = Object.keys(s.errors).length ? ` · <span class="bad">오류 ${Object.keys(s.errors).map(kname).join(", ")}</span>` : "";
+    statusEl.innerHTML = bl + busy + err;
+  } catch { statusEl.innerHTML = `<span class="bad">블렌더 상태 없음</span>`; }
+}
+setInterval(poll, 1500);
+
+(async () => {
+  await loadHumanList();
+  const ex = await getJSON("exercises.json"); const SHARED = {"딥스": ["가슴", "삼두"], "풀오버": ["가슴", "등"]}; const SHARED_ID = {"diamond_push_up": ["가슴"], "landmine_press": ["어깨"], "single_arm_landmine_press": ["어깨"]};   // main exercise for two body parts: listed under both
+  exercises = ex.exercises.flatMap(e => [e, ...[...(SHARED[e.family] || []), ...(SHARED_ID[e.id] || [])].filter(c => c !== e.cat).map(c => ({...e, cat: c}))]); catOrder = ex.order;
+  await poll();
+  let ui = null; try { ui = JSON.parse(localStorage.getItem("wg-viewer-ui")); } catch {}
+  let last = null; try { last = JSON.parse(localStorage.getItem("wg-viewer-last")); } catch {}
+  if (ui) {   // reload keeps the tab, body part, search text and expanded families
+    if (ui.tab === "ex" || ui.tab === "mc") tab = ui.tab;
+    if (typeof ui.cat === "string") cat = ui.cat;
+    if (typeof ui.q === "string") q.value = ui.q;
+    (ui.fams || []).forEach(f => openFam.add(f));
+    document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x.dataset.tab === tab));
+  }
+  if (last && last.kind === "ex") for (const e of exercises) if (e.id === last.id && e.family) openFam.add(e.cat + "/" + e.family);
+  renderCats(); renderList();
+  if (last) { await pick(last.kind, last.id, last.label, last.models); const cur = listEl.querySelector("[aria-current]"); if (cur) cur.scrollIntoView({ block: "center" }); }
+})();
+</script>
+</body>
+</html>
