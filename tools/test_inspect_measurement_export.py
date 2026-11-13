@@ -13,7 +13,7 @@ from inspect_measurement_export import inspect_archive
 
 class CurrentExportCompatibilityTest(unittest.TestCase):
     def setUp(self):
-        configured = os.environ.get("KCOACH_EVIDENCE_ZIP", "")
+        configured = os.environ.get("WATCHCOACH_EVIDENCE_ZIP", "")
         self.source = Path(configured)
         if not configured or not self.source.is_file():
             self.skipTest("Configure a private current-format evidence ZIP")

@@ -36,7 +36,7 @@ def pack_motion(data, vertices):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--viewer-root', type=Path, default=Path.home()/'Library/Application Support/WatchGymViewer')
+    parser.add_argument('--viewer-root', type=Path, default=Path.home()/'Library/Application Support/__PROTECTED_WATCHCOACH_VIEWER__')
     parser.add_argument('--extra', type=Path, required=True, help='Reviewed rolling-triceps conversion directory')
     parser.add_argument('--output', type=Path, default=REPO/'phone/src/main/assets/viewer3d')
     args = parser.parse_args()

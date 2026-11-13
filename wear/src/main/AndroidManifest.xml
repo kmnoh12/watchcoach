@@ -14,13 +14,13 @@
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
     <application
-        android:name=".KCoachApplication"
+        android:name=".WatchCoachApplication"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
-        android:label="워치짐"
+        android:label="워치코치"
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
-        <meta-data android:name="dev.kyungmin.kcoach.OTA_ROLE" android:value="WATCH" />
+        <meta-data android:name="dev.kyungmin.watchcoach.OTA_ROLE" android:value="WATCH" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.updates"
@@ -51,11 +51,11 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data android:scheme="wear" android:host="*" android:pathPrefix="/kcoach/" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/watchcoach/" />
             </intent-filter>
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
-                <data android:scheme="wear" android:host="*" android:pathPrefix="/kcoach/update/" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/watchcoach/update/" />
             </intent-filter>
         </service>
         <activity

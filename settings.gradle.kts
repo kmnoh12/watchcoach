@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "WatchGym"
+rootProject.name = "WatchCoach"
 include(":core")
 
 if (!providers.gradleProperty("coreOnly").isPresent) {

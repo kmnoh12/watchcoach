@@ -3,7 +3,7 @@ plugins {
     kotlin("android")
 }
 android {
-    namespace = "dev.kyungmin.kcoach.updates"
+    namespace = "dev.kyungmin.watchcoach.updates"
     compileSdk = 35
     defaultConfig { minSdk = 29; consumerProguardFiles("consumer-rules.pro") }
     compileOptions {

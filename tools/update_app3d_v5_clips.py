@@ -21,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--update', nargs='*', default=[])
     parser.add_argument('--remove', nargs='*', default=[])
-    parser.add_argument('--viewer-root', type=Path, default=Path.home()/'Library/Application Support/WatchGymViewer')
+    parser.add_argument('--viewer-root', type=Path, default=Path.home()/'Library/Application Support/__PROTECTED_WATCHCOACH_VIEWER__')
     parser.add_argument('--bundle', type=Path, default=REPO/'phone/src/main/assets/viewer3d')
     args = parser.parse_args()
     source = args.viewer_root/'v5-catalog'

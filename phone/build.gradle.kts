@@ -8,7 +8,7 @@ plugins {
 android {
     // Personal build: the release-time lintVital pass adds minutes and catches nothing the tests do not.
     lint { checkReleaseBuilds = false }
-    namespace = "dev.kyungmin.kcoach.phone"
+    namespace = "dev.kyungmin.watchcoach.phone"
     compileSdk = 35
 
     compileOptions {
@@ -17,7 +17,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.kyungmin.kcoach"
+        applicationId = "dev.kyungmin.watchcoach"
         minSdk = 29
         targetSdk = 35
         versionCode = 72
@@ -25,7 +25,7 @@ android {
         buildConfigField(
             "String",
             "UPDATE_MANIFEST_URL",
-            "\"https://github.com/kmnoh12/watchgym/releases/latest/download/update-phone.json\"",
+            "\"https://github.com/kmnoh12/watchcoach/releases/latest/download/update-phone.json\"",
         )
     }
 

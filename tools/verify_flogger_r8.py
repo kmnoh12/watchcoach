@@ -39,7 +39,7 @@ def main() -> int:
     args = parser.parse_args()
     jars = [args.flogger_jar.resolve(), args.backend_jar.resolve()]
     jdk = args.java_home.resolve()
-    with tempfile.TemporaryDirectory(prefix="kcoach-flogger-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="watchcoach-flogger-") as temporary:
         directory = Path(temporary)
         source = directory / "PoseLoggerProbe.java"
         source.write_text(PROBE)

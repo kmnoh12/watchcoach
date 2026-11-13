@@ -3,9 +3,9 @@
 # Runs from launchd every 20 s; rebuilds phone/src/main/assets/viewer3d only when a catalog file, the phone viewer or the camera file changed.
 # The assets are regenerated files (gitignored). An installed app only changes when you release a new version.
 ROOT=${0:A:h:h}
-VIEWER="$HOME/Library/Application Support/WatchGymViewer"
-EXTRA="$HOME/Documents/Default Project/워치짐/design/exercise-figure/lowpoly-remake/gemini_job/v5_arm_rebuild/app_rollout_20261109/rolling_trial"
-STATE="$HOME/Library/Application Support/WatchGymViewer-sync"
+VIEWER="$HOME/Library/Application Support/__PROTECTED_WATCHCOACH_VIEWER__"
+EXTRA="$HOME/Documents/Default Project/워치코치/design/exercise-figure/lowpoly-remake/gemini_job/v5_arm_rebuild/app_rollout_20261109/rolling_trial"
+STATE="$HOME/Library/Application Support/__PROTECTED_WATCHCOACH_VIEWER__-sync"
 mkdir -p "$STATE"
 LOCK="$STATE/lock"
 mkdir "$LOCK" 2>/dev/null || { [ -n "$(find "$LOCK" -mmin +10 2>/dev/null)" ] && rmdir "$LOCK"; exit 0; }

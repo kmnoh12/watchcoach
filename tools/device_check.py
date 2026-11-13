@@ -10,7 +10,7 @@ import sys
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = "dev.kyungmin.kcoach"
+PACKAGE = "dev.kyungmin.watchcoach"
 
 
 def call(adb, args):
