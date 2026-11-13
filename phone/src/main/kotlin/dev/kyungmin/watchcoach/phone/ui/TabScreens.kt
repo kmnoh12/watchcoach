@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
@@ -312,10 +313,19 @@ private fun RecordCard(record: WorkoutRecord, selecting: Boolean, checked: Boole
     val shape = RoundedCornerShape(14.dp)
     Row(Modifier.fillMaxWidth().testTag("record-${record.sessionId ?: record.date}")
         .semantics { if (selecting) this.selected = checked }
-        .clip(shape).background(if (checked) KColors.Selected else KColors.Surface)
-        // Border draws inside the existing bounds; selection never changes row size.
-        .border(1.5.dp, if (checked) KColors.Accent else Color.Transparent, shape)
         .pressableLong(onLongClick, onClick)
+        // Fill and ring live inside the press-scale layer so they redraw together with it.
+        .drawBehind {
+            val radius = androidx.compose.ui.geometry.CornerRadius(14.dp.toPx())
+            drawRoundRect(if (checked) KColors.Selected else KColors.Surface, cornerRadius = radius)
+            if (checked) {
+                val w = 1.5.dp.toPx()
+                drawRoundRect(KColors.Accent, topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2),
+                    size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius.x - w / 2),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(w))
+            }
+        }
         .padding(start = 12.dp, end = if (selecting) 14.dp else 6.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (selecting) RecordSelectionCircle(checked)
