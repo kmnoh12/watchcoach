@@ -137,7 +137,6 @@ internal fun reviewedContracts(): Map<String, ExerciseMeasurementContract> = map
     "dumbbell_rear_delt_fly" to ExerciseMeasurementContract(MeasurementRecipe.FLY, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "seated_dumbbell_rear_delt_fly" to ExerciseMeasurementContract(MeasurementRecipe.FLY, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "incline_dumbbell_rear_delt_fly" to ExerciseMeasurementContract(MeasurementRecipe.FLY, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
-    "cable_rear_delt_fly" to ExerciseMeasurementContract(MeasurementRecipe.FLY, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "face_pull" to ExerciseMeasurementContract(MeasurementRecipe.ROW, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "barbell_shrug" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않습니다. 실제 횟수를 직접 입력해 주세요."),
     "dumbbell_shrug" to ExerciseMeasurementContract(MeasurementRecipe.MANUAL, "손목 신호로 수행 횟수를 확인하지 않습니다. 실제 횟수를 직접 입력해 주세요."),

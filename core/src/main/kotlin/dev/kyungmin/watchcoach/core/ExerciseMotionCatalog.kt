@@ -221,7 +221,6 @@ object ExerciseMotionCatalog {
         binding("dumbbell_rear_delt_fly", "스탠딩 덤벨 리어델트 플라이", MotionFamily.MULTI_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("seated_dumbbell_rear_delt_fly", "시티드 덤벨 리어델트 플라이", MotionFamily.MULTI_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("incline_dumbbell_rear_delt_fly", "인클라인 덤벨 리어델트 플라이", MotionFamily.MULTI_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
-        binding("cable_rear_delt_fly", "케이블 리어델트 플라이", MotionFamily.MULTI_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("single_arm_cable_reverse_fly", "원암 케이블 리버스 플라이", MotionFamily.MULTI_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("face_pull", "페이스풀", MotionFamily.CYCLE_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         manual("barbell_shrug", "바벨 슈러그"),
