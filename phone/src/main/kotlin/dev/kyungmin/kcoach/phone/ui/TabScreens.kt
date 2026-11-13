@@ -350,6 +350,8 @@ class StatsUi(
     val weights: Map<String, Map<String, Double>> = emptyMap(),
     val names: Map<String, String> = emptyMap(),
     val nowMs: Long = System.currentTimeMillis(),
+    /** The body figure view. The app hands in one kept view so switching tabs quickly never builds and destroys a WebView each time. */
+    val figure: (android.content.Context) -> dev.kyungmin.kcoach.phone.Exercise3DView = { dev.kyungmin.kcoach.phone.Exercise3DView(it, "", "human_stats.html", android.graphics.Color.BLACK) },
 )
 
 @Composable

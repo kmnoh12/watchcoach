@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.kyungmin.kcoach.core.BodyLoad
 import dev.kyungmin.kcoach.core.StatsAnalytics
-import dev.kyungmin.kcoach.phone.Exercise3DView
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -96,7 +95,7 @@ internal fun StatsFatigue(ui: StatsUi) {
             else HapticFeedbackConstants.CLOCK_TICK)
     }
     Spacer(Modifier.height(6.dp))
-    AndroidView(factory = { Exercise3DView(it, "", "human_stats.html", android.graphics.Color.BLACK) },
+    AndroidView(factory = { context -> ui.figure(context).also { (it.parent as? android.view.ViewGroup)?.removeView(it) } },
         update = { it.setFatigue(fatigue) },
         modifier = Modifier.fillMaxWidth().aspectRatio(1.43f).clip(KShape.Panel)
             .semantics { contentDescription = "근육 피로도 3D 인체, 두 모델을 각각 좌우로 회전" })

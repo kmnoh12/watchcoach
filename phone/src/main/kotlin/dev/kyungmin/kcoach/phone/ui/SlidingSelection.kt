@@ -18,13 +18,21 @@ internal fun Modifier.slidingSelection(
     indexAt: (Float) -> Int,
     preview: (Int?) -> Unit,
     onSelect: (Int) -> Unit,
+    /** A real vibration click instead of the feather-light text-handle tick (the bottom tab bar asks for it). */
+    strong: Boolean = false,
 ): Modifier {
     val currentSelected by rememberUpdatedState(selected)
     val currentHitTest by rememberUpdatedState(indexAt)
     val currentPreview by rememberUpdatedState(preview)
     val currentSelect by rememberUpdatedState(onSelect)
     val haptic = LocalHapticFeedback.current
-    return pointerInput(haptic) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val buzz: () -> Unit = {
+        val vibrator = if (strong) context.getSystemService(android.os.Vibrator::class.java) else null
+        if (vibrator != null && vibrator.hasVibrator()) vibrator.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK))
+        else haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+    return pointerInput(haptic, strong) {
         awaitEachGesture {
             val down = awaitFirstDown()
             // Freeze the visible hit regions for this gesture: expanding tabs must not chase the finger.
@@ -33,7 +41,7 @@ internal fun Modifier.slidingSelection(
             var horizontal = false
             var cancelled = false
             currentPreview(target)
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            buzz()
             try {
                 while (true) {
                     val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
@@ -49,7 +57,7 @@ internal fun Modifier.slidingSelection(
                         if (next != target) {
                             target = next
                             currentPreview(target)
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            buzz()
                         }
                         change.consume()
                     }

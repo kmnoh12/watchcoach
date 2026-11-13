@@ -234,6 +234,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                         },
                         preview = { preview = it },
                         onSelect = onSelect,
+                        strong = true,
                     ),
             )
         }

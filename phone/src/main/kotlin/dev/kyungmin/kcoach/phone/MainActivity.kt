@@ -639,6 +639,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (::otaCoordinator.isInitialized) otaCoordinator.detach(this)
+        statsFigureView?.destroyNow()
+        statsFigureView = null
         calibrationSaveTimeoutTask?.let(handler::removeCallbacks)
         calibrationSaveTimeoutTask = null
         super.onDestroy()
@@ -1930,8 +1932,15 @@ class MainActivity : ComponentActivity() {
             bodies = catalog.associate { it.id to it.bodyCategory },
             weights = catalog.associate { it.id to BodyLoad.partWeights(it.bodyCategory, it.pattern, it.id) },
             names = catalog.associate { it.id to it.name },
+            figure = { statsFigure() },
         )
     }
+
+    private var statsFigureView: Exercise3DView? = null
+
+    /** One body-figure WebView for the whole activity: tab switches only move it, so fast switching builds nothing. */
+    private fun statsFigure(): Exercise3DView =
+        statsFigureView ?: Exercise3DView(this, "", "human_stats.html", android.graphics.Color.BLACK, keepAlive = true).also { statsFigureView = it }
 
     private fun newRoutineExercise(exercise: ExerciseDefinition): RoutineExercise =
         ExerciseDefaults.newExercise(exercise, UserProfileStore(this).deviceProfile()?.profile,

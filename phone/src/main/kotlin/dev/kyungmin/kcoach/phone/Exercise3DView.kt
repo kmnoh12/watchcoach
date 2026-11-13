@@ -18,10 +18,15 @@ import kotlin.math.abs
  * no network); [page] shows another bundled page instead, such as the statistics body figure. One finger drag turns the camera; a mostly vertical drag is left to the page scroll.
  */
 @SuppressLint("SetJavaScriptEnabled", "ViewConstructor")
-class Exercise3DView(context: Context, exerciseId: String, page: String? = null, background: Int = Color.rgb(52, 50, 46)) : FrameLayout(context) {
+class Exercise3DView(
+    context: Context, exerciseId: String, page: String? = null, background: Int = Color.rgb(52, 50, 46),
+    /** A kept view is reused by its owner across screens: leaving the window only pauses it, [destroyNow] ends it. */
+    private val keepAlive: Boolean = false,
+) : FrameLayout(context) {
     private val web = WebView(context)
     private var fatigueJson: String? = null
     private var pageReady = false
+    private var destroyed = false
 
     /** Keep the latest value even when Compose updates before the page finishes loading. */
     fun setFatigue(fatigue: Map<String, Double>) {
@@ -32,7 +37,7 @@ class Exercise3DView(context: Context, exerciseId: String, page: String? = null,
     }
 
     private fun paintFatigue() {
-        if (pageReady) fatigueJson?.let { web.evaluateJavascript("window.setFatigue && window.setFatigue($it)", null) }
+        if (pageReady && !destroyed) fatigueJson?.let { web.evaluateJavascript("window.setFatigue && window.setFatigue($it)", null) }
     }
 
     private var downX = 0f
@@ -50,6 +55,7 @@ class Exercise3DView(context: Context, exerciseId: String, page: String? = null,
         web.isHorizontalScrollBarEnabled = false
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
+                if (destroyed) return
                 pageReady = true
                 paintFatigue()
             }
@@ -73,8 +79,27 @@ class Exercise3DView(context: Context, exerciseId: String, page: String? = null,
         web.loadUrl(if (page != null) "https://$HOST/$page" else "https://$HOST/index.html?ex=$exerciseId")
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (keepAlive && !destroyed) web.onResume()
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        if (keepAlive) { if (!destroyed) web.onPause(); return }
+        destroyNow()
+    }
+
+    /**
+     * Tears the page down once. Rapid tab switching used to create and destroy a WebView several times a second, and a
+     * destroy that raced a page still loading (or a callback arriving after it) could take the whole app down.
+     */
+    fun destroyNow() {
+        if (destroyed) return
+        destroyed = true
+        web.stopLoading()
+        web.webViewClient = WebViewClient()
+        web.setOnTouchListener(null)
         removeView(web)
         web.destroy()
     }
