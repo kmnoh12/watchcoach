@@ -979,6 +979,10 @@
   "yaw": 150,
   "elev": 5
  },
+ "wide_pulldown_machine": {
+  "yaw": 30,
+  "elev": 5
+ },
  "woodchopper_cable": {
   "yaw": 45,
   "elev": 10

@@ -125,6 +125,7 @@ internal fun reviewedContracts(): Map<String, ExerciseMeasurementContract> = map
     "machine_pullover" to ExerciseMeasurementContract(MeasurementRecipe.PULLOVER, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "dumbbell_deadlift" to ExerciseMeasurementContract(MeasurementRecipe.LOADED_HINGE, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "behind_neck_lat_pulldown" to ExerciseMeasurementContract(MeasurementRecipe.VERTICAL_PULL, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
+    "wide_pulldown_machine" to ExerciseMeasurementContract(MeasurementRecipe.VERTICAL_PULL, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "machine_tbar_row" to ExerciseMeasurementContract(MeasurementRecipe.ROW, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "barbell_overhead_press" to ExerciseMeasurementContract(MeasurementRecipe.SHOULDER_PRESS, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),
     "seated_barbell_overhead_press" to ExerciseMeasurementContract(MeasurementRecipe.SHOULDER_PRESS, "같은 기구·그립과 워치 착용 조건에서 기준 위치로 돌아오는 반복을 비교합니다. 실제 횟수 확인이 필요합니다."),

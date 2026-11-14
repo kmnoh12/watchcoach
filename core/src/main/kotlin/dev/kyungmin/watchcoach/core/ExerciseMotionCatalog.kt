@@ -204,6 +204,7 @@ object ExerciseMotionCatalog {
         binding("machine_pullover", "머신 풀오버", MotionFamily.CYCLE_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("dumbbell_deadlift", "덤벨 데드리프트", MotionFamily.CYCLE_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("behind_neck_lat_pulldown", "비하인드넥 랫풀다운", MotionFamily.PULL_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
+        binding("wide_pulldown_machine", "와이드 풀다운 머신", MotionFamily.PULL_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("machine_tbar_row", "머신 티바 로우", MotionFamily.CYCLE_AXIS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("rope_lat_pulldown", "로프 랫풀다운", MotionFamily.PULL_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
 
