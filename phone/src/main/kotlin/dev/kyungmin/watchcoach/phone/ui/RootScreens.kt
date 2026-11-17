@@ -2,6 +2,7 @@ package dev.kyungmin.watchcoach.phone.ui
 
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -49,7 +50,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.drawBehind
@@ -236,8 +239,19 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
     val density = LocalDensity.current
     var preview by remember { mutableStateOf<Int?>(null) }
     val target = preview ?: selected
-    // While a finger is sliding along the bar the thumb must keep up with it: a short, quick-starting move.
-    val followSpec = if (preview != null) Motion.follow<Float>() else Motion.ui<Float>()
+    // Spring motion: one spring for the pill (a small overshoot, the same whether pressed or released).
+    val pillSpec = Motion.pillSettle<Float>()
+    // Pressing the already selected button squashes it a little and it springs back.
+    val pressScale by animateFloatAsState(if (preview != null && preview == selected) 0.94f else 1f, Motion.pressSquash(), label = "pillPress")
+    // Each icon dips a little from its current size and comes back once when its tab is picked (no sudden shrink).
+    val pops = remember { List(NavItems.size) { androidx.compose.animation.core.Animatable(1f) } }
+    var lastTarget by remember { mutableIntStateOf(target) }
+    LaunchedEffect(target) {
+        if (target != lastTarget) {
+            lastTarget = target
+            pops[target].animateTo(1f, Motion.iconPop(), initialVelocity = -3.5f)
+        }
+    }
     // Concentric with the 6dp selected thumb inside a 4dp padding: 6 + 4 = 10 (KShape.Panel).
     val shape = KShape.Panel
     Box(
@@ -258,14 +272,14 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
             // Animate only endpoint widths; skipped tabs never expand.
             val weights = NavItems.indices.map { index ->
                 val weight by animateFloatAsState(
-                    if (index == target) 1f + expansion else 1f, followSpec, label = "tabWeight$index",
+                    if (index == target) 1f + expansion else 1f, Motion.labelOpen(), label = "tabWeight$index",
                 )
                 weight
             }
             fun weight(i: Int) = weights[i]
             fun start(i: Int) = weights.take(i).sum() * unit
             val thumbLeft by animateFloatAsState(
-                unit * target, followSpec, label = "tabThumb",
+                unit * target, pillSpec, label = "tabThumb",
             )
 
             Box(
@@ -274,6 +288,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                     .offset { IntOffset(thumbLeft.roundToInt(), 0) }
                     .width(with(density) { thumbWidth.toDp() })
                     .height(45.3.dp)
+                    .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
                     .shadow(3.dp, KShape.Control, ambientColor = Color.Black, spotColor = Color.Black)
                     .clip(KShape.Control)
                     .background(Brush.linearGradient(listOf(Color(0xFF7CE0E7), Color(0xFF4FC8D1)))),
@@ -283,7 +298,8 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                     val chosen = if (expansion != 0f) ((weight(index) - 1f) / expansion).coerceIn(0f, 1f) else if (index == target) 1f else 0f
                     val tint = lerp(Color(0xFFF1F4F6), Color(0xFF04140E), chosen)
                     Row(
-                        Modifier.weight(weight(index)).fillMaxHeight().testTag("nav-item-$index"),
+                        Modifier.weight(weight(index)).fillMaxHeight().testTag("nav-item-$index")
+                            .graphicsLayer { if (index == selected) { scaleX = pressScale; scaleY = pressScale } },
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -293,11 +309,20 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
                             KIcon.Records -> (22f / 96f).dp // path midpoint y=11.75
                             else -> 0.dp
                         }
-                        KIcon(icon, tint, modifier = Modifier.offset(y = iconCenterCorrection), size = 22.dp)
-                        if (chosen > 0.7f) {
-                            Spacer(Modifier.width(6.dp))
-                            Text(title, color = tint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
-                        }
+                        KIcon(icon, tint, modifier = Modifier.offset(y = iconCenterCorrection)
+                            .graphicsLayer { pops[index].value.let { scaleX = it; scaleY = it } }, size = 22.dp)
+                        // The name opens with its tab: its width (and the gap before it) grows with the tab, so the icon
+                        // slides aside smoothly instead of jumping when the text appears, and the name fades in as it opens.
+                        Text(title, color = tint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+                            modifier = Modifier
+                                .layout { measurable, _ ->
+                                    val natural = measurable.measure(androidx.compose.ui.unit.Constraints())
+                                    val gap = (6.dp.toPx() * chosen).roundToInt()
+                                    val width = (natural.width * chosen).roundToInt()
+                                    layout(gap + width, natural.height) { natural.placeRelative(gap, 0) }
+                                }
+                                .clipToBounds()
+                                .graphicsLayer { alpha = ((chosen - 0.3f) / 0.7f).coerceIn(0f, 1f) })
                     }
                 }
             }
