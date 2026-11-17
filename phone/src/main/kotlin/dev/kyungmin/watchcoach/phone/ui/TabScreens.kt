@@ -48,9 +48,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -250,6 +254,7 @@ fun RecordsScreen(
 private val RecordDay = Color(0xFF979BA0)
 private val RecordWash = Color(0xFF0E3A40)
 private val RecordWash2 = Color(0xFF0B2A2D)
+private val RecordRingTrack = Color(0xFF1C3538)
 private val RecordAccent2 = Color(0xFF7FB9BE)
 private val RecordNumerals = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum")
 
@@ -271,9 +276,68 @@ private fun MonthArrow(icon: KIcon, onClick: () -> Unit) {
     }
 }
 
+private data class DatedRecord(
+    val date: LocalDate,
+    val record: WorkoutRecord,
+)
+
+/**
+ * Computes per-day ring progress (`0.4f..1.0f`) for [month] by comparing each workout against
+ * same-routine sessions within its trailing 30-day window (`D - 30 days .. D`).
+ */
+internal fun calendarMonthRingProgress(month: YearMonth, records: List<WorkoutRecord>): Map<Int, Float> {
+    if (records.isEmpty()) return emptyMap()
+    val dated = records.mapNotNull { record ->
+        runCatching { LocalDate.parse(record.date) }.getOrNull()?.let { DatedRecord(it, record) }
+    }
+    val byTitle = dated.groupBy { it.record.title }
+    val dayProgress = mutableMapOf<Int, Float>()
+    for (entry in dated) {
+        if (entry.date.year != month.year || entry.date.monthValue != month.monthValue) continue
+        val progress = recordRingProgress(entry, byTitle[entry.record.title].orEmpty())
+        val day = entry.date.dayOfMonth
+        val existing = dayProgress[day]
+        if (existing == null || progress > existing) {
+            dayProgress[day] = progress
+        }
+    }
+    return dayProgress
+}
+
+internal fun recordRingProgress(target: WorkoutRecord, allRecords: List<WorkoutRecord>): Float {
+    val targetDate = runCatching { LocalDate.parse(target.date) }.getOrNull() ?: return 1.0f
+    val sameRoutine = allRecords.mapNotNull { record ->
+        if (record.title != target.title) return@mapNotNull null
+        runCatching { LocalDate.parse(record.date) }.getOrNull()?.let { DatedRecord(it, record) }
+    }
+    return recordRingProgress(DatedRecord(targetDate, target), sameRoutine)
+}
+
+private fun recordRingProgress(target: DatedRecord, sameRoutineRecords: List<DatedRecord>): Float {
+    val windowStart = target.date.minusDays(30)
+    val cohort = sameRoutineRecords.filter { !it.date.isBefore(windowStart) && !it.date.isAfter(target.date) }
+    // Ensure target is always part of the normalization cohort even when passed outside allRecords.
+    val evalCohort = cohort + target
+    val rawMaxVol = evalCohort.maxOf { it.record.volumeKg.coerceAtLeast(0) }
+    val maxMin = maxOf(1, evalCohort.maxOf { it.record.minutes.coerceIn(1, 120) })
+
+    fun score(record: WorkoutRecord): Float {
+        val clampedMinutes = record.minutes.coerceIn(1, 120)
+        val minRatio = clampedMinutes.toFloat() / maxMin
+        if (rawMaxVol == 0) return minRatio
+        val volRatio = record.volumeKg.coerceAtLeast(0).toFloat() / rawMaxVol
+        return 0.7f * volRatio + 0.3f * minRatio
+    }
+
+    val bestScore = evalCohort.maxOf { score(it.record) }
+    val currentScore = score(target.record)
+    val rawRatio = if (bestScore <= 0f) 1f else (currentScore / bestScore).coerceIn(0f, 1f)
+    return if (rawRatio >= 0.99f) 1.0f else 0.4f + 0.6f * rawRatio
+}
+
 @Composable
 private fun CalendarGrid(month: YearMonth, records: List<WorkoutRecord>) {
-    val recorded = records.filter { it.date.startsWith(month.toString()) }.map { LocalDate.parse(it.date).dayOfMonth }.toSet()
+    val dayProgress = remember(month, records) { calendarMonthRingProgress(month, records) }
     val today = LocalDate.now()
     val cells: List<Int?> = List(month.atDay(1).dayOfWeek.value % 7) { null } + (1..month.lengthOfMonth()).toList()
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -287,15 +351,63 @@ private fun CalendarGrid(month: YearMonth, records: List<WorkoutRecord>) {
             Row(Modifier.fillMaxWidth()) {
                 for (i in 0 until 7) {
                     val day = week.getOrNull(i)
-                    Box(Modifier.weight(1f).height(34.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).height(40.dp), contentAlignment = Alignment.Center) {
                         if (day != null) {
-                            val has = day in recorded
-                            val shape = RoundedCornerShape(8.dp)
-                            Box(Modifier.size(32.dp, 30.dp).clip(shape).background(if (has) RecordWash else Color.Transparent)
-                                .then(if (month.atDay(day) == today) Modifier.border(1.5.dp, KColors.Bone, shape) else Modifier),
-                                contentAlignment = Alignment.Center) {
-                                Text(day.toString(), color = if (has) KColors.Accent else RecordDay, fontSize = 14.sp,
-                                    fontWeight = if (has) FontWeight.Bold else FontWeight.Normal, style = RecordNumerals)
+                            val progress = dayProgress[day]
+                            val isToday = month.atDay(day) == today
+                            Box(
+                                Modifier.size(36.dp).drawBehind {
+                                    val ringRadius = 15.dp.toPx()
+                                    if (progress != null) {
+                                        val strokeWidth = 2.6.dp.toPx()
+                                        if (isToday) {
+                                            drawCircle(color = RecordWash, radius = ringRadius)
+                                        }
+                                        drawCircle(
+                                            color = RecordRingTrack,
+                                            radius = ringRadius,
+                                            style = Stroke(width = strokeWidth),
+                                        )
+                                        drawArc(
+                                            color = KColors.Accent,
+                                            startAngle = -90f,
+                                            sweepAngle = 360f * progress,
+                                            useCenter = false,
+                                            topLeft = Offset(center.x - ringRadius, center.y - ringRadius),
+                                            size = Size(ringRadius * 2f, ringRadius * 2f),
+                                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                                        )
+                                    } else if (isToday) {
+                                        drawCircle(color = RecordWash2, radius = ringRadius)
+                                    }
+                                },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                val textColor = when {
+                                    progress != null && isToday -> KColors.Accent
+                                    progress != null || isToday -> KColors.Bone
+                                    else -> RecordDay
+                                }
+                                val fontSize = if (progress != null) 13.5.sp else 14.sp
+                                val fontWeight = when {
+                                    progress != null && isToday -> FontWeight.ExtraBold
+                                    progress != null -> FontWeight.Bold
+                                    else -> FontWeight.Normal
+                                }
+                                Text(
+                                    day.toString(),
+                                    color = textColor,
+                                    fontSize = fontSize,
+                                    fontWeight = fontWeight,
+                                    style = RecordNumerals.copy(
+                                        lineHeight = fontSize,
+                                        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                                        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                                        ),
+                                    ),
+                                )
                             }
                         }
                     }
