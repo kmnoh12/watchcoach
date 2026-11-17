@@ -21,8 +21,8 @@ android {
         applicationId = "dev.kyungmin.kcoach"
         minSdk = 29
         targetSdk = 35
-        versionCode = 77
-        versionName = "0.2.38"
+        versionCode = 78
+        versionName = "0.2.39"
         buildConfigField(
             "String",
             "UPDATE_MANIFEST_URL",
