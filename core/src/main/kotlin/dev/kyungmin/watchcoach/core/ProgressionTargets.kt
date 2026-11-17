@@ -24,6 +24,8 @@ object ProgressionDefaults {
     // Uses the movement-pattern vocabulary shared with ExerciseTaxonomy. Unknown patterns hold.
     private val compound = setOf("vertical_pull", "row", "chest_press", "shoulder_press", "leg_press", "squat", "deadlift", "lunge")
     private val isolation = setOf("chest_fly", "lateral_raise", "rear_delt", "curl", "triceps_pushdown", "triceps_extension", "leg_curl", "leg_extension", "hip", "pullover", "rotation")
+    /** Small shoulder muscles: weight is not raised automatically when one step is more than 15% of the load. */
+    val cautiousPatterns = setOf("lateral_raise", "rear_delt", "rotation")
     fun upper(pattern: String): Int? = when (pattern) { in compound -> 10; in isolation -> 12; else -> null }
     fun lower(pattern: String, upper: Int): Int = (upper - if (pattern in compound) 4 else 6).coerceAtLeast(1)
     fun increment(equipment: String, observedWeights: List<Double> = emptyList(), confirmedKg: Double? = null): IncrementCandidate {

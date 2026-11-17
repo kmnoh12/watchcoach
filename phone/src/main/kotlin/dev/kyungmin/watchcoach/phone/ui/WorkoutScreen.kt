@@ -93,8 +93,13 @@ fun ActiveWorkoutScreen(
 
     val initialPage = model.exerciseIndex.coerceIn(0, model.exercises.lastIndex.coerceAtLeast(0))
     val pager = rememberPagerState(initialPage = initialPage) { model.exercises.size }
+    // A running set owns the screen: paging is ignored so its count and the rest timer carry on untouched.
+    val setRunning = !model.isPreview &&
+        (model.setClockEndAtMs != null || model.pausedSetClockMs != null || model.holdElapsedMs != null)
     LaunchedEffect(pager.settledPage) {
-        if (pager.settledPage != model.exerciseIndex) {
+        if (setRunning && pager.settledPage != model.exerciseIndex) {
+            pager.animateScrollToPage(model.exerciseIndex, animationSpec = Motion.page())
+        } else if (pager.settledPage != model.exerciseIndex) {
             editing = null
             actions.onPageSettled(pager.settledPage)
         }
@@ -153,6 +158,7 @@ fun ActiveWorkoutScreen(
                 beyondViewportPageCount = 1,
                 key = { index -> model.exercises.getOrNull(index)?.let { "${it.id}$index" } ?: "removed-$index" },
                 flingBehavior = PagerDefaults.flingBehavior(pager, snapAnimationSpec = Motion.page()),
+                userScrollEnabled = !setRunning,
                 modifier = Modifier.weight(1f),
             ) { page ->
                 ExercisePage(

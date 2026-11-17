@@ -74,6 +74,9 @@ class ProgressionEngine {
             if (plan.load == ProgressionLoad.BODYWEIGHT || increment.needsConfirmation || increment.kg == null || weight == null) return targets
             val nextWeight = ProgressionDefaults.nextWeight(weight, increment, plan.load == ProgressionLoad.ASSISTANCE)
             if (nextWeight == weight) return targets
+            // Cable/machine shoulder isolation is never auto-loaded by a big relative jump (e.g. 5 -> 10 kg); dumbbells keep the normal small step.
+            if (plan.pattern in ProgressionDefaults.cautiousPatterns && plan.key.equipment != "덤벨" && plan.load != ProgressionLoad.BODYWEIGHT &&
+                weight > 0.0 && kotlin.math.abs(nextWeight - weight) > weight * 0.15) return targets
             indices.forEach { i -> targets[i] = targets[i].copy(weightKg = nextWeight,
                 targetReps = targets[i].lowerReps ?: ProgressionDefaults.lower(plan.pattern, targets[i].upperReps!!)) }
             return targets

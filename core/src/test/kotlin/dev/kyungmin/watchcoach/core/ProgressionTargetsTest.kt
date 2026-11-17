@@ -31,6 +31,21 @@ class ProgressionTargetsTest {
         assertEquals(85.0, result.weightKg)
         assertEquals(6, result.targetReps)
     }
+    @Test fun shoulderIsolationDoesNotAutoJumpMoreThanFifteenPercent() {
+        val p = plan(5.0 to 20, 5.0 to 20, pattern = "rotation")
+        val held = next(p, log(p, 1), log(p, 2))!!
+        assertEquals(listOf(5.0, 5.0), held.map { it.weightKg })
+        assertEquals(listOf(20, 20), held.map { it.targetReps })
+        val small = plan(40.0 to 12, pattern = "rear_delt")
+        assertEquals(42.5, next(small, log(small, 1), log(small, 2), increment = IncrementCandidate(2.5, false))!!.single().weightKg)
+    }
+    @Test fun dumbbellShoulderKeepsTheNormalSmallStep() {
+        val base = plan(20.0 to 12, pattern = "lateral_raise")
+        val p = base.copy(key = base.key.copy(equipment = "덤벨"))
+        val r = next(p, log(p, 1), log(p, 2), increment = IncrementCandidate(2.0, false))!!.single()
+        assertEquals(22.0, r.weightKg)
+        assertEquals(6, r.targetReps)
+    }
     @Test fun curlWithSmallStepStillUsesTwelveToSix() {
         val p = plan(40.0 to 12, pattern = "curl")
         val result = next(p, log(p, 1), log(p, 2))!!.single()
