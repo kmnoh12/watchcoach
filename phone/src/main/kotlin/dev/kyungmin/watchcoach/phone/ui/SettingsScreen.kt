@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -75,7 +74,7 @@ internal fun SettingsScreen(
         background = KColors.Bg, surface = KColors.Surface, onSurface = KColors.White, outline = KColors.Hairline)) {
         Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = actions.back) { KIcon(KIcon.Back, KColors.White) }
+                TextButton(onClick = tapAction(actions.back)) { KIcon(KIcon.Back, KColors.White) }
                 Text("설정", color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.height(28.dp))
@@ -89,17 +88,17 @@ internal fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
             ManualAutoFinishSection(manualAutoFinish, onManualAutoFinishChange)
             Spacer(Modifier.height(24.dp))
-            OutlinedButton(onClick = actions.profile, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
+            OutlinedButton(onClick = tapAction(actions.profile), modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
                 Text("내 운동 프로필 · 워치 착용", color = KColors.White)
             }
             Text("신체 정보와 평소 착용 상태를 폰에 저장합니다. 로그인 없이 설정할 수 있습니다.", color = KColors.Muted, fontSize = 13.sp)
             Spacer(Modifier.height(24.dp))
-            OutlinedButton(onClick = actions.diagnostics, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
+            OutlinedButton(onClick = tapAction(actions.diagnostics), modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
                 Text("오류 기록 저장", color = KColors.White)
             }
             Text("앱 종료 원인 확인용 ZIP 파일 저장. 저장한 파일을 채팅에 첨부해 주세요.", color = KColors.Muted, fontSize = 13.sp)
             Spacer(Modifier.height(24.dp))
-            OutlinedButton(onClick = actions.sensorLogs, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
+            OutlinedButton(onClick = tapAction(actions.sensorLogs), modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
                 Text("센서 기록 전체 저장", color = KColors.White)
             }
             Text("지금까지 폰에 쌓인 워치 센서 원본을 날짜별 폴더로 묶어 ZIP으로 저장합니다. 저장한 파일을 채팅에 첨부해 주세요.", color = KColors.Muted, fontSize = 13.sp)
@@ -179,7 +178,7 @@ private fun ProgressionSection(settings: ProgressionSettings, onChange: (Progres
     val haptic = LocalHapticFeedback.current
     fun update(next: ProgressionSettings) {
         if (next == current) return // a drag repeats the same detent; buzz and save only on a real change
-        haptic.performHapticFeedback(if (next.enabled != current.enabled) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
+        if (next.speed != current.speed) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         current = next
         onChange(next)
     }
@@ -217,7 +216,7 @@ private fun SquareSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
     Box(
         Modifier.size(width = 44.dp, height = 26.dp).clip(KShape.Control)
             .background(if (on) KColors.Accent else KColors.Hairline)
-            .toggleable(on, MutableInteractionSource(), indication = null, role = Role.Switch, onValueChange = onChange)
+            .tapToggleable(on, remember { MutableInteractionSource() }, indication = null, role = Role.Switch, onValueChange = onChange)
             .semantics { contentDescription = "점진적 과부하 사용" },
     ) {
         Box(

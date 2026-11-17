@@ -77,7 +77,7 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
                 ResultExerciseAnimation(id)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    TextButton(onClick = { expanded = if (expanded == id) null else id }) { Text(sets.first().exerciseName, color = KColors.White, fontSize = 18.sp) }
+                    TextButton(onClick = tapAction { expanded = if (expanded == id) null else id }) { Text(sets.first().exerciseName, color = KColors.White, fontSize = 18.sp) }
                     val volume = WorkoutComparison.totals(sets).volumeKgReps
                     if (sets.first().exerciseKind == dev.kyungmin.watchcoach.core.ExerciseKind.HOLD) {
                         Text("${sets.size}세트 · ${dev.kyungmin.watchcoach.core.HoldExercise.time(sets.sumOf { it.durationSeconds ?: 0 })}", color = KColors.Muted, fontSize = 13.sp)
@@ -102,7 +102,7 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
         }
         val removed = read.previous?.snapshot?.plannedSets?.filter { it.completed }?.map { it.exerciseId }?.toSet().orEmpty() - done.map { it.exerciseId }.toSet()
         if (removed.isNotEmpty()) Text("지난 기록에서 빠진 운동 · " + read.previous!!.snapshot.plannedSets.filter { it.exerciseId in removed }.distinctBy { it.exerciseId }.joinToString { it.exerciseName }, color = KColors.Muted, fontSize = 12.sp)
-        TextButton(onClick = { showDetails = !showDetails }) {
+        TextButton(onClick = tapAction { showDetails = !showDetails }) {
             Text(if (showDetails) "기록 안내 접기" else "기록 안내", color = KColors.Muted)
         }
         if (showDetails) {

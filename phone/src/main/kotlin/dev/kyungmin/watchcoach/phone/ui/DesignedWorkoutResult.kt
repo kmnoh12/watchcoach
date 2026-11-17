@@ -15,7 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -157,9 +156,9 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
             // The list stays put while the camera is up, so closing returns to the untouched top.
             Column(Modifier.weight(1f).verticalScroll(scroll, enabled = !cameraOpen)) {
                 Row(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp).height(33.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable(onClick = back).padding(end = 16.dp))
+                    Text("✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.tapClickable(onClick = back).padding(end = 16.dp))
                     Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                    if (onMenu != null) Box(Modifier.offset(x = 11.dp).requiredSize(44.dp).clickable(onClick = onMenu), contentAlignment = Alignment.Center) {
+                    if (onMenu != null) Box(Modifier.offset(x = 11.dp).requiredSize(44.dp).tapClickable(onClick = onMenu), contentAlignment = Alignment.Center) {
                         KIcon(KIcon.Dots, Color.White, size = 22.dp)
                     }
                 }
@@ -190,7 +189,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                         data.exercises.forEach { ExerciseResultCard(it) }
                         Spacer(Modifier.height(12.dp))
                     } ?: Text(if (readFailed) "운동 기록 불러오기 실패" else "운동 기록 불러오는 중", color = ResultMuted)
-                    if (readFailed) TextButton(onClick = { retry++ }) { Text("다시 시도", color = ResultMint) }
+                    if (readFailed) TextButton(onClick = tapAction { retry++ }) { Text("다시 시도", color = ResultMint) }
                 }
             }
             Row(Modifier.fillMaxWidth().background(Color.Black).padding(16.dp, 12.dp, 16.dp, 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -218,11 +217,11 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("내보내기", color = ResultBone, fontSize = 16.sp)
-                Text("닫기", color = ResultMuted, modifier = Modifier.clickable { sheet = false })
+                Text("닫기", color = ResultMuted, modifier = Modifier.tapClickable { sheet = false })
             }
             Row(Modifier.padding(vertical = 10.dp).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color.Black).padding(3.dp)) {
                 listOf("요약형", "상세형").forEachIndexed { i, label ->
-                    Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(if (detailed == (i == 1)) Color(0xFF2D2F33) else Color.Black).clickable { detailed = i == 1 }.padding(7.dp), contentAlignment = Alignment.Center) { Text(label, color = ResultBone, fontSize = 13.sp) }
+                    Box(Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(if (detailed == (i == 1)) Color(0xFF2D2F33) else Color.Black).tapClickable { detailed = i == 1 }.padding(7.dp), contentAlignment = Alignment.Center) { Text(label, color = ResultBone, fontSize = 13.sp) }
                 }
             }
             read?.let { data ->
@@ -424,7 +423,7 @@ internal fun ResultNumbers(data: ResultPresentation, compact: Boolean = false) {
 internal fun ExerciseResultCard(exercise: ResultExercise, export: Boolean = false, initiallyExpanded: Boolean = false) {
     var expanded by remember(exercise) { mutableStateOf(initiallyExpanded) }
     Column(Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(if (export) 8.dp else 12.dp)).background(ResultRaised)) {
-        Row(Modifier.fillMaxWidth().then(if (export) Modifier else Modifier.clickable { expanded = !expanded }).padding(start = if (export) 11.dp else 14.dp, end = if (export) 11.dp else 14.dp, top = if (export) 9.dp else 13.dp, bottom = if (export) 3.dp else 13.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().then(if (export) Modifier else Modifier.tapClickable { expanded = !expanded }).padding(start = if (export) 11.dp else 14.dp, end = if (export) 11.dp else 14.dp, top = if (export) 9.dp else 13.dp, bottom = if (export) 3.dp else 13.dp), verticalAlignment = Alignment.CenterVertically) {
             val previewContext = LocalContext.current
             if (!export && exercise.exerciseId.isNotEmpty() && ExercisePreviews.has(previewContext, exercise.exerciseId)) {
                 androidx.compose.ui.viewinterop.AndroidView(

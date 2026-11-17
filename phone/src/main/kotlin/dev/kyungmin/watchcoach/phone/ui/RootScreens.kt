@@ -19,6 +19,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +47,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.scale
@@ -92,24 +96,77 @@ fun rememberEntered(): Boolean {
 @Composable
 fun rememberTapHaptic(): () -> Unit {
     val view = androidx.compose.ui.platform.LocalView.current
-    return remember(view) { { view.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK) } }
+    return remember(view) { { view.performTapHaptic() } }
+}
+
+/** The same tick is used by Compose and classic Android controls. */
+internal fun android.view.View.performTapHaptic() {
+    if (isEnabled) performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
+}
+
+/**
+ * A switch flip: Android 14+ has dedicated on/off haptics (Samsung maps them to its own switch feel);
+ * older phones fall back to the common tap.
+ */
+internal fun android.view.View.performToggleHaptic(on: Boolean) {
+    if (!isEnabled) return
+    if (android.os.Build.VERSION.SDK_INT >= 34) performHapticFeedback(
+        if (on) android.view.HapticFeedbackConstants.TOGGLE_ON else android.view.HapticFeedbackConstants.TOGGLE_OFF)
+    else performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK)
+}
+
+@Composable
+internal fun tapToggleChange(onChange: (Boolean) -> Unit): (Boolean) -> Unit {
+    val view = androidx.compose.ui.platform.LocalView.current
+    return { on -> view.performToggleHaptic(on); onChange(on) }
+}
+
+/** Wrap a Material callback, so disabled controls and programmatic updates stay silent. */
+@Composable
+internal fun tapAction(onClick: () -> Unit): () -> Unit {
+    val tick = rememberTapHaptic()
+    return { tick(); onClick() }
+}
+
+@Composable
+internal fun <T> tapValueChange(onChange: (T) -> Unit): (T) -> Unit {
+    val tick = rememberTapHaptic()
+    return { value -> tick(); onChange(value) }
 }
 
 /** Plain clickable that also ticks, for surfaces that do not use the press shrink. */
 @Composable
-fun Modifier.tapClickable(onClick: () -> Unit): Modifier {
-    val tick = rememberTapHaptic()
-    return this.clickable { tick(); onClick() }
-}
+fun Modifier.tapClickable(onClick: () -> Unit): Modifier = tapClickable(enabled = true, onClick = onClick)
+
+@Composable
+fun Modifier.tapClickable(enabled: Boolean = true, onClickLabel: String? = null, role: Role? = null, onClick: () -> Unit): Modifier =
+    this.clickable(enabled = enabled, onClickLabel = onClickLabel, role = role, onClick = tapAction(onClick))
+
+@Composable
+fun Modifier.tapClickable(interactionSource: MutableInteractionSource?, indication: Indication?, enabled: Boolean = true,
+    onClickLabel: String? = null, role: Role? = null, onClick: () -> Unit): Modifier =
+    this.clickable(interactionSource = interactionSource, indication = indication, enabled = enabled,
+        onClickLabel = onClickLabel, role = role, onClick = tapAction(onClick))
+
+@Composable
+fun Modifier.tapToggleable(value: Boolean, interactionSource: MutableInteractionSource, indication: Indication?,
+    enabled: Boolean = true, role: Role? = null, onValueChange: (Boolean) -> Unit): Modifier =
+    this.toggleable(value, interactionSource, indication, enabled, role, tapToggleChange(onValueChange))
+
+@Composable
+fun Modifier.tapSelectable(selected: Boolean, enabled: Boolean = true, role: Role? = null, onClick: () -> Unit): Modifier =
+    this.selectable(selected, enabled = enabled, role = role, onClick = tapAction(onClick))
 
 /** Press feedback shared by every tappable surface: a small shrink on the UI curve. */
 @Composable
-fun Modifier.pressable(onClick: () -> Unit): Modifier {
-    val tick = rememberTapHaptic()
+fun Modifier.pressable(onClick: () -> Unit): Modifier = pressable(enabled = true, onClick = onClick)
+
+@Composable
+fun Modifier.pressable(enabled: Boolean, onClick: () -> Unit): Modifier {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, Motion.ui(), label = "press")
-    return this.scale(scale).clickable(interactionSource = source, indication = null, onClick = { tick(); onClick() })
+    return this.scale(scale).tapClickable(interactionSource = source, indication = null, enabled = enabled, onClick = onClick)
 }
 
 /** [pressable] that also reacts to a long press (a firmer haptic): used by lists that enter a selection mode. */
@@ -119,13 +176,43 @@ fun Modifier.pressableLong(onLongClick: () -> Unit, onClick: () -> Unit): Modifi
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, Motion.ui(), label = "press")
+    return this.scale(scale).tapCombinedClickable(interactionSource = source, indication = null,
+        onLongClick = onLongClick, onClick = onClick)
+}
+
+/** Long-only titles keep their inert short tap silent. Long presses retain the firmer feedback. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.tapCombinedClickable(enabled: Boolean = true, onClickLabel: String? = null, role: Role? = null,
+    onLongClickLabel: String? = null, onLongClick: (() -> Unit)? = null, onDoubleClick: (() -> Unit)? = null,
+    hapticOnClick: Boolean = true, onClick: () -> Unit): Modifier {
     val tick = rememberTapHaptic()
     val view = androidx.compose.ui.platform.LocalView.current
-    return this.scale(scale).combinedClickable(
-        interactionSource = source, indication = null,
-        onLongClick = { view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS); onLongClick() },
-        onClick = { tick(); onClick() },
-    )
+    return this.combinedClickable(enabled = enabled, onClickLabel = onClickLabel, role = role,
+        onLongClickLabel = onLongClickLabel,
+        onLongClick = onLongClick?.let { action ->
+            {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                action()
+            }
+        },
+        onDoubleClick = onDoubleClick?.let { action ->
+            { tick(); action() }
+        },
+        onClick = { if (hapticOnClick) tick(); onClick() })
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.tapCombinedClickable(interactionSource: MutableInteractionSource, indication: Indication?,
+    onLongClick: () -> Unit, onClick: () -> Unit): Modifier {
+    val view = androidx.compose.ui.platform.LocalView.current
+    return this.combinedClickable(interactionSource = interactionSource, indication = indication,
+        onLongClick = {
+            view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            onLongClick()
+        },
+        onClick = tapAction(onClick))
 }
 
 /**
@@ -149,6 +236,8 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
     val density = LocalDensity.current
     var preview by remember { mutableStateOf<Int?>(null) }
     val target = preview ?: selected
+    // While a finger is sliding along the bar the thumb must keep up with it: a short, quick-starting move.
+    val followSpec = if (preview != null) Motion.follow<Float>() else Motion.ui<Float>()
     // Concentric with the 6dp selected thumb inside a 4dp padding: 6 + 4 = 10 (KShape.Panel).
     val shape = KShape.Panel
     Box(
@@ -169,14 +258,14 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
             // Animate only endpoint widths; skipped tabs never expand.
             val weights = NavItems.indices.map { index ->
                 val weight by animateFloatAsState(
-                    if (index == target) 1f + expansion else 1f, Motion.ui(), label = "tabWeight$index",
+                    if (index == target) 1f + expansion else 1f, followSpec, label = "tabWeight$index",
                 )
                 weight
             }
             fun weight(i: Int) = weights[i]
             fun start(i: Int) = weights.take(i).sum() * unit
             val thumbLeft by animateFloatAsState(
-                unit * target, Motion.ui(), label = "tabThumb",
+                unit * target, followSpec, label = "tabThumb",
             )
 
             Box(
@@ -398,7 +487,7 @@ private fun RoutineRow(row: RoutineRowUi2, onClick: () -> Unit, onMenu: () -> Un
             } else {
                 Text(row.routine.lastPerformed, color = KColors.Muted, fontSize = 12.sp)
             }
-            Box(Modifier.size(48.dp).clickable(onClick = onMenu), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).tapClickable(onClick = onMenu), contentAlignment = Alignment.Center) {
                 KIcon(KIcon.DotsVertical, KColors.Faint, size = 20.dp)
             }
         }
@@ -423,7 +512,7 @@ private fun ActionButton(text: String, background: Color, content: Color, outlin
             .clip(KShape.Control)
             .background(background)
             .then(if (outlined) Modifier.border(0.5.dp, Color(0xFF3A3D41), KShape.Control) else Modifier)
-            .clickable(interactionSource = source, indication = null, onClick = onClick),
+            .tapClickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         // The thin plus reads lighter than the label, so an icon+label pair is nudged slightly left to look centred.

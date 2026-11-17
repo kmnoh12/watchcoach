@@ -15,7 +15,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -155,10 +154,9 @@ fun RecordsScreen(
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (selecting) {
                 val allChosen = monthRecords.isNotEmpty() && selected.containsAll(monthRecords)
-                val tick = rememberTapHaptic()
                 Column(Modifier.width(40.dp).testTag("select-all")
                     .semantics { this.selected = allChosen }
-                    .clickable { tick(); selected = if (allChosen) emptySet() else monthRecords.toSet() },
+                    .tapClickable { selected = if (allChosen) emptySet() else monthRecords.toSet() },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     RecordSelectionCircle(allChosen)
                     Text("전체", color = KColors.Soft, fontSize = 11.5.sp, fontWeight = FontWeight.Medium)
@@ -168,14 +166,14 @@ fun RecordsScreen(
                     append("개 선택됨")
                 }, color = KColors.White, fontSize = 21.sp, fontWeight = FontWeight.Bold,
                     letterSpacing = (-0.4).sp, maxLines = 1, style = RecordNumerals, modifier = Modifier.weight(1f))
-                Box(Modifier.height(40.dp).clickable { tick(); selecting = false; selected = emptySet() }
+                Box(Modifier.height(40.dp).tapClickable { selecting = false; selected = emptySet() }
                     .padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
                     Text("취소", color = KColors.Soft, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
                 val canDelete = selected.isNotEmpty()
                 Row(Modifier.height(40.dp).clip(RoundedCornerShape(10.dp))
                     .background(KColors.DangerFill.copy(alpha = if (canDelete) 1f else 0.3f))
-                    .clickable(enabled = canDelete) { tick(); actions.deleteRecords(selected.toList(), false) }
+                    .tapClickable(enabled = canDelete) { actions.deleteRecords(selected.toList(), false) }
                     .padding(horizontal = 11.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     val ink = Color(0xFF2A0B08).copy(alpha = if (canDelete) 1f else 0.5f)

@@ -1,7 +1,6 @@
 package dev.kyungmin.watchcoach.phone.ui
 
 import android.view.View
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -115,7 +114,7 @@ fun CalibrationScreen(
         header = {
             Text("측정·보정", color = KColors.White, fontSize = 32.sp, fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(top = 6.dp, bottom = 12.dp)
-                    .combinedClickable(onClick = {}, onLongClick = { researchVisible = !researchVisible }))
+                    .tapCombinedClickable(hapticOnClick = false, onClick = {}, onLongClick = { researchVisible = !researchVisible }))
             Text(ui.instructions, color = KColors.Muted, fontSize = 14.sp)
             Spacer(Modifier.height(12.dp))
             if (active) {
@@ -127,12 +126,12 @@ fun CalibrationScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 actions.openCaptureReview?.let { open ->
                     Text("저장한 촬영", color = KColors.Soft, fontSize = 14.sp,
-                        modifier = Modifier.pressable { if (!active) open() }.padding(vertical = 10.dp))
+                        modifier = Modifier.pressable(enabled = !active, onClick = open).padding(vertical = 10.dp))
                 }
                 if (researchVisible) actions.openSensorView?.let { open ->
                     Spacer(Modifier.width(20.dp))
                     Text("연구 모드 · 센서·3D", color = KColors.Soft, fontSize = 14.sp,
-                        modifier = Modifier.pressable { if (!active) open() }.padding(vertical = 10.dp))
+                        modifier = Modifier.pressable(enabled = !active, onClick = open).padding(vertical = 10.dp))
                 }
             }
             Spacer(Modifier.height(6.dp))

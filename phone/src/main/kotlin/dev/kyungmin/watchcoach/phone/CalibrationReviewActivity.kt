@@ -1,5 +1,6 @@
 package dev.kyungmin.watchcoach.phone
 
+import dev.kyungmin.watchcoach.phone.ui.performTapHaptic
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Bitmap
@@ -87,7 +88,7 @@ class CalibrationReviewActivity : ComponentActivity() {
         setContentView(ScrollView(this).apply { addView(content) })
     }
     private fun text(value: String, size: Float = 14f) = TextView(this).apply { text = value; textSize = size; setTextColor(Color.LTGRAY); setPadding(0, 6, 0, 6) }
-    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; setOnClickListener { action() } }
+    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; setOnTapClickListener { action() } }
     private fun observedText(value: CalibrationReview?): String = if (capture?.exerciseId?.let {
         ExerciseMeasurementContracts.resolve(it).recipe == MeasurementRecipe.SQUAT } == true)
         cameraSquatMetricsText(value?.squatMetrics) else cameraObservedMetricsText(value?.cameraMetrics)
@@ -119,12 +120,13 @@ class CalibrationReviewActivity : ComponentActivity() {
             else "중단된 자료입니다. 원본은 보관하며 이번 자료로 자동 보정하지 않습니다."))
         content.addView(button("선택한 검증 자료 내보내기") {
             val includeVideo = CheckBox(this).apply {
+                setOnTapClickListener { }
                 text = "촬영 영상도 포함 (기본은 센서·관절 좌표·확인 라벨·시계 기록만)"
                 isChecked = false; isEnabled = captures.videoFile(id).isFile
             }
             AlertDialog.Builder(this).setTitle("검증 자료 ZIP 저장")
                 .setMessage("선택한 촬영의 운동·센서·신체 관절 좌표가 포함됩니다. 계정 토큰과 다른 앱 설정은 제외합니다. 저장 위치는 직접 선택하고, 앱이 자동으로 외부에 보내지 않습니다.")
-                .setView(includeVideo).setNegativeButton("취소", null).setPositiveButton("저장 위치 선택") { _, _ ->
+                .setView(includeVideo).setTapNegativeButton("취소", null).setTapPositiveButton("저장 위치 선택") { _, _ ->
                     exportCaptureId = id; exportVideo = includeVideo.isChecked
                     createEvidenceDocument.launch("watchcoach-evidence-${id.takeLast(8)}.zip")
                 }.show()
@@ -132,10 +134,10 @@ class CalibrationReviewActivity : ComponentActivity() {
         val savedCount = review?.countReference?.reps
         countButton = button("실제 총 횟수: ${savedCount?.let { "${it}회" } ?: "아직 확인 안 됨"}") {
             val input = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; hint = "실제 횟수"; setText(review?.countReference?.reps?.toString().orEmpty()) }
-            val dialog = AlertDialog.Builder(this).setTitle("실제 총 횟수").setView(input).setNegativeButton("취소", null).setPositiveButton("저장", null).create()
-            dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val dialog = AlertDialog.Builder(this).setTitle("실제 총 횟수").setView(input).setTapNegativeButton("취소", null).setTapPositiveButton("저장", null).create()
+            dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnTapClickListener {
                 val count = input.text.toString().toIntOrNull()?.takeIf { it in 0..9_999 }
-                if (count == null) { input.error = "실제 횟수를 입력해 주세요"; return@setOnClickListener }
+                if (count == null) { input.error = "실제 횟수를 입력해 주세요"; return@setOnTapClickListener }
                 reviews.saveCount(id, count, review?.revision ?: 0).onSuccess {
                     review = it; dialog.dismiss(); countButton?.text = "실제 총 횟수: ${it.countReference!!.reps}회"
                 }
@@ -171,7 +173,7 @@ class CalibrationReviewActivity : ComponentActivity() {
             max = frames.lastIndex
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) { if (fromUser) selectFrame(progress) }
-                override fun onStartTrackingTouch(bar: SeekBar?) = Unit
+                override fun onStartTrackingTouch(bar: SeekBar?) { bar?.performTapHaptic() }
                 override fun onStopTrackingTouch(bar: SeekBar?) = Unit
             })
         }
@@ -184,7 +186,7 @@ class CalibrationReviewActivity : ComponentActivity() {
             val proposed = CameraRepProposals.propose(frames, selected.exerciseId, selected.watchOnLeft)
             if (proposed.isEmpty()) { toast("보이는 기준 위치로 완성된 반복을 제안하지 못했습니다. 수동으로 확인해 주세요.") }
             else android.app.AlertDialog.Builder(this).setMessage("영상 후보 ${proposed.size}회입니다. 실제 시작·전환·복귀 프레임을 확인하고 틀린 구간을 수정해 주세요. 현재 구간 목록을 바꿀까요?")
-                .setNegativeButton("유지", null).setPositiveButton("후보로 채우기") { _, _ ->
+                .setTapNegativeButton("유지", null).setTapPositiveButton("후보로 채우기") { _, _ ->
                     cycles = proposed.toMutableList()
                     getSharedPreferences("camera-rep-proposals", MODE_PRIVATE).edit().putString(id, org.json.JSONArray(proposed.map { c -> org.json.JSONArray(listOf(c.startNs, c.turnaroundNs, c.endNs)) }).toString()).commit()
                     renderCycles(); toast("카메라 제안 · 아직 사람 확인 정답이 아니에요")
@@ -210,12 +212,14 @@ class CalibrationReviewActivity : ComponentActivity() {
         content.addView(chart, LinearLayout.LayoutParams(-1, 220))
         content.addView(text("민트: 영상 속 손목 높이 · 주황: 워치 회전 움직임\n단위가 다른 신호를 각각 보기 편하게 표시했습니다. 파형 모양이 같다고 정답으로 판정하지 않습니다."))
         val alignment = CheckBox(this).apply {
+            setOnTapClickListener { }
             text = "처음·중간·끝의 동작 시점이 두 자료에서 맞는지 확인했습니다"
             setTextColor(Color.WHITE); isEnabled = mapping != null && received != null
         }
         content.addView(alignment)
         if (selected.startWristContext?.completeForDirectionValidation == true) addDirectionReview(id, alignment)
         val simultaneous = CheckBox(this).apply {
+            setOnTapClickListener { }
             text = "양팔을 동시에 움직인 촬영입니다 (좌우 비교용)"
             setTextColor(Color.WHITE); isChecked = review?.cameraMetrics?.simultaneousArmsReviewed == true
         }
@@ -273,7 +277,7 @@ class CalibrationReviewActivity : ComponentActivity() {
             val expectedReview = review?.revision ?: 0L
             AlertDialog.Builder(this).setTitle("이 촬영의 영상만 삭제")
                 .setMessage("실제 영상을 다시 볼 수 없습니다. 센서·관절·이미 확인한 라벨·운동 기록은 남습니다. 동작 확인을 마친 촬영만 선택해 주세요.")
-                .setNegativeButton("취소", null).setPositiveButton("영상 삭제 · 로그 보관") { _, _ ->
+                .setTapNegativeButton("취소", null).setTapPositiveButton("영상 삭제 · 로그 보관") { _, _ ->
                     previewRequest.incrementAndGet()
                     worker.execute {
                         val result = runCatching {
@@ -311,11 +315,11 @@ class CalibrationReviewActivity : ComponentActivity() {
                 toast("시계 오차 여유를 포함해 2.2초 이상의 구간을 선택해 주세요.")
             } else {
                 AlertDialog.Builder(this).setTitle("영상에서 확인한 손목 방향")
-                    .setItems(arrayOf("지정한 시작 방향", "반대 손목 방향", "일상 움직임 · 운동 준비 아님")) { _, index ->
+                    .setTapItems(arrayOf("지정한 시작 방향", "반대 손목 방향", "일상 움직임 · 운동 준비 아님")) { _, index ->
                         marks.add(StartDirectionMark(start, end, StartDirectionLabel.entries[index]))
                         intervalStart = null
                         summary.text = "선택한 방향 구간 ${marks.size}개 · 아직 저장 전"
-                    }.setNegativeButton("취소", null).show()
+                    }.setTapNegativeButton("취소", null).show()
             }
         })
         content.addView(button("영상으로 확인한 손목 방향 저장") {
@@ -381,7 +385,7 @@ class CalibrationReviewActivity : ComponentActivity() {
             return
         }
         AlertDialog.Builder(this).setTitle("횟수에서 제외한 이유")
-            .setItems(NonRepReason.entries.map { it.label }.toTypedArray()) { _, index ->
+            .setTapItems(NonRepReason.entries.map { it.label }.toTypedArray()) { _, index ->
                 nonRepIntervals.add(NonRepInterval(start, end, NonRepReason.entries[index]))
                 nonRepIntervals.sortBy { it.startNs }; nonRepStart = null; renderCycles()
             }.show()
@@ -434,7 +438,7 @@ class CalibrationReviewActivity : ComponentActivity() {
                 rows.addView(text("표시한 정지 ${pauseIndex + 1} · ${"%.2f".format((pause.startNs - origin) / 1e9)} → ${"%.2f".format((pause.endNs - origin) / 1e9)}초"))
                 rows.addView(LinearLayout(this).apply {
                     addView(button("정지 경계 수정") {
-                        AlertDialog.Builder(this@CalibrationReviewActivity).setItems(arrayOf("현재 프레임을 정지 시작으로", "현재 프레임을 정지 끝으로")) { _, field ->
+                        AlertDialog.Builder(this@CalibrationReviewActivity).setTapItems(arrayOf("현재 프레임을 정지 시작으로", "현재 프레임을 정지 끝으로")) { _, field ->
                             runCatching {
                                 val at = currentNs() ?: error("No frame")
                                 val edit = if (field == 0) pause.copy(startNs = at) else pause.copy(endNs = at)
@@ -451,7 +455,7 @@ class CalibrationReviewActivity : ComponentActivity() {
             }
             rows.addView(LinearLayout(this).apply {
                 addView(button("경계 수정") {
-                    AlertDialog.Builder(this@CalibrationReviewActivity).setItems(arrayOf("현재 화면을 시작으로", "현재 화면을 전환으로", "현재 화면을 복귀로")) { _, field ->
+                    AlertDialog.Builder(this@CalibrationReviewActivity).setTapItems(arrayOf("현재 화면을 시작으로", "현재 화면을 전환으로", "현재 화면을 복귀로")) { _, field ->
                         runCatching {
                             val value = currentNs() ?: error("No frame")
                             val edited = when (field) { 0 -> cycle.copy(startNs = value); 1 -> cycle.copy(turnaroundNs = value); else -> cycle.copy(endNs = value) }

@@ -12,8 +12,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.layout.Arrangement
@@ -279,7 +277,7 @@ private fun TopBar(model: WorkoutUiModel, now: Long, actions: WorkoutActions) {
     val elapsed = if (model.isPreview) 0L else
         ((now - model.startedAtMs - model.totalPausedMs - pausedNow) / 1000L).coerceAtLeast(0L)
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).clickable { actions.onBack() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Back, KColors.White, size = 26.dp) }
+        Box(Modifier.size(44.dp).tapClickable { actions.onBack() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Back, KColors.White, size = 26.dp) }
         Column(Modifier.weight(1f)) {
             Text(model.routineName, color = KColors.White, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
             PageDots(model.exercises.size, model.exerciseIndex, Modifier.padding(top = 5.dp))
@@ -291,9 +289,9 @@ private fun TopBar(model: WorkoutUiModel, now: Long, actions: WorkoutActions) {
             color = clockColor,
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.combinedClickable(onClick = {}, onLongClick = { if (!model.isPreview) actions.onTogglePause() }).padding(horizontal = 8.dp),
+            modifier = Modifier.tapCombinedClickable(hapticOnClick = false, onClick = {}, enabled = !model.isPreview, onLongClick = { actions.onTogglePause() }).padding(horizontal = 8.dp),
         )
-        Box(Modifier.size(44.dp).clickable { actions.onMenu() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 22.dp) }
+        Box(Modifier.size(44.dp).tapClickable { actions.onMenu() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 22.dp) }
     }
 }
 
@@ -397,7 +395,7 @@ private fun ExercisePage(
         val removableSet = exercise.sets.indexOfLast { !it.completed }.takeIf { exercise.sets.size > 1 }
         Row {
             TextAction("세트 추가", KColors.Accent, Modifier.weight(1f), KIcon.Plus) { actions.onAddSet(exerciseIndex) }
-            TextAction("세트 삭제", if (removableSet != null) KColors.Soft else KColors.Faint, Modifier.weight(1f), KIcon.Minus) {
+            TextAction("세트 삭제", if (removableSet != null) KColors.Soft else KColors.Faint, Modifier.weight(1f), KIcon.Minus, enabled = removableSet != null) {
                 removableSet?.let(onRemoveSet)
             }
         }
@@ -439,7 +437,7 @@ private fun ExercisePage(
                     modifier = Modifier.graphicsLayer { alpha = 1f - collapse() },
                 )
             }
-            Box(Modifier.align(Alignment.TopEnd).size(44.dp).clickable { actions.onExerciseInfo(exerciseIndex) }, contentAlignment = Alignment.Center) {
+            Box(Modifier.align(Alignment.TopEnd).size(44.dp).tapClickable { actions.onExerciseInfo(exerciseIndex) }, contentAlignment = Alignment.Center) {
                 KIcon(KIcon.Info, KColors.Soft, size = 20.dp)
             }
             if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
@@ -502,8 +500,8 @@ private fun SetRow(
             Cell(set.label, Modifier.weight(SetWeights[0]), if (isCurrent) KColors.Sage else KColors.Muted, null, onLabel, sub = set.previous, grow = grow)
             if (weighted) Cell(set.weightText, Modifier.weight(SetWeights[1]), KColors.White, editingField == SetField.WEIGHT, onWeight, editValue = editValue, onEditValueChange = onEditValueChange, grow = grow)
             Cell(set.reps?.let { if (set.hold) dev.kyungmin.watchcoach.core.HoldExercise.time(it) else it.toString() } ?: "—", Modifier.weight(SetWeights[2]), KColors.White, editingField == SetField.REPS, onReps, sub = if (set.estimated) "추정" else null, editValue = editValue, onEditValueChange = onEditValueChange, grow = grow)
-            CheckCell(set.completed, half = set.halfDone, modifier = Modifier.weight(SetWeights[3]).padding(horizontal = 4.dp).height(40.dp * grow).clickable { onCheck() }, highlighted = isCurrent, grow = grow)
-            Box(Modifier.weight(SetWeights[4]).clickable { onMore() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 18.dp) }
+            CheckCell(set.completed, half = set.halfDone, modifier = Modifier.weight(SetWeights[3]).padding(horizontal = 4.dp).height(40.dp * grow).tapClickable { onCheck() }, highlighted = isCurrent, grow = grow)
+            Box(Modifier.weight(SetWeights[4]).tapClickable { onMore() }, contentAlignment = Alignment.Center) { KIcon(KIcon.Dots, KColors.Muted, size = 18.dp) }
         }
         if (isCurrent) {
             Box(Modifier.align(Alignment.CenterStart).width(2.dp).height(20.dp * grow)
@@ -576,7 +574,7 @@ private fun NextTargetRow(text: String, reason: String?, applicable: Boolean, on
 @Composable
 private fun SetRestRow(set: SetUi, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().height(14.dp).clickable { onClick() }.padding(horizontal = 12.dp),
+        Modifier.fillMaxWidth().height(14.dp).tapClickable { onClick() }.padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -598,9 +596,10 @@ private fun TextAction(
     modifier: Modifier,
     icon: KIcon? = null,
     iconAfter: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    Box(modifier.height(46.dp).clip(KShape.Control).clickable { onClick() }, contentAlignment = Alignment.Center) {
+    Box(modifier.height(46.dp).clip(KShape.Control).tapClickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null && !iconAfter) { KIcon(icon, color, size = 18.dp); Spacer(Modifier.width(6.dp)) }
             Text(text, color = color, fontSize = 15.sp, fontWeight = FontWeight.Medium)

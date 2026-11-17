@@ -35,7 +35,7 @@ class PatternCandidatesActivity : ComponentActivity() {
         setContentView(ScrollView(this).apply { addView(content) }); content.addView(text(title, 24f))
     }
     private fun text(value: String, size: Float = 14f) = TextView(this).apply { text = value; textSize = size; setTextColor(Color.LTGRAY); setPadding(0, 10, 0, 10) }
-    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; setOnClickListener { action() } }
+    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; setOnTapClickListener { action() } }
 
     private fun showCandidates() {
         root("내 측정 엔진")

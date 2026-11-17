@@ -25,6 +25,11 @@ object Motion {
 
     fun <T> panel(): TweenSpec<T> = tween(PANEL_MS, easing = PanelEasing)
     fun <T> ui(): TweenSpec<T> = tween(UI_MS, easing = UiEasing)
+
+    /** Chasing a finger (the tab bar thumb while sliding): half the UI time, and it starts fast instead of easing in. */
+    val FollowEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+    const val FOLLOW_MS = 100
+    fun <T> follow(): TweenSpec<T> = tween(FOLLOW_MS, easing = FollowEasing)
     fun <T> page(): TweenSpec<T> = tween(PAGE_MS, easing = PageEasing)
     fun <T> digit(): TweenSpec<T> = tween(DIGIT_MS, easing = LinearEasing)
 }

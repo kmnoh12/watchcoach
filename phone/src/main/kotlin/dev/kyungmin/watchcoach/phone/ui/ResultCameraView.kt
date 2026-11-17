@@ -156,6 +156,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     }
 
     private fun chooseRatio(index: Int) {
+        performTapHaptic()
         ratio = index
         ratioAnimation?.cancel()
         val target = ResultPhotoRatio.entries[index]
@@ -349,7 +350,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         if (photo == null) {
             val a=17.6f*d*9/32
             c.drawLine(cc-a,yy-a,cc+a,yy+a,paint); c.drawLine(cc+a,yy-a,cc-a,yy+a,paint)
-            taps += closeRect to { close() }
+            taps += closeRect to { performTapHaptic(); close() }
             circle(center,35f,Color.WHITE); circle(center,31f,Color.BLACK); circle(center,28f,Color.WHITE)
             taps += RectF(center-40*d,cy-40*d,center+40*d,cy+40*d) to { shoot() }
             val left=55*d; val thumb=RectF(left-21*d,cy-21*d,left+21*d,cy+21*d)
@@ -359,9 +360,9 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
                 ?: drawIcon(c,5,left,cy,22*d,Color.WHITE,controls)
             c.restoreToCount(thumbSave)
             paint.color=Color.argb((217*controls).toInt(),255,255,255);paint.style=Paint.Style.STROKE;paint.strokeWidth=2*d;c.drawRoundRect(thumb,10*d,10*d,paint);paint.style=Paint.Style.FILL
-            taps += thumb to { onGallery() }
+            taps += thumb to { performTapHaptic(); onGallery() }
             val right=width-55*d; circle(right,21f,Color.rgb(28,27,25)); drawIcon(c, 4, right, cy, 20*d, Color.rgb(237,232,220), controls)
-            taps += RectF(right-25*d,cy-25*d,right+25*d,cy+25*d) to { if (!taking) { front=!front; bind() } }
+            taps += RectF(right-25*d,cy-25*d,right+25*d,cy+25*d) to { if (!taking) { performTapHaptic(); front=!front; bind() } }
         } else {
             // Retake: the same smoked circle as close, with a counter-clockwise arrow in it.
             // Thick counter-clockwise ring (butt ends) from -51° to 15°, with an upward filled head standing on the ring at 19°.
@@ -374,7 +375,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
             clipPath.reset(); clipPath.moveTo(ex,ey-8f*d); clipPath.lineTo(ex-4.5f*d,ey); clipPath.lineTo(ex+4.5f*d,ey); clipPath.close()
             paint.style=Paint.Style.FILL; c.drawPath(clipPath,paint)
             paint.style=Paint.Style.FILL
-            taps += closeRect to { if (!exporting) { photo?.recycle();photo=null;photoSaved=false;sampleAt=0;invalidate() } }
+            taps += closeRect to { if (!exporting) { performTapHaptic(); photo?.recycle();photo=null;photoSaved=false;sampleAt=0;invalidate() } }
             listOf("사진 저장","인스타 스토리","카카오톡","더보기").forEachIndexed { i,label ->
                 val x=width*(i+.5f)/4
                 val pop = curve.getInterpolation(((SystemClock.uptimeMillis()-shotAt-i*30)/280f).coerceIn(0f,1f))
@@ -506,6 +507,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     private fun focusAtPoint(x: Float, y: Float) {
         if (photo != null || taking || controls < 1f || !frame.contains(x, y)) return
         val cam = camera ?: return
+        performTapHaptic()
         runCatching {
             val point = preview.meteringPointFactory.createPoint(x - preview.left, y - preview.top)
             val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE or FocusMeteringAction.FLAG_AWB)
@@ -529,6 +531,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
     private fun shoot() {
         val camera = capture ?: return
         if (taking) return
+        performTapHaptic()
         taking = true
         camera.takePicture(worker, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
@@ -559,6 +562,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         if (exporting || ratioAnimation?.isRunning == true) return
         val source=photo?.copy(Bitmap.Config.ARGB_8888,false) ?: return
         val data=presentation ?: run { source.recycle(); return }
+        performTapHaptic()
         exporting=true
         val selected=ratio
         worker.execute {

@@ -122,7 +122,7 @@ fun OverlayHost(state: OverlayState) {
                 Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.78f))
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { state.dismiss() },
+                    .tapClickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { state.dismiss() },
             )
         }
         AnimatedContent(
@@ -170,7 +170,7 @@ private fun UndoBar(state: OverlayState) {
                 Text(text.message, color = KColors.White, fontSize = 15.sp)
                 Text(
                     "취소하기", color = KColors.Sage, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable { state.clearUndo(text); text.onUndo() }.padding(start = 16.dp),
+                    modifier = Modifier.tapClickable { state.clearUndo(text); text.onUndo() }.padding(start = 16.dp),
                 )
             }
         }
@@ -238,6 +238,7 @@ private fun SheetSurface(dismiss: () -> Unit, content: @Composable () -> Unit) {
             .fillMaxWidth()
             .clip(KShape.Sheet)
             .background(KColors.Surface)
+            // Intentionally silent: consumes taps inside the panel without performing an action.
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
             .nestedScroll(nested)
             .draggable(
@@ -262,6 +263,7 @@ private fun DialogSurface(content: @Composable () -> Unit) {
             .fillMaxWidth()
             .clip(KShape.Panel)
             .background(KColors.SurfaceRaised)
+            // Intentionally silent: consumes taps inside the panel without performing an action.
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
             .padding(24.dp),
     ) { content() }

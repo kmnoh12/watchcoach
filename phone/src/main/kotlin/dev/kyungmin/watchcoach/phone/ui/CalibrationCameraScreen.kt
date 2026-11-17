@@ -4,7 +4,6 @@ import android.os.SystemClock
 import android.view.View
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -99,12 +98,12 @@ private fun TopBar(ui: CalibrationCameraUi, exerciseName: String, back: () -> Un
                 modifier = Modifier.align(Alignment.Center).clip(KShape.Control).background(KColors.Red).padding(horizontal = 14.dp, vertical = 5.dp))
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(40.dp).clip(KShape.Control).clickable(onClick = back), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(40.dp).clip(KShape.Control).tapClickable(onClick = back), contentAlignment = Alignment.Center) {
                     KIcon(KIcon.Back, KColors.White)
                 }
                 Text(exerciseName, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 Text("저장한 촬영", color = KColors.White, fontSize = 13.sp,
-                    modifier = Modifier.clip(KShape.Control).clickable(onClick = openSaved).padding(horizontal = 10.dp, vertical = 8.dp))
+                    modifier = Modifier.clip(KShape.Control).tapClickable(onClick = openSaved).padding(horizontal = 10.dp, vertical = 8.dp))
             }
         }
     }
@@ -135,7 +134,7 @@ private fun Controls(
                     modifier = Modifier.weight(1f))
                 if (ui.wearingFromSettings) Text(if (ui.wearingSummary == null) "설정에서 저장  ›" else "설정에서 변경  ›",
                     color = KColors.Accent, fontSize = 13.sp,
-                    modifier = Modifier.clip(KShape.Control).clickable(onClick = openWearingSettings).padding(6.dp))
+                    modifier = Modifier.clip(KShape.Control).tapClickable(onClick = openWearingSettings).padding(6.dp))
             }
         }
         if (ui.candidateWearingInvalid && !ui.recording) ActionButton("뒤로 가서 후보 시험 다시 선택", KColors.Accent, KColors.OnAccent, back)
@@ -149,7 +148,7 @@ private fun Controls(
 @Composable
 private fun ActionButton(label: String, color: Color, content: Color, onClick: () -> Unit, enabled: Boolean = true) {
     Box(Modifier.fillMaxWidth().height(50.dp).clip(KShape.Control).background(if (enabled) color else KColors.SurfaceRaised)
-        .clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+        .tapClickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
         Text(label, color = if (enabled) content else KColors.Muted, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }

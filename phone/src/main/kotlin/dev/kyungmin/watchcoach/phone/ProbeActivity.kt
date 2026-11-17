@@ -358,7 +358,7 @@ class ProbeActivity : Activity() {
             setColor(Color.rgb(40, 44, 48))
             cornerRadius = 14 * resources.displayMetrics.density
         }
-        setOnClickListener { onClick() }
+        setOnTapClickListener { onClick() }
     }
 
     /** Sample rate over the last two seconds of sensor timestamps. */

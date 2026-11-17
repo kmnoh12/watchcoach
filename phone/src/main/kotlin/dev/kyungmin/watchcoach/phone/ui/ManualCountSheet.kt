@@ -42,11 +42,11 @@ fun ManualCountSheet(title: String, targets: List<Int>, setNumbers: List<Int>, o
                     })
             }
         }
-        TextButton(onClick = { onSubmit(counts.map { requireNotNull(it) }) }, enabled = counts.all { it != null },
+        TextButton(onClick = tapAction { onSubmit(counts.map { requireNotNull(it) }) }, enabled = counts.all { it != null },
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Text("입력한 횟수로 완료", color = if (counts.all { it != null }) KColors.Accent else KColors.Muted)
         }
-        TextButton(onClick = { onSubmit(targets) }, modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = tapAction { onSubmit(targets) }, modifier = Modifier.fillMaxWidth()) {
             Text(if (targets.size == 1) "목표 ${targets.single()}회대로 기록" else "모두 목표 횟수대로 기록", color = KColors.Soft)
         }
     }

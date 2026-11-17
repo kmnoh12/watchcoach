@@ -44,7 +44,7 @@ fun WorkoutTempoScreen(id: String?, previous: WorkoutTempoSettings?, select: (St
                 val ranges = linkedMapOf<WorkoutTempoMetric, Pair<String, String>>()
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("템포 알림", color = KColors.White, modifier = Modifier.weight(1f))
-                    Checkbox(enabled, { enabled = it })
+                    Checkbox(enabled, tapValueChange { enabled = it })
                 }
                 Text("원하는 시간 범위를 초로 입력해 주세요. 비워 둔 항목은 알림이 꺼집니다. 목표 시간은 운동 처방이나 자세 점수가 아닙니다.", color = KColors.Soft)
                 WorkoutTempoMetric.entries.forEach { metric -> key(metric) {

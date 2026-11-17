@@ -9,8 +9,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -416,9 +414,9 @@ private fun ExerciseRow(
 ) {
     Row(
         modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.45f)
-            .then(if (onLongClick != null) Modifier.combinedClickable(
-                onClick = { if (enabled) onClick() }, onLongClick = onLongClick,
-            ) else Modifier.pressable { if (enabled) onClick() })
+            .then(if (onLongClick != null) Modifier.tapCombinedClickable(
+                enabled = enabled, onClick = onClick, onLongClick = onLongClick,
+            ) else Modifier.pressable(enabled = enabled, onClick = onClick))
             .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -452,7 +450,7 @@ private fun FavoriteHeart(on: Boolean, onToggle: () -> Unit) {
         }
     }
     Box(
-        Modifier.size(44.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onToggle),
+        Modifier.size(44.dp).tapClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onToggle),
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }) {

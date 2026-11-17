@@ -1,5 +1,6 @@
 package dev.kyungmin.watchcoach.phone
 
+import dev.kyungmin.watchcoach.phone.ui.tapAction
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,7 +26,7 @@ class WorkoutProfileActivity : ComponentActivity() {
                 if (loaded.isFailure || wearing.isFailure) {
                     Column(Modifier.safeDrawingPadding().padding(20.dp)) {
                         Text("저장한 프로필을 열지 못했습니다. 기존 정보는 유지됩니다.", color = KColors.White)
-                        TextButton(onClick = ::finish) { Text("돌아가기") }
+                        TextButton(onClick = tapAction(::finish)) { Text("돌아가기") }
                     }
                 } else {
                     val profile = remember { loaded.getOrNull()?.profile ?: WorkoutProfile() }
@@ -54,12 +55,12 @@ internal fun WorkoutProfileEditor(profile: WorkoutProfile, previous: WorkoutWear
         Text("새 운동의 기본값입니다. 진행 중인 운동의 착용 조건은 바뀌지 않습니다.", color = KColors.Muted, fontSize = 13.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("LEFT" to "왼손", "RIGHT" to "오른손").forEach { (value, label) ->
-                OutlinedButton(onClick = { side = value }, modifier = Modifier.weight(1f), shape = KShape.Control,
+                OutlinedButton(onClick = tapAction { side = value }, modifier = Modifier.weight(1f), shape = KShape.Control,
                     border = BorderStroke(1.dp, if (side == value) KColors.Accent else KColors.Hairline)) { Text(label) }
             }
         }
         Text("워치는 손등 쪽에 착용해 주세요.", color = KColors.Muted, fontSize = 13.sp)
-        TextButton(onClick = { side = null }) { Text("착용 상태 미설정") }
+        TextButton(onClick = tapAction { side = null }) { Text("착용 상태 미설정") }
         Text("프로필은 폰에 저장됩니다. 이전 운동에 저장된 신체 정보는 바뀌지 않습니다.",
             color = KColors.Muted, fontSize = 12.sp)
     }) { draft ->

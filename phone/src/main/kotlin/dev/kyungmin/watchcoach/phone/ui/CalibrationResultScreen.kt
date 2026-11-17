@@ -7,7 +7,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -109,7 +108,7 @@ fun CalibrationResultScreen(
             }
             if (selecting && clip == null) Box(Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth()
                 .clip(KShape.Panel).background(KColors.SurfaceRaised)) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).pressable { if (picked.isNotEmpty()) confirmDelete = true },
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).pressable(enabled = picked.isNotEmpty()) { confirmDelete = true },
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     val tint = if (picked.isEmpty()) KColors.Faint else KColors.Red
                     KIcon(KIcon.Trash, tint, size = 22.dp)
@@ -140,7 +139,7 @@ private fun TopBar(title: String, back: () -> Unit, onTitleLongPress: () -> Unit
             KIcon(KIcon.Back, KColors.White, size = 28.dp)
         }
         Text(title, color = KColors.White, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).combinedClickable(onClick = {}, onLongClick = onTitleLongPress).padding(horizontal = 4.dp))
+            modifier = Modifier.weight(1f).tapCombinedClickable(hapticOnClick = false, onClick = {}, onLongClick = onTitleLongPress).padding(horizontal = 4.dp))
         trailing()
     }
 }
@@ -173,7 +172,7 @@ private fun Check(on: Boolean) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CaptureRow(row: CaptureRowUi, selecting: Boolean, picked: Boolean, click: () -> Unit, longClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).combinedClickable(onClick = click, onLongClick = longClick).padding(vertical = 10.dp),
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).tapCombinedClickable(onClick = click, onLongClick = longClick).padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically) {
         if (selecting) { Check(picked); Spacer(Modifier.width(14.dp)) }
         Column(Modifier.weight(1f)) {

@@ -2,7 +2,6 @@ package dev.kyungmin.watchcoach.phone.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +55,7 @@ data class RestClock(val resting: Boolean, val pausedRest: Boolean, val leftMs: 
 @Composable
 fun RestStrip(rest: RestClock, idleSeconds: Int, onExpand: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(KColors.Surface).clickable { onExpand() }.padding(horizontal = 14.dp, vertical = 7.dp),
+        Modifier.fillMaxWidth().background(KColors.Surface).tapClickable { onExpand() }.padding(horizontal = 14.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("휴식", color = KColors.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
@@ -91,13 +90,13 @@ fun RestBar(
             if (active) Box(Modifier.fillMaxWidth(rest.fraction).fillMaxHeight().background(KColors.Sage))
         }
         Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
-            Box(Modifier.width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(KColors.Faint).clickable { onExpand() })
+            Box(Modifier.width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(KColors.Faint).tapClickable { onExpand() })
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f).clickable { onExpand() }) {
+            Column(Modifier.weight(1f).tapClickable { onExpand() }) {
                 Text("휴식 시간", color = KColors.Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                 Row(verticalAlignment = Alignment.Bottom) {
                     FlipText((if (active) rest.leftSeconds else idleSeconds).toString(), 26.sp, KColors.White)
@@ -124,9 +123,9 @@ fun SetClockBar(remainingMs: Long, paused: Boolean, onAdjust: (Int) -> Unit, sto
         Text("세트 진행 중  %d:%02d".format(seconds / 60, seconds % 60), color = KColors.Sage,
             fontSize = 16.sp, modifier = Modifier.weight(1f))
         if (!stopwatch) {
-            RoundButton(KIcon.Minus, KColors.SurfaceRaised) { if (!paused) onAdjust(-10) }
+            RoundButton(KIcon.Minus, KColors.SurfaceRaised, enabled = !paused) { onAdjust(-10) }
             Spacer(Modifier.width(10.dp))
-            RoundButton(KIcon.Plus, KColors.SurfaceRaised) { if (!paused) onAdjust(10) }
+            RoundButton(KIcon.Plus, KColors.SurfaceRaised, enabled = !paused) { onAdjust(10) }
         }
     }
 }
@@ -155,7 +154,7 @@ fun ExpandedRestPanel(
         Box(Modifier.padding(top = 10.dp).width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(KColors.Faint))
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("휴식", color = KColors.White, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Box(Modifier.clickable { onClose() }.padding(8.dp)) { KIcon(KIcon.Close, KColors.Muted, size = 22.dp) }
+            Box(Modifier.tapClickable { onClose() }.padding(8.dp)) { KIcon(KIcon.Close, KColors.Muted, size = 22.dp) }
         }
         Spacer(Modifier.height(28.dp))
         Box(contentAlignment = Alignment.Center) {
@@ -182,7 +181,7 @@ fun ExpandedRestPanel(
                     modifier = Modifier
                         .clip(KShape.Control)
                         .border(1.dp, if (seconds == idleSeconds) KColors.Accent else KColors.Faint, KShape.Control)
-                        .clickable { onPreset(seconds) }
+                        .tapClickable { onPreset(seconds) }
                         .padding(horizontal = 16.dp, vertical = 9.dp),
                 )
             }
@@ -209,14 +208,14 @@ fun NextSetBanner(text: String, leftMs: Long, onSkip: () -> Unit) {
                 fontWeight = FontWeight.Medium,
             )
         }
-        Text("건너뛰기", color = KColors.Bg, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.clickable { onSkip() }.padding(8.dp))
+        Text("건너뛰기", color = KColors.Bg, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.tapClickable { onSkip() }.padding(8.dp))
     }
 }
 
 @Composable
-fun RoundButton(icon: KIcon, fill: Color, sizeDp: Int = 38, onClick: () -> Unit) {
+fun RoundButton(icon: KIcon, fill: Color, sizeDp: Int = 38, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
-        Modifier.size(sizeDp.dp).clip(KShape.Control).background(fill).clickable { onClick() },
+        Modifier.size(sizeDp.dp).clip(KShape.Control).background(fill).tapClickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         KIcon(icon, KColors.White, size = (sizeDp * 0.52).dp)

@@ -29,7 +29,7 @@ internal fun WorkoutPostureScreen(answers: Map<String, String>, back: () -> Unit
         Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = back) { KIcon(KIcon.Back, KColors.White) }
+                TextButton(onClick = tapAction(back)) { KIcon(KIcon.Back, KColors.White) }
                 Text("운동별 자세", color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
             }
             Text("평소 하는 그립이나 자세를 알려 주면 횟수 인식이 더 정확해집니다. 정하지 않은 운동은 '모름'으로 시작합니다.",
@@ -41,7 +41,7 @@ internal fun WorkoutPostureScreen(answers: Map<String, String>, back: () -> Unit
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(question.expectedVariant to "이 방식", "OTHER" to "다른 방식", "UNKNOWN" to "모름").forEach { (value, label) ->
                         val chosen = (answers[question.exerciseId] ?: "UNKNOWN") == value
-                        OutlinedButton(onClick = { onAnswer(question.exerciseId, value) },
+                        OutlinedButton(onClick = tapAction { onAnswer(question.exerciseId, value) },
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                                 .testTag("posture:${question.exerciseId}:$value").semantics { selected = chosen },
                             shape = KShape.Control,

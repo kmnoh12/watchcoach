@@ -6,7 +6,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +33,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -132,7 +130,7 @@ private fun UnitSwitch(usePounds: Boolean, onUnit: (Boolean) -> Unit, modifier: 
                 modifier = Modifier
                     .clip(KShape.Control)
                     .background(if (selected) KColors.AccentWash else Color.Transparent)
-                    .clickable { if (!selected) onUnit(pounds) }
+                    .tapClickable { if (!selected) onUnit(pounds) }
                     .padding(horizontal = 10.dp, vertical = 7.dp),
             )
         }
@@ -162,7 +160,7 @@ private fun KeyRow(content: @Composable RowScope.() -> Unit) {
 @Composable
 private fun RowScope.Key(label: String, repeat: Boolean = false, onPress: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val view = LocalView.current
+    val tick = rememberTapHaptic()
     val action = rememberUpdatedState(onPress)
     var pressed by remember { mutableStateOf(false) }
     val scale = remember { Animatable(1f) }
@@ -184,7 +182,7 @@ private fun RowScope.Key(label: String, repeat: Boolean = false, onPress: () -> 
                     pressed = true
                     val pressedAt = System.currentTimeMillis()
                     scope.launch { scale.animateTo(PRESSED_SCALE, tween(70)) }
-                    view.keyTick()
+                    tick()
                     action.value()
                     // Holding a repeat key keeps stepping, like a hardware key.
                     val job = if (repeat) scope.launch {
@@ -212,7 +210,7 @@ private fun RowScope.Key(label: String, repeat: Boolean = false, onPress: () -> 
 @Composable
 private fun FootButton(text: String, fill: Color, ink: Color, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.height(56.dp).clip(KShape.Control).background(fill).clickable { onClick() },
+        modifier.height(56.dp).clip(KShape.Control).background(fill).tapClickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)

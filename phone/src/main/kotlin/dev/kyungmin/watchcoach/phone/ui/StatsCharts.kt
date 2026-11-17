@@ -9,9 +9,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -55,14 +54,13 @@ internal fun StatsHeading(title: String, days: Int? = null, onPeriod: (Int) -> U
     Spacer(Modifier.height(28.dp))
     Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, color = KColors.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        val tick = rememberTapHaptic()
         if (days != null) Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(7, 30, 90, 0).forEach { period ->
                 val selected = days == period
                 Box(Modifier.clip(KShape.Control)
                     .background(if (selected) KColors.AccentWash else KColors.Surface)
                     .border(1.dp, if (selected) KColors.Accent else Color.Transparent, KShape.Control)
-                    .selectable(selected, role = Role.RadioButton, onClick = { if (!selected) tick(); onPeriod(period) })
+                    .tapSelectable(selected, role = Role.RadioButton, onClick = { onPeriod(period) })
                     .padding(horizontal = 11.dp, vertical = 7.dp)) {
                     Text(if (period == 0) "전체" else "${period}일", fontSize = 13.sp,
                         color = if (selected) KColors.Accent else KColors.Muted,
@@ -121,6 +119,7 @@ internal fun StatsFatigue(ui: StatsUi) {
         }
         Text("지금", color = KColors.Accent, fontSize = 13.sp,
             modifier = Modifier.clip(KShape.Control).background(KColors.Surface)
+                // move() already emits one detent haptic. Keep this button from adding a second tick.
                 .clickable(role = Role.Button) { move(0) }.padding(horizontal = 12.dp, vertical = 7.dp))
     }
 }

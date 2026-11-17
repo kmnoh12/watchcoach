@@ -31,7 +31,7 @@ class StartDirectionReviewActivity : ComponentActivity() {
     private fun text(value: String, size: Float = 14f) = TextView(this).apply {
         text = value; textSize = size; setTextColor(Color.LTGRAY); setPadding(0, 8, 0, 8)
     }
-    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; setOnClickListener { action() } }
+    private fun button(title: String, action: () -> Unit) = Button(this).apply { text = title; setOnTapClickListener { action() } }
     private fun <T> load(task: () -> T, render: (Result<T>) -> Unit) {
         val expected = generation
         worker.execute {
@@ -70,10 +70,12 @@ class StartDirectionReviewActivity : ComponentActivity() {
                 val start = EditText(this).apply { hint = "시작 초"; setText("0"); inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL }
                 val end = EditText(this).apply { hint = "끝 초"; inputType = start.inputType }
                 content.addView(start); content.addView(end)
-                val kinds = Spinner(this).apply { adapter = ArrayAdapter(this@StartDirectionReviewActivity,
+                val kinds = TapSpinner(this).apply { adapter = ArrayAdapter(this@StartDirectionReviewActivity,
                     android.R.layout.simple_spinner_dropdown_item, StartDirectionLabel.entries.map(::label)) }
                 content.addView(kinds)
-                val witness = CheckBox(this).apply { text = "이 구간의 동작과 손목 방향을 직접 보고 확인했습니다"; setTextColor(Color.WHITE) }
+                val witness = CheckBox(this).apply {
+                    setOnTapClickListener { }
+                    text = "이 구간의 동작과 손목 방향을 직접 보고 확인했습니다"; setTextColor(Color.WHITE) }
                 content.addView(witness)
                 content.addView(button("직접 확인한 1구간으로 저장") {
                     val from = start.text.toString().toDoubleOrNull()
@@ -91,7 +93,7 @@ class StartDirectionReviewActivity : ComponentActivity() {
                         }
                         if (revision == 0L) save() else AlertDialog.Builder(this).setTitle("기존 방향 구간 교체")
                             .setMessage("이 원본의 기존 방향 라벨을 새 1구간으로 교체합니다. 기존 라벨을 사용한 후보는 다시 만들어야 해요.")
-                            .setNegativeButton("취소", null).setPositiveButton("교체 저장") { _, _ -> save() }.show()
+                            .setTapNegativeButton("취소", null).setTapPositiveButton("교체 저장") { _, _ -> save() }.show()
                     }
                 })
             }.onFailure { content.addView(text("원본·착용 조건을 확인하지 못했습니다. 누락된 조건을 과거 자료에 추정해 붙이지 않습니다.")) }
@@ -101,8 +103,8 @@ class StartDirectionReviewActivity : ComponentActivity() {
     private fun selectSources(title: String, ids: List<String>, accept: (List<String>) -> Unit) {
         if (ids.isEmpty()) { toast("사람이 확인한 방향 자료가 먼저 필요합니다."); return }
         val chosen = BooleanArray(ids.size)
-        AlertDialog.Builder(this).setTitle(title).setMultiChoiceItems(ids.toTypedArray(), chosen) { _, i, checked -> chosen[i] = checked }
-            .setNegativeButton("취소", null).setPositiveButton("선택") { _, _ -> accept(ids.filterIndexed { i, _ -> chosen[i] }) }.show()
+        AlertDialog.Builder(this).setTitle(title).setTapMultiChoiceItems(ids.toTypedArray(), chosen) { _, i, checked -> chosen[i] = checked }
+            .setTapNegativeButton("취소", null).setTapPositiveButton("선택") { _, _ -> accept(ids.filterIndexed { i, _ -> chosen[i] }) }.show()
     }
     private fun reviewedSources(task: (List<String>) -> Unit) {
         load({ store.captureIds().filter { store.loadReview(it).isSuccess } }) { result ->
@@ -114,8 +116,8 @@ class StartDirectionReviewActivity : ComponentActivity() {
             val margin = EditText(this).apply { hint = "실험용 허용 여유각 (0~45° 미만)"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL }
             val dialog = AlertDialog.Builder(this).setTitle("방향 후보 만들기")
                 .setMessage("선택한 지정 방향의 관측 범위에 더할 여유각을 입력합니다. 검증된 기본 각도는 없으며 별도 자료로 통과 여부를 확인해야 합니다.")
-                .setView(margin).setNegativeButton("취소", null).setPositiveButton("후보 생성", null).create()
-            dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                .setView(margin).setTapNegativeButton("취소", null).setTapPositiveButton("후보 생성", null).create()
+            dialog.setOnShowListener { dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnTapClickListener {
                 val degrees = margin.text.toString().toDoubleOrNull()
                 if (degrees == null || !degrees.isFinite() || degrees <= 0 || degrees >= 45) margin.error = "0보다 크고 45보다 작은 각도"
                 else { dialog.dismiss(); load({ store.buildCandidate("direction-${UUID.randomUUID()}", 1, selected, Math.toRadians(degrees)).getOrThrow() }) { result ->

@@ -24,7 +24,7 @@ internal fun WorkoutPreparationPanel(wearing: WorkoutWearingSelection?,
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(summary, color = KColors.Muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            TextButton(onClick = openProfile) { Text("프로필·착용 설정", color = KColors.Accent) }
+            TextButton(onClick = tapAction(openProfile)) { Text("프로필·착용 설정", color = KColors.Accent) }
         }
         Text("목록을 확인하고 아래 시작 버튼을 눌러 주세요.", color = KColors.Muted, fontSize = 12.sp)
     }

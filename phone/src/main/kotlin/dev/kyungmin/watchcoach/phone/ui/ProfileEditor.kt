@@ -34,7 +34,7 @@ internal fun ProfileEditor(profile: WorkoutProfile, onDismiss: () -> Unit,
     var error by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().imePadding().padding(20.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onDismiss) { KIcon(KIcon.Back, KColors.White) }
+            TextButton(onClick = tapAction(onDismiss)) { KIcon(KIcon.Back, KColors.White) }
             Text("내 운동 프로필", color = KColors.White, fontSize = 25.sp)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -43,14 +43,14 @@ internal fun ProfileEditor(profile: WorkoutProfile, onDismiss: () -> Unit,
             Text("성별", color = KColors.Soft, fontSize = 13.sp)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("" to "미입력", "MALE" to "남성", "FEMALE" to "여성", "OTHER" to "기타").forEach { (value, label) ->
-                    OutlinedButton(onClick = { gender = value }, modifier = Modifier.weight(1f), shape = KShape.Control,
+                    OutlinedButton(onClick = tapAction { gender = value }, modifier = Modifier.weight(1f), shape = KShape.Control,
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (gender == value) KColors.Accent else KColors.Hairline)) {
                         Text(label, color = if (gender == value) KColors.Accent else KColors.Soft, fontSize = 12.sp)
                     }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(energy, onCheckedChange = { energy = it })
+                Checkbox(energy, onCheckedChange = tapValueChange { energy = it })
                 Text("다종목 8~15회 일반 근력운동 기준으로 활동 칼로리 추정", color = KColors.Soft, fontSize = 13.sp)
             }
             Text("19~59세·운동일 전 90일 이내 체중에 3.5 MET 세션 평균을 적용합니다. 개인 실측 칼로리가 아닙니다.", color = KColors.Muted, fontSize = 12.sp)
@@ -67,8 +67,8 @@ internal fun ProfileEditor(profile: WorkoutProfile, onDismiss: () -> Unit,
             if (error.isNotBlank()) Text(error, color = KColors.Red, fontSize = 13.sp)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onDismiss) { Text("취소") }
-            TextButton(onClick = {
+            TextButton(onClick = tapAction(onDismiss)) { Text("취소") }
+            TextButton(onClick = tapAction {
                 try {
                     fun number(value: String) = value.trim().takeIf { it.isNotEmpty() }?.toDouble()
                     val draft = profile.copy(ageYears = if (age.isBlank()) null else age.trim().toInt(), calorieBasis = if (energy) "RESISTANCE_MULTIPLE_8_15" else "", heightCm = number(height), weightKg = number(weight),

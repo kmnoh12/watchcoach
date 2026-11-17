@@ -3015,7 +3015,7 @@ class MainActivity : ComponentActivity() {
         gravity = Gravity.CENTER_VERTICAL
         addView(label("‹", 48f, white).apply {
             gravity = Gravity.CENTER
-            setOnClickListener { onBackPressed() }
+            setOnTapClickListener { onBackPressed() }
         }, fixedParams(54, 58))
         addView(label(title, 25f, white, bold = true), weightParams(1f, -2))
         addView(label("•••", 18f, muted, bold = true).apply { gravity = Gravity.CENTER }, fixedParams(54, 58))
@@ -3525,7 +3525,7 @@ class MainActivity : ComponentActivity() {
         backgroundTintList = null
         background = rounded(backgroundColor, 18)
         stateListAnimator = null
-        setOnClickListener { onClick() }
+        setOnTapClickListener { onClick() }
     }
 
     private fun horizontalCard() = row().apply { background = rounded(surface, 22) }
