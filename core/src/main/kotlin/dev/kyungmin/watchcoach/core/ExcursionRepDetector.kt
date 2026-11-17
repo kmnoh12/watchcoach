@@ -13,14 +13,14 @@ import kotlin.math.sqrt
  * finds the principal axis of the window, estimates the repetition period via autocorrelation,
  * and emits a repetition when an outward excursion returns past the hysteresis threshold.
  *
- * Pull and multi-axis families track rotational excursion; horizontal press tracks dynamic
+ * Multi-axis families track rotational excursion; pull and horizontal press track dynamic
  * linear acceleration excursion (falling back to rotational excursion when linear span is absent,
  * e.g. synthetic rotation-only fixtures).
  */
 internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile) {
     private data class Point(val t: Long, val g: DoubleArray, val a: DoubleArray)
 
-    private val isPress = profile.family == MotionFamily.PRESS_RETURN
+    private val isPressOrPull = profile.family == MotionFamily.PRESS_RETURN || profile.family == MotionFamily.PULL_RETURN
     private val points = ArrayDeque<Point>()
     private val gBias = DoubleArray(3)
     private val gPos = DoubleArray(3)
@@ -137,7 +137,7 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
         val n = history.size
         if (n < 10 || maxGyroRate < profile.minimumFeatureRate) return
 
-        val useAccel = isPress && run {
+        val useAccel = isPressOrPull && run {
             var minX = Double.POSITIVE_INFINITY; var maxX = Double.NEGATIVE_INFINITY
             for (p in history) {
                 for (c in 0..2) {
@@ -233,8 +233,10 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
             if (first != null) period = first * dt
         }
 
-        var low = raw[0]; var high = low; var lowIndex = 0; var highIndex = 0; var returning = false
-        for (i in 1 until n) {
+        val scanStart = if (primeEndNs == Long.MIN_VALUE || history.first().t > primeEndNs) 0 else primeAnchor + 1
+        if (scanStart >= n) return
+        var low = raw[scanStart]; var high = low; var lowIndex = scanStart; var highIndex = scanStart; var returning = false
+        for (i in scanStart + 1 until n) {
             val value = raw[i]
             if (!returning) {
                 if (value < low) { low = value; lowIndex = i; high = value; highIndex = i }
