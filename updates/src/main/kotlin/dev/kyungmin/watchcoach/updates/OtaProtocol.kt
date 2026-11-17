@@ -106,7 +106,11 @@ object OtaPresentation {
         }
         val rows = listOfNotNull(phone, watch)
         val working = rows.any { it.kind == OtaRowKind.WORKING }
-        val installing = waitingForPeer || stage != OtaStage.NONE || rows.any { it.kind == OtaRowKind.WORKING && it.text.startsWith("설치") || it.text.startsWith("워치에서") }
+        // This device's own install is never blocked by the other one: a watch waiting for its confirmation, or a request the
+        // watch has not acknowledged yet, must not keep a ready phone on "설치 중" forever.
+        val ownReady = stage == OtaStage.NONE && (local?.phase == OtaPhase.READY || local?.phase == OtaPhase.USER_ACTION_REQUIRED)
+        val installing = !ownReady && (waitingForPeer || stage != OtaStage.NONE ||
+            rows.any { it.kind == OtaRowKind.WORKING && it.text.startsWith("설치") || it.text.startsWith("워치에서") })
         val ready = rows.any { it.kind == OtaRowKind.READY }
         val failed = rows.any { it.kind == OtaRowKind.FAIL }
         val target = (local?.targetName?.takeIf { it.isNotBlank() } ?: peer?.targetName).orEmpty()

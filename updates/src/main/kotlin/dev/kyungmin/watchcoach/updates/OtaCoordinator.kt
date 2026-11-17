@@ -62,7 +62,11 @@ class OtaCoordinator private constructor(private val context: Context, val confi
             store.stage(), store.installProgress())
         val installing = store.stage() != OtaStage.NONE || store.local()?.phase == OtaPhase.INSTALLING ||
             store.peer()?.phase == OtaPhase.INSTALLING
-        return summary.copy(busy = summary.busy || installing, readyToInstall = summary.readyToInstall && !installing, card = card)
+        // The phone's own staged update can always be installed, whatever the watch is doing (see OtaPresentation.card).
+        val ownReady = config.role == OtaRole.PHONE && store.stage() == OtaStage.NONE &&
+            (store.local()?.phase == OtaPhase.READY || store.local()?.phase == OtaPhase.USER_ACTION_REQUIRED)
+        return summary.copy(busy = (summary.busy || installing) && !ownReady,
+            readyToInstall = ownReady || (summary.readyToInstall && !installing), card = card)
     }
     fun observe(observer: (OtaUi) -> Unit): () -> Unit {
         synchronized(observers) { observers.add(observer) }

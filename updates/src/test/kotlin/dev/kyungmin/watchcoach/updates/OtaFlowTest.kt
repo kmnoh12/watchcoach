@@ -54,6 +54,11 @@ class OtaFlowTest {
     }
 
     @Test fun theCardKeepsTwoRowsAndOneButtonWhateverTheState() {
+        // The watch finished first and waits for its own confirmation; a phone that became ready later can still install.
+        val watchFirst = OtaPresentation.card(state(OtaPhase.READY), state(OtaPhase.USER_ACTION_REQUIRED), true, true, OtaStage.NONE, 0)
+        assertEquals(OtaAction.INSTALL, watchFirst.action)
+        val watchInstalling = OtaPresentation.card(state(OtaPhase.READY), state(OtaPhase.INSTALLING), true, false, OtaStage.NONE, 0)
+        assertEquals(OtaAction.INSTALL, watchInstalling.action)
         val ready = OtaPresentation.card(state(OtaPhase.READY), state(OtaPhase.READY), true, false, OtaStage.NONE, 0)
         assertEquals(OtaAction.INSTALL, ready.action); assertEquals("설치", ready.actionLabel)
         assertEquals("폰", ready.phone.device); assertEquals("워치", ready.watch!!.device)
