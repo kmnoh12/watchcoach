@@ -118,6 +118,7 @@ class ProfiledMotionRepDetector(
         profile.id.substringBefore('+') == profile.family.sharedAlgorithmId &&
         profile.family in setOf(MotionFamily.PULL_RETURN, MotionFamily.MULTI_AXIS_RETURN, MotionFamily.PRESS_RETURN)
     ) ExcursionRepDetector(profile) else null
+    private val cueScheduler = UnifiedCueScheduler(profile.family)
 
     private var lastTimestampNs = 0L
     private var motionSampleNs = 0L
@@ -164,6 +165,12 @@ class ProfiledMotionRepDetector(
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
         trackMotion(sample)
+        cueScheduler.observe(sample)
+        val event = detectSample(sample) ?: return null
+        return event.copy(cueDelayMs = cueScheduler.schedule(event, sample.timestampNs))
+    }
+
+    private fun detectSample(sample: SensorSample): ProfiledMotionRepEvent? {
         arcCounter?.let { return it.add(sample)?.asProfiledEvent() }
         translationCounter?.let { return it.add(sample) }
         verticalCounter?.let { return it.add(sample) }
