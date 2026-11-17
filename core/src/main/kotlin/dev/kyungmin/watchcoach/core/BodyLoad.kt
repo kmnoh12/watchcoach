@@ -16,11 +16,73 @@ object BodyLoad {
     fun intensity(sets: Map<String, Int>): Map<String, Double> =
         sets.mapValues { (_, count) -> (count.toDouble() / FULL_SETS).coerceIn(0.0, 1.0) }
 
-    /** Days a part usually needs to recover after a hard session (rule-of-thumb gym convention, not a measured value). */
+    /**
+     * Days until a part is fully recovered after a hard session, i.e. where its [recoveryLeft] curve reaches zero
+     * (rule-of-thumb gym convention, not a measured value).
+     */
     val RECOVERY_DAYS = mapOf(
-        "가슴" to 3.0, "등" to 3.0, "하체" to 3.5, "이두" to 2.0, "삼두" to 2.0,
-        "전면어깨" to 2.0, "측면어깨" to 2.0, "후면어깨" to 2.0, "코어" to 2.0, "승모" to 2.0,
+        "가슴" to 4.0, "등" to 4.0, "하체" to 5.0, "이두" to 3.0, "삼두" to 3.0,
+        "전면어깨" to 3.0, "측면어깨" to 3.0, "후면어깨" to 3.0, "코어" to 3.0, "승모" to 3.0,
     )
+
+    /**
+     * How much of a session's fatigue is left, by hours since it started: it stays at full strength for the first day
+     * (soreness builds up to about a day later), then eases off slowly and drops faster towards the end. The points are
+     * for a session that fills the colour (about [FULL_FATIGUE_SETS] sets); a smaller session is the same shape, lighter.
+     */
+    private val CURVE_BIG = RecoveryCurve(doubleArrayOf(0.0, 24.0, 48.0, 72.0, 96.0), doubleArrayOf(1.0, 1.0, 0.8, 0.5, 0.0))
+    private val CURVE_LEGS = RecoveryCurve(doubleArrayOf(0.0, 24.0, 48.0, 72.0, 96.0, 120.0), doubleArrayOf(1.0, 1.0, 0.9, 0.6, 0.3, 0.0))
+    private val CURVE_SMALL = RecoveryCurve(doubleArrayOf(0.0, 24.0, 48.0, 72.0), doubleArrayOf(1.0, 1.0, 0.55, 0.0))
+
+    /** Share of fatigue left on [part] [ageHours] after a session (1 at the start, 0 once recovered). */
+    fun recoveryLeft(part: String, ageHours: Double): Double = when (part) {
+        "가슴", "등" -> CURVE_BIG
+        "하체" -> CURVE_LEGS
+        else -> CURVE_SMALL
+    }.at(ageHours)
+
+    /** Smooth, monotone curve through the given points (Fritsch-Carlson), 1 before the first and 0 after the last. */
+    private class RecoveryCurve(private val x: DoubleArray, private val y: DoubleArray) {
+        private val m: DoubleArray = slopes()
+
+        private fun slopes(): DoubleArray {
+            val n = x.size
+            val h = DoubleArray(n - 1) { x[it + 1] - x[it] }
+            val d = DoubleArray(n - 1) { (y[it + 1] - y[it]) / h[it] }
+            val s = DoubleArray(n)
+            for (i in 1 until n - 1) {
+                s[i] = if (d[i - 1] * d[i] <= 0.0) 0.0 else {
+                    val w1 = 2 * h[i] + h[i - 1]; val w2 = h[i] + 2 * h[i - 1]
+                    (w1 + w2) / (w1 / d[i - 1] + w2 / d[i])
+                }
+            }
+            s[0] = edge(h[0], h[1], d[0], d[1])
+            s[n - 1] = edge(h[n - 2], h[n - 3], d[n - 2], d[n - 3])
+            return s
+        }
+
+        private fun edge(h0: Double, h1: Double, d0: Double, d1: Double): Double {
+            val v = ((2 * h0 + h1) * d0 - h0 * d1) / (h0 + h1)
+            return when {
+                v * d0 <= 0.0 -> 0.0
+                d0 * d1 <= 0.0 && kotlin.math.abs(v) > 3 * kotlin.math.abs(d0) -> 3 * d0
+                else -> v
+            }
+        }
+
+        fun at(t: Double): Double {
+            if (t <= x.first()) return y.first()
+            if (t >= x.last()) return y.last()
+            var i = 0
+            while (t >= x[i + 1]) i++
+            val h = x[i + 1] - x[i]
+            val s = (t - x[i]) / h
+            val s2 = s * s; val s3 = s2 * s
+            val v = (2 * s3 - 3 * s2 + 1) * y[i] + (s3 - 2 * s2 + s) * h * m[i] +
+                (-2 * s3 + 3 * s2) * y[i + 1] + (s3 - s2) * h * m[i + 1]
+            return v.coerceIn(0.0, 1.0)
+        }
+    }
 
     /**
      * The parts a set of this exercise tires, each with the share of the set it counts for. The shoulder is split into
@@ -74,9 +136,6 @@ object BodyLoad {
         log.startedAtMs.takeIf { it > 0 } ?: java.time.LocalDate.ofEpochDay(log.epochDay)
             .atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
 
-    /** Share of fatigue left after a fraction of the recovery time. */
-    internal fun stillTired(x: Double): Double = 1.0 - (3 * x * x - 2 * x * x * x)
-
     /** Date-only callers keep their noon-to-noon interpretation. */
     fun fatigueByPart(logs: List<ExerciseLog>, weightsOf: (String) -> Map<String, Double>?, today: Long): Map<String, Double> =
         fatigueByPartAt(logs, weightsOf, java.time.LocalDate.ofEpochDay(today)
@@ -93,11 +152,11 @@ object BodyLoad {
             if (start > atMs) continue
             val sets = log.sets.count { it.completed && it.repsEntered }
             if (sets == 0) continue
-            val ageDays = (atMs - start) / 86_400_000.0
+            val ageHours = (atMs - start) / 3_600_000.0
             for ((part, weight) in weightsOf(log.exerciseId).orEmpty()) {
-                val recovery = RECOVERY_DAYS[part] ?: continue
-                val x = ageDays / recovery
-                if (x < 1 && weight > 0) units.merge(part, sets * weight * stillTired(x), Double::plus)
+                if (part !in RECOVERY_DAYS) continue
+                val left = recoveryLeft(part, ageHours)
+                if (left > 0.0 && weight > 0) units.merge(part, sets * weight * left, Double::plus)
             }
         }
         return units.mapValues { (it.value / FULL_FATIGUE_SETS).coerceIn(0.0, 1.0) }

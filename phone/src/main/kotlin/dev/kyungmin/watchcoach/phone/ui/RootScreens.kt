@@ -156,19 +156,8 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 14.dp, vertical = 12.dp)
-            // A pressed-in groove: a thin light rim just outside the bottom-right edge, no dark edge, so nothing outlines the bar against the page.
-            .drawBehind {
-                val r = CornerRadius(10.dp.toPx())
-                drawRoundRect(Color.White.copy(alpha = 0.2f), topLeft = Offset(1.5.dp.toPx(), 1.5.dp.toPx()), size = size, cornerRadius = r)
-            }
             .clip(shape)
             .background(Color(0xFF292B2E))
-            .drawWithContent {
-                drawContent()
-                val light = 1.dp.toPx()
-                drawRect(Color.White.copy(alpha = 0.14f), topLeft = Offset(0f, size.height - light), size = Size(size.width, light))
-                drawRect(Color.White.copy(alpha = 0.14f), topLeft = Offset(size.width - light, 0f), size = Size(light, size.height))
-            }
             .padding(4.dp),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().height(48.dp)) {

@@ -35,13 +35,65 @@ class BodyLoadTest {
 
     @Test
     fun fatigueBuildsUpAcrossDaysAndFadesWithTime() {
-        val weights = { id: String -> if (id == "curl") mapOf("이두" to 1.0) else null }  // recovers in 2 days
+        val weights = { id: String -> if (id == "curl") mapOf("이두" to 1.0) else null }  // recovers in 3 days
         val once = BodyLoad.fatigueByPart(listOf(log("curl", 100, 5)), weights, 100)["이두"]!!
         assertEquals(5.0 / 15, once, 1e-9)
         val twice = BodyLoad.fatigueByPart(listOf(log("curl", 100, 5), log("curl", 101, 5)), weights, 101)["이두"]!!
-        assertEquals((5 * BodyLoad.stillTired(1 / 2.0) + 5) / 15, twice, 1e-9)
+        // A day later the first session is still at full strength, so the two add up.
+        assertEquals((5 * BodyLoad.recoveryLeft("이두", 24.0) + 5) / 15, twice, 1e-9)
+        assertEquals(10.0 / 15, twice, 1e-9)
         assertEquals(true, twice > once)
-        assertEquals(emptyMap(), BodyLoad.fatigueByPart(listOf(log("curl", 100, 5)), weights, 102))
+        assertEquals(true, BodyLoad.fatigueByPart(listOf(log("curl", 100, 5)), weights, 102)["이두"]!! < once)
+        assertEquals(emptyMap(), BodyLoad.fatigueByPart(listOf(log("curl", 100, 5)), weights, 103))
+    }
+
+    @Test
+    fun recoveryCurveHoldsADayThenEasesOffAndDropsFasterTowardsTheEnd() {
+        fun left(part: String, hours: Int) = BodyLoad.recoveryLeft(part, hours.toDouble())
+        // Chest and back (4 days).
+        for (part in listOf("가슴", "등")) {
+            assertEquals(1.0, left(part, 0), 1e-9); assertEquals(1.0, left(part, 24), 1e-9)
+            assertEquals(0.8, left(part, 48), 1e-9); assertEquals(0.5, left(part, 72), 1e-9)
+            assertEquals(0.0, left(part, 96), 1e-9)
+        }
+        // Legs (5 days).
+        listOf(0 to 1.0, 24 to 1.0, 48 to 0.9, 72 to 0.6, 96 to 0.3, 120 to 0.0)
+            .forEach { (h, v) -> assertEquals(v, left("하체", h), 1e-9) }
+        // Smaller muscles (3 days).
+        listOf(0 to 1.0, 24 to 1.0, 48 to 0.55, 72 to 0.0).forEach { (h, v) -> assertEquals(v, left("측면어깨", h), 1e-9) }
+        // Never rises again, always within 0..1, and the drop speeds up after the first day.
+        for (part in listOf("가슴", "하체", "이두")) {
+            var prev = 1.0
+            for (tenth in 0..1300) {
+                val v = BodyLoad.recoveryLeft(part, tenth / 10.0)
+                assertEquals(true, v <= prev + 1e-9 && v in 0.0..1.0)
+                prev = v
+            }
+        }
+        assertEquals(true, left("가슴", 48) - left("가슴", 72) < left("가슴", 72) - left("가슴", 96))
+    }
+
+    @Test
+    fun aSeventeenSetBackDayStaysFullForADayThenFades() {
+        val weights = { id: String -> if (id == "row") mapOf("등" to 1.0) else null }
+        val start = 1_800_000_000_000L
+        val row = log("row", 100, 17).copy(startedAtMs = start)
+        fun at(hours: Int) = BodyLoad.fatigueByPartAt(listOf(row), weights, start + hours * 3_600_000L)["등"]
+        assertEquals(1.0, at(0)); assertEquals(1.0, at(24))
+        assertEquals(17 * 0.8 / 15, at(48)!!, 1e-9)
+        assertEquals(17 * 0.5 / 15, at(72)!!, 1e-9)
+        assertEquals(null, at(96))
+    }
+
+    @Test
+    fun aTenSetSideDeltDayPaintsTwoThirdsAndEndsInThreeDays() {
+        val weights = { id: String -> if (id == "lat") mapOf("측면어깨" to 1.0) else null }
+        val start = 1_800_000_000_000L
+        val row = log("lat", 100, 10).copy(startedAtMs = start)
+        fun at(hours: Int) = BodyLoad.fatigueByPartAt(listOf(row), weights, start + hours * 3_600_000L)["측면어깨"]
+        assertEquals(10.0 / 15, at(0)!!, 1e-9); assertEquals(10.0 / 15, at(24)!!, 1e-9)
+        assertEquals(10.0 / 15 * 0.55, at(48)!!, 1e-9)
+        assertEquals(null, at(72))
     }
 
     @Test
@@ -77,9 +129,9 @@ class BodyLoadTest {
         val row = log("bench", 100, 15).copy(startedAtMs = start)
         assertEquals(emptyMap(), BodyLoad.fatigueByPartAt(listOf(row), weights, start - 1))
         assertEquals(1.0, BodyLoad.fatigueByPartAt(listOf(row), weights, start)["가슴"])
-        assertEquals(BodyLoad.stillTired(3.0 / 72),
-            BodyLoad.fatigueByPartAt(listOf(row), weights, start + 3 * 3_600_000)["가슴"]!!, 1e-9)
-        assertEquals(emptyMap(), BodyLoad.fatigueByPartAt(listOf(row), weights, start + 72 * 3_600_000))
+        // Still full strength three hours in; recovered after 96 hours.
+        assertEquals(1.0, BodyLoad.fatigueByPartAt(listOf(row), weights, start + 3 * 3_600_000)["가슴"]!!, 1e-9)
+        assertEquals(emptyMap(), BodyLoad.fatigueByPartAt(listOf(row), weights, start + 96 * 3_600_000))
     }
 
     @Test fun legacyTimesUseLocalNoonAndIgnoreUnfinishedSets() {
