@@ -29,6 +29,7 @@ class CycleAxisRepDetector(
      * and the same rep's return peak reported again, making 10 reps read 11 with the cue firing at the lift.
      */
     private val countOnReturn: Boolean = false,
+    private val phaseKernel: Boolean = true,
 ) {
     companion object {
         private const val MIN_SAMPLE_GAP_NS = 38_000_000L
@@ -78,6 +79,23 @@ class CycleAxisRepDetector(
         fun clear() { size = 0 }
     }
 
+    private data class PhaseEvent(val event: ProfiledMotionRepEvent, val emittedNs: Long)
+    private val phases = if (phaseKernel) emptyList() else List(4) { CycleAxisRepDetector(countOnReturn, true) }
+    private val phaseCounts = IntArray(4)
+    private val phaseEvents = Array(4) { ArrayDeque<PhaseEvent>() }
+    private var phaseSamples = 0
+    private var deliveredCount = 0
+
+    private fun consensus(nowNs: Long): ProfiledMotionRepEvent? {
+        if (phaseCounts.minOrNull()!! <= deliveredCount) return null
+        val limiting = phaseCounts.indices.minByOrNull { phaseCounts[it] }!!
+        val selected = phaseEvents[limiting].first()
+        phaseEvents.forEach { it.removeFirst() }
+        deliveredCount++
+        val remainingDelay = ((selected.emittedNs + selected.event.cueDelayMs * 1_000_000L - nowNs) / 1_000_000L).coerceAtLeast(0L)
+        return selected.event.copy(cueDelayMs = remainingDelay)
+    }
+
     private val times = LongArray(MAX_HISTORY)
     private var count = 0
     private val gyro = Array(3) { Series() }
@@ -98,12 +116,20 @@ class CycleAxisRepDetector(
     val maximumCycleNs: Long get() = (MAX_MEDIAN_S * 1e9).toLong()
 
     fun beginCounting() {
+        phases.forEach { it.beginCounting() }; phaseCounts.fill(0); phaseEvents.forEach { it.clear() }; phaseSamples = 0; deliveredCount = 0
         count = 0; gyro.forEach { it.clear() }; dyn.forEach { it.clear() }
         gyroMean = TrailingMean(GYRO_SMOOTH); gravityMean = TrailingMean(GRAVITY_WINDOW); dynMean = TrailingMean(GYRO_SMOOTH)
         lastNs = 0L; startNs = 0L; nextAnalysisNs = 0L; lastPeakNs = null; locked = false; secondDelivered = false; pending.clear()
     }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
+        if (phases.isNotEmpty()) {
+            for (i in phases.indices) if (phaseSamples >= i) {
+                phases[i].add(sample)?.let { phaseCounts[i]++; phaseEvents[i].addLast(PhaseEvent(it, sample.timestampNs)) }
+            }
+            phaseSamples++
+            return consensus(sample.timestampNs)
+        }
         val t = sample.timestampNs
         val a = doubleArrayOf(sample.accelerationX.toDouble(), sample.accelerationY.toDouble(), sample.accelerationZ.toDouble())
         val g = doubleArrayOf(sample.gyroscopeX.toDouble(), sample.gyroscopeY.toDouble(), sample.gyroscopeZ.toDouble())
@@ -127,6 +153,12 @@ class CycleAxisRepDetector(
 
     /** Final analysis at the end of a stream; returns every rep that has not been delivered yet. */
     fun finishAll(): List<ProfiledMotionRepEvent> {
+        if (phases.isNotEmpty()) {
+            for (i in phases.indices) for (event in phases[i].finishAll()) { phaseCounts[i]++; phaseEvents[i].addLast(PhaseEvent(event, phases[i].lastNs)) }
+            val result = ArrayList<ProfiledMotionRepEvent>()
+            while (true) result += consensus(phases.maxOf { it.lastNs }) ?: break
+            return result
+        }
         if (count > 0) analyze(lastNs, 0L)
         val rest = pending.toList(); pending.clear()
         return rest
@@ -178,11 +210,27 @@ class CycleAxisRepDetector(
             val separation = if (delivered != null && !secondDelivered) FIRST_PAIR_SEPARATION_NS else MIN_SEPARATION_NS
             if (delivered != null && peak - delivered < separation) continue
             val previous = delivered ?: (peak - (chosen.medianS * 1e9).toLong())
-            pending.addLast(ProfiledMotionRepEvent(previous, peak, peak, (peak - previous) / 1_000_000L, chosen.amplitude, 0.0, 0.0, 0.7))
+            val cueDelayMs = if (confirmNs > 0L) RepCueDelay.rowReturnDelayMs(peak, nowNs, learnedReturnNs(chosen, peak)) else 0L
+            pending.addLast(ProfiledMotionRepEvent(previous, peak, peak, (peak - previous) / 1_000_000L, chosen.amplitude, 0.0, 0.0, 0.7, cueDelayMs))
             if (delivered != null) secondDelivered = true
             lastPeakNs = peak
             if (!locked) { locked = true; lockedGyro = chosen.gyroSource; lockedSign = chosen.sign }
         }
+    }
+
+    private fun learnedReturnNs(chosen: Candidate, peakNs: Long): Long {
+        if (!countOnReturn || chosen.gyroSource) return 0L
+        val intervals = ArrayList<Long>()
+        for (p in chosen.peaksNs) {
+            if (p >= peakNs - 500_000_000L) continue
+            val nextOpposite = chosen.oppositeNs.firstOrNull { it > p } ?: continue
+            val d = nextOpposite - p
+            if (d > RepCueDelay.MIN_ROW_RETURN_NS && d < RepCueDelay.MAX_ROW_RETURN_NS) intervals += d
+        }
+        if (intervals.isEmpty()) return 0L
+        intervals.sort()
+        val mid = intervals.size / 2
+        return if (intervals.size % 2 == 1) intervals[mid] else (intervals[mid - 1] + intervals[mid]) / 2L
     }
 
     /**
@@ -196,7 +244,9 @@ class CycleAxisRepDetector(
         val returnPeaks = (if (sameFirst <= otherFirst) chosen.oppositeNs else chosen.peaksNs).filter { it > liftNs }.toLongArray()
         if (returnPeaks.isEmpty()) return if (nowNs - liftNs > RETURN_WAIT_NS) chosen else null
         val returnSign = if (sameFirst <= otherFirst) -chosen.sign else chosen.sign
-        return Candidate(chosen.score, returnPeaks, chosen.amplitude, chosen.medianS, chosen.gyroSource, returnSign)
+        return Candidate(chosen.score, returnPeaks, chosen.amplitude, chosen.medianS, chosen.gyroSource, returnSign).apply {
+            oppositeNs = if (sameFirst <= otherFirst) chosen.peaksNs else chosen.oppositeNs
+        }
     }
 
     /** Three or more peaks are ranked by interval regularity; one or two are only provisional and ranked by size. */

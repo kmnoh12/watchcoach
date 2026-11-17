@@ -32,15 +32,24 @@ object TrackingProfileSnapshot {
             // Only explicitly migrated exercises may replay their old combined-signal press engine.
             val migratedPress = p.exerciseId in setOf(
                 "dumbbell_shoulder_press", "smith_shoulder_press",
+                "landmine_shoulder_press", "viking_press", "landmine_press", "single_arm_landmine_press",
                 "flat_bench", "incline_bench", "dumbbell_bench", "decline_barbell_bench_press",
                 "incline_dumbbell_bench_press", "decline_dumbbell_bench_press",
                 "smith_flat_bench_press", "smith_incline_bench_press", "single_arm_dumbbell_bench_press",
+                "floor_press_barbell", "hex_press", "guillotine_press",
+                "close_grip_bench_press", "smith_close_grip_bench_press", "smith_decline_close_grip_bench_press",
                 "cable_pushdown", "reverse_grip_pushdown", "single_arm_cable_pushdown", "rope_pushdown",
                 "ez_lying_extension", "rope_extension",
+                "skullcrusher_barbell", "skullcrusher_dumbbell", "jm_press", "smith_jm_press",
+                "tate_press", "rolling_triceps_extension",
             ) && generic.family in setOf(MotionFamily.VERTICAL_PRESS_RETURN, MotionFamily.TRANSLATION_PRESS_RETURN,
                 MotionFamily.FLEXION_EXTENSION)
+            val historicalVerticalFromCycle = p.exerciseId == "thruster" &&
+                generic.family == MotionFamily.VERTICAL_PRESS_RETURN &&
+                p.family == MotionFamily.CYCLE_AXIS_RETURN
             val historicalPress = migratedPress &&
-                p.family == MotionFamily.PRESS_RETURN && p.signal == TrackingSignal.COMBINED_MOTION
+                p.family == MotionFamily.PRESS_RETURN && p.signal == TrackingSignal.COMBINED_MOTION ||
+                historicalVerticalFromCycle
             // Straight-bar sets captured before sharing the rope engine retain translation counting.
             val historicalStraightBar = p.exerciseId == "cable_pushdown" && generic.family == MotionFamily.FLEXION_EXTENSION &&
                 p.family == MotionFamily.TRANSLATION_PRESS_RETURN && p.signal == TrackingSignal.DYNAMIC_ACCELERATION

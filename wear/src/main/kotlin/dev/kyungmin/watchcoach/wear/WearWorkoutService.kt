@@ -1838,7 +1838,8 @@ class WearWorkoutService : Service(), SensorEventListener {
                                 is dev.kyungmin.watchcoach.core.ProfiledMotionRepEvent -> marker.endTimestampNs
                                 else -> sensorSample.timestampNs
                             }
-                            recordDetectedRepAt(repEndNs, (marker as? dev.kyungmin.watchcoach.core.ProfiledMotionRepEvent)?.turnaroundTimestampNs)
+                            val motionEvent = marker as? dev.kyungmin.watchcoach.core.ProfiledMotionRepEvent
+                            recordDetectedRepAt(repEndNs, motionEvent?.turnaroundTimestampNs, motionEvent?.cueDelayMs ?: 0L)
                             if (activeDetector != null && marker is dev.kyungmin.watchcoach.core.ReviewedPatternDetection)
                                 observeTempo(marker, countingSample)
                             if (!running) return
@@ -1956,7 +1957,7 @@ class WearWorkoutService : Service(), SensorEventListener {
 
     private fun recordDetectedRep() = recordDetectedRepAt(android.os.SystemClock.elapsedRealtimeNanos())
 
-    private fun recordDetectedRepAt(endNs: Long, turnaroundNs: Long? = null) {
+    private fun recordDetectedRepAt(endNs: Long, turnaroundNs: Long? = null, eventCueDelayMs: Long = 0L) {
         if (!running || countingPaused || trackingProfile.mode == TrackingMode.MANUAL_REQUIRED) return
         if (!postTargetGuard.accept(endNs, reps, targetReps)) {
             Log.i(TAG, "post-target rep refused: off-tempo event after rep=$reps target=$targetReps profile=${trackingProfile.id}")
@@ -1965,10 +1966,14 @@ class WearWorkoutService : Service(), SensorEventListener {
         if (!setEndGate.rep(endNs)) return
         val callbackNs = android.os.SystemClock.elapsedRealtimeNanos()
         reps += 1
-        // Haptic before the synchronous checkpoint writes below. Vertical presses hold the cue back so it lands near the bottom.
-        // Exactly the target rep gets the double pulse; reps past the target go back to the short tick.
-        val cueDelayMs = if (trackingProfile.family == dev.kyungmin.watchcoach.core.MotionFamily.VERTICAL_PRESS_RETURN && turnaroundNs != null)
-            dev.kyungmin.watchcoach.core.RepCueDelay.delayMs(turnaroundNs, endNs) else 0L
+        // Haptic before the synchronous checkpoint writes below. Vertical presses and return-counted rows hold the cue back
+        // so it lands near the bottom/full extension. Exactly the target rep gets the double pulse; reps past the target go back to the short tick.
+        val cueDelayMs = when {
+            eventCueDelayMs > 0L -> eventCueDelayMs
+            trackingProfile.family == dev.kyungmin.watchcoach.core.MotionFamily.VERTICAL_PRESS_RETURN && turnaroundNs != null ->
+                dev.kyungmin.watchcoach.core.RepCueDelay.delayMs(turnaroundNs, endNs)
+            else -> 0L
+        }
         val atTarget = reps == targetReps
         if (cueDelayMs > 0L) handler.postDelayed({ if (atTarget) vibrateTargetReached(force = true) else vibrateShort(force = true) }, cueDelayMs)
         else if (atTarget) vibrateTargetReached() else vibrateShort()

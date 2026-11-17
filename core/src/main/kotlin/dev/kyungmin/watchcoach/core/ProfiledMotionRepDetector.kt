@@ -63,6 +63,7 @@ data class ProfiledMotionRepEvent(
     val motionDisplacement: Double,
     val trajectorySpread: Double,
     val confidence: Double,
+    val cueDelayMs: Long = 0L,
 )
 
 /**
@@ -97,18 +98,26 @@ class ProfiledMotionRepDetector(
         private val SEATED_ROWS = setOf("seated_row", "cable_seated_row", "seated_cable_row_close",
             "single_arm_machine_seated_row", "single_arm_cable_seated_row")
 
-        /** Straight-arm pulldown: the first lobe is the pull, so count at the return or 10 reps read 11 (virtual-watch replay). */
-        private val RETURN_COUNTED = setOf("straight_arm_pulldown")
+        /** Straight-arm pulldown and pullovers: the first lobe is the pull, so count at the return or 10 reps read 11 (virtual-watch replay). */
+        private val RETURN_COUNTED = setOf("straight_arm_pulldown", "cable_pullover", "machine_pullover")
     }
 
     private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION) ReturnToPoseRepDetector(profile.minimumRepMs) else null
     private val verticalCounter = if (profile.family == MotionFamily.VERTICAL_PRESS_RETURN) VerticalPressRepDetector(profile) else null
     private val translationCounter = if (profile.family == MotionFamily.TRANSLATION_PRESS_RETURN) TranslationPressRepDetector(profile) else null
     private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN)
-        CycleAxisRepDetector(countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe == MeasurementRecipe.LATERAL_RAISE ||
-            profile.exerciseId in SEATED_ROWS || profile.exerciseId in RETURN_COUNTED) else null
+        CycleAxisRepDetector(
+            countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe in
+                setOf(MeasurementRecipe.LATERAL_RAISE, MeasurementRecipe.ROW) ||
+                profile.exerciseId in SEATED_ROWS || profile.exerciseId in RETURN_COUNTED,
+            phaseKernel = false,
+        ) else null
     private val arcCounter = if (profile.family == MotionFamily.ARC_RETURN) ForearmRotationRepDetector(profile) else null
     private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
+    private val excursionCounter = if (!legacyLobes &&
+        profile.id.substringBefore('+') == profile.family.sharedAlgorithmId &&
+        profile.family in setOf(MotionFamily.PULL_RETURN, MotionFamily.MULTI_AXIS_RETURN, MotionFamily.PRESS_RETURN)
+    ) ExcursionRepDetector(profile) else null
 
     private var lastTimestampNs = 0L
     private var motionSampleNs = 0L
@@ -150,7 +159,7 @@ class ProfiledMotionRepDetector(
     var lastMotionNs: Long = 0L
         private set
 
-    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (cycleCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
+    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (cycleCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
         ?: lobeStartNs.takeIf { it > 0L && lobeDisplacement >= profile.minimumLobeDisplacement }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
@@ -160,6 +169,7 @@ class ProfiledMotionRepDetector(
         verticalCounter?.let { return it.add(sample) }
         cycleCounter?.let { return it.add(sample) }
         poseCounter?.let { return it.add(sample) }
+        excursionCounter?.let { return it.add(sample) }
         if (sample.sensorAccuracy == 0) { resetAll(); lastTimestampNs = 0L; return null }
         val timestampNs = sample.timestampNs
         if (lastTimestampNs > 0L && timestampNs <= lastTimestampNs) return null
@@ -210,7 +220,7 @@ class ProfiledMotionRepDetector(
 
     fun finish(): ProfiledMotionRepEvent? {
         arcCounter?.let { return it.finish()?.asProfiledEvent() }
-        if (translationCounter != null || verticalCounter != null || cycleCounter != null) return null
+        if (translationCounter != null || verticalCounter != null || cycleCounter != null || excursionCounter != null) return null
         if (poseCounter != null) return null // A partial return never becomes a rep when the set ends.
         if (!legacyLobes) { resetAll(); return null } // Only observed quiet/reversal closes a new-engine lobe.
         if (direction == 0 || lastTimestampNs == 0L) return null
@@ -232,6 +242,7 @@ class ProfiledMotionRepDetector(
         verticalCounter?.beginCounting()
         cycleCounter?.beginCounting()
         poseCounter?.reset()
+        excursionCounter?.reset()
         resetActiveLobe()
         pendingStartNs = 0L
         pendingTurnaroundNs = 0L

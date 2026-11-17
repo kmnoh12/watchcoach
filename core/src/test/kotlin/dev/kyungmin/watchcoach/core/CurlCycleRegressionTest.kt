@@ -103,6 +103,12 @@ class CurlCycleRegressionTest {
         assertEquals(5, result.phoneReanalyzedReps)
     }
 
+    @Test fun `single noisy opening sample does not corrupt starting baseline tilt`() {
+        val samples = curlSamples(5, 1.0, 1.0).toMutableList()
+        samples[0] = samples[0].copy(accelerationY = 6.9f, accelerationZ = 6.9f)
+        assertCount(5, samples)
+    }
+
     private fun assertCount(expected: Int, samples: List<SensorSample>) {
         val profile = ExerciseTrackingProfiles.resolve("barbell_biceps_curl")
         val detector = ProfiledMotionRepDetector(profile)

@@ -13,6 +13,8 @@ import kotlin.math.sqrt
  */
 internal class ReturnToPoseRepDetector(private val minimumRepMs: Long) {
     private val filtered = DoubleArray(3)
+    private val baselineSum = DoubleArray(3)
+    private var baselineCount = 0
     private var baseline: DoubleArray? = null
     private var lastTimestampNs = 0L
     private var invalidGravitySinceNs = 0L
@@ -27,6 +29,8 @@ internal class ReturnToPoseRepDetector(private val minimumRepMs: Long) {
 
     fun reset() {
         baseline = null
+        baselineCount = 0
+        baselineSum.fill(0.0)
         lastTimestampNs = 0L
         invalidGravitySinceNs = 0L
         waitForBottom = false
@@ -50,8 +54,11 @@ internal class ReturnToPoseRepDetector(private val minimumRepMs: Long) {
         if (baseline == null) {
             val norm = norm(values)
             if (norm !in 6.0..14.0) return null
-            values.copyInto(filtered)
-            baseline = DoubleArray(3) { values[it] / norm }
+            for (axis in 0..2) baselineSum[axis] += values[axis]
+            if (++baselineCount < BASELINE_SAMPLES) return null
+            for (axis in 0..2) filtered[axis] = baselineSum[axis] / baselineCount
+            val mean = norm(filtered)
+            baseline = DoubleArray(3) { filtered[it] / mean }
             return null
         }
         if (dt > 0.45) {
@@ -102,6 +109,7 @@ internal class ReturnToPoseRepDetector(private val minimumRepMs: Long) {
     private fun norm(v: DoubleArray) = sqrt(v.sumOf { it * it })
 
     companion object {
+        private const val BASELINE_SAMPLES = 10
         private const val DEPARTURE_TILT = PI / 3
         private const val RETURN_TILT = PI / 9
     }
