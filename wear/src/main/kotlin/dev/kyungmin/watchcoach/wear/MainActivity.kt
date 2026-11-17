@@ -74,6 +74,8 @@ class MainActivity : Activity() {
     private var restEndAtMs = 0L
     private var reps = 0
     private var heartRate = 0
+    private val heartGate = dev.kyungmin.watchcoach.core.HeartDisplayGate()
+    private var shownHeart = 0
     private var runtimePhase = "IDLE"
     private var holdExercise = false
     private var holdTargetSeconds = 30
@@ -746,7 +748,13 @@ class MainActivity : Activity() {
             face.target.text = "/ ${targetReps}회"
             face.value.text = count?.toString() ?: "—"
             face.value.setTextColor(if (count != null && count > targetReps) WatchWorkoutFace.ORANGE else WatchWorkoutFace.SAGE)
-            face.heart.show(if (resting) 0 else heartRate); face.heartRate.text = heartRate.takeIf { it > 0 }?.toString() ?: "—"
+            // The face needs a new rate only every 10 s during a set (5 s otherwise); a set also dims everything but the count.
+            val workingSet = running && !resting && !paused
+            shownHeart = heartGate.offer(System.currentTimeMillis(), heartRate, workingSet)
+            face.heart.show(if (resting) 0 else shownHeart, animate = !workingSet)
+            face.heartRate.text = shownHeart.takeIf { it > 0 }?.toString() ?: "—"
+            val dimAlpha = if (workingSet) .4f else 1f
+            listOf(face.clock, face.title, face.target, face.heartRate, face.bpm, face.hint, face.down).forEach { it.alpha = dimAlpha }
             // Past the target the line under the name says so in the over-target colour (the design's screen 2).
             if (running && !paused && count != null && count > targetReps) face.setSubtitle("목표 초과", WatchWorkoutFace.ORANGE, medium = true)
             if (manualRequired && count == null) face.hint.text = "위로 · 횟수 기록"
@@ -886,7 +894,7 @@ class MainActivity : Activity() {
             }
             val started = sessionStartedAt()
             val elapsed = ((now - started) / 1_000L).coerceAtLeast(0L)
-            auxPage.bind(heartRate, if (elapsed >= 3600) "%d:%02d:%02d".format(elapsed / 3600, elapsed % 3600 / 60, elapsed % 60) else "%d:%02d".format(elapsed / 60, elapsed % 60), setIndex, clockText)
+            auxPage.bind(shownHeart, if (elapsed >= 3600) "%d:%02d:%02d".format(elapsed / 3600, elapsed % 3600 / 60, elapsed % 60) else "%d:%02d".format(elapsed / 60, elapsed % 60), setIndex, clockText)
         }
         if (!active) face.heart.show(0)
         restRing.timerColor = if (setTiming) WatchWorkoutFace.SAGE else WatchWorkoutFace.YELLOW
@@ -1282,7 +1290,7 @@ class MainActivity : Activity() {
         }
 }
 
-private const val WORKING_BRIGHTNESS = 0.1f
+private const val WORKING_BRIGHTNESS = 0.02f
 
 private const val SIDE_PHASE = "AWAITING_OTHER_SIDE"
 private const val SIDE_DECISION_MS = 120_000L

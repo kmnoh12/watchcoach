@@ -404,11 +404,17 @@ internal class HeartView(context: Context) : View(context) {
     init { setLayerType(LAYER_TYPE_HARDWARE, null); visibility = INVISIBLE }
 
     /** Shows [bpm] in its zone colour and beats at that rate; 0 hides the heart and stops the beat. */
-    fun show(bpm: Int) {
+    fun show(bpm: Int, animate: Boolean = true) {
         if (bpm <= 0) { stop(); visibility = INVISIBLE; return }
         paint.color = WatchWorkoutFace.zoneColor(bpm)
         invalidate()
         visibility = VISIBLE
+        if (!animate) {
+            // During a set the heart only shows the zone colour, dimmed and still: no animator, no redraws.
+            stop(); alpha = .5f
+            return
+        }
+        alpha = 1f
         val period = (60_000L / bpm).coerceIn(300L, 1_500L)
         if (animator?.isRunning == true && kotlin.math.abs(period - periodMs) < 40) return
         periodMs = period

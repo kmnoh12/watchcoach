@@ -142,6 +142,9 @@ class WearWorkoutService : Service(), SensorEventListener {
     private var lastAccelerometerNs: Long? = null
     private var lastAccelerometerAccuracy: Int? = null
     private var lastHeartRateNs: Long? = null
+    private val heartGuard = dev.kyungmin.watchcoach.core.HeartRateGuard()
+    private var lastHeartSentNs = 0L
+    private var lastHeartSentPhase = ""
     private val captureRecords = ArrayList<SensorCaptureRecord>(CAPTURE_CHUNK_SAMPLES)
     private val captureChunkFiles = mutableListOf<File>()
     private var captureSegmentId = ""
@@ -1317,7 +1320,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         resting = false
         paused = false
         pausedRestRemainingMs = 0L
-        if (incomingSessionId != sessionId) heartRate = 0
+        if (incomingSessionId != sessionId) { heartRate = 0; heartGuard.reset(); lastHeartSentNs = 0L }
         if (sessionId != incomingSessionId) { tempoPolicy = dev.kyungmin.watchcoach.core.TempoFeedbackPolicy(); lastTempoAlertNs = 0L }
         WatchHomeStore(this).leaveCompletion()
         sessionId = incomingSessionId
@@ -1553,7 +1556,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         }
         markPhoneAlive()
         intent.getStringExtra("session")?.takeIf { it.isNotBlank() }?.let {
-            if (it != sessionId) heartRate = 0
+            if (it != sessionId) { heartRate = 0; heartGuard.reset(); lastHeartSentNs = 0L }
             sessionId = it
         }
         running = false
@@ -1621,7 +1624,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         stopRestTicker()
         cancelMeasurementPreparation()
         sensorManager.unregisterListener(this)
-        heartRate = 0
+        heartRate = 0; heartGuard.reset(); lastHeartSentNs = 0L
         sendLiveState("PAUSED", false, force = true)
         broadcastState(force = true)
     }
@@ -1702,6 +1705,14 @@ class WearWorkoutService : Service(), SensorEventListener {
         val pendingCaptures = capturePrefs.getStringSet(KEY_PENDING_CAPTURE_IDS, emptySet()).orEmpty()
         if (pendingCaptures.isEmpty() && pendingCompletion == null) stopRuntimeService(startId)
         Log.i(TAG, "finishSession end phase=$phase")
+    }
+
+    private fun restartHeartSensor() {
+        val sensor = heartRateSensor ?: return
+        if (!hasBodySensorPermission() || paused) return
+        Log.i(TAG, "heart-rate sensor restart: implausibly low readings persisted")
+        runCatching { sensorManager.unregisterListener(this, sensor) }
+        registerSensor(sensor, SensorManager.SENSOR_DELAY_NORMAL)
     }
 
     private fun registerSensors() {
@@ -1866,12 +1877,27 @@ class WearWorkoutService : Service(), SensorEventListener {
             }
             Sensor.TYPE_HEART_RATE -> {
                 val reading = event.values.firstOrNull()
-                heartRate = reading?.takeIf { it.isFinite() && it in 20f..240f }?.toInt() ?: 0
-                lastHeartRateNs = event.timestamp.takeIf { heartRate > 0 }
+                val raw = reading?.takeIf { it.isFinite() && it in 20f..240f }?.toInt() ?: 0
+                var accepted = false
+                if (raw == 0) {
+                    heartRate = 0; lastHeartRateNs = null
+                } else {
+                    // The optical sensor sometimes locks onto half the real rate; hold the last good value and, if it persists,
+                    // restart the sensor (what pause/resume does).
+                    val guarded = heartGuard.offer(event.timestamp, raw)
+                    heartRate = guarded.stableBpm
+                    if (guarded.verdict == dev.kyungmin.watchcoach.core.HeartRateGuard.Verdict.ACCEPTED) {
+                        lastHeartRateNs = event.timestamp; accepted = true
+                    } else if (guarded.verdict == dev.kyungmin.watchcoach.core.HeartRateGuard.Verdict.RESTART_SENSOR) restartHeartSensor()
+                }
                 val ageMs = (android.os.SystemClock.elapsedRealtimeNanos() - event.timestamp) / 1_000_000L
-                if (heartRate > 0 && event.accuracy in 1..3 && ageMs in 0..10_000 && sessionId.isNotBlank()) {
+                val phaseLabel = if (paused) "PAUSED" else if (resting) "RESTING" else "WORKING"
+                // One sample every few seconds is plenty for the phone's summary (it tolerates gaps up to 15 s) and saves the radio.
+                val due = event.timestamp - lastHeartSentNs >= HEART_SAMPLE_SEND_INTERVAL_NS || phaseLabel != lastHeartSentPhase
+                if (accepted && heartRate > 0 && event.accuracy in 1..3 && ageMs in 0..10_000 && sessionId.isNotBlank() && due) {
+                    lastHeartSentNs = event.timestamp; lastHeartSentPhase = phaseLabel
                     sendToPhone(WearSync.PATH_HEART_RATE_SAMPLE, listOf("1", sessionId, event.timestamp, heartRate, ageMs, event.accuracy,
-                        if (paused) "PAUSED" else if (resting) "RESTING" else "WORKING").joinToString("|"))
+                        phaseLabel).joinToString("|"))
                 }
             }
         }
@@ -2046,7 +2072,7 @@ class WearWorkoutService : Service(), SensorEventListener {
 
     private fun sendLiveState(phase: String, recording: Boolean, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (!force && now - lastStateAtMs < 350L) return
+        if (!force && now - lastStateAtMs < LIVE_STATE_MIN_INTERVAL_MS) return
         lastStateAtMs = now
         val critical = phase == "SET_COMPLETE" || phase == "CALIBRATION_RESULT" || phase == "REST_COMPLETE"
         sendToPhone(
@@ -2469,7 +2495,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         exerciseName = "운동 대기 중"
         setIndex = 0
         reps = 0
-        heartRate = 0
+        heartRate = 0; heartGuard.reset(); lastHeartSentNs = 0L
         // A failed finalization must not erase the only durable raw chunks.
         resetCaptureBuffer(deleteChunks = false)
         forearmRotationDetector = null
@@ -2704,6 +2730,8 @@ class WearWorkoutService : Service(), SensorEventListener {
         private const val MAX_CAPTURE_SAMPLES = 60_000
         private const val UI_BROADCAST_INTERVAL_MS = 125L
         private const val MAX_OUTBOUND_QUEUE = 32
+        private const val HEART_SAMPLE_SEND_INTERVAL_NS = 5_000_000_000L
+        private const val LIVE_STATE_MIN_INTERVAL_MS = 1_000L
         private const val PRIORITY_CONTROL = 0
         private const val PRIORITY_CAPTURE = 1
         private const val PRIORITY_LIVE = 2
