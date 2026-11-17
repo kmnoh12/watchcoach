@@ -68,7 +68,7 @@ fun CalibrationResultScreen(
     LaunchedEffect(clips) { picked = picked.intersect(clips.map { it.id }.toSet()) }
     BackHandler(selecting) { selecting = false; picked = emptySet() }
 
-    Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding()) {
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().safeDrawingPadding()) {
         when {
             clip != null -> TopBar(clip.name, back, onTitleLongPress = { researchVisible = !researchVisible }) {
                 Box(Modifier.size(48.dp).pressable { confirmDelete = true }.semantics { contentDescription = "삭제" }, contentAlignment = Alignment.Center) {

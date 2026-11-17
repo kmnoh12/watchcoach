@@ -23,7 +23,7 @@ fun WorkoutTempoScreen(id: String?, previous: WorkoutTempoSettings?, select: (St
     val colors = darkColorScheme(primary = KColors.Accent, background = KColors.Bg, surface = KColors.Surface,
         onSurface = KColors.White, onBackground = KColors.White, onPrimary = KColors.OnAccent)
     MaterialTheme(colorScheme = colors) {
-        Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().imePadding()
+        Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().safeDrawingPadding().imePadding()
             .verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(if (id == null) "운동별 템포 알림" else "${WorkoutData.catalog.find { it.id == id }?.name.orEmpty()} · 템포",
                 color = KColors.White, fontSize = 26.sp)

@@ -77,6 +77,7 @@ private fun TabPage(title: String, right: String, rightIcon: KIcon? = null, righ
         Modifier
             .fillMaxSize()
             .background(KColors.Bg)
+            .centeredContent()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 20.dp),
     ) {
@@ -152,7 +153,7 @@ fun RecordsScreen(
     var selected by remember(month, records) { mutableStateOf<Set<WorkoutRecord>>(emptySet()) }
     val monthRecords = records.filter { it.date.startsWith(month.toString()) }
     androidx.activity.compose.BackHandler(selecting) { selecting = false; selected = emptySet() }
-    Column(Modifier.fillMaxSize().background(KColors.Bg)
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent()
         .verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth().height(76.dp).padding(top = 14.dp).testTag("records-header"),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

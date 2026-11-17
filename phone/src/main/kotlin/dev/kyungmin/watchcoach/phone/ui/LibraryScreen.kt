@@ -214,7 +214,7 @@ fun ExerciseBrowser(
             }
     }
 
-    Column(Modifier.fillMaxSize().background(KColors.Bg).padding(top = 14.dp)) {
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().padding(top = 14.dp)) {
         Column(Modifier.padding(horizontal = SideGutter)) {
             header()
             Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.CenterVertically) {

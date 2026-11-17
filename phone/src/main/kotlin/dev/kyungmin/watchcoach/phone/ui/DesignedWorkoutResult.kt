@@ -148,8 +148,9 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
             }
         }
     }
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-        val cameraFrameWidth = minOf(maxWidth - 22.dp, (maxHeight - (ResultCameraTop + ResultCameraControls).dp) * (9f / 16f)).coerceAtLeast(1.dp)
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).centeredContent()) {
+        val photoCardWidth = minOf(maxWidth - 22.dp, maxOf(240.dp,
+            (maxHeight - (ResultCameraTop + ResultCameraControls).dp) * (9f / 16f))).coerceAtLeast(1.dp)
         AndroidView(factory = { ResultCameraView(it, owner).also { v -> camera = v; v.onClosed = { cameraOpen = false; scope.launch { scroll.scrollTo(0) }; pull = 0f; armed = false; released = false }; v.onGallery = { gallery.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }; if (permission) v.bind() } },
             update = { it.presentation = read }, modifier = Modifier.fillMaxSize().zIndex(if (cameraOpen) 2f else 0f))
         Column(Modifier.fillMaxSize().zIndex(1f).nestedScroll(pullConnection)) {
@@ -157,13 +158,14 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
             Column(Modifier.weight(1f).verticalScroll(scroll, enabled = !cameraOpen)) {
                 Row(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp).height(33.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("✕", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium, modifier = Modifier.tapClickable(onClick = back).padding(end = 16.dp))
-                    Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Text("저장됨 · ${read?.date?.substringAfter("년 ") ?: ""}", color = Color.White, fontSize = 14.sp,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     if (onMenu != null) Box(Modifier.offset(x = 11.dp).requiredSize(44.dp).tapClickable(onClick = onMenu), contentAlignment = Alignment.Center) {
                         KIcon(KIcon.Dots, Color.White, size = 22.dp)
                     }
                 }
                 val fade = (scroll.value / (120f * density)).coerceIn(0f, 1f)
-                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = (ResultCameraTop - 33).dp).width(cameraFrameWidth).height(132.dp + (pullShown / density).dp)
+                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = (ResultCameraTop - 33).dp).width(photoCardWidth).height(132.dp + (pullShown / density).dp)
                     .onGloballyPositioned { camera?.cardBounds = it.boundsInRoot(); camera?.cardFade = fade }
                     .graphicsLayer { alpha = 1 - fade; translationY = fade * 10 * density; scaleX = 1 - fade * .04f; scaleY = scaleX }
                     .clip(RoundedCornerShape(ResultCameraRadius.dp))) {

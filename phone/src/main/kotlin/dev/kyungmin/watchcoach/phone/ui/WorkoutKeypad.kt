@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -65,11 +66,13 @@ fun WorkoutKeypad(
     onClose: () -> Unit,
     onGo: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Side panel in a short landscape window: smaller keys and spacing so the whole pad fits without scrolling. */
+    compact: Boolean = false,
 ) {
     val weight = field == SetField.WEIGHT
     Column(
-        modifier.fillMaxWidth().background(KColors.Bg).padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.fillMaxWidth().then(if (compact) Modifier.clipToBounds() else Modifier).background(KColors.Bg).padding(bottom = if (compact) 8.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp),
     ) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(KColors.Hairline))
         Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
@@ -81,15 +84,15 @@ fun WorkoutKeypad(
             if (weight) UnitSwitch(usePounds, onUnit, Modifier.align(Alignment.CenterEnd))
         }
         SetValueRuler(value.text, weight, onRulerPick)
-        NumberKeys(weight, onDigit, onBackspace)
+        NumberKeys(weight, onDigit, onBackspace, compact, if (compact) Modifier.weight(1f) else Modifier)
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FootButton("닫기", KColors.SurfaceRaised, KColors.Bone, Modifier.weight(1f), onClose)
+            FootButton("닫기", KColors.SurfaceRaised, KColors.Bone, Modifier.weight(1f), onClose, compact)
             val go = when {
                 weight -> "다음 · ${if (seconds) "시간" else "횟수"}"
                 alreadyDone -> "완료"
                 else -> "$setName 완료"
             }
-            FootButton(go, KColors.Accent, KColors.OnAccent, Modifier.weight(2.4f), onGo)
+            FootButton(go, KColors.Accent, KColors.OnAccent, Modifier.weight(2.4f), onGo, compact)
         }
     }
 }
@@ -138,12 +141,12 @@ private fun UnitSwitch(usePounds: Boolean, onUnit: (Boolean) -> Unit, modifier: 
 }
 
 @Composable
-private fun NumberKeys(decimals: Boolean, onDigit: (Char) -> Unit, onBackspace: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        KeyRow { Key("1") { onDigit('1') }; Key("2") { onDigit('2') }; Key("3") { onDigit('3') } }
-        KeyRow { Key("4") { onDigit('4') }; Key("5") { onDigit('5') }; Key("6") { onDigit('6') } }
-        KeyRow { Key("7") { onDigit('7') }; Key("8") { onDigit('8') }; Key("9") { onDigit('9') } }
-        KeyRow {
+private fun NumberKeys(decimals: Boolean, onDigit: (Char) -> Unit, onBackspace: () -> Unit, compact: Boolean, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        KeyRow(compact) { Key("1") { onDigit('1') }; Key("2") { onDigit('2') }; Key("3") { onDigit('3') } }
+        KeyRow(compact) { Key("4") { onDigit('4') }; Key("5") { onDigit('5') }; Key("6") { onDigit('6') } }
+        KeyRow(compact) { Key("7") { onDigit('7') }; Key("8") { onDigit('8') }; Key("9") { onDigit('9') } }
+        KeyRow(compact) {
             if (decimals) Key(".") { onDigit('.') } else Box(Modifier.weight(1f))
             Key("0") { onDigit('0') }
             Key("⌫", repeat = true) { onBackspace() }
@@ -152,8 +155,9 @@ private fun NumberKeys(decimals: Boolean, onDigit: (Char) -> Unit, onBackspace: 
 }
 
 @Composable
-private fun KeyRow(content: @Composable RowScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth().height(58.dp), content = content)
+private fun androidx.compose.foundation.layout.ColumnScope.KeyRow(compact: Boolean, content: @Composable RowScope.() -> Unit) {
+    // Compact: the four rows share whatever height the side panel has left, so the footer sits on the bottom edge.
+    Row(Modifier.fillMaxWidth().then(if (compact) Modifier.weight(1f) else Modifier.height(58.dp)), content = content)
 }
 
 /** Sinks fast and turns sage, then springs back past its size and settles while the sage fades. */
@@ -208,9 +212,9 @@ private fun RowScope.Key(label: String, repeat: Boolean = false, onPress: () -> 
 }
 
 @Composable
-private fun FootButton(text: String, fill: Color, ink: Color, modifier: Modifier, onClick: () -> Unit) {
+private fun FootButton(text: String, fill: Color, ink: Color, modifier: Modifier, onClick: () -> Unit, compact: Boolean = false) {
     Box(
-        modifier.height(56.dp).clip(KShape.Control).background(fill).tapClickable { onClick() },
+        modifier.height(if (compact) 38.dp else 56.dp).clip(KShape.Control).background(fill).tapClickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(text, color = ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)

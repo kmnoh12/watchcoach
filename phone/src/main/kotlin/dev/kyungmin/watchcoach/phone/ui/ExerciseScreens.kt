@@ -49,7 +49,7 @@ class ExerciseInfoUi(
 @Composable
 fun ExerciseInfoScreen(info: ExerciseInfoUi, back: () -> Unit, animation: (heightDp: Int) -> View) {
     var tab by remember { mutableStateOf(0) }
-    Column(Modifier.fillMaxSize().background(KColors.Bg).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp)) {
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp)) {
         Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(54.dp, 58.dp).pressable(back), contentAlignment = Alignment.Center) {
                 KIcon(KIcon.Back, KColors.White, size = 28.dp)
@@ -130,7 +130,7 @@ fun ExerciseRecordScreen(record: ExerciseRecordUi, back: () -> Unit, openInfo: (
     val scroll = rememberScrollState()
     val progress = (scroll.value / 420f / androidx.compose.ui.platform.LocalDensity.current.density).coerceIn(0f, 1f)
     val animationHeight = lerp(320.dp, 96.dp, progress)
-    Column(Modifier.fillMaxSize().background(KColors.Bg).verticalScroll(scroll).padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 34.dp)) {
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().verticalScroll(scroll).padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 34.dp)) {
         Row(Modifier.fillMaxWidth().height(58.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(54.dp, 58.dp).pressable(back), contentAlignment = Alignment.Center) {
                 KIcon(KIcon.Back, KColors.White, size = 28.dp)

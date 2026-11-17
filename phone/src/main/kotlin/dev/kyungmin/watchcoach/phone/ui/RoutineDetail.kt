@@ -100,7 +100,7 @@ fun RoutineDetailScreen(
     val stridePx = with(LocalDensity.current) { RowStride.toPx() }
     val haptic = LocalHapticFeedback.current
 
-    Box(Modifier.fillMaxSize().background(KColors.Bg)) {
+    Box(Modifier.fillMaxSize().background(KColors.Bg).centeredContent()) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 110.dp),

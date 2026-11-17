@@ -72,7 +72,7 @@ internal fun SettingsScreen(
 ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = KColors.Accent, onPrimary = KColors.OnAccent,
         background = KColors.Bg, surface = KColors.Surface, onSurface = KColors.White, outline = KColors.Hairline)) {
-        Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = tapAction(actions.back)) { KIcon(KIcon.Back, KColors.White) }
                 Text("설정", color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)

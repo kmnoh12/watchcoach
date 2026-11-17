@@ -7,21 +7,27 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,6 +56,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -147,17 +154,80 @@ fun ActiveWorkoutScreen(
         if (restExpanded) restExpanded = false else closeEditor()
     }
 
-    Box(Modifier.fillMaxSize().background(KColors.Bg)) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar(model, now, actions)
-            Spacer(Modifier.height(8.dp))
+    BoxWithConstraints(Modifier.fillMaxSize().background(KColors.Bg)) {
+    val landscape = isLandscapeWorkout(maxWidth, maxHeight)
+    // A tall landscape window (tablet) gets everything a step bigger instead of the phone sizes floating in empty space.
+    val scale = if (landscape) (maxHeight / 520.dp).coerceIn(1f, 1.4f) else 1f
+    val baseDensity = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(baseDensity.density * scale, baseDensity.fontScale),
+    ) {
+    BoxWithConstraints(Modifier.fillMaxSize().centeredContent(if (landscape) 1200.dp else 600.dp)) {
+        val keypadHeight = (maxHeight - 160.dp).coerceAtLeast(100.dp)
+        // Banner, running set clock and rest bar. Portrait stacks them under the pager; landscape tucks them under the set list.
+        val bars: @Composable () -> Unit = {
+            RecordBanner(model.recordBanner)
+            val setClockLeft = model.pausedSetClockMs ?: model.setClockEndAtMs?.let { (it - now).coerceAtLeast(0) }
+            model.holdElapsedMs?.let { elapsed ->
+                SetClockBar(elapsed + if (model.paused) 0 else (now - model.holdReadAtMs).coerceAtLeast(0), model.paused, {}, stopwatch = true)
+            }
+            if (setClockLeft != null) {
+                SetClockBar(setClockLeft, model.paused, actions::onAdjustSetClock)
+            }
+            if (editing != null && landscape) {
+                // Landscape keypad: the rest strip stands upright between the set list and the keypad instead (see below).
+            } else if (editing != null) {
+                RestStrip(rest, current?.restSeconds ?: 0, onExpand = { if (closeEditor()) restExpanded = true })
+            } else {
+                RestBar(
+                    rest = rest,
+                    idleSeconds = current?.restSeconds ?: 0,
+                    paused = model.paused,
+                    onExpand = { if (closeEditor()) restExpanded = true },
+                    onAdjust = actions::onAdjustRest,
+                    onTogglePause = actions::onTogglePause,
+                    onStop = { if (rest.resting) actions.onSkipRest() else actions.onStop() },
+                )
+            }
+        }
+        val keypad: @Composable (Modifier) -> Unit = { keypadModifier ->
+            val target = editing ?: lastEdit
+            val exercise = target?.let { model.exercises.getOrNull(it.exerciseIndex) }
+            val set = target?.let { exercise?.sets?.getOrNull(it.setIndex) }
+            WorkoutKeypad(
+                modifier = keypadModifier,
+                compact = landscape,
+                setName = set?.label?.let { if (it == "W") "웜업" else "${it}세트" }.orEmpty(),
+                field = target?.field ?: SetField.REPS,
+                seconds = exercise?.hold == true,
+                usePounds = exercise?.usePounds == true,
+                alreadyDone = set?.completed == true,
+                value = editValue,
+                onValueChange = { incoming -> push(SetValueEdit.accept(editValue, incoming, decimals = target?.field == SetField.WEIGHT)) },
+                onRulerPick = { push(SetValueEdit.selectAll(it)) },
+                onDigit = { c -> push(SetValueEdit.type(editValue, c)) },
+                onBackspace = { push(SetValueEdit.backspace(editValue)) },
+                onUnit = { if (target != null) actions.onToggleUnit(target.exerciseIndex) },
+                onClose = { closeEditor() },
+                onGo = go@{
+                    val t = editing ?: return@go
+                    if (!closeEditor()) return@go
+                    if (t.field == SetField.WEIGHT) {
+                        openEditor(t.copy(field = SetField.REPS))
+                    } else if (set != null && !set.completed) {
+                        actions.onToggleSet(t.exerciseIndex, t.setIndex)
+                    }
+                },
+            )
+        }
+        val pagerContent: @Composable () -> Unit = {
             HorizontalPager(
                 state = pager,
                 beyondViewportPageCount = 1,
                 key = { index -> model.exercises.getOrNull(index)?.let { "${it.id}$index" } ?: "removed-$index" },
                 flingBehavior = PagerDefaults.flingBehavior(pager, snapAnimationSpec = Motion.page()),
                 userScrollEnabled = !setRunning,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
             ) { page ->
                 ExercisePage(
                     model = model,
@@ -182,60 +252,57 @@ fun ActiveWorkoutScreen(
                             scope.launch { pager.animateScrollToPage(page + 1, animationSpec = Motion.page()) }
                         }
                     },
+                    landscape = landscape,
+                    bottomBars = bars,
                 )
             }
-            RecordBanner(model.recordBanner)
-            val setClockLeft = model.pausedSetClockMs ?: model.setClockEndAtMs?.let { (it - now).coerceAtLeast(0) }
-            model.holdElapsedMs?.let { elapsed ->
-                SetClockBar(elapsed + if (model.paused) 0 else (now - model.holdReadAtMs).coerceAtLeast(0), model.paused, {}, stopwatch = true)
-            }
-            if (setClockLeft != null) {
-                SetClockBar(setClockLeft, model.paused, actions::onAdjustSetClock)
-            }
-            if (editing != null) {
-                RestStrip(rest, current?.restSeconds ?: 0, onExpand = { if (closeEditor()) restExpanded = true })
-            } else {
-                RestBar(
-                    rest = rest,
-                    idleSeconds = current?.restSeconds ?: 0,
-                    paused = model.paused,
-                    onExpand = { if (closeEditor()) restExpanded = true },
-                    onAdjust = actions::onAdjustRest,
-                    onTogglePause = actions::onTogglePause,
-                    onStop = { if (rest.resting) actions.onSkipRest() else actions.onStop() },
-                )
-            }
-            AnimatedVisibility(
-                visible = editing != null,
-                enter = slideInVertically(Motion.panel()) { it },
-                exit = slideOutVertically(Motion.panel()) { it },
-            ) {
-                val target = editing ?: lastEdit
-                val exercise = target?.let { model.exercises.getOrNull(it.exerciseIndex) }
-                val set = target?.let { exercise?.sets?.getOrNull(it.setIndex) }
-                WorkoutKeypad(
-                    setName = set?.label?.let { if (it == "W") "웜업" else "${it}세트" }.orEmpty(),
-                    field = target?.field ?: SetField.REPS,
-                    seconds = exercise?.hold == true,
-                    usePounds = exercise?.usePounds == true,
-                    alreadyDone = set?.completed == true,
-                    value = editValue,
-                    onValueChange = { incoming -> push(SetValueEdit.accept(editValue, incoming, decimals = target?.field == SetField.WEIGHT)) },
-                    onRulerPick = { push(SetValueEdit.selectAll(it)) },
-                    onDigit = { c -> push(SetValueEdit.type(editValue, c)) },
-                    onBackspace = { push(SetValueEdit.backspace(editValue)) },
-                    onUnit = { if (target != null) actions.onToggleUnit(target.exerciseIndex) },
-                    onClose = { closeEditor() },
-                    onGo = go@{
-                        val t = editing ?: return@go
-                        if (!closeEditor()) return@go
-                        if (t.field == SetField.WEIGHT) {
-                            openEditor(t.copy(field = SetField.REPS))
-                        } else if (set != null && !set.completed) {
-                            actions.onToggleSet(t.exerciseIndex, t.setIndex)
+        }
+        if (landscape) {
+            // Wide and short: viewer and stats on the left, set list and rest bar on the right, keypad as a side panel.
+            Row(Modifier.fillMaxSize()) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    TopBar(model, now, actions)
+                    Box(Modifier.weight(1f)) { pagerContent() }
+                }
+                AnimatedVisibility(
+                    visible = editing != null,
+                    enter = slideInHorizontally(Motion.panel()) { it },
+                    exit = slideOutHorizontally(Motion.panel()) { it },
+                ) {
+                    Row(Modifier.fillMaxHeight()) {
+                        // Upright rest strip: it separates the set list from the keypad the way the flat strip does in portrait.
+                        Box(
+                            Modifier.width(38.dp).fillMaxHeight().background(KColors.Surface).tapClickable { if (closeEditor()) restExpanded = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // Reads bottom to top, like the label on a book spine.
+                            Text(
+                                "휴식 ${if (rest.resting || rest.pausedRest) rest.leftSeconds else (current?.restSeconds ?: 0)}초",
+                                color = if (rest.resting) KColors.Sage else KColors.Soft,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.requiredWidth(120.dp).graphicsLayer { rotationZ = -90f },
+                            )
                         }
-                    },
-                )
+                        keypad(Modifier.width(300.dp).fillMaxHeight())
+                    }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                TopBar(model, now, actions)
+                Spacer(Modifier.height(8.dp))
+                Box(Modifier.weight(1f)) { pagerContent() }
+                bars()
+                AnimatedVisibility(
+                    visible = editing != null,
+                    enter = slideInVertically(Motion.panel()) { it },
+                    exit = slideOutVertically(Motion.panel()) { it },
+                ) {
+                    keypad(Modifier.heightIn(max = keypadHeight).verticalScroll(rememberScrollState()))
+                }
             }
         }
 
@@ -268,6 +335,8 @@ fun ActiveWorkoutScreen(
         }
 
     }
+    }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -295,6 +364,9 @@ private fun TopBar(model: WorkoutUiModel, now: Long, actions: WorkoutActions) {
     }
 }
 
+/** Wide and short windows (a phone on its side, a tablet) get the two-pane workout layout. */
+internal fun isLandscapeWorkout(width: Dp, height: Dp): Boolean = width >= 600.dp && width > height * 1.3f
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ExercisePage(
@@ -312,25 +384,14 @@ private fun ExercisePage(
     onOpenEditor: (EditTarget) -> Unit,
     onRemoveSet: (Int) -> Unit,
     onNextExercise: () -> Unit,
+    landscape: Boolean = false,
+    bottomBars: @Composable () -> Unit = {},
 ) {
     val exercise = model.exercises.getOrNull(exerciseIndex) ?: return
     val restingSetIndex = model.restingSet?.takeIf { it.first == exerciseIndex }?.second
-    val scroll = rememberScrollState()
-    val imageHeight by animateDpAsState(if (keypadOpen) 92.dp else 190.dp, Motion.panel(), label = "image")
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    // 0 = full viewer, 1 = flattened to half height while the list scrolls under it.
-    // Collapsed viewer is a 19.5:9 (width:height) strip.
-    val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
-    val flatHeight = ((screenWidthDp - 32) * 9f / 19.5f).dp
-    val shrinkBy = (imageHeight - flatHeight).coerceAtLeast(0.dp)
-    val collapse: () -> Float = {
-        val room = with(density) { shrinkBy.toPx() }.coerceAtLeast(1f)
-        (scroll.value / room).coerceIn(0f, 1f)
-    }
-    Box(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp)) {
-        Spacer(Modifier.height(imageHeight + 10.dp))
-        Spacer(Modifier.height(6.dp))
+
+    // Target, done, volume and last-time lines.
+    val stats: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.Bottom) {
             Text("목표 ", color = KColors.Accent, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             FlipText(exercise.targetReps.toString(), 14.sp, KColors.Accent)
@@ -352,8 +413,10 @@ private fun ExercisePage(
                 NextTargetRow(history.suggestion, history.reason, history.applicable) { actions.onApplySuggestion(exerciseIndex) }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        SetHeader(exercise.weighted, exercise.usePounds, exercise.hold)
+    }
+    // Set table and the actions under it.
+    val table: @Composable (Boolean) -> Unit = { withHeader ->
+        if (withHeader) SetHeader(exercise.weighted, exercise.usePounds, exercise.hold)
         exercise.sets.forEachIndexed { setIndex, set ->
             androidx.compose.runtime.key(set.uid) {
                 val requester = remember { BringIntoViewRequester() }
@@ -414,44 +477,108 @@ private fun ExercisePage(
         )
         Spacer(Modifier.height(if (keypadOpen) 24.dp else 40.dp))
     }
-    // Sticky viewer: the list scrolls under it and it flattens to half height; the model keeps its size.
-    Box(
-        Modifier.fillMaxWidth().background(KColors.Bg).padding(horizontal = 16.dp)
-            .layout { measurable, constraints ->
-                val full = imageHeight.roundToPx()
-                val h = full - (shrinkBy.roundToPx() * collapse()).toInt()
-                val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
-                layout(placeable.width, placeable.height) { placeable.place(0, 0) }
-            },
-    ) {
-        Box(Modifier.fillMaxSize().clip(KShape.Panel)) {
-            AndroidView(
-                factory = { animationView(exerciseIndex) },
-                modifier = Modifier.align(Alignment.Center).fillMaxWidth().requiredHeight(imageHeight),
-                onRelease = ::stopAnimatedImages,
+    // Name, muscles, info button and the live watch panel drawn over the viewer.
+    val viewerOverlay: @Composable androidx.compose.foundation.layout.BoxScope.(() -> Float) -> Unit = { collapse ->
+        Column(Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 10.dp, end = 54.dp)) {
+            Text(exercise.name, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+            Text(
+                exercise.muscles, color = KColors.Soft, fontSize = 12.sp, maxLines = 1,
+                modifier = Modifier.graphicsLayer { alpha = 1f - collapse() },
             )
-            Column(Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 10.dp, end = 54.dp)) {
-                Text(exercise.name, color = KColors.White, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-                Text(
-                    exercise.muscles, color = KColors.Soft, fontSize = 12.sp, maxLines = 1,
-                    modifier = Modifier.graphicsLayer { alpha = 1f - collapse() },
-                )
-            }
-            Box(Modifier.align(Alignment.TopEnd).size(44.dp).tapClickable { actions.onExerciseInfo(exerciseIndex) }, contentAlignment = Alignment.Center) {
-                KIcon(KIcon.Info, KColors.Soft, size = 20.dp)
-            }
-            if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
-                LivePanel(
-                    liveTitle, liveTelemetry,
-                    Modifier.align(Alignment.BottomEnd).padding(12.dp).graphicsLayer {
-                        val k = 1f - 0.3f * collapse()
-                        scaleX = k; scaleY = k
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
-                    },
-                )
-            }
+        }
+        Box(Modifier.align(Alignment.TopEnd).size(44.dp).tapClickable { actions.onExerciseInfo(exerciseIndex) }, contentAlignment = Alignment.Center) {
+            KIcon(KIcon.Info, KColors.Soft, size = 20.dp)
+        }
+        if (!model.isPreview && exerciseIndex == model.exerciseIndex) {
+            LivePanel(
+                liveTitle, liveTelemetry,
+                Modifier.align(Alignment.BottomEnd).padding(12.dp).graphicsLayer {
+                    val k = 1f - 0.3f * collapse()
+                    scaleX = k; scaleY = k
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
+                },
+            )
         }
     }
+
+    if (landscape) {
+        Row(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Left: the viewer takes the height that is left, the stats sit under it. While the keypad is open the
+            // pane steps aside so the set list and the keypad get the room.
+            if (!keypadOpen) Column(Modifier.weight(0.44f).fillMaxHeight()) {
+                Box(Modifier.weight(1f).fillMaxWidth().clip(KShape.Panel)) {
+                    AndroidView(
+                        factory = { animationView(exerciseIndex) },
+                        modifier = Modifier.fillMaxSize(),
+                        onRelease = ::stopAnimatedImages,
+                    )
+                    viewerOverlay { 0f }
+                }
+                Spacer(Modifier.height(8.dp))
+                Column(Modifier.verticalScroll(rememberScrollState()).heightIn(max = 150.dp)) { stats() }
+            }
+            // Right: the header stays put, the set list scrolls under it and keeps the working set in view; the rest bar stays below.
+            Column(Modifier.weight(0.56f).fillMaxHeight()) {
+                if (keypadOpen) {
+                    Text(exercise.name, color = KColors.White, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
+                }
+                SetHeader(exercise.weighted, exercise.usePounds, exercise.hold)
+                val listScroll = rememberScrollState()
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val workingIndex = if (model.isPreview) 0 else exercise.currentSetIndex.coerceAtLeast(0)
+                LaunchedEffect(workingIndex, exerciseIndex == model.exerciseIndex) {
+                    // One finished set stays above the working set for context; each row is 44dp plus a 14dp rest line.
+                    val target = with(density) { ((workingIndex - 1).coerceAtLeast(0) * 58).dp.roundToPx() }
+                    listScroll.animateScrollTo(target, Motion.panel())
+                }
+                Column(Modifier.weight(1f).verticalScroll(listScroll)) { table(false) }
+                bottomBars()
+            }
+        }
+        return
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val scroll = rememberScrollState()
+        val viewerHeight = minOf(if (keypadOpen) 92.dp else 190.dp, maxHeight * 0.4f)
+        val imageHeight by animateDpAsState(viewerHeight, Motion.panel(), label = "image")
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        // 0 = full viewer, 1 = flattened to half height while the list scrolls under it.
+        // Collapsed viewer is a 19.5:9 (width:height) strip.
+        val flatHeight = minOf(imageHeight, (maxWidth - 32.dp) * 9f / 19.5f)
+        val shrinkBy = (imageHeight - flatHeight).coerceAtLeast(0.dp)
+        val collapse: () -> Float = {
+            val room = with(density) { shrinkBy.toPx() }.coerceAtLeast(1f)
+            (scroll.value / room).coerceIn(0f, 1f)
+        }
+        Box(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(imageHeight + 10.dp))
+                Spacer(Modifier.height(6.dp))
+                stats()
+                Spacer(Modifier.height(12.dp))
+                table(true)
+            }
+            // Sticky viewer: the list scrolls under it and it flattens to half height; the model keeps its size.
+            Box(
+                Modifier.fillMaxWidth().background(KColors.Bg).padding(horizontal = 16.dp)
+                    .layout { measurable, constraints ->
+                        val full = imageHeight.roundToPx()
+                        val h = full - (shrinkBy.roundToPx() * collapse()).toInt()
+                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+                    },
+            ) {
+                Box(Modifier.fillMaxSize().clip(KShape.Panel)) {
+                    AndroidView(
+                        factory = { animationView(exerciseIndex) },
+                        modifier = Modifier.align(Alignment.Center).fillMaxWidth().requiredHeight(imageHeight),
+                        onRelease = ::stopAnimatedImages,
+                    )
+                    viewerOverlay(collapse)
+                }
+            }
+        }
     }
 }
 

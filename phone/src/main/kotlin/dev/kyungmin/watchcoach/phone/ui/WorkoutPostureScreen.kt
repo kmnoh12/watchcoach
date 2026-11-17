@@ -26,7 +26,7 @@ import dev.kyungmin.watchcoach.phone.WorkoutPreparation
 internal fun WorkoutPostureScreen(answers: Map<String, String>, back: () -> Unit, onAnswer: (String, String) -> Unit) {
     MaterialTheme(colorScheme = darkColorScheme(primary = KColors.Accent, onPrimary = KColors.OnAccent,
         background = KColors.Bg, surface = KColors.Surface, onSurface = KColors.White, outline = KColors.Hairline)) {
-        Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+        Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = tapAction(back)) { KIcon(KIcon.Back, KColors.White) }

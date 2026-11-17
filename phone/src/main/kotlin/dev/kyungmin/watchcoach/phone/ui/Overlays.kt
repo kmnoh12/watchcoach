@@ -235,7 +235,7 @@ private fun SheetSurface(dismiss: () -> Unit, content: @Composable () -> Unit) {
     Column(
         Modifier
             .offset { IntOffset(0, offset.value.roundToInt()) }
-            .fillMaxWidth()
+            .centeredContent()
             .clip(KShape.Sheet)
             .background(KColors.Surface)
             // Intentionally silent: consumes taps inside the panel without performing an action.
@@ -259,12 +259,14 @@ private fun SheetSurface(dismiss: () -> Unit, content: @Composable () -> Unit) {
 private fun DialogSurface(content: @Composable () -> Unit) {
     Column(
         Modifier
+            .centeredContent(480.dp)
             .padding(horizontal = 28.dp)
             .fillMaxWidth()
             .clip(KShape.Panel)
             .background(KColors.SurfaceRaised)
             // Intentionally silent: consumes taps inside the panel without performing an action.
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) { content() }
 }
@@ -316,7 +318,7 @@ class SheetAction(val label: String, val destructive: Boolean, val onClick: () -
  */
 @Composable
 fun SetSheet(title: String, subtitle: String, groups: List<SegGroup>, actions: List<SheetAction>) {
-    Column(Modifier.padding(bottom = 12.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 12.dp)) {
         Column(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp)) {
             Text(title, color = KColors.White, fontSize = 28.sp, fontWeight = FontWeight.Medium)
             Spacer(Modifier.height(2.dp))
@@ -405,7 +407,7 @@ fun SheetOptions(title: String, items: List<SheetItem>, subtitle: String? = null
     val featured = items.filter { it.featured && !it.destructive }.take(3)
     val plain = items.filter { it !in featured && !it.destructive }
     val danger = items.filter { it.destructive }
-    Column(Modifier.padding(bottom = 16.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         Column(Modifier.padding(start = 22.dp, end = 22.dp, bottom = 12.dp)) {
             Text(title, color = KColors.White, fontSize = 22.sp, fontWeight = FontWeight.Medium)
             if (subtitle != null) Text(subtitle, color = KColors.Muted, fontSize = 13.sp)

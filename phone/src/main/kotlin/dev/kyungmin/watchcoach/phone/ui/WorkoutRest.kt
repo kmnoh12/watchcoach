@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -143,49 +145,98 @@ fun ExpandedRestPanel(
     onSkip: () -> Unit,
 ) {
     val active = rest.resting || rest.pausedRest
-    Column(
-        Modifier.fillMaxSize().background(KColors.Bg)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount -> if (dragAmount > 18f) onClose() }
-            }
-            .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(Modifier.padding(top = 10.dp).width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(KColors.Faint))
-        Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("휴식", color = KColors.White, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Box(Modifier.tapClickable { onClose() }.padding(8.dp)) { KIcon(KIcon.Close, KColors.Muted, size = 22.dp) }
-        }
-        Spacer(Modifier.height(28.dp))
-        Box(contentAlignment = Alignment.Center) {
-            RestRing(if (active) rest.fraction else 1f, 260.dp, 16.dp)
-            Row(verticalAlignment = Alignment.Bottom) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(KColors.Bg)) {
+    if (isLandscapeWorkout(maxWidth, maxHeight)) {
+        // Wide and short: the ring on the left, the controls beside it, nothing to scroll.
+        val ringSize = minOf(300.dp, maxHeight - 48.dp)
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 36.dp),
+            horizontalArrangement = Arrangement.spacedBy(36.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+                RestRing(if (active) rest.fraction else 1f, ringSize, 16.dp)
                 FlipText((if (active) rest.leftSeconds else idleSeconds).toString(), 72.sp, KColors.White)
             }
-        }
-        Spacer(Modifier.height(26.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            RoundButton(KIcon.Minus, KColors.SurfaceRaised, 52) { onAdjust(-10) }
-            RoundButton(KIcon.Plus, KColors.SurfaceRaised, 52) { onAdjust(10) }
-            RoundButton(if (paused) KIcon.Play else KIcon.Pause, KColors.SurfaceRaised, 52) { onTogglePause() }
-            if (rest.resting) RoundButton(KIcon.Skip, KColors.SurfaceRaised, 52) { onSkip() }
-        }
-        Spacer(Modifier.height(24.dp))
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(30, 60, 90, 120, 150, 180).forEach { seconds ->
-                Text(
-                    String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60),
-                    color = if (seconds == idleSeconds) KColors.Accent else KColors.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(KShape.Control)
-                        .border(1.dp, if (seconds == idleSeconds) KColors.Accent else KColors.Faint, KShape.Control)
-                        .tapClickable { onPreset(seconds) }
-                        .padding(horizontal = 16.dp, vertical = 9.dp),
-                )
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("휴식", color = KColors.White, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Box(Modifier.tapClickable { onClose() }.padding(8.dp)) { KIcon(KIcon.Close, KColors.Muted, size = 22.dp) }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    RoundButton(KIcon.Minus, KColors.SurfaceRaised, 52) { onAdjust(-10) }
+                    RoundButton(KIcon.Plus, KColors.SurfaceRaised, 52) { onAdjust(10) }
+                    RoundButton(if (paused) KIcon.Play else KIcon.Pause, KColors.SurfaceRaised, 52) { onTogglePause() }
+                    if (rest.resting) RoundButton(KIcon.Skip, KColors.SurfaceRaised, 52) { onSkip() }
+                }
+                Spacer(Modifier.height(20.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(30, 60, 90, 120, 150, 180).forEach { seconds ->
+                        Text(
+                            String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60),
+                            color = if (seconds == idleSeconds) KColors.Accent else KColors.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .clip(KShape.Control)
+                                .border(1.dp, if (seconds == idleSeconds) KColors.Accent else KColors.Faint, KShape.Control)
+                                .tapClickable { onPreset(seconds) }
+                                .padding(horizontal = 16.dp, vertical = 9.dp),
+                        )
+                    }
+                }
             }
         }
+    } else {
+    BoxWithConstraints(Modifier.fillMaxSize().centeredContent()) {
+        val ringSize = minOf(260.dp, maxWidth - 40.dp)
+        val controlSpacing = minOf(18.dp, ((maxWidth - 40.dp - 208.dp) / 3f).coerceAtLeast(0.dp))
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(KColors.Bg)
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.pointerInput(onClose) {
+                detectVerticalDragGestures { _, dragAmount -> if (dragAmount > 18f) onClose() }
+            }.padding(top = 10.dp).width(34.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(KColors.Faint))
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("휴식", color = KColors.White, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                Box(Modifier.tapClickable { onClose() }.padding(8.dp)) { KIcon(KIcon.Close, KColors.Muted, size = 22.dp) }
+            }
+            Spacer(Modifier.height(28.dp))
+            Box(contentAlignment = Alignment.Center) {
+                RestRing(if (active) rest.fraction else 1f, ringSize, 16.dp)
+                Row(verticalAlignment = Alignment.Bottom) {
+                    FlipText((if (active) rest.leftSeconds else idleSeconds).toString(), 72.sp, KColors.White)
+                }
+            }
+            Spacer(Modifier.height(26.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(controlSpacing)) {
+                RoundButton(KIcon.Minus, KColors.SurfaceRaised, 52) { onAdjust(-10) }
+                RoundButton(KIcon.Plus, KColors.SurfaceRaised, 52) { onAdjust(10) }
+                RoundButton(if (paused) KIcon.Play else KIcon.Pause, KColors.SurfaceRaised, 52) { onTogglePause() }
+                if (rest.resting) RoundButton(KIcon.Skip, KColors.SurfaceRaised, 52) { onSkip() }
+            }
+            Spacer(Modifier.height(24.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(30, 60, 90, 120, 150, 180).forEach { seconds ->
+                    Text(
+                        String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60),
+                        color = if (seconds == idleSeconds) KColors.Accent else KColors.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(KShape.Control)
+                            .border(1.dp, if (seconds == idleSeconds) KColors.Accent else KColors.Faint, KShape.Control)
+                            .tapClickable { onPreset(seconds) }
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                    )
+                }
+            }
+        }
+}
+    }
     }
 }
 

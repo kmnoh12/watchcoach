@@ -32,7 +32,7 @@ internal fun ProfileEditor(profile: WorkoutProfile, onDismiss: () -> Unit,
     var constraints by rememberSaveable { mutableStateOf(profile.constraints) }
     var equipment by rememberSaveable { mutableStateOf(profile.equipment) }
     var error by rememberSaveable { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().background(KColors.Bg).safeDrawingPadding().imePadding().padding(20.dp)) {
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent().safeDrawingPadding().imePadding().padding(20.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = tapAction(onDismiss)) { KIcon(KIcon.Back, KColors.White) }
             Text("내 운동 프로필", color = KColors.White, fontSize = 25.sp)

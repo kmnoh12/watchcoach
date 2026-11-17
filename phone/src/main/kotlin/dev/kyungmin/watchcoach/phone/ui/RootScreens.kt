@@ -256,7 +256,7 @@ private fun TabBarBody(selected: Int, onSelect: (Int) -> Unit) {
     val shape = KShape.Panel
     Box(
         Modifier
-            .fillMaxWidth()
+            .centeredContent()
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .clip(shape)
@@ -371,7 +371,7 @@ class HomeUi(
 
 @Composable
 fun HomeScreen(ui: HomeUi, running: RunningUi?, actions: HomeActions) {
-    Column(Modifier.fillMaxSize().background(KColors.Bg)) {
+    Column(Modifier.fillMaxSize().background(KColors.Bg).centeredContent()) {
         Column(
             Modifier
                 .weight(1f)

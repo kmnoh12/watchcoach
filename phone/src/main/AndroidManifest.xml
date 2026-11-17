@@ -28,6 +28,7 @@
         </provider>
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -44,10 +45,10 @@
             android:name=".ProbeActivity"
             android:exported="false" />
         <activity android:name=".CalibrationCameraActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CalibrationResultActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CalibrationReviewActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PatternCandidatesActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".StartDirectionReviewActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".CalibrationResultActivity" android:exported="false" android:configChanges="orientation|screenSize|smallestScreenSize" />
+        <activity android:name=".CalibrationReviewActivity" android:exported="false" android:configChanges="orientation|screenSize|smallestScreenSize" />
+        <activity android:name=".PatternCandidatesActivity" android:exported="false" android:configChanges="orientation|screenSize|smallestScreenSize" />
+        <activity android:name=".StartDirectionReviewActivity" android:exported="false" android:configChanges="orientation|screenSize|smallestScreenSize" />
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".WorkoutProfileActivity" android:exported="false" />
         <activity android:name=".WorkoutPostureActivity" android:exported="false" />
