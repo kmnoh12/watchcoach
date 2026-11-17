@@ -107,6 +107,30 @@ class OtaFlowTest {
         activity.pause().stop().destroy()
     }
 
+    @Test fun aKilledProcessLeavesNoStuckInstallStageBehind() {
+        val (c, _) = readyPhone()
+        val id = c.store.local()!!.id
+        // What a force-stop leaves: a committed stage and an "installing" phase with no platform session behind them.
+        c.store.setStage(OtaStage.RUN); c.store.setSessionId(41)
+        c.change(id) { it.copy(phase = OtaPhase.INSTALLING) }
+        assertEquals(OtaAction.WORKING, c.ui().card!!.action)
+        c.recover()
+        assertEquals(OtaStage.NONE, c.store.stage())
+        assertEquals(OtaPhase.READY, c.store.local()!!.phase)
+        assertEquals(OtaAction.INSTALL, c.ui().card!!.action)
+        assertTrue(c.ui().readyToInstall)
+    }
+
+    @Test fun aKilledProcessThatWasWaitingForTheWatchStillInstallsAfterEightSeconds() {
+        val (c, _) = readyPhone()
+        shadowOf(app.packageManager).setCanRequestPackageInstalls(true)
+        c.store.setStage(OtaStage.PEER); c.store.waitForPeer(true)
+        c.recover()
+        idle(8_500)
+        waitFor { !c.store.waitingForPeer() }
+        assertFalse(c.store.waitingForPeer())
+    }
+
     @Test fun aBrokenFileNeverStagesASession() {
         val (c, _) = readyPhone()
         val id = c.store.local()!!.id

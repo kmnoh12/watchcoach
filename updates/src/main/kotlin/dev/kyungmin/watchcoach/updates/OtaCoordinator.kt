@@ -36,7 +36,12 @@ class OtaCoordinator private constructor(private val context: Context, val confi
     }
     init { runCatching { context.packageManager.packageInstaller.registerSessionCallback(sessionCallback, main) } }
     /** If the watch does not take the request within this time, the phone installs anyway; the request stays stored and is re-sent. */
+    private var peerArmed = false
+    private var staleChecked = false
+    private fun armPeerTimeout() { main.removeCallbacks(peerTimeout); main.postDelayed(peerTimeout, PEER_WAIT_MS); peerArmed = true }
+    private fun disarmPeerTimeout() { main.removeCallbacks(peerTimeout); peerArmed = false }
     private val peerTimeout = Runnable {
+        peerArmed = false
         if (store.waitingForPeer() && store.stage() == OtaStage.PEER) {
             store.waitForPeer(false); store.setStage(OtaStage.COMMIT); openInstaller(); emit()
         }
@@ -103,7 +108,7 @@ class OtaCoordinator private constructor(private val context: Context, val confi
             store.saveCommand(command); store.waitForPeer(selfReady)
             store.setStage(if (selfReady) OtaStage.PEER else OtaStage.NONE)
             link.command(command); emit()
-            if (selfReady) { main.removeCallbacks(peerTimeout); main.postDelayed(peerTimeout, PEER_WAIT_MS) }
+            if (selfReady) armPeerTimeout()
             return "워치 설치 요청을 보관했어요. 워치의 설치 확인을 진행해 주세요"
         }
         if (selfReady) { store.setStage(OtaStage.COMMIT); openInstaller(); emit(); return "폰 설치를 시작해요" }
@@ -143,11 +148,11 @@ class OtaCoordinator private constructor(private val context: Context, val confi
             val command = store.command()
             if (store.waitingForPeer() && command?.operation == OtaOperation.INSTALL && state.commandSequence == command.sequence &&
                 state.phase in setOf(OtaPhase.USER_ACTION_REQUIRED, OtaPhase.INSTALLING, OtaPhase.INSTALLED)) {
-                main.removeCallbacks(peerTimeout)
+                disarmPeerTimeout()
                 store.waitForPeer(false); store.setStage(OtaStage.COMMIT); main.post { openInstaller() }
             }
             if (store.waitingForPeer() && command?.sequence == state.commandSequence && state.phase == OtaPhase.FAILED) {
-                main.removeCallbacks(peerTimeout)
+                disarmPeerTimeout()
                 store.waitForPeer(false); store.setStage(OtaStage.NONE)
             }
             emit()
@@ -172,11 +177,33 @@ class OtaCoordinator private constructor(private val context: Context, val confi
                 change(local.id) { it.copy(phase = OtaPhase.INSTALLED, installedCode = code, message = "실제 설치 버전 확인") }
                 store.waitForPeer(false)
             }
+            dropStaleInstall()
             if (local.phase in setOf(OtaPhase.QUEUED, OtaPhase.CHECKING, OtaPhase.DOWNLOADING)) enqueue(local.id)
             if (config.role == OtaRole.WATCH) store.local()?.let(link::state)
         }
         if (config.role == OtaRole.PHONE) store.command()?.let(link::command)
         link.recover(::receive)
+    }
+    /**
+     * The tap's stages and the 8 s peer timer live in memory and preferences, so a force-stop (or a killed process) leaves
+     * them behind with nothing left to end them: the card would spin on "설치 중" for good. Once per process, a stage whose
+     * install session no longer exists is dropped, an install that never finished goes back to "ready", and a phone that was
+     * waiting for the watch's answer gets its timer again.
+     */
+    private fun dropStaleInstall() {
+        val stage = store.stage()
+        if (config.role == OtaRole.PHONE && store.waitingForPeer() && stage == OtaStage.PEER && !peerArmed) armPeerTimeout()
+        if (staleChecked) return
+        staleChecked = true
+        if (stage == OtaStage.NONE || stage == OtaStage.PEER || openingInstaller) return
+        val session = store.sessionId()
+        val alive = session >= 0 && runCatching { context.packageManager.packageInstaller.getSessionInfo(session) != null }.getOrDefault(false)
+        if (alive) return
+        store.setStage(OtaStage.NONE); store.setInstallProgress(0); store.setSessionId(-1)
+        val local = store.local() ?: return
+        if (local.phase == OtaPhase.INSTALLING && installed().first < local.targetCode)
+            change(local.id) { it.copy(phase = OtaPhase.READY, message = "설치가 중단돼 다시 설치할 수 있어요") }
+        emit()
     }
     private fun enqueue(id: String) {
         if (schedule != null) { schedule.invoke(id); return }
