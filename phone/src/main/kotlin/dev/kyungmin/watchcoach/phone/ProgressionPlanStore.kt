@@ -63,7 +63,10 @@ internal class ProgressionPlanStore(private val context: Context) {
             val next = sets.mapIndexed { i, target ->
                 val old = oldTargets?.optJSONObject(i)
                 val unchanged = old == null || (target.weightKg == old.nullableDouble("weight") && target.targetReps == old.getInt("reps"))
-                if (unchanged && !manual[i]) output?.getOrNull(i) ?: target else target // Explicit user edits win.
+                // Explicit user edits win, and working sets sharing that weight stay with them so one group never splits.
+                val groupEdited = target.weightKg != null && !target.isWarmup && sets.indices.any { j ->
+                    manual[j] && !sets[j].isWarmup && sets[j].weightKg == target.weightKg }
+                if (unchanged && !manual[i] && !groupEdited) output?.getOrNull(i) ?: target else target
             }
             val record = JSONObject().put("layout", signature).put("source", token).put("evidence", evidenceToken).put("sessionSource", sessionSource).put("manual", JSONArray(manual))
                 .put("upper", JSONArray(next.map { it.upperReps }))
