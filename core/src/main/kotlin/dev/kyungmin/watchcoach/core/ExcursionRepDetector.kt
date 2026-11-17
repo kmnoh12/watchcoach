@@ -38,6 +38,7 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
     private var aAxis: DoubleArray? = null
     private var maxGyroRate = 0.0
     private var period = 2.5
+    private var primeEndNs = Long.MIN_VALUE
     private val pending = ArrayDeque<ProfiledMotionRepEvent>()
 
     val candidateStartNs: Long? get() = null
@@ -47,7 +48,30 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
         gBias.fill(0.0); gPos.fill(0.0); gSmooth.fill(0.0)
         gravInit = false; grav.fill(0.0); aBias.fill(0.0); aPos.fill(0.0); aSmooth.fill(0.0)
         hasSample = false; lastNs = 0L; analyzedNs = Long.MIN_VALUE; deliveredNs = Long.MIN_VALUE
-        gAxis = null; aAxis = null; maxGyroRate = 0.0; period = 2.5; pending.clear()
+        gAxis = null; aAxis = null; maxGyroRate = 0.0; period = 2.5; primeEndNs = Long.MIN_VALUE; pending.clear()
+    }
+
+    /**
+     * Keep the gravity, biases, and buffered history learned during still-hold priming,
+     * while dropping any pending/delivered detections and axis/period locks.
+     */
+    fun beginCounting() {
+        analyzedNs = Long.MIN_VALUE
+        deliveredNs = Long.MIN_VALUE
+        gAxis = null
+        aAxis = null
+        maxGyroRate = 0.0
+        period = 2.5
+        primeEndNs = Long.MIN_VALUE
+        pending.clear()
+    }
+
+    fun prime(samples: Iterable<SensorSample>) {
+        if (!samples.iterator().hasNext()) return
+        for (sample in samples) add(sample)
+        val primedThroughNs = if (hasSample) lastNs else Long.MIN_VALUE
+        beginCounting()
+        primeEndNs = primedThroughNs
     }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
@@ -141,19 +165,40 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
             val dot = (0..2).sumOf { v[it] * prevAxis[it] }
             if (dot < 0.0) for (c in 0..2) v[c] = -v[c]
         }
+        val primeAnchor = if (primeEndNs == Long.MIN_VALUE) 0 else {
+            val idx = history.indexOfLast { it.t <= primeEndNs }
+            if (idx < 0) 0 else idx
+        }
         val raw = DoubleArray(n) { i -> (0..2).sumOf { c -> series[i][c] * v[c] } }
         if (prevAxis == null) {
-            val hi = raw.maxOrNull()!! - raw[0]
-            val lo = raw[0] - raw.minOrNull()!!
+            val base = raw[primeAnchor]
+            var maxVal = base
+            var minVal = base
+            for (i in primeAnchor until n) {
+                if (raw[i] > maxVal) maxVal = raw[i]
+                if (raw[i] < minVal) minVal = raw[i]
+            }
+            val hi = maxVal - base
+            val lo = base - minVal
             if (lo > hi) {
                 for (c in 0..2) v[c] = -v[c]
                 for (i in raw.indices) raw[i] = -raw[i]
             }
         }
-        if (useAccel) aAxis = v else gAxis = v
 
         val sorted = raw.sorted()
         val span = sorted[(0.95 * (n - 1)).toInt()] - sorted[(0.05 * (n - 1)).toInt()]
+        val activeSpan = if (primeAnchor == 0) {
+            span
+        } else {
+            var aMin = Double.POSITIVE_INFINITY
+            var aMax = Double.NEGATIVE_INFINITY
+            for (i in primeAnchor until n) {
+                if (raw[i] < aMin) aMin = raw[i]
+                if (raw[i] > aMax) aMax = raw[i]
+            }
+            aMax - aMin
+        }
         val spanFrac = if (useAccel) 0.42 else 0.45
         val retFrac = if (useAccel) 0.60 else 0.70
         val sepFrac = if (useAccel) 0.74 else 0.60
@@ -162,7 +207,8 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
         val minSpan = if (useAccel) 0.08 else 0.05
 
         val threshold = max(absThr, span * spanFrac)
-        if (span < minSpan) return
+        if (span < minSpan || activeSpan < minSpan) return
+        if (useAccel) aAxis = v else gAxis = v
 
         val dt = (history.last().t - history.first().t) / 1e9 / (n - 1)
         if (n * dt >= 6.0) {
@@ -201,6 +247,7 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
                 val end = history[i].t
                 val minSepNs = (max(minSepS, period * sepFrac) * 1e9).toLong()
                 if (start < rawTurn && rawTurn < end &&
+                    end > primeEndNs &&
                     end - start >= profile.minimumRepMs * 1_000_000L &&
                     end - start <= profile.maximumRepMs * 1_000_000L &&
                     (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs)

@@ -111,6 +111,7 @@ class CycleAxisRepDetector(
     private var lockedSign = 0
     private var locked = false
     private var secondDelivered = false
+    private var primeEndNs = Long.MIN_VALUE
     private val pending = ArrayDeque<ProfiledMotionRepEvent>()
 
     val maximumCycleNs: Long get() = (MAX_MEDIAN_S * 1e9).toLong()
@@ -119,7 +120,38 @@ class CycleAxisRepDetector(
         phases.forEach { it.beginCounting() }; phaseCounts.fill(0); phaseEvents.forEach { it.clear() }; phaseSamples = 0; deliveredCount = 0
         count = 0; gyro.forEach { it.clear() }; dyn.forEach { it.clear() }
         gyroMean = TrailingMean(GYRO_SMOOTH); gravityMean = TrailingMean(GRAVITY_WINDOW); dynMean = TrailingMean(GYRO_SMOOTH)
-        lastNs = 0L; startNs = 0L; nextAnalysisNs = 0L; lastPeakNs = null; locked = false; secondDelivered = false; pending.clear()
+        lastNs = 0L; startNs = 0L; nextAnalysisNs = 0L; lastPeakNs = null
+        lockedGyro = false; lockedSign = 0; locked = false; secondDelivered = false; primeEndNs = Long.MIN_VALUE; pending.clear()
+    }
+
+    /**
+     * Feeds still-hold preparation samples through the 4-phase kernels so gravity and
+     * window history are populated before movement starts, then clears any detections or locks.
+     */
+    fun prime(samples: Iterable<SensorSample>) {
+        val iterator = samples.iterator()
+        if (!iterator.hasNext()) return
+        var lastPrimedNs = Long.MIN_VALUE
+        while (iterator.hasNext()) {
+            val sample = iterator.next()
+            if (sample.timestampNs > lastPrimedNs) lastPrimedNs = sample.timestampNs
+            add(sample)
+        }
+        clearDetections(lastPrimedNs)
+    }
+
+    private fun clearDetections(primedThroughNs: Long) {
+        phases.forEach { it.clearDetections(primedThroughNs) }
+        phaseCounts.fill(0)
+        phaseEvents.forEach { it.clear() }
+        deliveredCount = 0
+        lastPeakNs = null
+        lockedGyro = false
+        lockedSign = 0
+        locked = false
+        secondDelivered = false
+        primeEndNs = primedThroughNs
+        pending.clear()
     }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
@@ -299,7 +331,10 @@ class CycleAxisRepDetector(
         if (!countOnReturn) return peaks
         val source = if (gyroSource) gyro else dyn
         val floor = if (gyroSource) GYRO_AMPLITUDE_FLOOR else DYN_AMPLITUDE_FLOOR
-        val onset = (0 until count).firstOrNull { i ->
+        val startIdx = if (primeEndNs == Long.MIN_VALUE) 0 else {
+            (0 until count).firstOrNull { times[it] > primeEndNs } ?: return IntArray(0)
+        }
+        val onset = (startIdx until count).firstOrNull { i ->
             source.sumOf { it.data[i] * it.data[i] } >= floor * floor
         } ?: return IntArray(0)
         return peaks.filter { it >= onset }.toIntArray()
@@ -310,6 +345,7 @@ class CycleAxisRepDetector(
         val peaks = ArrayList<Int>()
         val w = PEAK_HALF_WINDOW
         for (i in w until p.size - w) {
+            if (times[base + i] <= primeEndNs) continue
             val value = sign * p[i]
             if (value <= PEAK_FRACTION * p95) continue
             var isMax = true

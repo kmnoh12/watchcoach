@@ -160,6 +160,7 @@ class WearWorkoutService : Service(), SensorEventListener {
     private var measurementReady = false
     private var measurementArmed = false
     private var startPoseGate: StartPoseStabilityGate? = null
+    private val preparationPrimeSamples = ArrayDeque<SensorSample>()
     /** How long the wrist has been held still so far (calibration countdown on the watch screen). */
     private var preparationHoldMs = 0L
     private val capturePrefs by lazy { getSharedPreferences(CAPTURE_PREFS, MODE_PRIVATE) }
@@ -768,6 +769,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         paused = intent.getStringExtra("syncPhase") == "PAUSED"
         restEndAtMs = 0; pausedRestRemainingMs = 0
         measurementReady = false; measurementArmed = false; countingPaused = false
+        preparationPrimeSamples.clear()
         if (paused) sensorManager.unregisterListener(this)
         else if (hasBodySensorPermission()) heartRateSensor?.let { registerSensor(it, SensorManager.SENSOR_DELAY_NORMAL) }
         check(checkpoint())
@@ -887,6 +889,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         frozenActive?.let { activeDetector = dev.kyungmin.watchcoach.core.ReviewedPatternDetector(exerciseId, it.runtime.compatibility, it.runtime) }
         frozenShadow?.let { shadowDetector = dev.kyungmin.watchcoach.core.ReviewedPatternDetector(exerciseId, it.runtime.compatibility, it.runtime) }
         startPoseGate?.reset()
+        preparationPrimeSamples.clear()
     }
 
     private fun replayManualSets() {
@@ -1143,6 +1146,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             startDirectionStatus = "WAITING"; countingStartNs = null
             measurementReady = false; measurementArmed = true
             startPoseGate = StartPoseStabilityGate(dev.kyungmin.watchcoach.core.StartDirectionRuntimeCodec.decode(startDirectionSnapshot).gateConfig)
+            preparationPrimeSamples.clear()
         }
         persistRuntime()
         return true
@@ -1528,6 +1532,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             StartPoseStabilityGate(direction?.gateConfig ?: StartPoseGateConfig.forProfile(trackingProfile).copy(requireSetupMotion = false,
                 stableDurationMs = if (sessionId.startsWith("calibration-paired-")) StartPoseGateConfig.PAIRED_CALIBRATION_HOLD_MS
                     else if (needsStillStart) StartPoseGateConfig.WORKOUT_HOLD_MS else 2_000L))
+        preparationPrimeSamples.clear()
         if (measurementReady && trackingProfile.mode != TrackingMode.MANUAL_REQUIRED) {
             forearmRotationDetector?.beginCounting()
             profiledMotionDetector?.beginCounting()
@@ -1653,6 +1658,7 @@ class WearWorkoutService : Service(), SensorEventListener {
                     ?: StartPoseGateConfig.forProfile(trackingProfile).copy(requireSetupMotion = false,
                         stableDurationMs = if (sessionId.startsWith("calibration-paired-")) StartPoseGateConfig.PAIRED_CALIBRATION_HOLD_MS
                             else if (requiresStillStart()) StartPoseGateConfig.WORKOUT_HOLD_MS else StartPoseGateConfig().stableDurationMs))
+                preparationPrimeSamples.clear()
                 measurementArmed = true
                 sendLiveState(currentWorkingPhase(), true, force = true)
             }
@@ -1779,6 +1785,17 @@ class WearWorkoutService : Service(), SensorEventListener {
                         val gate = startPoseGate?.observe(sensorSample, lastAccelerometerNs, lastAccelerometerAccuracy)
                         measurementArmed = gate?.armed == true
                         preparationHoldMs = gate?.stableDurationMs ?: 0L
+                        if (gate?.stable == true) {
+                            preparationPrimeSamples.addLast(sensorSample)
+                            while (preparationPrimeSamples.size > MAX_PREPARATION_PRIME_SAMPLES ||
+                                (preparationPrimeSamples.size > 1 &&
+                                    sensorSample.timestampNs - preparationPrimeSamples.first().timestampNs > PREPARATION_PRIME_WINDOW_NS)
+                            ) {
+                                preparationPrimeSamples.removeFirst()
+                            }
+                        } else {
+                            preparationPrimeSamples.clear()
+                        }
                         if (gate?.ready == true) {
                             if (startDirectionSnapshot.isNotEmpty()) {
                                 startDirectionStatus = "CONFIRMED"
@@ -1944,7 +1961,13 @@ class WearWorkoutService : Service(), SensorEventListener {
         handler.removeCallbacks(setEndTicker)
         handler.post(setEndTicker)
         forearmRotationDetector?.beginCounting()
-        profiledMotionDetector?.beginCounting()
+        profiledMotionDetector?.let { detector ->
+            detector.beginCounting()
+            if (preparationPrimeSamples.isNotEmpty()) {
+                detector.prime(preparationPrimeSamples.toList())
+            }
+        }
+        preparationPrimeSamples.clear()
         if (firstSideActiveSinceMs == null) firstSideActiveSinceMs = android.os.SystemClock.elapsedRealtime()
         measurementReady = true
         measurementArmed = true
@@ -1953,6 +1976,7 @@ class WearWorkoutService : Service(), SensorEventListener {
 
     private fun cancelMeasurementPreparation() {
         startPoseGate?.reset()
+        preparationPrimeSamples.clear()
     }
 
     private fun recordDetectedRep() = recordDetectedRepAt(android.os.SystemClock.elapsedRealtimeNanos())
@@ -2685,5 +2709,7 @@ class WearWorkoutService : Service(), SensorEventListener {
         private const val PRIORITY_LIVE = 2
         private const val CALIBRATION_BASELINE_MS = 2_000L
         private const val MEASUREMENT_PREPARATION_MS = 2_000L
+        private const val PREPARATION_PRIME_WINDOW_NS = 1_200_000_000L
+        private const val MAX_PREPARATION_PRIME_SAMPLES = 150
     }
 }

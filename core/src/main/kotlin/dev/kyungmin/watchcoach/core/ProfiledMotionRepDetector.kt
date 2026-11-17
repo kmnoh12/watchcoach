@@ -242,7 +242,7 @@ class ProfiledMotionRepDetector(
         verticalCounter?.beginCounting()
         cycleCounter?.beginCounting()
         poseCounter?.reset()
-        excursionCounter?.reset()
+        excursionCounter?.beginCounting()
         resetActiveLobe()
         pendingStartNs = 0L
         pendingTurnaroundNs = 0L
@@ -256,6 +256,38 @@ class ProfiledMotionRepDetector(
         lastTimestampNs = 0L
         lastMotionNs = 0L
         forgetPhase()
+    }
+
+    /**
+     * Primes the underlying rep detector with stable preparation samples without updating
+     * motion-idle tracking or emitting repetitions.
+     */
+    fun prime(samples: Iterable<SensorSample>) {
+        val iterator = samples.iterator()
+        if (!iterator.hasNext()) return
+        when {
+            arcCounter != null -> return
+            translationCounter != null -> {
+                while (iterator.hasNext()) translationCounter.add(iterator.next())
+                translationCounter.beginCounting()
+            }
+            verticalCounter != null -> {
+                while (iterator.hasNext()) verticalCounter.add(iterator.next())
+                verticalCounter.beginCounting()
+            }
+            cycleCounter != null -> cycleCounter.prime(samples)
+            poseCounter != null -> while (iterator.hasNext()) poseCounter.add(iterator.next())
+            excursionCounter != null -> excursionCounter.prime(samples)
+            else -> while (iterator.hasNext()) {
+                val sample = iterator.next()
+                if (sample.sensorAccuracy == 0) {
+                    resetAll()
+                    lastTimestampNs = 0L
+                } else {
+                    featureVector(sample)
+                }
+            }
+        }
     }
 
     private fun ForearmRotationRepEvent.asProfiledEvent() = ProfiledMotionRepEvent(
