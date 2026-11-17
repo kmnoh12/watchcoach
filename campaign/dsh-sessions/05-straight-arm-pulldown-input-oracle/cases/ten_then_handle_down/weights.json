@@ -1,0 +1,11 @@
+{
+  "case_id": "ten_then_handle_down",
+  "exercise_id": "straight_arm_pulldown",
+  "weights": {
+    "0.0": 119,
+    "0.25": 0,
+    "0.5": 0,
+    "0.75": 0,
+    "1.0": 10
+  }
+}

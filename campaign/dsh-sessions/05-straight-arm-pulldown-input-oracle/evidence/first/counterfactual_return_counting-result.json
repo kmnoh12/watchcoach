@@ -1,0 +1,272 @@
+{
+ "kotlin_exit": 0,
+ "cases": [
+  {
+   "case": "continuous_10_clean",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "event_table": [],
+   "matched_rep_indices": [],
+   "unmatched_live_events": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "flush_match": {
+    "matched": 0,
+    "missing": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "unmatched": []
+   },
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "late_delivery_reps": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "authored_phase_histogram": {
+    "bins_1pct_nonempty": 36,
+    "at_start_or_end": 356,
+    "interior": 820
+   }
+  },
+  {
+   "case": "continuous_10_tempo_variation",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "event_table": [],
+   "matched_rep_indices": [],
+   "unmatched_live_events": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "flush_match": {
+    "matched": 0,
+    "missing": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "unmatched": []
+   },
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "late_delivery_reps": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "authored_phase_histogram": {
+    "bins_1pct_nonempty": 38,
+    "at_start_or_end": 362,
+    "interior": 810
+   }
+  },
+  {
+   "case": "return_boundary_hold",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "event_table": [],
+   "matched_rep_indices": [],
+   "unmatched_live_events": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "flush_match": {
+    "matched": 0,
+    "missing": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "unmatched": []
+   },
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "late_delivery_reps": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "authored_phase_histogram": {
+    "bins_1pct_nonempty": 36,
+    "at_start_or_end": 506,
+    "interior": 820
+   }
+  },
+  {
+   "case": "ten_then_handle_down",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "event_table": [],
+   "matched_rep_indices": [],
+   "unmatched_live_events": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "flush_match": {
+    "matched": 0,
+    "missing": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "unmatched": []
+   },
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "late_delivery_reps": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "authored_phase_histogram": {
+    "bins_1pct_nonempty": 36,
+    "at_start_or_end": 441,
+    "interior": 820
+   }
+  },
+  {
+   "case": "handle_down_only",
+   "expected_reps": 0,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "event_table": [],
+   "matched_rep_indices": [],
+   "unmatched_live_events": [],
+   "missing": [],
+   "duplicates": [],
+   "extra": [],
+   "flush_match": {
+    "matched": 0,
+    "missing": [],
+    "unmatched": []
+   },
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "late_delivery_reps": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": null,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "authored_phase_histogram": {
+    "bins_1pct_nonempty": 0,
+    "at_start_or_end": 0,
+    "interior": 0
+   }
+  }
+ ],
+ "acceptance_failures": [
+  "continuous_10_clean: live 0 != 10",
+  "continuous_10_clean: matched reps [] != 1..10",
+  "continuous_10_clean: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0",
+  "continuous_10_tempo_variation: live 0 != 10",
+  "continuous_10_tempo_variation: matched reps [] != 1..10",
+  "continuous_10_tempo_variation: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0",
+  "return_boundary_hold: live 0 != 10",
+  "return_boundary_hold: matched reps [] != 1..10",
+  "return_boundary_hold: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0",
+  "ten_then_handle_down: live 0 != 10",
+  "ten_then_handle_down: matched reps [] != 1..10",
+  "ten_then_handle_down: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0"
+ ]
+}

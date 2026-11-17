@@ -1,0 +1,11 @@
+{
+ "status": "NO_PRODUCTION_EDIT",
+ "final_route": "unchanged production (cycle-axis-return-family-v1)",
+ "kotlin_invocations_after_edit": 0,
+ "count_shape": "0 live / 0 flush per ten-rep case, identical to baseline",
+ "handle_down_live_flush_delta": {
+  "ten_then_handle_down": "0/0",
+  "handle_down_only": "0/0 (baseline)"
+ },
+ "reason": "counterfactual did not fix the RED"
+}

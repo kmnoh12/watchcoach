@@ -18,6 +18,9 @@ tasks.test {
     inputs.property("pressEvidenceZip", System.getenv("WATCHCOACH_PRESS_EVIDENCE_ZIP").orEmpty())
     inputs.property("selectedEvidenceZip", System.getenv("WATCHCOACH_EVIDENCE_ZIP").orEmpty())
     inputs.property("ropeEvidenceDirectory", System.getenv("WATCHCOACH_ROPE_EVIDENCE_DIR").orEmpty())
+    inputs.property("virtualWatchIndex", System.getenv("WATCHCOACH_VIRTUAL_WATCH_INDEX").orEmpty())
+    System.getenv("WATCHCOACH_VIRTUAL_WATCH_INDEX")?.takeIf { file(it).isFile }?.let { inputs.file(it) }
+    inputs.file("../phone/src/main/kotlin/dev/kyungmin/watchcoach/phone/WorkoutData.kt")
     System.getenv("WATCHCOACH_ROPE_EVIDENCE_DIR")?.takeIf { file(it).isDirectory }?.let {
         inputs.files(fileTree(it) { include("*/watch.kcs", "*/watch.manifest") })
     }

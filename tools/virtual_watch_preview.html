@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>가상 워치 · 손목 부착 확인</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#202925;color:#eeeae0;font:15px/1.5 system-ui,sans-serif}
+header{padding:20px 28px 10px}h1{font-size:24px;margin:5px 0}p{margin:4px 0;color:#bcc6bd}
+.tag{color:#b5d69d;letter-spacing:2px;font-size:12px}.views{display:grid;grid-template-columns:1.3fr 1fr;gap:12px;padding:10px 24px}
+.view{position:relative;background:#303b35;border-radius:14px;overflow:hidden;height:60vh;min-height:350px}.view b{position:absolute;left:16px;top:12px;z-index:2}
+canvas{width:100%;height:100%;display:block}.controls{padding:8px 28px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+button,select{background:#435447;color:#fff;border:1px solid #728670;border-radius:8px;padding:8px 14px;font:inherit}
+input{width:260px}#status{font-size:13px;font-variant-numeric:tabular-nums}footer{padding:5px 28px;color:#b5beb8;font-size:13px}
+.x{color:#ff6f68}.y{color:#94db8a}.z{color:#8ab7ff}@media(max-width:700px){.views{grid-template-columns:1fr 1fr;padding:8px}.view{height:55vh;min-height:300px}header{padding:12px}}
+</style>
+<script type="importmap">{"imports":{"three":"/phone/src/main/assets/viewer3d/three/three.module.js","three/addons/":"/phone/src/main/assets/viewer3d/three/addons/"}}</script>
+<header><span class="tag">SYNTHETIC · OFFLINE DIAGNOSTIC</span><h1 id="title">손목 궤적 불러오는 중</h1>
+<p>왼손목 손등 쪽에 배치한 센서 위치와 축이야. 화면은 바깥, 케이스 뒷면은 피부 쪽을 향해. 실제 워치 착용을 실측한 값은 아니야.</p></header>
+<div class="views"><div class="view" id="wide"><b>전체 동작</b></div><div class="view" id="close"><b>왼손목 확대</b></div></div>
+<div class="controls"><button id="play">일시정지</button><label>속도 <select id="speed"><option value="1">1×</option><option value="0.5">0.5×</option></select></label>
+<label>진행 <input id="scrub" aria-label="동작 진행" type="range" min="0" max="1000" value="0"></label>
+<label>확대 시점 <select id="angle"><option value="dorsal">손등</option><option value="side">옆면</option></select></label><span id="status"></span></div>
+<footer><span class="x">X 화면 오른쪽·새끼손가락 쪽</span> · <span class="y">Y 화면 위·팔꿈치 쪽</span> · <span class="z">Z 화면 바깥·손등 쪽</span> · 노란 점: 손목 관절 중심<br><span id="qa"></span></footer>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const data = await fetch('preview.json').then(r=>{if(!r.ok)throw Error('Preview unavailable');return r.json()});
+document.querySelector('#title').textContent=data.label+' · 가상 워치';
+const carrierDeviation=data.qa.interpolated_carrier_max_deviation_mm??data.qa.interpolated_palm_max_deviation_mm;
+document.querySelector('#qa').textContent='저장 자세 '+data.acts.length+'개 대조 완료 · 보간 중 손 표면과 최대 차이 '+carrierDeviation.toFixed(3)+' mm · 실기기 정확도 검증 아님';
+const scene=new THREE.Scene();scene.background=new THREE.Color('#303b35');
+scene.add(new THREE.HemisphereLight(0xffffff,0x303030,2.2));
+const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(2,-3,4);scene.add(light);
+const geometry=new THREE.BufferGeometry();const positions=new Float32Array(data.frames[0]);
+geometry.setAttribute('position',new THREE.BufferAttribute(positions,3).setUsage(THREE.DynamicDrawUsage));geometry.setIndex(data.triangles);geometry.computeVertexNormals();
+const body=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:0xd1d0c4,roughness:.85,side:THREE.DoubleSide}));scene.add(body);
+const watch=new THREE.Group();scene.add(watch);
+const caseVisual=new THREE.Group();caseVisual.position.fromArray(data.mount.preview_watch_center_offset_device_m||[0,0,0]);watch.add(caseVisual);
+const caseMesh=new THREE.Mesh(new THREE.BoxGeometry(.034,.040,.009),new THREE.MeshStandardMaterial({color:0x152c33,roughness:.55}));caseVisual.add(caseMesh);
+const face=new THREE.Mesh(new THREE.BoxGeometry(.028,.033,.001),new THREE.MeshBasicMaterial({color:0x8bdcda}));face.position.z=.005;caseVisual.add(face);
+watch.add(new THREE.AxesHelper(.085));
+const wrist=new THREE.Mesh(new THREE.SphereGeometry(.004,12,8),new THREE.MeshBasicMaterial({color:0xffce67,depthTest:false}));wrist.renderOrder=10;scene.add(wrist);
+const renderers=[],cameras=[];
+for(const id of ['wide','close']){const host=document.getElementById(id);const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.append(renderer.domElement);renderers.push(renderer);const camera=new THREE.PerspectiveCamera(36,1,.003,30);camera.up.set(0,0,1);cameras.push(camera);}
+const controls=new OrbitControls(cameras[0],renderers[0].domElement);controls.target.set(0,-.02,1.02);cameras[0].position.set(2,-3,1.8);controls.update();
+function resize(){renderers.forEach((r,i)=>{const h=r.domElement.parentElement;r.setSize(h.clientWidth,h.clientHeight);cameras[i].aspect=h.clientWidth/h.clientHeight;cameras[i].updateProjectionMatrix()})}addEventListener('resize',resize);resize();
+let running=true,time=0,last=null,loops=0;
+const play=document.getElementById('play'),scrub=document.getElementById('scrub');
+play.onclick=()=>{running=!running;play.textContent=running?'일시정지':'재생'};
+scrub.oninput=()=>{time=Number(scrub.value)/1000*data.period_s;running=false;play.textContent='재생'};
+function phaseAt(t){let v=t/data.period_s;const half=v<.5?v*2:(1-v)*2;const eased=half<.5?2*half*half:1-2*(1-half)*(1-half);const [a,b]=data.metadata.playback_range||[0,1];return a+(b-a)*eased;}
+const qa=new THREE.Quaternion(),qb=new THREE.Quaternion(),v=new THREE.Vector3(),off=new THREE.Vector3(...data.mount.offset_watch_axes_m);
+function draw(now){requestAnimationFrame(draw);const dt=last===null?0:Math.max(0,Math.min((now-last)/1000,.1));last=now;if(running){time+=dt*Number(document.getElementById('speed').value);if(time>=data.period_s){time%=data.period_s;loops++}scrub.value=String(time/data.period_s*1000)}
+const phase=phaseAt(time);let i=0;while(i<data.acts.length-2&&data.acts[i+1]<phase)i++;const f=(phase-data.acts[i])/(data.acts[i+1]-data.acts[i]);for(let k=0;k<positions.length;k++)positions[k]=data.frames[i][k]*(1-f)+data.frames[i+1][k]*f;geometry.attributes.position.needsUpdate=true;geometry.computeVertexNormals();
+const si=time/data.period_s*(data.positions.length-1),j=Math.max(0,Math.min(Math.floor(si),data.positions.length-2)),sf=si-j;
+watch.position.fromArray(data.positions[j]).lerp(v.fromArray(data.positions[j+1]),sf);qa.fromArray(data.quaternions[j]);qb.fromArray(data.quaternions[j+1]);watch.quaternion.copy(qa.slerp(qb,sf));
+wrist.position.copy(watch.position).sub(v.copy(off).applyQuaternion(watch.quaternion));
+if(document.getElementById('angle').value==='side')v.set(.34,.06,.08);else v.set(.10,.08,.34);v.applyQuaternion(watch.quaternion);cameras[1].position.copy(watch.position).add(v);cameras[1].up.set(0,1,0).applyQuaternion(watch.quaternion);cameras[1].lookAt(watch.position);
+controls.update();renderers.forEach((r,k)=>r.render(scene,cameras[k]));
+document.getElementById('status').textContent='왕복 '+loops+'회 · '+time.toFixed(2)+' / '+data.period_s.toFixed(2)+'초 · 원본 진행 '+(phase*100).toFixed(1)+'%';}
+requestAnimationFrame(draw);
+</script>
+</html>

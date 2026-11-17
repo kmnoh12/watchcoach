@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "source_note": "projects/개인용 스마트폰·갤럭시워치 운동기록 앱 개발 계획.md",
+  "source_plan": "docs/NEXT_PLAN.md",
+  "regression_controls": ["flat_bench", "dumbbell_shoulder_press", "dumbbell_curl", "dumbbell_lateral_raise", "barbell_overhead_press"],
+  "control_evidence": {
+    "user_reported_normal": ["flat_bench", "dumbbell_shoulder_press"],
+    "synthetic_replay_only": ["dumbbell_curl", "dumbbell_lateral_raise", "barbell_overhead_press"],
+    "source": "Direct user corrections on 2026-11-16: barbell bench and dumbbell shoulder press are normal; seated row is not. This is user-reported status, not a new labeled Watch8 validation."
+  },
+  "issues": [
+    {
+      "id": "target_then_extra",
+      "priority": 0,
+      "reported_ids": ["flat_machine_bench_press", "dumbbell_pullover"],
+      "related_ids": ["machine_shoulder_press", "machine_shoulder_press_plate", "smith_shoulder_press", "smith_seated_shoulder_press", "chest_press", "machine_chest_press_plate"],
+      "source": "note sections 1, 3, 5, 14, 34; plan D (2026-10-29); latest user correction 2026-11-16 supersedes the older dumbbell-shoulder failure status",
+      "symptom": "Target 10 then stillness/putting weight down can become 11. The Nov 11 shoulder variant remains unspecified; do not assign it to dumbbell shoulder press, which the user reports normal on Nov 16, or assume another variant failed. Investigate the shared lifecycle while protecting the normal control.",
+      "hypotheses": ["partial return emitted during still tail", "rack-down interpreted as next rep", "motion/filter decay keeps candidate alive", "post-target guard/event-clock mismatch"],
+      "required": ["target_then_still", "target_then_rack_down", "target_then_two_more_valid_reps", "late_event_delivery", "cue_and_completion_separate"]
+    },
+    {
+      "id": "machine_press_direction",
+      "priority": 1,
+      "reported_ids": ["flat_machine_bench_press", "machine_chest_press_plate"],
+      "related_ids": ["chest_press", "incline_machine_chest_press_pin", "incline_machine_chest_press_plate", "flat_bench"],
+      "source": "note sections 3-5, Nov 10 re-report",
+      "symptom": "Machine bench remains inaccurate while ordinary barbell bench works; plate press poor and set 1 differs from set 2.",
+      "hypotheses": ["gravity-only translation projection misses nonvertical path", "combined feature loses low-rotation press", "start-state/profile-snapshot differences"],
+      "required": ["ordinary_tempo", "first_and_second_set", "small_wrist_rotation", "machine_arc_vs_vertical_control"]
+    },
+    {
+      "id": "fly_tempo_and_rom",
+      "priority": 1,
+      "reported_ids": ["machine_fly"],
+      "related_ids": ["cable_fly_mid", "machine_reverse_fly"],
+      "source": "note sections 6-7",
+      "symptom": "About half recognized at ordinary tempo; slower with stretch pause improves; user avoids painful full range (~80 vs 90 degrees).",
+      "hypotheses": ["single-plane arc rejected by multi-axis spread gate", "lobe duration/separation interaction", "ROM gate or feature cancellation"],
+      "required": ["ordinary_tempo_without_pause", "comfortable_rom", "out_and_return_plane_variation", "no_forced_painful_range"]
+    },
+    {
+      "id": "straight_arm_and_lat_pull",
+      "priority": 1,
+      "reported_ids": ["straight_arm_pulldown", "lat_pull_down"],
+      "related_ids": ["cable_pullover", "rope_lat_pulldown", "seated_row", "cable_seated_row"],
+      "source": "plan D (2026-10-19)",
+      "symptom": "Straight-arm/cable arm pulldown first two then no more; lat pull undercounts/mistimed vibration and handle-down can count. Exact arm-pulldown alias remains to confirm.",
+      "hypotheses": ["axis lock/reset after first cycles", "pull peak counted before return", "putting handle away closes pending cycle"],
+      "required": ["ten_continuous_reps", "return_not_pull_peak", "handle_down_null", "seated_row_unresolved_comparison"]
+    },
+    {
+      "id": "seated_row_unresolved",
+      "priority": 1,
+      "status": "UNRESOLVED",
+      "reported_ids": [],
+      "related_ids": ["seated_row", "cable_seated_row"],
+      "variant_status": "UNSPECIFIED: related IDs are investigation candidates, not separately confirmed failing variants",
+      "source": "Direct user correction 2026-11-16; plan D (2026-10-19) contains only a single correctly counted cable-row set",
+      "symptom": "User says seated row is not normal. Exact variant and undercount/overcount/timing pattern are not yet specified. The earlier correct set does not establish normal accuracy or resolution.",
+      "hypotheses": [],
+      "required": ["shared_row_path_review", "exercise_and_model_identity", "no_assumed_failure_pattern", "not_a_known_good_control"]
+    },
+    {
+      "id": "reverse_fly",
+      "priority": 1,
+      "reported_ids": ["crossover_reverse_fly"],
+      "related_ids": ["machine_reverse_fly", "single_arm_cable_reverse_fly"],
+      "source": "plan D (2026-10-29)",
+      "symptom": "Cable reverse fly recognition still needs investigation; precise failure pattern not recorded.",
+      "hypotheses": ["feature axis and planar-motion gate", "wrist orientation and limited return"],
+      "required": ["ordinary_tempo", "plane_variation", "diagnostic_not_invented_field_reproduction"]
+    },
+    {
+      "id": "pushdown_first_cycle",
+      "priority": 1,
+      "reported_ids": ["cable_pushdown"],
+      "related_ids": ["rope_extension"],
+      "source": "note section 11",
+      "symptom": "Straight-bar timing/first cycle confusing; selecting rope worked better historically despite current shared family.",
+      "hypotheses": ["stored old profile vs fresh profile", "different start pose/gate", "gravity tilt gate unsuitable for small rotation"],
+      "required": ["identical_capture_both_ids", "fresh_vs_frozen_profile", "first_return", "small_rotation"]
+    },
+    {
+      "id": "hammer_curl_plane",
+      "priority": 1,
+      "reported_ids": ["rope_hammer_curl"],
+      "related_ids": ["hammer_curl", "dumbbell_curl"],
+      "source": "note section 13",
+      "symptom": "Elbows tucked works; spread elbows fails. Current detector uses gravity tilt (departure 60 / return 20), not elbow angle.",
+      "hypotheses": ["changed bottom pose misses return cone", "changed plane reduces gravity-tilt excursion"],
+      "required": ["start_pose_variation", "plane_variation", "null_wrist_motion", "no_global_threshold_lowering"]
+    },
+    {
+      "id": "diagonal_press_review",
+      "priority": 2,
+      "reported_ids": [],
+      "related_ids": ["viking_press", "landmine_press", "landmine_shoulder_press", "single_arm_landmine_press"],
+      "source": "plan E",
+      "symptom": "Prospective geometry review, not an invented field failure: diagonal arc must not be assumed vertical.",
+      "hypotheses": ["vertical projection mismatch", "rotation/translation fusion needed"],
+      "required": ["diagonal_arc", "orientation_invariance", "benches_regression"]
+    }
+  ]
+}

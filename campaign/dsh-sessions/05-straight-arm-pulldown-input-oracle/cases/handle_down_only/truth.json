@@ -1,0 +1,38 @@
+{
+  "case_id": "handle_down_only",
+  "cycle_definition": "start position (authored phase range_[0]) -> straight-arm pull to authored phase range_[1] -> turnaround -> optional hold -> full return to range_[0]; the pull and return follow the published viewer ease, each lever segment snapped up to whole 20 ms samples",
+  "exercise_id": "straight_arm_pulldown",
+  "expected_reps": 0,
+  "handle_down": {
+    "description": "preparation at the pulled turnaround, then one monotonic non-returning set-down to the start position and stillness; no pull at all",
+    "end_ns": 3200000000,
+    "lowest_ns": 2000000000,
+    "start_ns": 1000000000
+  },
+  "model_id": "cable_tower~h=high~g=straight~p=straight_arm",
+  "noise": {
+    "acceleration_std_mps2": 0.0,
+    "enabled": false,
+    "generator": "numpy.random.default_rng(11).normal(0, std, shape)",
+    "gyro_std_radps": 0.0,
+    "physically_calibrated": false,
+    "seed": 11
+  },
+  "period_s": 2.0,
+  "pinned_local_ns": 1000000000,
+  "playback_range": [
+    0.0,
+    1.0
+  ],
+  "preparation": {
+    "end_ns": 4000000000,
+    "start_ns": 1000000000
+  },
+  "reference": "authored model phase and explicit exercise cycle only; no detector output, threshold, axis sign or peak",
+  "repetitions": [],
+  "source": "synthetic",
+  "stillness": {
+    "end_ns": 6200000000,
+    "start_ns": 3200000000
+  }
+}

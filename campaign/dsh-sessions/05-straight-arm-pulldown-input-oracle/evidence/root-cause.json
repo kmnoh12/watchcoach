@@ -1,0 +1,10 @@
+{
+ "hypothesis_tested": "with countOnReturn, the detector places the low checkpoint on the opposite (return) lobe, about one second after the real turnaround, and a 200 ms window never sees it",
+ "supporting_evidence": [
+  "routing probe (test-only) produced identical 0/0; the routing branch does not change the outcome",
+  "authored phase returns to the low position in every rep: continuum_10_clean holds the low position 36% of the moving time",
+  "detector window constants (CONFIRM_NS 300 ms, STEP_NS 100 ms) place any detection 300-400 ms after a point, so the low checkpoint can only be the next return"
+ ],
+ "status": "UNCONFIRMED",
+ "note": "not confirmed by a detector trace; no root-cause claim is made"
+}

@@ -47,7 +47,10 @@ object TrackingProfileSnapshot {
             // Recordings made before these exercises moved to the cycle-axis engine replay with their frozen engine.
             val historicalCycle = generic.family == MotionFamily.CYCLE_AXIS_RETURN &&
                 p.family in setOf(MotionFamily.PULL_RETURN, MotionFamily.MULTI_AXIS_RETURN, MotionFamily.FLEXION_EXTENSION)
-            require((p.family == generic.family && p.signal == generic.signal || historicalPress || historicalStraightBar || historicalCycle) && p.mode == generic.mode &&
+            // Pullovers captured before the learned 3D arc engine keep replaying their frozen fixed-axis detector.
+            val historicalArc = generic.family == MotionFamily.ARC_RETURN &&
+                p.family == MotionFamily.MULTI_AXIS_RETURN && p.signal == TrackingSignal.COMBINED_MOTION
+            require((p.family == generic.family && p.signal == generic.signal || historicalPress || historicalStraightBar || historicalCycle || historicalArc) && p.mode == generic.mode &&
                 p.capabilityTier == generic.capabilityTier && p.countMode == generic.countMode) {
                 "recorded profile contradicts exercise measurement policy"
             }

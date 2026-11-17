@@ -1,0 +1,55 @@
+{
+  "acts_start_end": [
+    0.0,
+    1.0
+  ],
+  "app_model_mapping": [
+    "cable_tower~h=high~g=straight~p=straight_arm"
+  ],
+  "authored_direction_check": {
+    "arm_max_extension_m": 0.23749637060801745,
+    "hand_travel_from_phase0_mm": 8.775583640821704,
+    "statement": "the authored clip already has a straight (locked) arm; phase range_[0] is one end of its travel and range_[1] the other"
+  },
+  "clip_frames": 65,
+  "exercise_id": "straight_arm_pulldown",
+  "hand_fit_max_error_mm": 5.619717569910391e-05,
+  "model_id": "cable_tower~h=high~g=straight~p=straight_arm",
+  "mount": {
+    "physically_calibrated": false,
+    "plain_language": "왼손목 손등 쪽 착용. +Z는 피부에서 바깥으로(화면이 보이는 쪽), +Y는 손목에서 팔꿈치 방향, +X는 왼손 기준 화면 오른쪽(자쪽). 손목 뼈에 딱 맞춰 고정됐다고 가정한 합성 장착이라 실제 Watch8 장착오차·부착 위치는 반영하지 않는다.",
+    "surface": "dorsal"
+  },
+  "playback_range": [
+    0.0,
+    1.0
+  ],
+  "source": "synthetic",
+  "sources": {
+    "anatomical_rest": {
+      "path": "/Users/kmnoh/Documents/Default Project/워치코치/design/exercise-figure/lowpoly-remake/gemini_job/v5_arm_rebuild/anatomical_rest.json",
+      "sha256": "3cf7bffc3ba1d8021b2c1a4d464ac3df3a881d1fe9120440af47967c7c5efea6"
+    },
+    "base": {
+      "path": "/Users/kmnoh/Library/Application Support/WatchGymViewer/v5-catalog/base.json",
+      "sha256": "45bc0697fdcde1d074c7cbf9bca4515bd014d884cb6ad62e3286ae0be594133e"
+    },
+    "clip": {
+      "path": "/Users/kmnoh/Library/Application Support/WatchGymViewer/v5-catalog/cable_tower~h=high~g=straight~p=straight_arm.json",
+      "sha256": "b56457984f36fbe438cffb67abb720a54547f52330a9814a72de2e0b94b4ec40"
+    },
+    "manifest": {
+      "path": "/Users/kmnoh/Library/Application Support/WatchGymViewer/v5-catalog/manifest.json",
+      "sha256": "ed4a578f0a2deababdb9cf6dfddc62f8654b883613505ecf885bc0da20e18a1a"
+    },
+    "viewer": {
+      "path": "/Users/kmnoh/Documents/Default Project/워치코치/tools/viewer3d/index.html",
+      "sha256": "508e0d7a578e2d3d11f34bd577a8153df2197209a897b427c51f4555d86b75a7"
+    }
+  },
+  "viewer_playback": {
+    "playback_mode": "pingpong",
+    "playback_ms": null,
+    "schedule": "start -> end -> start with the published ease()"
+  }
+}

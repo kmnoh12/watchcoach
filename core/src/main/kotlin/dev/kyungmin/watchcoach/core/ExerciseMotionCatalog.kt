@@ -60,6 +60,12 @@ object MotionFamilyTemplates {
             MotionFamily.MULTI_AXIS_RETURN, TrackingSignal.COMBINED_MOTION,
             450L, 5_000L, 550L, 0.14, 0.12, 0.07, 110L, 2_000L, 0.04,
         ),
+        // Lying pullovers sweep the watch through a curved 3D path. Reuse the observed timing/rate
+        // bounds while following a learned gyro vector instead of projecting onto one device axis.
+        MotionFamilyTemplate(
+            MotionFamily.ARC_RETURN, TrackingSignal.ROTATION_ENERGY,
+            450L, 5_000L, 550L, 0.14, 0.12, 0.07, 110L, 2_000L,
+        ),
         MotionFamilyTemplate(
             MotionFamily.FOREARM_ROTATION, TrackingSignal.FOREARM_ROTATION,
             400L, 4_500L, 400L, 0.18, 0.12, 0.22, 100L, 2_100L,
@@ -111,8 +117,8 @@ object ExerciseMotionCatalog {
         binding("incline_curl", "인클라인 컬", MotionFamily.FLEXION_EXTENSION, CapabilityTier.A_WRIST_DIRECT_AUTO),
         binding("incline_hammer_curl", "인클라인 해머 컬", MotionFamily.FLEXION_EXTENSION, CapabilityTier.A_WRIST_DIRECT_AUTO, "neutral_grip"),
         binding("dumbbell_curl", "덤벨 바이셉 컬", MotionFamily.FLEXION_EXTENSION),
-        binding("dumbbell_pullover", "덤벨 풀오버", MotionFamily.MULTI_AXIS_RETURN),
-        binding("barbell_pullover", "라잉 바벨 풀오버", MotionFamily.MULTI_AXIS_RETURN),
+        binding("dumbbell_pullover", "덤벨 풀오버", MotionFamily.ARC_RETURN),
+        binding("barbell_pullover", "라잉 바벨 풀오버", MotionFamily.ARC_RETURN),
         binding("flat_bench", "플랫 벤치프레스", MotionFamily.TRANSLATION_PRESS_RETURN, grip = "same_grip_width"),
         binding("incline_bench", "인클라인 벤치프레스", MotionFamily.TRANSLATION_PRESS_RETURN, grip = "same_grip_width"),
         binding("chest_press", "체스트프레스", MotionFamily.PRESS_RETURN),

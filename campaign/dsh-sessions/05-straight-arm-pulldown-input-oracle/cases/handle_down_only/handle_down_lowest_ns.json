@@ -1,0 +1,5 @@
+{
+  "case_id": "handle_down_only",
+  "exercise_id": "straight_arm_pulldown",
+  "handle_down_lowest_ns": 2000000000
+}

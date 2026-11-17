@@ -1,0 +1,10 @@
+{
+  "cases": [
+    "continuous_10_clean",
+    "continuous_10_tempo_variation",
+    "return_boundary_hold",
+    "ten_then_handle_down",
+    "handle_down_only"
+  ],
+  "exercise_id": "straight_arm_pulldown"
+}

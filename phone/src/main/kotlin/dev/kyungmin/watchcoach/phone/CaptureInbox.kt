@@ -170,6 +170,45 @@ class CaptureInbox(
         compressedCount
     }
 
+    /**
+     * One-touch export of every stored raw capture, grouped by date. Raw bytes are copied as stored (decompressed, never
+     * re-encoded or validated away), so a capture whose analysis failed is still exported. Returns how many were written.
+     */
+    fun exportAll(output: java.io.OutputStream): Int = synchronized(lock) {
+        val ids = prefs.all.keys.filter { it.startsWith("capture:") && it.endsWith(":path") }
+            .map { it.removePrefix("capture:").removeSuffix(":path") }
+            .sortedBy { prefs.getLong(receivedAtKey(it), 0L) }
+        val zone = java.time.ZoneId.systemDefault()
+        val index = org.json.JSONArray()
+        var written = 0
+        java.util.zip.ZipOutputStream(output).use { zip ->
+            ids.forEach { id ->
+                val item = JSONObject().put("captureId", id)
+                runCatching {
+                    val manifest = WireCodec.decode(prefs.getString(manifestKey(id), null) ?: error("missing manifest"))
+                    val receivedAt = prefs.getLong(receivedAtKey(id), 0L).takeIf { it > 0L } ?: manifest.sentAtWallMs
+                    val time = java.time.Instant.ofEpochMilli(receivedAt).atZone(zone)
+                    val exercise = manifest.payload[WirePayloadKeys.EXERCISE_ID].orEmpty().ifBlank { "unknown" }
+                        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                    val folder = "${time.toLocalDate()}/${"%02d%02d%02d".format(time.hour, time.minute, time.second)}_${exercise}_set${manifest.payload[WirePayloadKeys.SET_INDEX].orEmpty()}_${id.takeLast(8)}"
+                    val bytes = readCaptureBytes(captureFile(id))
+                    zip.putNextEntry(java.util.zip.ZipEntry("$folder/capture.kcs")); zip.write(bytes); zip.closeEntry()
+                    val info = JSONObject().put("captureId", id).put("receivedAtMs", receivedAt).put("sessionId", manifest.sessionId)
+                        .put("exerciseSessionId", manifest.exerciseSessionId).put("setId", manifest.setId)
+                        .put("state", state(id)?.name).put("payload", JSONObject(manifest.payload as Map<*, *>))
+                    zip.putNextEntry(java.util.zip.ZipEntry("$folder/manifest.json")); zip.write(info.toString(2).toByteArray(Charsets.UTF_8)); zip.closeEntry()
+                    item.put("folder", folder); written++
+                }.onFailure { item.put("error", it.message ?: it.javaClass.simpleName) }
+                index.put(item)
+            }
+            zip.putNextEntry(java.util.zip.ZipEntry("index.json"))
+            zip.write(JSONObject().put("exportedAtMs", System.currentTimeMillis()).put("total", ids.size).put("exported", written)
+                .put("captures", index).toString(2).toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+        }
+        written
+    }
+
     fun storageReport(): JSONObject = synchronized(lock) {
         val ids = prefs.all.keys.filter { it.startsWith("capture:") && it.endsWith(":path") }
             .map { it.removePrefix("capture:").removeSuffix(":path") }

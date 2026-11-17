@@ -57,6 +57,26 @@ class CaptureStorageTest {
         assertEquals(raw.manifest, pending.manifest)
         assertEquals("saved", prefs.getString("analysis:again", null))
     }
+    @Test fun exportAllZipsEveryCaptureByDateIncludingCompressedAndFailedOnes() {
+        val inbox = CaptureInbox(app, prefs)
+        val a = receive("export-a"); receive("export-b")
+        inbox.markAnalysisAttempted("export-a", true)
+        prefs.edit().putBoolean("capture:export-a:acked", true).putString("analysis:export-a", "saved").commit()
+        inbox.compressSuccessfulCaptures()
+        val out = ByteArrayOutputStream()
+        assertEquals(2, inbox.exportAll(out))
+        val entries = java.util.zip.ZipInputStream(out.toByteArray().inputStream()).use { zip ->
+            generateSequence { zip.nextEntry }.associate { it.name to zip.readBytes() }
+        }
+        assertTrue("index.json" in entries)
+        val kcs = entries.filterKeys { it.endsWith("capture.kcs") }
+        assertEquals(2, kcs.size)
+        assertTrue(kcs.keys.all { Regex("\\d{4}-\\d{2}-\\d{2}/.+_external_rotation_set.*/capture.kcs").matches(it) })
+        assertEquals(500, SensorCaptureFormat.read(kcs.values.first().inputStream()).records.size)
+        assertEquals(2, entries.keys.count { it.endsWith("manifest.json") })
+        assertNotNull(a)
+    }
+
     @Test fun reusedCaptureIdCannotDestroyAValidOriginal() {
         val raw = receive("immutable"); val original = raw.rawFile.readBytes()
         val altered = raw.manifest.copy(sessionId = "different")

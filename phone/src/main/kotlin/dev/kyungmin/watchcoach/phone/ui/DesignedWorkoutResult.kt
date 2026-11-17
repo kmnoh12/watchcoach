@@ -75,7 +75,7 @@ internal const val ResultCameraControls = 120
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () -> Unit,
-    estimated: List<Pair<String, Int>>, confirm: (Int, Int) -> Unit, onMenu: (() -> Unit)? = null) {
+    onMenu: (() -> Unit)? = null) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()

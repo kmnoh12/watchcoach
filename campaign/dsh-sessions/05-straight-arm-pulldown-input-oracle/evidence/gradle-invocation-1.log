@@ -1,0 +1,562 @@
+
+===== baseline =====
+
+> Configure project :phone
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+
+> Task :core:compileTestKotlin
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:98:27 Unresolved reference 'parseCapture'.
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:99:47 Unresolved reference 'it'.
+
+> Task :core:compileTestKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:compileTestKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 4s
+3 actionable tasks: 1 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+
+> Task :core:compileTestKotlin FAILED
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:98:27 Unresolved reference 'parseCapture'.
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:99:47 Unresolved reference 'it'.
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:158:6 Syntax error: Missing '}.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:compileTestKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1s
+3 actionable tasks: 1 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+
+> Task :core:compileTestKotlin FAILED
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:22:50 Unresolved reference 'parseCapture'.
+e: file:///Users/kmnoh/Documents/Default%20Project/%E1%84%8B%E1%85%AF%E1%84%8E%E1%85%B5%E1%84%8F%E1%85%A9%E1%84%8E%E1%85%B5/core/src/test/kotlin/dev/kyungmin/watchcoach/core/VirtualWatchStraightArmPulldownTest.kt:22:107 Unresolved reference 'it'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:compileTestKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1s
+3 actionable tasks: 1 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:63
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 2s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.nio.BufferUnderflowException at VirtualWatchStraightArmPulldownTest.kt:63
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:62
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:66
+        Caused by: java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:64
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:68
+        Caused by: java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:66
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:64
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:compileTestKotlin UP-TO-DATE
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:64
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 854ms
+4 actionable tasks: 1 executed, 3 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:compileTestKotlin UP-TO-DATE
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:64
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 842ms
+4 actionable tasks: 1 executed, 3 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.nio.BufferUnderflowException at VirtualWatchStraightArmPulldownTest.kt:64
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:65
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:77
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:78
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:78
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+
+> Task :core:test FAILED
+
+VirtualWatchStraightArmPulldownTest > replayConfiguredStraightArmPulldownCasesWithProductionDetector() FAILED
+    java.lang.IllegalArgumentException at VirtualWatchStraightArmPulldownTest.kt:80
+
+1 test completed, 1 failed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///Users/kmnoh/Documents/Default%20Project/%EC%9B%8C%EC%B9%98%EC%BD%94%EC%B9%98/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:compileTestKotlin
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+> Task :core:test
+
+BUILD SUCCESSFUL in 1s
+4 actionable tasks: 2 executed, 2 up-to-date
+
+===== baseline =====
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlin UP-TO-DATE
+> Task :core:compileJava NO-SOURCE
+> Task :core:processResources NO-SOURCE
+> Task :core:classes UP-TO-DATE
+> Task :core:jar UP-TO-DATE
+> Task :core:compileTestKotlin UP-TO-DATE
+> Task :core:compileTestJava NO-SOURCE
+> Task :core:processTestResources NO-SOURCE
+> Task :core:testClasses UP-TO-DATE
+> Task :core:test UP-TO-DATE
+
+BUILD SUCCESSFUL in 717ms
+4 actionable tasks: 4 up-to-date

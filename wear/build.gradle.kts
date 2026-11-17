@@ -36,8 +36,8 @@ android {
         applicationId = "dev.kyungmin.watchcoach"
         minSdk = 30
         targetSdk = 35
-        versionCode = 57
-        versionName = "0.2.21"
+        versionCode = 58
+        versionName = "0.2.22"
         buildConfigField(
             "String",
             "UPDATE_MANIFEST_URL",

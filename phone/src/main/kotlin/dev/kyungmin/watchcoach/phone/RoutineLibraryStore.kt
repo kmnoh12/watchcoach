@@ -100,9 +100,7 @@ internal class RoutineLibraryStore(
                                 identityRequired = set.getBoolean("identityRequired"),
                                 targetDurationSeconds = if (set.isNull("targetDurationSeconds")) null else set.getInt("targetDurationSeconds"),
                             )
-                        }.toMutableList(), item.getInt("restSeconds")).also {
-                            if (it.restSeconds == 90) it.restSeconds = ExerciseDefaults.restSeconds(it.exercise)
-                        }
+                        }.toMutableList(), item.getInt("restSeconds"))
                 }.toMutableList(),
                 if (routine.isNull("lastPerformedEpochDay")) null else routine.getLong("lastPerformedEpochDay"),
             )

@@ -1077,7 +1077,7 @@ class MainActivity : ComponentActivity() {
         return loadFinishedWorkoutResult(evidence.snapshot.sessionId)
     }
 
-    /** Three-dot menu of a finished record, shared by the records list and the result screen. */
+    /** Three-dot menu of a finished record in the records list. */
     private fun showRecordMenu(record: WorkoutRecord, afterChange: () -> Unit) {
         showSheet { dismiss ->
             RecordMenuSheet(
@@ -1277,27 +1277,24 @@ class MainActivity : ComponentActivity() {
             footnote = "반복 시간은 워치 움직임을 기준으로 계산합니다.",
             sessionId = result.sessionId,
         )
-        val editableSets = FinishedWorkoutStore(this).evidenceForSessions(setOf(result.sessionId)).singleOrNull()
-            ?.snapshot?.plannedSets?.filter { it.completed && (it.unilateral?.stage == dev.kyungmin.watchcoach.core.UnilateralStage.BOTH_COMPLETE || it.repSource == SetRepSource.ESTIMATED) }.orEmpty()
         showStandalone(ComposeView(this).apply {
-            setContent { WorkoutResultScreen(ui, back = { onBackPressed() }, toRecords = { recordMonth = YearMonth.now(); showRecords() },
-                summary = { dev.kyungmin.watchcoach.phone.ui.WorkoutSummaryPanel(result.sessionId) },
-                onMenu = {
-                    val record = workoutRecords().firstOrNull { it.sessionId == result.sessionId }
-                        ?: WorkoutRecord(LocalDate.now().toString(), result.title, result.durationMinutes, result.completedSets, 0, result.sessionId)
-                    showRecordMenu(record) {
-                        if (loadFinishedWorkoutResult(result.sessionId) != null) showWorkoutResult(loadFinishedWorkoutResult(result.sessionId)) else showRecords()
-                    }
-                },
-                editableSets = editableSets.map { "${it.exerciseName} · ${it.setIndex + 1}세트" +
-                    (if (it.unilateral?.stage == dev.kyungmin.watchcoach.core.UnilateralStage.BOTH_COMPLETE) " · 반대손" else "") to requireNotNull(it.unilateral?.otherReps ?: it.performedReps) },
-                confirmReps = { index, reps ->
-                    val set = editableSets[index]
-                    if (FinishedWorkoutStore(this@MainActivity).confirmOther(result.sessionId, set.setId, set.attemptId, reps)) {
-                        this@MainActivity.historyCache = null
-                        showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
-                    }
-                }) }
+            setContent {
+                WorkoutResultScreen(
+                    ui, back = { onBackPressed() }, toRecords = { recordMonth = YearMonth.now(); showRecords() },
+                    onMenu = {
+                        val record = workoutRecords().firstOrNull { it.sessionId == result.sessionId }
+                            ?: WorkoutRecord(LocalDate.now().toString(), result.title, result.durationMinutes, result.completedSets, 0, result.sessionId)
+                        showSheet { dismiss ->
+                            RecordMenuSheet(result.title, listOf(RecordMenuItem("수정하기"))) {
+                                dismiss()
+                                showRecordEditor(record) {
+                                    showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
+                                }
+                            }
+                        }
+                    },
+                )
+            }
         })
         visibleWorkoutResultSessionId = result.sessionId
     }
@@ -1944,7 +1941,8 @@ class MainActivity : ComponentActivity() {
 
     private fun newRoutineExercise(exercise: ExerciseDefinition): RoutineExercise =
         ExerciseDefaults.newExercise(exercise, UserProfileStore(this).deviceProfile()?.profile,
-            ExerciseHistoryStore(this).load().all)
+            ExerciseHistoryStore(this).load().all,
+            DefaultRestSetting.seconds(this, ExerciseDefaults.restGroup(exercise)))
 
     private fun prefillProgression(routine: WorkoutRoutine) {
         ProgressionPlanStore(this).prefill(routine)
@@ -2373,7 +2371,7 @@ class MainActivity : ComponentActivity() {
                 "이 세트 뒤 휴식",
                 selected = set.restSeconds?.let { "${it}초" } ?: "기본값",
                 items = listOf("기본값" to "운동 기본 휴식 ${routineExercise.restSeconds}초") +
-                    listOf(30, 45, 60, 90, 120, 150, 180).map { "${it}초" to "" },
+                    DefaultRestSetting.choices.map { "${it}초" to "" },
             ) { value ->
                 val workout = workout() ?: return@showChoiceSheet
                 val seconds = value.removeSuffix("초").toIntOrNull()

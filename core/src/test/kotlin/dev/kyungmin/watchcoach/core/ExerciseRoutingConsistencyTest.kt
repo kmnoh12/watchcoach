@@ -5,6 +5,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ExerciseRoutingConsistencyTest {
+    @Test fun lyingPulloversUseLearnedArcWithoutChangingFlyRouting() {
+        listOf("dumbbell_pullover", "barbell_pullover").forEach {
+            assertEquals(MotionFamily.ARC_RETURN, ExerciseTrackingProfiles.resolve(it).family, it)
+        }
+        listOf("machine_fly", "machine_reverse_fly", "cuban_press").forEach {
+            assertEquals(MotionFamily.MULTI_AXIS_RETURN, ExerciseTrackingProfiles.resolve(it).family, it)
+        }
+    }
+
     @Test fun benchPressesUseTheTranslationFamilyRegardlessOfEquipment() {
         listOf(
             "flat_bench", "incline_bench", "dumbbell_bench", "decline_barbell_bench_press",

@@ -1,0 +1,25 @@
+import sys, math
+sys.path.insert(0, ".")
+import importlib.util
+spec = importlib.util.spec_from_file_location("g", "tools/gen_virtual_watch_straight_arm_pulldown_05b.py")
+g = importlib.util.module_from_spec(spec)
+sys.modules["g"] = g
+spec.loader.exec_module(g)
+base = g.json.loads(g.BASE_JSON.read_text())
+clip = g.json.loads(g.CLIP_JSON.read_text())
+viewer = g.VIEWER_HTML.read_text()
+src = g.Source(base, clip, viewer, {})
+print("selected", src.selected_mesh_vertices, src.selected_weights)
+print("anchor", [round(x,4) for x in src.anchor], "rest palm center", [round(x,4) for x in src.rest_palm_center])
+print("G_h0", [[round(x,3) for x in r] for r in src.G_h0])
+print("B", [[round(x,3) for x in r] for r in src.B])
+print("dorsal dot chest", round(src.dorsal_dot_chest,3), "dot up", round(src.dorsal_dot_up,3))
+print("upper", round(src.upper_len,4), "fore", round(src.fore_len,4))
+an = g.analyse(src)
+print("trajectory", {k: (round(v,4) if isinstance(v,float) else v) for k,v in an["trajectory"].items()})
+print("turnaround", round(an["turnaround"]["rotation_from_start_deg"],2), round(an["turnaround"]["translation_from_start_m"],4))
+print("full return", an["full_return"])
+print("authored end", {k: round(v,4) for k,v in an["authored_clip_end"].items()})
+print("fwd turns", round(an["watch_forward_axis_turns"]["angle_deg"],2))
+for r in an["rows"][::8]:
+    print({k: (round(v,3) if isinstance(v,float) else v) for k,v in r.items()})

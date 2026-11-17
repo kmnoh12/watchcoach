@@ -150,7 +150,7 @@ function setAct(a) { act = a; for (const m of shown) { pose(m, a); poseHuman(m, 
 const flatBox = new THREE.Box3();
 function isFlat(mesh) { return flatBox.setFromObject(mesh).getSize(new THREE.Vector3()).z < 0.08; }
 let framedPerson = false;   // true when the person alone sets the frame: then the camera can sit closer
-function bounds() {
+function bounds(spec = {}) {
   const full = new THREE.Box3(), person = new THREE.Box3(), keep = act;
   for (const a of [0, .25, .5, .75, 1]) {   // frame the whole rep, not only the start pose
     for (const m of shown) { pose(m, a); poseHuman(m, a); if (m.human) m.human.geom.computeBoundingBox(); }   // bounds are cached per geometry: refresh for every sampled pose
@@ -164,9 +164,9 @@ function bounds() {
   if (person.isEmpty()) return full;
   // The person is the subject. A machine that dwarfs them is cropped to the area around the person instead of shrinking them.
   const fullSize = full.getSize(new THREE.Vector3()).length(), personSize = person.getSize(new THREE.Vector3()).length();
-  framedPerson = fullSize > personSize * FRAME_MACHINE_RATIO;
+  framedPerson = spec.focus === "person" || fullSize > personSize * FRAME_MACHINE_RATIO;
   if (!framedPerson) return full;
-  return person.clone().expandByVector(person.getSize(new THREE.Vector3()).multiplyScalar(FRAME_PERSON_PAD));
+  return person.clone().expandByVector(person.getSize(new THREE.Vector3()).multiplyScalar(spec.pad ?? FRAME_PERSON_PAD));
 }
 
 // ---------- first view: read the frame-zero mesh, never alter the human pose ----------
@@ -233,7 +233,8 @@ function qViewDir(human, spec = {}, view = null) {
   const points = personPoints(), blockers = [];
   for (const m of shown) m.group.traverse(o => { if (o.isMesh && o !== human.mesh) blockers.push(o); });
   const ray = new THREE.Raycaster(); let best = null;
-  for (const sign of [1, -1]) for (const turn of [0, 20, -20, 40, -40]) {
+  const turns = spec.lockYaw ? [0] : [0, 20, -20, 40, -40];
+  for (const sign of [1, -1]) for (const turn of turns) {
     const d = sideDir(sign, turn); if (!d) continue;
     const eye = view.center.clone().addScaledVector(d, view.distance);
     let hidden = 0;
@@ -298,15 +299,19 @@ function camSpec() {
   const q = new URLSearchParams(location.search), spec = { ...(camViews[EX] || {}) };   // ?yaw=&elev= override for trying angles
   if (q.has("yaw")) spec.yaw = +q.get("yaw");
   if (q.has("elev")) spec.elev = +q.get("elev");
+  if (q.has("zoom")) spec.zoom = +q.get("zoom");
+  if (q.has("focus")) spec.focus = q.get("focus");
+  if (q.has("lockYaw")) spec.lockYaw = q.get("lockYaw") !== "0";
   return spec;
 }
 function setView() {
   if (!shown.length) return;
-  const b = bounds(), c = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3()).length();
+  const spec = camSpec();
+  const b = bounds(spec), c = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3()).length();
   const cableFront = shown.some(m => /^(cable_|functional_|lat_pulldown|high_pulley)/.test(m.name));   // handles are on the -Y side of cable stations
   const human = shown.length === 1 && shown[0].humanMesh ? { mesh: shown[0].humanMesh, human: shown[0].human } : null;   // the person decides the first view when there is a fit for this machine
-  const distance = size * (framedPerson ? 1.12 : 1.25);
-  const dir = qViewDir(human, camSpec(), { center: c, distance }) || [0.9, cableFront ? -0.8 : 0.8, 0.45];
+  const distance = size * (framedPerson ? 1.12 : 1.25) / (spec.zoom || 1);
+  const dir = qViewDir(human, spec, { center: c, distance }) || [0.9, cableFront ? -0.8 : 0.8, 0.45];
   camera.position.copy(c).add(new THREE.Vector3(...dir).normalize().multiplyScalar(distance));
   controls.target.copy(c); controls.update();
 }

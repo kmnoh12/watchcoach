@@ -9,15 +9,32 @@ class ExerciseDefaultsTest {
     private fun exercise(pattern: String, equipment: String = "머신") =
         ExerciseDefinition("test", "테스트", "", "", equipment, pattern = pattern)
 
-    @Test fun restUsesAllSpecifiedPatternsAndUnknownFallsBackToIsolation() {
-        for (pattern in listOf("chest_press", "row", "vertical_pull", "shoulder_press", "squat", "hinge",
-            "leg_press", "push_up", "dip", "hip", "pullover")) {
-            assertEquals(120, RoutineExercise(exercise(pattern), mutableListOf()).restSeconds)
+    @Test fun defaultRestFollowsBodyCategory() {
+        val expectedByExercise = mapOf(
+            "leg_extension" to 120,
+            "flat_bench" to 120,
+            "pull_up" to 120,
+            "dumbbell_shoulder_press" to 90,
+            "dumbbell_triceps_extension" to 90,
+            "plank" to 90,
+        )
+        for ((id, seconds) in expectedByExercise) {
+            val definition = WorkoutData.catalog.single { it.id == id }
+            assertEquals(id, seconds, RoutineExercise(definition, mutableListOf()).restSeconds)
+            assertEquals(id, seconds, ExerciseDefaults.newExercise(definition).restSeconds)
         }
-        for (pattern in listOf("curl", "triceps_extension", "triceps_pushdown", "lateral_raise", "front_raise",
-            "rear_delt", "chest_fly", "shrug", "leg_extension", "leg_curl", "sit_up", "rotation", "", "unknown")) {
-            assertEquals(105, ExerciseDefaults.newExercise(exercise(pattern)).restSeconds)
-        }
+        assertEquals(90, ExerciseDefaults.restSeconds(exercise("unknown")))
+    }
+
+    @Test fun customRestAppliesOnlyBeforeFirstCompletedSet() {
+        val definition = WorkoutData.catalog.single { it.id == "leg_extension" }
+        val incomplete = ExerciseLog(definition.id, 1, listOf(LoggedSet(20.0, 0, completed = false)))
+        val completed = ExerciseLog(definition.id, 2, listOf(LoggedSet(20.0, 10)))
+        val otherExercise = completed.copy(exerciseId = "pull_up")
+        assertEquals(150, ExerciseDefaults.newExercise(definition, history = listOf(incomplete, otherExercise),
+            firstWorkoutRestSeconds = 150).restSeconds)
+        assertEquals(120, ExerciseDefaults.newExercise(definition, history = listOf(completed),
+            firstWorkoutRestSeconds = 150).restSeconds)
     }
 
     @Test fun estimatesDependOnEquipmentPatternAndAvailableProfileFields() {
@@ -61,7 +78,7 @@ class ExerciseDefaultsTest {
             ExerciseLog("test", 2, listOf(LoggedSet(35.0, 10), LoggedSet(54.0, 0, completed = false)), startedAtMs = 1, equipment = "머신"),
             ExerciseLog("test", 2, listOf(LoggedSet(45.0, 10), LoggedSet(10.0, 10, isWarmup = true)), startedAtMs = 2, equipment = "머신"),
             ExerciseLog("test", 3, listOf(LoggedSet(99.0, 10)), equipment = "바벨"))
-        val item = ExerciseDefaults.newExercise(exercise("row"), WorkoutProfile(gender = "FEMALE"), logs)
+        val item = ExerciseDefaults.newExercise(exercise("row").copy(bodyCategory = "등"), WorkoutProfile(gender = "FEMALE"), logs)
         assertEquals(45.0, item.sets.single().weightKg!!, 0.0)
         assertEquals(10, item.sets.single().targetReps)
         assertEquals(120, item.restSeconds)

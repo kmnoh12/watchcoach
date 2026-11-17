@@ -51,13 +51,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.kyungmin.watchcoach.core.ProgressionSettings
 import dev.kyungmin.watchcoach.core.ProgressionSpeed
+import dev.kyungmin.watchcoach.phone.RestMuscleGroup
 import kotlin.math.roundToInt
 
 class SettingsActions(val back: () -> Unit, val profile: () -> Unit = {}, val tempo: () -> Unit = {}, val posture: () -> Unit = {},
-    val diagnostics: () -> Unit = {})
+    val diagnostics: () -> Unit = {}, val sensorLogs: () -> Unit = {})
 
 @Composable
-fun SettingsScreen(
+internal fun SettingsScreen(
     actions: SettingsActions,
     progression: ProgressionSettings = ProgressionSettings(),
     personalization: Boolean = true,
@@ -66,6 +67,8 @@ fun SettingsScreen(
     onOneArmOnlyChange: (Boolean) -> Unit = {},
     manualAutoFinish: Boolean = true,
     onManualAutoFinishChange: (Boolean) -> Unit = {},
+    restSeconds: Map<RestMuscleGroup, Int> = emptyMap(),
+    onRestClick: (RestMuscleGroup) -> Unit = {},
     onProgressionChange: (ProgressionSettings) -> Unit = {},
 ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = KColors.Accent, onPrimary = KColors.OnAccent,
@@ -77,6 +80,8 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(28.dp))
             ProgressionSection(progression, onProgressionChange)
+            Spacer(Modifier.height(16.dp))
+            DefaultRestSection(restSeconds, onRestClick)
             Spacer(Modifier.height(16.dp))
             PersonalizationSection(personalization, onPersonalizationChange)
             Spacer(Modifier.height(16.dp))
@@ -93,11 +98,34 @@ fun SettingsScreen(
                 Text("오류 기록 저장", color = KColors.White)
             }
             Text("앱 종료 원인 확인용 ZIP 파일 저장. 저장한 파일을 채팅에 첨부해 주세요.", color = KColors.Muted, fontSize = 13.sp)
+            Spacer(Modifier.height(24.dp))
+            OutlinedButton(onClick = actions.sensorLogs, modifier = Modifier.fillMaxWidth().height(50.dp), shape = KShape.Control) {
+                Text("센서 기록 전체 저장", color = KColors.White)
+            }
+            Text("지금까지 폰에 쌓인 워치 센서 원본을 날짜별 폴더로 묶어 ZIP으로 저장합니다. 저장한 파일을 채팅에 첨부해 주세요.", color = KColors.Muted, fontSize = 13.sp)
         }
     }
 }
 
 private val GROUP_BORDER = Color(0xFF3A3D41)
+
+@Composable
+private fun DefaultRestSection(seconds: Map<RestMuscleGroup, Int>, onClick: (RestMuscleGroup) -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(KShape.Panel).border(0.5.dp, GROUP_BORDER, KShape.Panel).padding(16.dp)) {
+        Text("기본 휴식 시간", color = KColors.White, fontSize = 16.sp)
+        Text("아직 수행 기록이 없는 운동을 추가할 때 적용", color = KColors.Soft, fontSize = 12.sp)
+        Spacer(Modifier.height(8.dp))
+        RestMuscleGroup.entries.forEach { group ->
+            Row(
+                Modifier.fillMaxWidth().height(44.dp).pressable { onClick(group) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(group.label, color = KColors.White, modifier = Modifier.weight(1f))
+                Text("${seconds[group] ?: group.defaultSeconds}초", color = KColors.Accent)
+            }
+        }
+    }
+}
 
 @Composable
 private fun PersonalizationSection(enabled: Boolean, onChange: (Boolean) -> Unit) {

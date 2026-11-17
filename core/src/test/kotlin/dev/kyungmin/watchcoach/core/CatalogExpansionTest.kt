@@ -9,7 +9,7 @@ class CatalogExpansionTest {
     @Test fun barbellPulloverSharesDumbbellMeasurementAndCameraRouting() {
         val dumbbell = ExerciseTrackingProfiles.resolve("dumbbell_pullover")
         val barbell = ExerciseTrackingProfiles.resolve("barbell_pullover")
-        assertEquals(MotionFamily.MULTI_AXIS_RETURN, barbell.family)
+        assertEquals(MotionFamily.ARC_RETURN, barbell.family)
         assertEquals(dumbbell, barbell.copy(exerciseId = dumbbell.exerciseId, label = dumbbell.label))
         val contract = ExerciseMeasurementContracts.resolve("barbell_pullover")
         assertEquals(MeasurementRecipe.PULLOVER, contract.recipe)

@@ -1,0 +1,164 @@
+{
+  "case_id": "continuous_10_tempo_variation",
+  "cycle_definition": "start position (authored phase range_[0]) -> straight-arm pull to authored phase range_[1] -> turnaround -> optional hold -> full return to range_[0]; the pull and return follow the published viewer ease, each lever segment snapped up to whole 20 ms samples",
+  "exercise_id": "straight_arm_pulldown",
+  "expected_reps": 10,
+  "handle_down": null,
+  "model_id": "cable_tower~h=high~g=straight~p=straight_arm",
+  "noise": {
+    "acceleration_std_mps2": 0.35,
+    "enabled": true,
+    "generator": "numpy.random.default_rng(11).normal(0, std, shape)",
+    "gyro_std_radps": 0.015,
+    "physically_calibrated": false,
+    "seed": 11
+  },
+  "period_s": 1.9920000000000002,
+  "pinned_local_ns": 1000000000,
+  "playback_range": [
+    0.0,
+    1.0
+  ],
+  "preparation": {
+    "end_ns": 4000000000,
+    "start_ns": 1000000000
+  },
+  "reference": "authored model phase and explicit exercise cycle only; no detector output, threshold, axis sign or peak",
+  "repetitions": [
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 1920000000,
+      "hold_s": 0.0,
+      "index": 1,
+      "pull_s": 0.92,
+      "pull_start_ns": 1000000000,
+      "return_end_ns": 2860000000,
+      "return_s": 0.94,
+      "start_ns": 1000000000,
+      "turnaround_ns": 1920000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 3860000000,
+      "hold_s": 0.0,
+      "index": 2,
+      "pull_s": 1.0,
+      "pull_start_ns": 2860000000,
+      "return_end_ns": 4920000000,
+      "return_s": 1.06,
+      "start_ns": 2860000000,
+      "turnaround_ns": 3860000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 6000000000,
+      "hold_s": 0.0,
+      "index": 3,
+      "pull_s": 1.08,
+      "pull_start_ns": 4920000000,
+      "return_end_ns": 6940000000,
+      "return_s": 0.94,
+      "start_ns": 4920000000,
+      "turnaround_ns": 6000000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 7860000000,
+      "hold_s": 0.0,
+      "index": 4,
+      "pull_s": 0.92,
+      "pull_start_ns": 6940000000,
+      "return_end_ns": 8920000000,
+      "return_s": 1.06,
+      "start_ns": 6940000000,
+      "turnaround_ns": 7860000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 9920000000,
+      "hold_s": 0.0,
+      "index": 5,
+      "pull_s": 1.0,
+      "pull_start_ns": 8920000000,
+      "return_end_ns": 10860000000,
+      "return_s": 0.94,
+      "start_ns": 8920000000,
+      "turnaround_ns": 9920000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 11940000000,
+      "hold_s": 0.0,
+      "index": 6,
+      "pull_s": 1.08,
+      "pull_start_ns": 10860000000,
+      "return_end_ns": 13000000000,
+      "return_s": 1.06,
+      "start_ns": 10860000000,
+      "turnaround_ns": 11940000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 13920000000,
+      "hold_s": 0.0,
+      "index": 7,
+      "pull_s": 0.92,
+      "pull_start_ns": 13000000000,
+      "return_end_ns": 14860000000,
+      "return_s": 0.94,
+      "start_ns": 13000000000,
+      "turnaround_ns": 13920000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 15860000000,
+      "hold_s": 0.0,
+      "index": 8,
+      "pull_s": 1.0,
+      "pull_start_ns": 14860000000,
+      "return_end_ns": 16920000000,
+      "return_s": 1.06,
+      "start_ns": 14860000000,
+      "turnaround_ns": 15860000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 18000000000,
+      "hold_s": 0.0,
+      "index": 9,
+      "pull_s": 1.08,
+      "pull_start_ns": 16920000000,
+      "return_end_ns": 18940000000,
+      "return_s": 0.94,
+      "start_ns": 16920000000,
+      "turnaround_ns": 18000000000
+    },
+    {
+      "amplitude": 1.0,
+      "authored_phase_at_turnaround": 1.0,
+      "hold_end_ns": 19860000000,
+      "hold_s": 0.0,
+      "index": 10,
+      "pull_s": 0.92,
+      "pull_start_ns": 18940000000,
+      "return_end_ns": 20920000000,
+      "return_s": 1.06,
+      "start_ns": 18940000000,
+      "turnaround_ns": 19860000000
+    }
+  ],
+  "source": "synthetic",
+  "stillness": {
+    "end_ns": 24420000000,
+    "start_ns": 21420000000
+  }
+}

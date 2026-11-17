@@ -245,15 +245,6 @@ class ScreenshotTest {
     }
 
     @Test
-    fun swipeRevealOpen() = shot("swipe_open") {
-        androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.background(KColors.Bg).padding(16.dp)) {
-            SwipeRevealDelete(enabled = true, onDelete = {}) {
-                androidx.compose.material3.Text("세트 행", color = KColors.White, modifier = androidx.compose.ui.Modifier.fillMaxWidth().height(64.dp).background(KColors.Surface))
-            }
-        }
-    }
-
-    @Test
     fun sheetSet() = overlayShot("sheet_set", true) {
         fun seg(vararg labels: String, selected: Int) = labels.mapIndexed { i, l -> SegOption(l, i == selected) {} }
         SetSheet(

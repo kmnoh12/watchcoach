@@ -61,6 +61,22 @@ class TrackingProfileSnapshotTest {
         assertEquals(personal, TrackingProfileSnapshot.decode(TrackingProfileSnapshot.encode(personal)))
     }
 
+    @Test fun `old pullover snapshots replay fixed axis while new captures use learned arc engine`() {
+        for (exerciseId in listOf("dumbbell_pullover", "barbell_pullover")) {
+            val current = ExerciseTrackingProfiles.resolve(exerciseId)
+            assertEquals(MotionFamily.ARC_RETURN, current.family, exerciseId)
+            assertEquals("arc-return-family-v1", current.id, exerciseId)
+            for (version in listOf("v3", "v4")) {
+                val old = current.copy(
+                    family = MotionFamily.MULTI_AXIS_RETURN,
+                    signal = TrackingSignal.COMBINED_MOTION,
+                    id = "multi-axis-return-family-$version",
+                )
+                assertEquals(old, TrackingProfileSnapshot.decode(TrackingProfileSnapshot.encode(old)), exerciseId)
+            }
+        }
+    }
+
     @Test fun `unsupported algorithm and invalid timing fail instead of silently using new settings`() {
         val profile = ExerciseTrackingProfiles.resolve("barbell_biceps_curl")
         assertFailsWith<IllegalArgumentException> {

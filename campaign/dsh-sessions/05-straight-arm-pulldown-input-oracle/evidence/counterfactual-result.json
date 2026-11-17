@@ -1,0 +1,216 @@
+{
+ "seam": "ProfiledMotionRepDetector(straight_arm_pulldown copy with exerciseId 'straight_arm_pulldown_return_counting_probe') -> CycleAxisRepDetector(countOnReturn = true); no threshold or constant changed",
+ "kotlin_exit": 0,
+ "cases": [
+  {
+   "case": "continuous_10_clean",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "matched_rep_indices": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "event_table": [],
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "checkpoint_witness": {
+    "authored_phase_histogram": {
+     "bins_1pct_nonempty": 36,
+     "at_start_or_end": 356,
+     "interior": 820
+    },
+    "meaning": "the authored phase returns to the low position in every rep, so the 50 ms window never sees the arm down"
+   }
+  },
+  {
+   "case": "continuous_10_tempo_variation",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "matched_rep_indices": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "event_table": [],
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "checkpoint_witness": {
+    "authored_phase_histogram": {
+     "bins_1pct_nonempty": 38,
+     "at_start_or_end": 362,
+     "interior": 810
+    },
+    "meaning": "the authored phase returns to the low position in every rep, so the 50 ms window never sees the arm down"
+   }
+  },
+  {
+   "case": "return_boundary_hold",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "matched_rep_indices": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "event_table": [],
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "checkpoint_witness": {
+    "authored_phase_histogram": {
+     "bins_1pct_nonempty": 36,
+     "at_start_or_end": 506,
+     "interior": 820
+    },
+    "meaning": "the authored phase returns to the low position in every rep, so the 50 ms window never sees the arm down"
+   }
+  },
+  {
+   "case": "ten_then_handle_down",
+   "expected_reps": 10,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "matched_rep_indices": [],
+   "missing": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+   ],
+   "duplicates": [],
+   "extra": [],
+   "event_table": [],
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": false,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "checkpoint_witness": {
+    "authored_phase_histogram": {
+     "bins_1pct_nonempty": 36,
+     "at_start_or_end": 441,
+     "interior": 820
+    },
+    "meaning": "the authored phase returns to the low position in every rep, so the 50 ms window never sees the arm down"
+   }
+  },
+  {
+   "case": "handle_down_only",
+   "expected_reps": 0,
+   "live_count": 0,
+   "offline_flush_count": 0,
+   "matched_rep_indices": [],
+   "missing": [],
+   "duplicates": [],
+   "extra": [],
+   "event_table": [],
+   "turnaround_events": [],
+   "halfway_events": [],
+   "post_workout_events": [],
+   "early_or_late_delivery_ms_range": [
+    null,
+    null
+   ],
+   "first_two_then_stop": null,
+   "live_after_rep10": 0,
+   "flush_after_rep10": 0,
+   "checkpoint_witness": {
+    "authored_phase_histogram": {
+     "bins_1pct_nonempty": 0,
+     "at_start_or_end": 0,
+     "interior": 0
+    },
+    "meaning": "the authored phase returns to the low position in every rep, so the 50 ms window never sees the arm down"
+   }
+  }
+ ],
+ "acceptance_failures": [
+  "continuous_10_clean: live 0 != 10",
+  "continuous_10_clean: matched reps [] != 1..10",
+  "continuous_10_clean: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0",
+  "continuous_10_tempo_variation: live 0 != 10",
+  "continuous_10_tempo_variation: matched reps [] != 1..10",
+  "continuous_10_tempo_variation: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0",
+  "return_boundary_hold: live 0 != 10",
+  "return_boundary_hold: matched reps [] != 1..10",
+  "return_boundary_hold: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0",
+  "ten_then_handle_down: live 0 != 10",
+  "ten_then_handle_down: matched reps [] != 1..10",
+  "ten_then_handle_down: missing [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] duplicates [] extra [] flush 0"
+ ],
+ "tests": {
+  "counts": true,
+  "delivery_timing": true,
+  "flush_behavior": true,
+  "handle_down_cases": true
+ },
+ "verdict": "counterfactual equals the baseline (0 events); it does not fix the RED, so no production edit is allowed"
+}

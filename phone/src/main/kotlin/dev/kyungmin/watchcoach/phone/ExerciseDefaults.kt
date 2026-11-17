@@ -5,12 +5,14 @@ import dev.kyungmin.watchcoach.core.ProgressionDefaults
 
 /** Product starting estimates, not measured strength norms. Dumbbells use one dumbbell's mass. */
 internal object ExerciseDefaults {
-    private val compound = setOf("chest_press", "row", "vertical_pull", "shoulder_press", "squat",
-        "hinge", "leg_press", "push_up", "dip", "hip", "pullover")
+    private val largeMuscleGroups = setOf("가슴", "등", "하체")
 
     private val cableSmallMuscle = setOf("curl", "triceps_pushdown", "triceps_extension", "rear_delt", "front_raise", "rotation", "chest_fly")
 
-    fun restSeconds(exercise: ExerciseDefinition): Int = if (exercise.pattern in compound) 120 else 105
+    fun restGroup(exercise: ExerciseDefinition): RestMuscleGroup =
+        if (exercise.bodyCategory in largeMuscleGroups) RestMuscleGroup.LARGE else RestMuscleGroup.SMALL
+
+    fun restSeconds(exercise: ExerciseDefinition): Int = restGroup(exercise).defaultSeconds
 
     fun startingWeight(exercise: ExerciseDefinition, profile: WorkoutProfile? = null): Double? {
         if (exercise.equipment == "맨몸" && exercise.id !in setOf("weighted_dip", "weighted_pull_up")) return null
@@ -47,16 +49,20 @@ internal object ExerciseDefaults {
     }
 
     fun newExercise(exercise: ExerciseDefinition, profile: WorkoutProfile? = null,
-        history: List<ExerciseLog> = emptyList()): RoutineExercise {
+        history: List<ExerciseLog> = emptyList(),
+        firstWorkoutRestSeconds: Int = restSeconds(exercise),
+    ): RoutineExercise {
+        val exerciseHistory = history.filter { it.exerciseId == exercise.id }
+        val hasCompletedSet = exerciseHistory.any { log -> log.sets.any { it.completed } }
+        val rest = if (hasCompletedSet) restSeconds(exercise) else firstWorkoutRestSeconds
         if (exercise.kind == dev.kyungmin.watchcoach.core.ExerciseKind.HOLD) return RoutineExercise(exercise,
-            MutableList(3) { PlannedSet(startingWeight(exercise, profile), 0, targetDurationSeconds = 30) }, restSeconds(exercise))
-        val last = history.filter { it.exerciseId == exercise.id &&
-            (it.equipment == exercise.equipment || it.equipment.isEmpty() ||
-                (exercise.id in setOf("weighted_dip", "weighted_pull_up") && it.equipment == "맨몸")) }
+            MutableList(3) { PlannedSet(startingWeight(exercise, profile), 0, targetDurationSeconds = 30) }, rest)
+        val last = exerciseHistory.filter { it.equipment == exercise.equipment || it.equipment.isEmpty() ||
+            (exercise.id in setOf("weighted_dip", "weighted_pull_up") && it.equipment == "맨몸") }
             .sortedWith(compareByDescending<ExerciseLog> { it.epochDay }.thenByDescending { it.startedAtMs })
             .firstNotNullOfOrNull { log -> log.sets.lastOrNull { it.completed && it.repsEntered &&
                 !it.isWarmup && it.reps > 0 && it.weightKg?.let { kg -> kg.isFinite() && kg >= 0 } == true } }
         return RoutineExercise(exercise, mutableListOf(PlannedSet(
-            last?.weightKg ?: startingWeight(exercise, profile), 10)), restSeconds(exercise))
+            last?.weightKg ?: startingWeight(exercise, profile), 10)), rest)
     }
 }

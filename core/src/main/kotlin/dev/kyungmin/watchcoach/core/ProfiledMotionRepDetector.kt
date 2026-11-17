@@ -13,6 +13,7 @@ enum class MotionFamily {
     TRANSLATION_PRESS_RETURN,
     PULL_RETURN,
     MULTI_AXIS_RETURN,
+    ARC_RETURN,
     FOREARM_ROTATION,
     CYCLE_AXIS_RETURN,
     UNOBSERVABLE_MANUAL;
@@ -25,6 +26,7 @@ enum class MotionFamily {
             TRANSLATION_PRESS_RETURN -> "translation-press-return-family-v1"
             PULL_RETURN -> "pull-return-family-v4"
             MULTI_AXIS_RETURN -> "multi-axis-return-family-v4"
+            ARC_RETURN -> "arc-return-family-v1"
             FOREARM_ROTATION -> "forearm-rotation-family-v4"
             CYCLE_AXIS_RETURN -> "cycle-axis-return-family-v1"
             UNOBSERVABLE_MANUAL -> "manual-required-v3"
@@ -45,6 +47,7 @@ enum class MotionFamily {
             TRANSLATION_PRESS_RETURN -> "이동 프레스-복귀 측정"
             PULL_RETURN -> "당김-복귀 공통 측정"
             MULTI_AXIS_RETURN -> "다축 왕복 공통 측정"
+            ARC_RETURN -> "원호 왕복 공통 측정"
             FOREARM_ROTATION -> "전완 회전 공통 측정"
             CYCLE_AXIS_RETURN -> "주기 축 왕복 공통 측정"
             UNOBSERVABLE_MANUAL -> "수동 측정"
@@ -93,6 +96,9 @@ class ProfiledMotionRepDetector(
         /** The pull alone is half a rep: it must not reach the counter before the handle comes back. */
         private val SEATED_ROWS = setOf("seated_row", "cable_seated_row", "seated_cable_row_close",
             "single_arm_machine_seated_row", "single_arm_cable_seated_row")
+
+        /** Straight-arm pulldown: the first lobe is the pull, so count at the return or 10 reps read 11 (virtual-watch replay). */
+        private val RETURN_COUNTED = setOf("straight_arm_pulldown")
     }
 
     private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION) ReturnToPoseRepDetector(profile.minimumRepMs) else null
@@ -100,7 +106,8 @@ class ProfiledMotionRepDetector(
     private val translationCounter = if (profile.family == MotionFamily.TRANSLATION_PRESS_RETURN) TranslationPressRepDetector(profile) else null
     private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN)
         CycleAxisRepDetector(countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe == MeasurementRecipe.LATERAL_RAISE ||
-            profile.exerciseId in SEATED_ROWS) else null
+            profile.exerciseId in SEATED_ROWS || profile.exerciseId in RETURN_COUNTED) else null
+    private val arcCounter = if (profile.family == MotionFamily.ARC_RETURN) ForearmRotationRepDetector(profile) else null
     private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
 
     private var lastTimestampNs = 0L
@@ -143,11 +150,12 @@ class ProfiledMotionRepDetector(
     var lastMotionNs: Long = 0L
         private set
 
-    val candidateStartNs: Long? get() = if (cycleCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
+    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (cycleCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
         ?: lobeStartNs.takeIf { it > 0L && lobeDisplacement >= profile.minimumLobeDisplacement }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
         trackMotion(sample)
+        arcCounter?.let { return it.add(sample)?.asProfiledEvent() }
         translationCounter?.let { return it.add(sample) }
         verticalCounter?.let { return it.add(sample) }
         cycleCounter?.let { return it.add(sample) }
@@ -201,6 +209,7 @@ class ProfiledMotionRepDetector(
     }
 
     fun finish(): ProfiledMotionRepEvent? {
+        arcCounter?.let { return it.finish()?.asProfiledEvent() }
         if (translationCounter != null || verticalCounter != null || cycleCounter != null) return null
         if (poseCounter != null) return null // A partial return never becomes a rep when the set ends.
         if (!legacyLobes) { resetAll(); return null } // Only observed quiet/reversal closes a new-engine lobe.
@@ -218,6 +227,7 @@ class ProfiledMotionRepDetector(
     fun finishAll(): List<ProfiledMotionRepEvent> = translationCounter?.finishAll() ?: cycleCounter?.finishAll() ?: listOfNotNull(finish())
 
     fun beginCounting() {
+        arcCounter?.beginCounting()
         translationCounter?.beginCounting()
         verticalCounter?.beginCounting()
         cycleCounter?.beginCounting()
@@ -236,6 +246,17 @@ class ProfiledMotionRepDetector(
         lastMotionNs = 0L
         forgetPhase()
     }
+
+    private fun ForearmRotationRepEvent.asProfiledEvent() = ProfiledMotionRepEvent(
+        startTimestampNs = startTimestampNs,
+        turnaroundTimestampNs = turnaroundTimestampNs,
+        endTimestampNs = endTimestampNs,
+        durationMs = durationMs,
+        peakMotionRate = peakAngularVelocity,
+        motionDisplacement = angularDisplacement,
+        trajectorySpread = 0.0,
+        confidence = confidence,
+    )
 
     private fun trackMotion(sample: SensorSample) {
         if (sample.sensorAccuracy == 0) return

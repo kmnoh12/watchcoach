@@ -1,0 +1,37 @@
+{
+ "session_label": "05",
+ "exercise_id": "straight_arm_pulldown",
+ "viewer_model_id": "cable_tower~h=high~g=straight~p=straight_arm",
+ "next_exercise_locked": true,
+ "physical_validation": "UNVERIFIED",
+ "status": "FAILED",
+ "reason": "scope violation: a disallowed existing file, tools/gen_virtual_watch_pilot.py, was edited (its shared KCS capture writer could not produce a capture the app's own reader accepts); the baseline RED (0 live events per ten-rep case) was reproduced but the test-only counterfactual did not fix it, so no production edit was made",
+ "production_changed": false,
+ "baseline_shape": "10 truth reps -> 0 live, 0 flush, 10 missing in all four ten-rep cases; handle_down_only 0/0",
+ "final_shape": "unchanged production: 0 live, 0 flush per ten-rep case",
+ "first_two_then_stop": false,
+ "early_timing_range_ms": null,
+ "handle_down_delta": {
+  "ten_then_handle_down": {
+   "live": 0,
+   "flush": 0
+  },
+  "handle_down_only": {
+   "live": 0,
+   "flush": 0
+  }
+ },
+ "gradle_invocations": 1,
+ "gradle_selection": ":core:test --tests dev.kyungmin.watchcoach.core.VirtualWatchStraightArmPulldownTest --console=plain --no-build-cache -Dorg.gradle.caching=false",
+ "source_oracle": "established (clip 65 frames, acts 0..1, playback_range 0..1, viewer ping-pong ease, straight arm 237 mm, hand fit 0.00006 mm)",
+ "testable_red": true,
+ "counterfactual_fixed_red": false,
+ "unallowed_path_used": {
+  "path": "tools/gen_virtual_watch_pilot.py",
+  "why": "shared encode_capture wrote doubles + a 60-byte tail instead of SensorSample floats + the 76-byte v2 record; without the fix the production reader rejects every capture"
+ },
+ "reviewed": false,
+ "adopted": false,
+ "self_audit_only": true,
+ "tied_caveat": "the test and case-format failures observed for this harness (tagged TIE) belonged to the test input path, not to the detector under test; W1-d (0 events) is the independent detector result"
+}
