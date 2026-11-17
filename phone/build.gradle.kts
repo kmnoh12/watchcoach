@@ -17,11 +17,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.kyungmin.watchcoach"
+        // Must stay the package the installed apps already have; a different id is a separate app with no data and no OTA path.
+        applicationId = "dev.kyungmin.kcoach"
         minSdk = 29
         targetSdk = 35
-        versionCode = 73
-        versionName = "0.2.34"
+        versionCode = 74
+        versionName = "0.2.35"
         buildConfigField(
             "String",
             "UPDATE_MANIFEST_URL",

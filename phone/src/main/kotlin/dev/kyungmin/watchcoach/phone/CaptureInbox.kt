@@ -179,6 +179,8 @@ class CaptureInbox(
             .map { it.removePrefix("capture:").removeSuffix(":path") }
             .sortedBy { prefs.getLong(receivedAtKey(it), 0L) }
         val zone = java.time.ZoneId.systemDefault()
+        // The user's saved result is the reference answer: repSource MANUAL means the engine count was corrected by hand.
+        val sessions = runCatching { FinishedWorkoutStore(context).allEvidence().associateBy { it.snapshot.sessionId } }.getOrDefault(emptyMap())
         val index = org.json.JSONArray()
         var written = 0
         java.util.zip.ZipOutputStream(output).use { zip ->
@@ -193,7 +195,15 @@ class CaptureInbox(
                     val folder = "${time.toLocalDate()}/${"%02d%02d%02d".format(time.hour, time.minute, time.second)}_${exercise}_set${manifest.payload[WirePayloadKeys.SET_INDEX].orEmpty()}_${id.takeLast(8)}"
                     val bytes = readCaptureBytes(captureFile(id))
                     zip.putNextEntry(java.util.zip.ZipEntry("$folder/capture.kcs")); zip.write(bytes); zip.closeEntry()
-                    val info = JSONObject().put("captureId", id).put("receivedAtMs", receivedAt).put("sessionId", manifest.sessionId)
+                    val attempt = manifest.payload[WirePayloadKeys.ATTEMPT_ID].orEmpty()
+                    val saved = sessions[manifest.sessionId]?.snapshot?.plannedSets?.firstOrNull {
+                        it.setId == manifest.setId && (attempt.isEmpty() || it.attemptId.isEmpty() || it.attemptId == attempt)
+                    }
+                    val finalSet = saved?.let { JSONObject().put("savedReps", it.performedReps ?: JSONObject.NULL)
+                        .put("repSource", it.repSource?.name ?: JSONObject.NULL).put("targetReps", it.targetReps)
+                        .put("weightKg", it.weightKg ?: JSONObject.NULL).put("exerciseName", it.exerciseName)
+                        .put("setIndex", it.setIndex).put("grip", it.gripType).put("completed", it.completed) }
+                    val info = JSONObject().put("savedResult", finalSet ?: JSONObject.NULL).put("captureId", id).put("receivedAtMs", receivedAt).put("sessionId", manifest.sessionId)
                         .put("exerciseSessionId", manifest.exerciseSessionId).put("setId", manifest.setId)
                         .put("state", state(id)?.name).put("payload", JSONObject(manifest.payload as Map<*, *>))
                     zip.putNextEntry(java.util.zip.ZipEntry("$folder/manifest.json")); zip.write(info.toString(2).toByteArray(Charsets.UTF_8)); zip.closeEntry()

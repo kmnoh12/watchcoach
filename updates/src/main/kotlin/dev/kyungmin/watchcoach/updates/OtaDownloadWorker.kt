@@ -33,8 +33,9 @@ class OtaDownloadWorker(context: Context, parameters: WorkerParameters) : Corout
             val location = json.getString("apkUrl")
             val source = URI(coordinator.config.manifestUrl); val asset = URI(location)
             require(asset.scheme == "https" && source.host.equals(asset.host, true) && source.port == asset.port)
-            val expectedAsset = if (coordinator.config.role == OtaRole.PHONE) "watchcoach-phone.apk" else "watchcoach-watch.apk"
-            require(asset.path.endsWith("/$expectedAsset")) { "기기에 맞지 않는 업데이트 주소예요" }
+            // Releases keep the kcoach-* asset names: apps installed before the WatchCoach rename only accept those.
+            val expectedAssets = if (coordinator.config.role == OtaRole.PHONE) listOf("kcoach-phone.apk", "watchcoach-phone.apk") else listOf("kcoach-watch.apk", "watchcoach-watch.apk")
+            require(expectedAssets.any { asset.path.endsWith("/$it") }) { "기기에 맞지 않는 업데이트 주소예요" }
             val (installed, _) = coordinator.installed()
             if (installed >= target) {
                 coordinator.change(id) { it.copy(phase = OtaPhase.UP_TO_DATE, targetCode = target, targetName = name, sha256 = hash, message = "최신 버전 확인") }
@@ -65,7 +66,7 @@ class OtaDownloadWorker(context: Context, parameters: WorkerParameters) : Corout
                 require(digest.digest().joinToString("") { "%02x".format(it) } == hash) { "APK 파일 검증 실패" }
                 @Suppress("DEPRECATION") val archive = applicationContext.packageManager.getPackageArchiveInfo(part.path, android.content.pm.PackageManager.GET_META_DATA)
                 require(archive?.packageName == applicationContext.packageName && archive.longVersionCode == target &&
-                    archive.applicationInfo?.metaData?.getString("dev.kyungmin.watchcoach.OTA_ROLE") == coordinator.config.role.name) { "앱 종류·버전이 맞지 않아요" }
+                    archive.applicationInfo?.metaData?.let { it.getString("dev.kyungmin.watchcoach.OTA_ROLE") ?: it.getString("dev.kyungmin.kcoach.OTA_ROLE") } == coordinator.config.role.name) { "앱 종류·버전이 맞지 않아요" }
                 check(part.renameTo(apk)) { "업데이트 파일 저장 실패" }
             } finally { connection.disconnect() }
             // Write the verified file into an install session now, so that the tap only has to commit it.

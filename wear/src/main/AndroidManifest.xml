@@ -21,6 +21,7 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/AppTheme">
         <meta-data android:name="dev.kyungmin.watchcoach.OTA_ROLE" android:value="WATCH" />
+        <meta-data android:name="dev.kyungmin.kcoach.OTA_ROLE" android:value="WATCH" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.updates"

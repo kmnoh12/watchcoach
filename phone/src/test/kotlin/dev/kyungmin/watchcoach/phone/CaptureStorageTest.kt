@@ -74,6 +74,7 @@ class CaptureStorageTest {
         assertTrue(kcs.keys.all { Regex("\\d{4}-\\d{2}-\\d{2}/.+_external_rotation_set.*/capture.kcs").matches(it) })
         assertEquals(500, SensorCaptureFormat.read(kcs.values.first().inputStream()).records.size)
         assertEquals(2, entries.keys.count { it.endsWith("manifest.json") })
+        assertTrue(entries.filterKeys { it.endsWith("manifest.json") }.values.all { String(it).contains("\"savedResult\"") })
         assertNotNull(a)
     }
 

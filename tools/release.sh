@@ -110,7 +110,7 @@ fi
 # Reuse a locally cached public APK only when its hash matches the fetched public manifest.
 reuse_published() {
     local role="$1"
-    local cached="$ROOT/build/release/$LATEST_TAG/watchcoach-$role.apk"
+    local cached="$ROOT/build/release/$LATEST_TAG/kcoach-$role.apk"
     gh release download "$LATEST_TAG" --repo "$REPO" --pattern "update-$role.json" --dir "$WORK"
     if [ -f "$cached" ] && python3 - "$cached" "$WORK/update-$role.json" <<'PYHASH'
 import hashlib,json,sys
@@ -119,9 +119,9 @@ expected=json.loads(Path(sys.argv[2]).read_text())['sha256']
 sys.exit(0 if hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest()==expected else 1)
 PYHASH
     then
-        cp "$cached" "$WORK/watchcoach-$role.apk"
+        cp "$cached" "$WORK/kcoach-$role.apk"
     else
-        gh release download "$LATEST_TAG" --repo "$REPO" --pattern "watchcoach-$role.apk" --dir "$WORK"
+        gh release download "$LATEST_TAG" --repo "$REPO" --pattern "kcoach-$role.apk" --dir "$WORK"
     fi
 }
 
@@ -131,7 +131,7 @@ if [ "$BUILD_PHONE" = 1 ]; then
         echo "폰 APK에 3D 뷰어 파일이 없어. phone/src/main/assets/viewer3d 를 채운 뒤 다시 빌드해." >&2
         exit 1
     fi
-    cp "$PHONE_APK" "$WORK/watchcoach-phone.apk"
+    cp "$PHONE_APK" "$WORK/kcoach-phone.apk"
     # A short file check for the previous MediaPipe/R8 initialization regression; no runtime test.
     python3 tools/verify_mediapipe_jni.py "$PHONE_APK" --mapping phone/build/outputs/mapping/ota/mapping.txt \
         > "$LOG_DIR/mediapipe.log" 2>&1 || { cat "$LOG_DIR/mediapipe.log"; exit 1; }
@@ -139,7 +139,7 @@ else
     reuse_published phone
 fi
 if [ "$BUILD_WATCH" = 1 ]; then
-    cp "$WEAR_APK" "$WORK/watchcoach-watch.apk"
+    cp "$WEAR_APK" "$WORK/kcoach-watch.apk"
 else
     reuse_published watch
 fi
@@ -147,7 +147,7 @@ fi
 # Verify the exact upload files, including reused artifacts. No device or screen checks.
 EXPECTED_SIGNER="45130eab69678aeee288c565de466912b97dab48c317cbcf0983430a22c1da2c"
 for ROLE in phone watch; do
-    APK="$WORK/watchcoach-$ROLE.apk"
+    APK="$WORK/kcoach-$ROLE.apk"
     SIGNER_INFO=$("$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --print-certs "$APK")
     SIGNER=$(printf '%s\n' "$SIGNER_INFO" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
     if [ "$SIGNER" != "$EXPECTED_SIGNER" ]; then
@@ -166,18 +166,18 @@ for role,code,name in [('phone',int(sys.argv[4]),sys.argv[5]),('watch',int(sys.a
     assert "name='dev.kyungmin.watchcoach'" in badging, f'{role}: wrong package'
     assert re.search(r"versionCode='(\d+)'",badging).group(1)==str(code), f'{role}: APK versionCode differs from source'
     assert re.search(r"versionName='([^']+)'",badging).group(1)==name, f'{role}: APK versionName differs from source'
-    sha=hashlib.sha256((work/f'watchcoach-{role}.apk').read_bytes()).hexdigest()
+    sha=hashlib.sha256((work/f'kcoach-{role}.apk').read_bytes()).hexdigest()
     manifest=work/f'update-{role}.json'
     if manifest.exists():
         old=json.loads(manifest.read_text())
         assert old['sha256']==sha and old['versionCode']==code and old['versionName']==name, f'{role}: published artifact mismatch'
     manifest.write_text(json.dumps(dict(versionCode=code,versionName=name,
-        apkUrl=f'https://github.com/{repo}/releases/download/{tag}/watchcoach-{role}.apk',sha256=sha),indent=2)+'\n')
+        apkUrl=f'https://github.com/{repo}/releases/download/{tag}/kcoach-{role}.apk',sha256=sha),indent=2)+'\n')
 PY
 
 OUT="$ROOT/build/release/$TAG"
 mkdir -p "$OUT"
-for ASSET in watchcoach-phone.apk watchcoach-watch.apk update-phone.json update-watch.json; do
+for ASSET in kcoach-phone.apk kcoach-watch.apk update-phone.json update-watch.json; do
     mv "$WORK/$ASSET" "$OUT/$ASSET"
 done
 # Keep literal multiline notes in a file.
@@ -185,7 +185,7 @@ printf '%s\n' "${1:-}" > "$WORK/notes.md"
 git push origin HEAD
 gh release create "$TAG" --repo "$REPO" --target "$(git rev-parse HEAD)" --latest \
     --title "폰 $PHONE_NAME · 워치 $WATCH_NAME" --notes-file "$WORK/notes.md" \
-    "$OUT"/watchcoach-phone.apk "$OUT"/watchcoach-watch.apk "$OUT"/update-phone.json "$OUT"/update-watch.json
+    "$OUT"/kcoach-phone.apk "$OUT"/kcoach-watch.apk "$OUT"/update-phone.json "$OUT"/update-watch.json
 
 echo "배포 완료: https://github.com/$REPO/releases/tag/$TAG"
 # The GitHub release is the archive: keep only this release's local APK cache.
