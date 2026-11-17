@@ -163,7 +163,7 @@ from pathlib import Path
 work=Path(sys.argv[1]); repo,tag=sys.argv[2:4]
 for role,code,name in [('phone',int(sys.argv[4]),sys.argv[5]),('watch',int(sys.argv[6]),sys.argv[7])]:
     badging=(work/f'{role}-badging.txt').read_text().splitlines()[0]
-    assert "name='dev.kyungmin.watchcoach'" in badging, f'{role}: wrong package'
+    assert "name='dev.kyungmin.kcoach'" in badging, f'{role}: wrong package'
     assert re.search(r"versionCode='(\d+)'",badging).group(1)==str(code), f'{role}: APK versionCode differs from source'
     assert re.search(r"versionName='([^']+)'",badging).group(1)==name, f'{role}: APK versionName differs from source'
     sha=hashlib.sha256((work/f'kcoach-{role}.apk').read_bytes()).hexdigest()
