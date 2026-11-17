@@ -157,13 +157,27 @@ private fun DrawScope.label(text: String, x: Float, y: Float, color: Color = KCo
     drawIntoCanvas { it.nativeCanvas.drawText(text, x, y, paint) }
 }
 
+/**
+ * A smooth line that never overshoots: a running total only goes up or stays level, so flat days stay level
+ * and the line never dips below a point it has already reached (monotone cubic, Fritsch-Carlson).
+ */
 private fun smooth(points: List<Offset>): Path = Path().apply {
     moveTo(points[0].x, points[0].y)
-    for (i in 0 until points.lastIndex) {
-        val a = points.getOrElse(i - 1) { points[i] }; val b = points[i]
-        val c = points[i + 1]; val d = points.getOrElse(i + 2) { c }
-        cubicTo(b.x + (c.x - a.x) / 6, b.y + (c.y - a.y) / 6,
-            c.x - (d.x - b.x) / 6, c.y - (d.y - b.y) / 6, c.x, c.y)
+    val n = points.size
+    if (n < 2) return@apply
+    val h = FloatArray(n - 1) { points[it + 1].x - points[it].x }
+    val d = FloatArray(n - 1) { (points[it + 1].y - points[it].y) / h[it] }
+    val m = FloatArray(n)
+    m[0] = d[0]; m[n - 1] = d[n - 2]
+    for (k in 1 until n - 1) {
+        m[k] = if (d[k - 1] * d[k] <= 0f) 0f else {
+            val w1 = 2 * h[k] + h[k - 1]; val w2 = h[k] + 2 * h[k - 1]
+            (w1 + w2) / (w1 / d[k - 1] + w2 / d[k])
+        }
+    }
+    for (i in 0 until n - 1) {
+        val a = points[i]; val b = points[i + 1]
+        cubicTo(a.x + h[i] / 3, a.y + m[i] * h[i] / 3, b.x - h[i] / 3, b.y - m[i + 1] * h[i] / 3, b.x, b.y)
     }
 }
 
