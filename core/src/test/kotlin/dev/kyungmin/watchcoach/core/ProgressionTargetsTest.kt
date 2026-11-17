@@ -118,16 +118,45 @@ class ProgressionTargetsTest {
         assertEquals(70.0, next(p, log(p, 1), log(p, 2), speed = ProgressionSpeed.SLOW)!!.single().weightKg)
         assertEquals(75.0, next(p, log(p, 1), log(p, 2), log(p, 3), speed = ProgressionSpeed.SLOW)!!.single().weightKg)
     }
-    @Test fun layoutChangesAndDifferentContextsHaveNoInheritedHistory() {
+    @Test fun layoutChangesAndDifferentEquipmentHaveNoInheritedHistory() {
         val p = plan(70.0 to 10, 70.0 to 10)
         val old = log(p)
         assertNull(next(p.copy(sets = p.sets.reversed()), old))
         assertNull(next(p.copy(sets = p.sets + p.sets[0].copy(positionKey = "new")), old))
-        assertNull(next(p.copy(key = p.key.copy(routineId = "b")), old))
-        assertNull(next(p.copy(key = p.key.copy(exerciseIndex = 1)), old))
         assertNull(next(p.copy(key = p.key.copy(equipment = "덤벨")), old))
         val changed = log(p, 2).copy(sets = old.sets.reversed())
         assertEquals(70.0, next(p, old, changed, log(p, 3))!!.first().weightKg)
+    }
+    @Test fun historyFollowsExerciseAcrossRoutinesPositionsAndRecreatedSetIds() {
+        val old = plan(70.0 to 8, 60.0 to 7)
+        val moved = old.copy(key = old.key.copy(routineId = "b", exerciseIndex = 3),
+            sets = old.sets.mapIndexed { i, set -> set.copy(positionKey = "new$i", weightKg = 20.0, targetReps = 10) })
+        val latest = log(old, 2)
+        val unrelated = latest.copy(exerciseId = "other", epochDay = 3)
+        val result = next(moved, log(old, 1), latest, unrelated)!!
+        assertEquals(listOf(70.0, 60.0), result.map { it.weightKg })
+        assertEquals(listOf(9, 7), result.map { it.targetReps })
+        assertNull(next(moved.copy(key = moved.key.copy(exerciseId = "never")), latest))
+    }
+
+    @Test fun recreatedWorkingSetsCanContinueAfterWarmupsAreOmitted() {
+        val old = plan(20.0 to 15, 70.0 to 8, warmup = true)
+        val recreated = old.copy(sets = listOf(old.sets[1].copy(positionKey = "new")))
+        assertEquals(9, next(recreated, log(old))!!.single().targetReps)
+    }
+
+    @Test fun sameSessionAtMultiplePositionsCountsAsOnlyOneConfirmation() {
+        val p = plan(70.0 to 10)
+        val first = log(p)
+        val secondPosition = first.copy(exerciseIndex = 1)
+        assertEquals(70.0, next(p, first, secondPosition)!!.single().weightKg)
+        assertEquals(75.0, next(p, first, secondPosition, log(p, 2))!!.single().weightKg)
+    }
+
+    @Test fun recreatedNormalSetsInheritWorkingHistoryWithDifferentGripOrSetType() {
+        val old = plan(70.0 to 8).let { p -> p.copy(sets = p.sets.map { it.copy(positionKey = "old:DROP:wide") }) }
+        val recreated = old.copy(sets = old.sets.map { it.copy(positionKey = "new:NORMAL:normal") })
+        assertEquals(9, next(recreated, log(old))!!.single().targetReps)
     }
     @Test fun firstDayDisabledAndTimeHaveNoSuggestion() {
         val p = plan(70.0 to 8)

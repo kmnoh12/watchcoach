@@ -71,4 +71,39 @@ class WorkoutComparisonTest {
         val row = WorkoutComparison.compare(record("b", 2, listOf(blank)), record("a", 1, listOf(blank))).single()
         assertEquals(listOf("equipment", "grip", "family"), row.condition.missingFields)
     }
+
+    @Test fun eachConditionUsesItsLatestEarlierSessionAcrossAllRoutines() {
+        val older = record("older", 1, listOf(set(7)))
+        val otherRoutine = record("other", 2, listOf(set(8)), "other")
+        val immediate = record("immediate", 3, listOf(set(10).copy(exerciseId = "curl")))
+        val current = record("current", 4, listOf(set(9), set(12).copy(exerciseId = "curl"), set(6).copy(exerciseId = "new")))
+        val records = listOf(current, older, otherRoutine, immediate)
+        val comparisons = WorkoutComparison.compare(current, records).associateBy { it.condition.exerciseId }
+        assertEquals(otherRoutine, WorkoutComparison.previousFor(current, records, WorkoutCondition.of(set(9))))
+        assertEquals(8L, comparisons.getValue("press").previous!!.reps)
+        assertEquals(10L, comparisons.getValue("curl").previous!!.reps)
+        assertNull(comparisons.getValue("new").previous)
+        assertEquals(7L, WorkoutComparison.compare(current, listOf(older, immediate)).first().previous!!.reps)
+    }
+
+    @Test fun conditionTiesRemainAmbiguousAndUnrelatedTiesDoNotBlockComparison() {
+        val older = record("older", 1, listOf(set(8)))
+        val current = record("current", 3, listOf(set(9)))
+        val tied = record("tied", 3, listOf(set(7)), "other")
+        val earlierTie = record("earlier-tie", 1, listOf(set(6)), "other")
+        val condition = WorkoutCondition.of(set(9))
+        assertNull(WorkoutComparison.previousFor(current, listOf(older, tied), condition))
+        assertNull(WorkoutComparison.previousFor(current, listOf(older, earlierTie), condition))
+        assertEquals(older, WorkoutComparison.previousFor(current,
+            listOf(older, tied.copy(plannedSets = listOf(set(7).copy(gripType = "neutral")))), condition))
+    }
+
+    @Test fun warmupIncompleteDifferentEquipmentAndFutureRecordsCannotBeTheBaseline() {
+        val older = record("older", 1, listOf(set(8)))
+        val current = record("current", 5, listOf(set(9)))
+        val records = listOf(older, record("warmup", 2, listOf(set(50, type = "WARMUP"))),
+            record("unfinished", 3, listOf(set(30).copy(completed = false))),
+            record("machine", 4, listOf(set(40, equipment = "machine"))), record("future", 6, listOf(set(100))))
+        assertEquals(older, WorkoutComparison.previousFor(current, records, WorkoutCondition.of(set(9))))
+    }
 }

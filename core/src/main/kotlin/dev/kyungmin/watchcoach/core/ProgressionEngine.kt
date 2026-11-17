@@ -16,14 +16,23 @@ class ProgressionEngine {
         if (!settings.enabled || plan.load == ProgressionLoad.TIME) return null
         val defaultUpper = ProgressionDefaults.upper(plan.pattern) ?: return null
         val sessions = history.filter {
-            it.routineId == plan.key.routineId && it.exerciseId == plan.key.exerciseId &&
-                it.exerciseIndex == plan.key.exerciseIndex && it.equipment == plan.key.equipment
-        }.sortedWith(compareByDescending<ExerciseLog> { it.epochDay }.thenByDescending { it.startedAtMs })
-        fun matches(log: ExerciseLog): Boolean = log.sets.size == plan.sets.size && log.sets.zip(plan.sets).all { (a,b) ->
-            a.positionKey.isNotEmpty() && a.positionKey == b.positionKey && a.isWarmup == b.isWarmup
+            it.exerciseId == plan.key.exerciseId && it.equipment == plan.key.equipment
+        }.sortedWith(compareByDescending<ExerciseLog> { it.epochDay }.thenByDescending { it.startedAtMs }
+            .thenByDescending { it.sessionId.orEmpty() }.thenByDescending { it.exerciseIndex }
+            .thenByDescending { it.routineId.orEmpty() })
+            .distinctBy { it.sessionId ?: "legacy:${it.epochDay}:${it.startedAtMs}" }
+        val positionIds = plan.sets.map { it.positionKey.substringBefore(':') }.toSet()
+        fun align(log: ExerciseLog): ExerciseLog? {
+            val sharedPositions = log.sets.any { it.positionKey.isNotEmpty() && it.positionKey.substringBefore(':') in positionIds }
+            val rows = if (!sharedPositions && plan.sets.none { it.isWarmup }) log.sets.filter { !it.isWarmup } else log.sets
+            if (rows.size != plan.sets.size) return null
+            val matches = rows.zip(plan.sets).all { (old, target) ->
+                old.isWarmup == target.isWarmup && (!sharedPositions || old.positionKey == target.positionKey)
+            }
+            return log.copy(sets = rows).takeIf { matches }
         }
-        // A changed layout breaks the chain, even if an older layout happens to match again.
-        val comparable = sessions.takeWhile(::matches)
+        // Existing set identities still detect reorders. Recreated sets inherit by working-set order.
+        val comparable = sessions.map(::align).takeWhile { it != null }.filterNotNull()
         val latest = comparable.firstOrNull() ?: return null
         val targets = plan.sets.mapIndexed { i, set ->
             val previous = latest.sets[i]
@@ -84,7 +93,7 @@ class ProgressionEngine {
         return targets
     }
 
-    @Deprecated("Use nextTargets with routine-scoped confirmed history")
+    @Deprecated("Use nextTargets with exercise-scoped confirmed history")
     fun decide(
         exercise: ExercisePlan,
         workingSets: List<CompletedSet>,

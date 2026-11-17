@@ -57,12 +57,47 @@ internal object ExerciseDefaults {
         val rest = if (hasCompletedSet) restSeconds(exercise) else firstWorkoutRestSeconds
         if (exercise.kind == dev.kyungmin.watchcoach.core.ExerciseKind.HOLD) return RoutineExercise(exercise,
             MutableList(3) { PlannedSet(startingWeight(exercise, profile), 0, targetDurationSeconds = 30) }, rest)
-        val last = exerciseHistory.filter { it.equipment == exercise.equipment || it.equipment.isEmpty() ||
-            (exercise.id in setOf("weighted_dip", "weighted_pull_up") && it.equipment == "맨몸") }
-            .sortedWith(compareByDescending<ExerciseLog> { it.epochDay }.thenByDescending { it.startedAtMs })
-            .firstNotNullOfOrNull { log -> log.sets.lastOrNull { it.completed && it.repsEntered &&
-                !it.isWarmup && it.reps > 0 && it.weightKg?.let { kg -> kg.isFinite() && kg >= 0 } == true } }
-        return RoutineExercise(exercise, mutableListOf(PlannedSet(
-            last?.weightKg ?: startingWeight(exercise, profile), 10)), rest)
+        val recent = history.sortedWith(compareByDescending<ExerciseLog> { it.epochDay }.thenByDescending { it.startedAtMs }
+            .thenByDescending { it.sessionId.orEmpty() }.thenByDescending { it.exerciseIndex }
+            .thenByDescending { it.exerciseId }.thenByDescending { it.routineId.orEmpty() }
+            .thenByDescending { dev.kyungmin.watchcoach.core.ExerciseHistoryCodec.encode(listOf(it)) })
+        fun workingSets(log: ExerciseLog) = log.sets.filter { it.completed && it.repsEntered && !it.isWarmup && it.reps >= 0 &&
+            it.weightKg?.let { kg -> kg.isFinite() && kg >= 0 } != false }
+        val exact = recent.firstOrNull { it.exerciseId == exercise.id && (it.equipment == exercise.equipment || it.equipment.isEmpty() ||
+            (exercise.id in setOf("weighted_dip", "weighted_pull_up") && it.equipment == "맨몸"))
+            && workingSets(it).isNotEmpty() }
+        val similar = if (exact == null && exerciseHistory.isEmpty() && exercise.pattern.isNotBlank()) recent.firstOrNull { log ->
+            val definition = WorkoutData.catalog.firstOrNull { it.id == log.exerciseId }
+            definition != null && definition.pattern == exercise.pattern && workingSets(log).isNotEmpty()
+        } else null
+        val source = exact ?: similar
+        if (source != null) return RoutineExercise(exercise, workingSets(source).map { set ->
+            val weight = if (exact != null) set.weightKg else relatedWeight(set.weightKg, source.equipment, exercise, profile)
+            PlannedSet(weight, set.reps)
+        }.toMutableList(), rest)
+        val starting = startingWeight(exercise, profile)
+        val fractions = listOf(0.5, 0.7, 0.85, 1.0)
+        val reps = listOf(15, 12, 10, 8)
+        return RoutineExercise(exercise, fractions.mapIndexed { index, fraction ->
+            PlannedSet(starting?.let { roundGeneratedWeight(it * fraction, exercise.equipment) }, reps[index],
+                setType = if (index == 0 && starting != null) SetType.WARMUP else SetType.NORMAL)
+        }.toMutableList(), rest)
+    }
+
+    private fun roundGeneratedWeight(weightKg: Double, equipment: String): Double =
+        if (equipment == "덤벨") kotlin.math.floor(weightKg + 0.5).coerceAtLeast(1.0)
+        else ProgressionDefaults.roundWeight(weightKg, equipment)
+
+    private fun relatedWeight(weightKg: Double?, sourceEquipment: String, exercise: ExerciseDefinition, profile: WorkoutProfile?): Double? {
+        if (weightKg == null || weightKg == 0.0) return weightKg
+        val converted = when {
+            sourceEquipment == exercise.equipment -> weightKg
+            exercise.equipment == "덤벨" -> roundGeneratedWeight(weightKg / 3, exercise.equipment)
+            sourceEquipment == "덤벨" -> roundGeneratedWeight(weightKg * 3, exercise.equipment)
+            else -> weightKg
+        }
+        // Related shoulder work must not seed a cable lateral raise above its fixed starting load.
+        return if (exercise.equipment == "케이블" && exercise.pattern == "lateral_raise")
+            minOf(converted, requireNotNull(startingWeight(exercise, profile))) else converted
     }
 }

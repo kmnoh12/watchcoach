@@ -31,7 +31,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 internal data class WorkoutSummaryRead(val record: FinishedWorkoutStore.Evidence, val previous: FinishedWorkoutStore.Evidence?,
-    val heart: WorkoutHeartSummary, val times: JSONObject?, val energy: JSONObject, val captures: JSONObject)
+    val heart: WorkoutHeartSummary, val times: JSONObject?, val energy: JSONObject, val captures: JSONObject,
+    val comparisons: List<dev.kyungmin.watchcoach.core.WorkoutConditionComparison> = WorkoutComparison.compare(record.snapshot, previous?.snapshot))
 
 @Composable
 internal fun WorkoutSummaryPanel(sessionId: String) {
@@ -45,7 +46,8 @@ internal fun WorkoutSummaryPanel(sessionId: String) {
             val previousId = WorkoutComparison.previous(record.snapshot, records.map { it.snapshot })?.sessionId
             WorkoutSummaryRead(record, records.firstOrNull { it.snapshot.sessionId == previousId },
                 WorkoutVitalsStore(app).summary(sessionId, record.snapshot.startedAtMs, record.finishedAtMs), WorkoutTimeStore(app).read(sessionId),
-                WorkoutEnergyStore(app).estimate(record, profile), WorkoutCaptureStatus(app).read(record.snapshot))
+                WorkoutEnergyStore(app).estimate(record, profile), WorkoutCaptureStatus(app).read(record.snapshot),
+                WorkoutComparison.compare(record.snapshot, records.map { it.snapshot }))
         }.getOrNull() }
     }
     loaded?.let { WorkoutSummaryContent(it) }
@@ -81,7 +83,7 @@ internal fun WorkoutSummaryContent(read: WorkoutSummaryRead) {
                         Text("${sets.size}세트 · ${dev.kyungmin.watchcoach.core.HoldExercise.time(sets.sumOf { it.durationSeconds ?: 0 })}", color = KColors.Muted, fontSize = 13.sp)
                     } else Text("${sets.size}세트 · ${volume?.let { n(it) + " kg" } ?: "볼륨 미확인"}", color = KColors.Muted, fontSize = 13.sp)
                     if (expanded == id) {
-                        val changes = if (sets.first().exerciseKind == dev.kyungmin.watchcoach.core.ExerciseKind.HOLD) emptyList() else WorkoutComparison.compare(read.record.snapshot, read.previous?.snapshot).filter { it.condition.exerciseId == id }
+                        val changes = if (sets.first().exerciseKind == dev.kyungmin.watchcoach.core.ExerciseKind.HOLD) emptyList() else read.comparisons.filter { it.condition.exerciseId == id }
                         if (changes.any { it.condition.missingFields.isNotEmpty() }) Text("기구·수행 조건 일부 미입력 · 입력이 같은 범위의 비교입니다", color = KColors.Muted, fontSize = 12.sp)
                         changes.forEach { change ->
                             Text(change.volumeChange?.let { "같은 수행 조건의 지난 기록 대비 ${if (it >= 0) "+" else ""}${n(it)} kg · 일반 세트" }

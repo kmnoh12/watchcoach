@@ -190,4 +190,74 @@ class ProgressionPlanStoreTest {
         assertEquals(100.0, store.historyForRecords().heaviestSet("bench")!!.second.weightKg)
         assertTrue(store.recordHits("s23").isEmpty())
     }
+
+    @Test fun movedExerciseUsesLatestHistoryAcrossRoutinesAndPositionsOnlyOnce() {
+        val original = routine()
+        record(original)
+        val history = ExerciseHistoryStore(context)
+        val old = history.load().all.single()
+        history.add(old.copy(sessionId = "latest", epochDay = 2, startedAtMs = 2000,
+            routineId = "another", exerciseIndex = 4, sets = old.sets.map {
+                if (it.isWarmup) it else it.copy(weightKg = 80.0, reps = 7, targetReps = 7) }))
+        history.add(old.copy(exerciseId = "unrelated", sessionId = "unrelated", epochDay = 3))
+        val moved = routine().copy(id = "destination")
+        moved.exercises.add(0, RoutineExercise(original.exercises[0].exercise.copy(id = "new"), mutableListOf(PlannedSet(5.0, 3))))
+        val store = ProgressionPlanStore(context)
+        store.prefill(moved).getOrThrow()
+        assertEquals(80.0, moved.exercises[1].sets[1].weightKg!!, 0.0)
+        assertEquals(8, moved.exercises[1].sets[1].targetReps)
+        assertEquals(3, moved.exercises[0].sets.single().targetReps)
+        store.prefill(moved).getOrThrow()
+        assertEquals(8, moved.exercises[1].sets[1].targetReps)
+    }
+
+    @Test fun removeAndReaddWithFreshSetIdsContinuesThroughTheSavedSlot() {
+        val r = routine()
+        record(r)
+        val store = ProgressionPlanStore(context)
+        store.prefill(r).getOrThrow()
+        val definition = r.exercises.removeAt(0).exercise
+        r.exercises.add(ExerciseDefaults.newExercise(definition, history = ExerciseHistoryStore(context).load().all))
+        store.prefill(r).getOrThrow()
+        assertEquals(1, r.exercises[0].sets.size)
+        assertEquals(70.0, r.exercises[0].sets.single().weightKg!!, 0.0)
+        assertEquals(9, r.exercises[0].sets.single().targetReps)
+        store.prefill(r).getOrThrow()
+        assertEquals(9, r.exercises[0].sets.single().targetReps)
+    }
+
+    @Test fun holdProgressionFollowsExerciseAcrossRoutinesAndPositionsOnlyOnce() {
+        val definition = WorkoutData.catalog.single { it.id == "plank" }
+        val history = ExerciseHistoryStore(context)
+        history.add(ExerciseLog("plank", 1, listOf(LoggedSet(null, 0, durationSeconds = 30, targetDurationSeconds = 30)),
+            sessionId = "hold", routineId = "other", exerciseIndex = 3))
+        val r = WorkoutRoutine("destination", "루틴", "", "", mutableListOf(ExerciseDefaults.newExercise(definition)))
+        val store = ProgressionPlanStore(context)
+        store.prefill(r).getOrThrow()
+        assertEquals(listOf(35, 35, 35), r.exercises.single().sets.map { it.targetDurationSeconds })
+        store.prefill(r).getOrThrow()
+        assertEquals(listOf(35, 35, 35), r.exercises.single().sets.map { it.targetDurationSeconds })
+        history.add(ExerciseLog("side_plank", 2, listOf(LoggedSet(null, 0, durationSeconds = 60, targetDurationSeconds = 30)),
+            sessionId = "unrelated", routineId = "other", exerciseIndex = 1))
+        store.prefill(r).getOrThrow()
+        assertEquals(listOf(35, 35, 35), r.exercises.single().sets.map { it.targetDurationSeconds })
+    }
+
+    @Test fun generatedRampKeepsWarmupAndProgressesOnlyTheHeaviestWorkingSetOnce() {
+        val definition = WorkoutData.catalog.single { it.id == "flat_bench" }
+        val item = ExerciseDefaults.newExercise(definition)
+        val r = WorkoutRoutine("ramp", "루틴", "", "", mutableListOf(item))
+        val store = ProgressionPlanStore(context)
+        store.prefill(r).getOrThrow()
+        assertEquals(listOf(15, 12, 10, 8), item.sets.map { it.targetReps })
+        assertEquals(listOf(10.0, 14.0, 18.0, 20.0), item.sets.map { it.weightKg })
+        record(r)
+        val logged = ExerciseHistoryStore(context).load().all.single().sets
+        assertEquals(listOf(true, false, false, false), logged.map { it.isWarmup })
+        store.prefill(r).getOrThrow()
+        assertEquals(listOf(15, 12, 10, 9), item.sets.map { it.targetReps })
+        assertEquals(listOf(10.0, 14.0, 18.0, 20.0), item.sets.map { it.weightKg })
+        store.prefill(r).getOrThrow()
+        assertEquals(listOf(15, 12, 10, 9), item.sets.map { it.targetReps })
+    }
 }

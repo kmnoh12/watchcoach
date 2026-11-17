@@ -17,8 +17,9 @@ internal class ProgressionPlanStore(private val context: Context) {
         val changes = mutableListOf<() -> Unit>()
         routine.exercises.forEachIndexed { index, item ->
             if (item.exercise.kind == ExerciseKind.HOLD) {
-                val source = history.filter { it.routineId == routine.id && it.exerciseIndex == index && it.exerciseId == item.exercise.id }
-                    .maxWithOrNull(compareBy<ExerciseLog> { it.epochDay }.thenBy { it.startedAtMs })
+                val source = history.filter { it.exerciseId == item.exercise.id }
+                    .maxWithOrNull(compareBy<ExerciseLog> { it.epochDay }.thenBy { it.startedAtMs }
+                        .thenBy { it.sessionId.orEmpty() }.thenBy { it.exerciseIndex }.thenBy { it.routineId.orEmpty() })
                 if (source != null) {
                     val key = "hold:${routine.id}:$index:${item.exercise.id}"
                     val token = ExerciseHistoryCodec.encode(listOf(source))
@@ -34,8 +35,9 @@ internal class ProgressionPlanStore(private val context: Context) {
             val key = "plan:${routine.id}:$index:${item.exercise.id}"
             val saved = prefs.getString(key, null)?.let(::JSONObject)
             val signature = item.sets.joinToString("|") { "${it.setId}:${it.setType}:${it.gripType}" }
-            val source = history.filter { it.routineId == routine.id && it.exerciseIndex == index && it.exerciseId == item.exercise.id && it.equipment == item.exercise.equipment }
-                .maxWithOrNull(compareBy<ExerciseLog> { it.epochDay }.thenBy { it.startedAtMs })
+            val source = history.filter { it.exerciseId == item.exercise.id && it.equipment == item.exercise.equipment }
+                .maxWithOrNull(compareBy<ExerciseLog> { it.epochDay }.thenBy { it.startedAtMs }
+                    .thenBy { it.sessionId.orEmpty() }.thenBy { it.exerciseIndex }.thenBy { it.routineId.orEmpty() })
             // Include corrected evidence so a late manual correction is recalculated once.
             val sessionSource = source?.let { "${it.sessionId}:${it.epochDay}:${it.startedAtMs}" }.orEmpty()
             val evidenceToken = source?.let { ExerciseHistoryCodec.encode(listOf(it)) }.orEmpty()
@@ -53,7 +55,9 @@ internal class ProgressionPlanStore(private val context: Context) {
             val increment = ProgressionIncrementStore(context).candidate(item.exercise.id, item.exercise.equipment,
                 history.filter { it.exerciseId == item.exercise.id && it.equipment == item.exercise.equipment }.flatMap { it.sets }.mapNotNull { it.weightKg }).getOrThrow()
             val token = "$evidenceToken/${settings.speed.name}/${increment.kg}/${increment.needsConfirmation}/${increment.observedSteps}/${increment.confirmed}"
-            val output = if (saved?.optString("source") == token || (saved != null && !sameLayout)) null
+            val previousPositions = saved?.optString("layout").orEmpty().split('|').map { it.substringBefore(':') }.toSet()
+            val changedExistingLayout = saved != null && !sameLayout && item.sets.any { it.setId in previousPositions }
+            val output = if ((sameLayout && saved?.optString("source") == token) || changedExistingLayout) null
                 else ProgressionEngine().nextTargets(plan, history, settings, increment)
             val manual = sets.mapIndexed { i, target ->
                 val old = oldTargets?.optJSONObject(i)

@@ -40,8 +40,8 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
     val all = store.allEvidence()
     val evidence = all.single { it.snapshot.sessionId == sessionId }
     val current = evidence.snapshot
-    val prior = WorkoutComparison.previous(current, all.map { it.snapshot })
-    val comparisons = WorkoutComparison.compare(current, prior)
+    val records = all.map { it.snapshot }
+    val comparisons = WorkoutComparison.compare(current, records)
     val hits = store.recordHits(sessionId).map { it.second }
     fun value(s: PlannedSetSnapshot): String = if (s.exerciseKind == ExerciseKind.HOLD)
         "${s.durationSeconds?.toString() ?: "—"}초" else
@@ -50,9 +50,15 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
     val exercises = current.plannedSets.filter { it.completed }.groupBy { it.exerciseIndex }.values.map { group ->
         val sets = group.sortedBy { it.setIndex }
         val first = sets.first()
-        val before = prior?.plannedSets.orEmpty().filter { it.completed && WorkoutCondition.of(it) == WorkoutCondition.of(first) }
+        val conditions = sets.map(WorkoutCondition::of).toSet()
+        val before = conditions.flatMap { condition ->
+            WorkoutComparison.previousFor(current, records, condition)?.plannedSets.orEmpty()
+                .filter { it.completed && WorkoutCondition.of(it) == condition }
+        }
+        val hasEarlierCondition = records.any { it.sessionId != current.sessionId && it.startedAtMs <= current.startedAtMs &&
+            WorkoutComparison.normalGroups(it).keys.any { condition -> condition in conditions } }
         val best = sets.maxWith(compareBy<PlannedSetSnapshot> { if (it.exerciseKind == ExerciseKind.HOLD) (it.durationSeconds ?: 0).toDouble() else it.weightKg ?: -1.0 }.thenBy { it.performedReps ?: -1 })
-        val changes = comparisons.filter { it.condition == WorkoutCondition.of(first) }
+        val changes = comparisons.filter { it.condition in conditions }
         val weights = changes.flatMap { it.sameReps }.map { it.currentWeightsKg.max() - it.previousWeightsKg.max() }.filter { it != 0.0 }
         val reps = changes.flatMap { it.sameWeight }.filter { it.comparableSetCount }.sumOf { it.currentReps - it.previousReps }
         val hold = first.exerciseKind == ExerciseKind.HOLD
@@ -62,10 +68,10 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
         val delta: Double? = if (hold) seconds?.toDouble() else weights.maxOrNull() ?: reps.toDouble().takeIf { comparableReps.isNotEmpty() && changes.all { it.previous != null && !it.setCountChanged && it.current.volumeKgReps != null && it.previous?.volumeKgReps != null } }
         fun oneRm(list: List<PlannedSetSnapshot>) = list.filter { it.setType == "NORMAL" }.mapNotNull { EstimatedOneRepMax.epley(it.weightKg, it.performedReps ?: 0) }.maxOrNull()
         val nowRm = if (hold) null else oneRm(sets)
-        val prevRm = if (hold) null else oneRm(before)
+        val prevRm = if (hold || changes.any { it.previous == null }) null else oneRm(before)
         val growthRatio = if (nowRm != null && prevRm != null && prevRm > 0) nowRm / prevRm - 1 else null
         val direction = growthRatio?.let { if (it > .005) 1 else if (it < -.005) -1 else 0 } ?: delta?.compareTo(0.0)
-        val label = growthRatio?.let { if (direction == 0) "유지" else "%+.1f%%".format(Locale.KOREA, it * 100) } ?: when { delta == null -> if (before.isEmpty()) "첫 기록" else "—"; delta == 0.0 -> "유지"; else ->
+        val label = growthRatio?.let { if (direction == 0) "유지" else "%+.1f%%".format(Locale.KOREA, it * 100) } ?: when { delta == null -> if (before.isEmpty() && !hasEarlierCondition) "첫 기록" else "—"; delta == 0.0 -> "유지"; else ->
             (if (delta > 0) "+" else "−") + resultNumber(kotlin.math.abs(delta)) + if (hold) "초" else if (weights.isNotEmpty()) "kg" else "회" }
         val hit = hits.firstOrNull { it.exerciseId == first.exerciseId }
         val normal = sets.filter { it.setType == "NORMAL" }
@@ -80,7 +86,8 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
         val tempo = resultTempo(sets.mapNotNull { s -> analyses[SetIdentity.key(s.exerciseId, s.setIndex, s.setId, s.attemptId)]?.takeIf { it.trackingMode != "MANUAL_REQUIRED" }?.motionMetrics })
         ResultExercise(first.exerciseName.ifBlank { first.exerciseId }, value(best), label, direction, sets.map { s ->
             val isRecord = s === recordSet
-            ResultSet(s.setIndex + 1, value(s), before.singleOrNull { it.setIndex == s.setIndex && it.setType == s.setType }?.let(::value) ?: "—", isRecord)
+            ResultSet(s.setIndex + 1, value(s), before.singleOrNull { it.setIndex == s.setIndex && it.setType == s.setType &&
+                WorkoutCondition.of(it) == WorkoutCondition.of(s) }?.let(::value) ?: "—", isRecord)
         }, tempo, if (nowRm != null && prevRm != null) (if (resultNumber(prevRm) == resultNumber(nowRm)) "추정 1RM ${resultNumber(nowRm)}kg" else "추정 1RM ${resultNumber(prevRm)} → ${resultNumber(nowRm)}kg") else null, first.exerciseId)
     }
     val date = Instant.ofEpochMilli(current.startedAtMs).atZone(ZoneId.systemDefault())

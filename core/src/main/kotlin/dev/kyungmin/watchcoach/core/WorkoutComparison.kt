@@ -43,10 +43,21 @@ object WorkoutComparison {
         return earlier.filter { it.startedAtMs == time }.singleOrNull()
     }
 
-    fun compare(current: WorkoutSnapshot, previous: WorkoutSnapshot?): List<WorkoutConditionComparison> {
-        val before = previous?.let(::normalGroups).orEmpty()
+    /** Resolve the baseline independently for each completed working condition. */
+    fun previousFor(current: WorkoutSnapshot, records: List<WorkoutSnapshot>, condition: WorkoutCondition): WorkoutSnapshot? {
+        val matching = records.filter { it.sessionId != current.sessionId &&
+            it.startedAtMs <= current.startedAtMs && condition in normalGroups(it) }
+        if (matching.any { it.startedAtMs == current.startedAtMs }) return null
+        val time = matching.maxOfOrNull { it.startedAtMs } ?: return null
+        return matching.filter { it.startedAtMs == time }.singleOrNull()
+    }
+
+    fun compare(current: WorkoutSnapshot, previous: WorkoutSnapshot?): List<WorkoutConditionComparison> =
+        compare(current, listOfNotNull(previous))
+
+    fun compare(current: WorkoutSnapshot, records: List<WorkoutSnapshot>): List<WorkoutConditionComparison> {
         return normalGroups(current).map { (condition, sets) ->
-            val prior = before[condition]
+            val prior = previousFor(current, records, condition)?.let(::normalGroups)?.get(condition)
             val oldMeasured = prior.orEmpty().filter { it.performedReps != null && it.weightKg != null }
             val newMeasured = sets.filter { it.performedReps != null && it.weightKg != null }
             // Partial groups cannot establish like-for-like repetition or weight progress.
