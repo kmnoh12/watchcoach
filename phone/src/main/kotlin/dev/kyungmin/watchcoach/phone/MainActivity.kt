@@ -419,7 +419,7 @@ class MainActivity : ComponentActivity() {
                     lastWorkoutResult?.takeIf { it.sessionId == sessionId }?.analyses?.set(analysis.key, analysis)
                     lastWorkoutResult?.takeIf { it.sessionId == sessionId }?.let(::persistLastWorkoutResult)
                     wearLiveStatus?.takeIf { it.tag != WATCH_PANEL_TELEMETRY }?.apply {
-                        text = "세트 완료 · ${measuredRepsText(analysis.confirmedReps, "횟수 미측정")}"
+                        text = "세트 완료 · ${measuredRepsText(analysis.confirmedReps ?: analysis.watchReps, "횟수 미측정")}"
                         setTextColor(green)
                     }
                     if (visibleWorkoutResultSessionId == sessionId) refreshVisibleWorkoutResult()

@@ -114,7 +114,7 @@ class CalibrationEvidenceExport(private val context: Context) {
             WirePayloadKeys.TRACKING_PROFILE_ID, WirePayloadKeys.TRACKING_PROFILE_SNAPSHOT,
             "capturePurpose", "watchClockId", "watchDeviceId", "watchEpochVerified", "watchOnLeft", "watchOrientation",
             "startWristContext", "startWristDeviceId", "startDirectionStatus", "startDirectionCandidate", "startDirectionSnapshot", "countingStartNs",
-            "patternBinding", "patternWearing", "patternSelectionMode", "patternActiveCommandId", "patternActiveCandidateHash",
+            "patternBinding", "patternWearing", "forearmHandwardX", "patternSelectionMode", "patternActiveCommandId", "patternActiveCandidateHash",
             "patternActiveSnapshot", "patternActiveUsed", "patternActiveInterrupted", "patternBaselineCount", "patternBaselineSampleCalls",
             "patternShadowSnapshot", "patternShadowCommandId", "patternShadowCount", "patternShadowUsed", "patternShadowInterrupted", "patternShadowTrace")
     }

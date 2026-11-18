@@ -17,10 +17,15 @@ import kotlin.math.sqrt
  * linear acceleration excursion (falling back to rotational excursion when linear span is absent,
  * e.g. synthetic rotation-only fixtures).
  */
-internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile) {
+internal class ExcursionRepDetector(
+    private val profile: ExerciseTrackingProfile,
+    /** Sign of the watch X axis that points from the elbow toward the hand (+1 or -1); see [ForearmAxis]. */
+    private val handwardX: Int = ForearmAxis.DEFAULT_HANDWARD_X,
+) {
     private data class Point(val t: Long, val g: DoubleArray, val a: DoubleArray)
 
-    private val isPressOrPull = profile.family == MotionFamily.PRESS_RETURN || profile.family == MotionFamily.PULL_RETURN
+    private val isPress = profile.family == MotionFamily.PRESS_RETURN
+    private val isPressOrPull = isPress || profile.family == MotionFamily.PULL_RETURN
     private val points = ArrayDeque<Point>()
     private val gBias = DoubleArray(3)
     private val gPos = DoubleArray(3)
@@ -165,12 +170,17 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
             val dot = (0..2).sumOf { v[it] * prevAxis[it] }
             if (dot < 0.0) for (c in 0..2) v[c] = -v[c]
         }
+        // The accel excursion is velocity-like, so the scan counts when motion along +v stops. A press drives the
+        // hand along the forearm toward the hand; pointing +v toward the elbow makes the count land when the
+        // handles are back at the chest (one full push-and-return), independent of how the set happened to start.
+        val forearmOriented = useAccel && isPress && abs(v[0]) >= FOREARM_AXIS_MIN_X
+        if (forearmOriented && v[0] * handwardX > 0.0) for (c in 0..2) v[c] = -v[c]
         val primeAnchor = if (primeEndNs == Long.MIN_VALUE) 0 else {
             val idx = history.indexOfLast { it.t <= primeEndNs }
             if (idx < 0) 0 else idx
         }
         val raw = DoubleArray(n) { i -> (0..2).sumOf { c -> series[i][c] * v[c] } }
-        if (prevAxis == null) {
+        if (prevAxis == null && !forearmOriented) {
             val base = raw[primeAnchor]
             var maxVal = base
             var minVal = base
@@ -275,5 +285,33 @@ internal class ExcursionRepDetector(private val profile: ExerciseTrackingProfile
                 low = value; high = value; lowIndex = i; highIndex = i; returning = false
             }
         }
+    }
+
+    private companion object {
+        /** The principal motion axis must lie mostly along the forearm before its direction is trusted. */
+        const val FOREARM_AXIS_MIN_X = 0.5
+    }
+}
+
+/**
+ * Which way the watch X axis (toward the 3 o'clock edge of the device) points along the forearm.
+ *
+ * The wearer always reads the display upright. On the left wrist the display's right edge faces the hand,
+ * on the right wrist it faces the elbow (true on either side of the wrist). A display rotated by 180°
+ * (crown worn the other way) flips the device axis relative to the display. Unknown side keeps the left-wrist
+ * default.
+ */
+object ForearmAxis {
+    const val DEFAULT_HANDWARD_X = 1
+    const val PAYLOAD_KEY = "forearmHandwardX"
+
+    fun handwardX(side: String?, displayRotatedHalfTurn: Boolean): Int {
+        val bySide = if (side == "RIGHT") -1 else 1
+        return if (displayRotatedHalfTurn) -bySide else bySide
+    }
+
+    fun decode(value: String?): Int = when (value?.trim()) {
+        "-1" -> -1
+        else -> DEFAULT_HANDWARD_X
     }
 }

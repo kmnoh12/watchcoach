@@ -78,6 +78,8 @@ data class ProfiledMotionRepEvent(
  */
 class ProfiledMotionRepDetector(
     private val profile: ExerciseTrackingProfile,
+    /** Watch X axis sign toward the hand ([ForearmAxis]); fixes when a press counts. */
+    private val handwardX: Int = ForearmAxis.DEFAULT_HANDWARD_X,
 ) {
     companion object {
         private const val GRAVITY_FILTER_ALPHA = 0.10
@@ -117,8 +119,8 @@ class ProfiledMotionRepDetector(
     private val excursionCounter = if (!legacyLobes &&
         profile.id.substringBefore('+') == profile.family.sharedAlgorithmId &&
         profile.family in setOf(MotionFamily.PULL_RETURN, MotionFamily.MULTI_AXIS_RETURN, MotionFamily.PRESS_RETURN)
-    ) ExcursionRepDetector(profile) else null
-    private val cueScheduler = UnifiedCueScheduler(profile.family)
+    ) ExcursionRepDetector(profile, handwardX) else null
+    private val cueScheduler = UnifiedCueScheduler(profile.family, RepCueDelay.returnScale(profile.exerciseId))
 
     private var lastTimestampNs = 0L
     private var motionSampleNs = 0L

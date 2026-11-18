@@ -89,10 +89,23 @@ object PhoneRepAnalyzer {
         return analyze(document, profile, watchDetectedReps)
     }
 
+    /**
+     * The watch count is what the user felt live, so the replay may confirm it but only replaces it when the
+     * watch clearly failed: no count, nothing counted although the replay found reps, or a gap that a rep or two
+     * of disagreement cannot explain. A small disagreement keeps the watch count.
+     */
+    fun replayMayConfirm(watchReps: Int?, replayReps: Int): Boolean {
+        if (watchReps == null || watchReps == replayReps) return true
+        if (watchReps == 0) return replayReps > 0
+        val larger = maxOf(watchReps, replayReps)
+        return kotlin.math.abs(replayReps - watchReps) >= maxOf(4, kotlin.math.ceil(0.4 * larger).toInt())
+    }
+
     fun analyze(
         document: SensorCaptureDocument,
         profile: ExerciseTrackingProfile,
         watchDetectedReps: Int? = null,
+        handwardX: Int = ForearmAxis.DEFAULT_HANDWARD_X,
     ): Output {
         if (profile.mode == TrackingMode.MANUAL_REQUIRED) return sanitizeOutput(emptyOutput(watchDetectedReps, profile))
         if (!document.sampleRateRequestedHz.isFinite() || document.sampleRateRequestedHz <= 0.0 ||
@@ -107,7 +120,7 @@ object PhoneRepAnalyzer {
             return analyzeExternalRotation(document, profile, watchDetectedReps)
         }
 
-        val detector = ProfiledMotionRepDetector(profile)
+        val detector = ProfiledMotionRepDetector(profile, handwardX)
         val motionEvents = buildList {
             records.forEach { record -> detector.add(SensorRecordQuality.forCounting(record))?.let(::add) }
             detector.finishAll().forEach(::add)
@@ -155,7 +168,7 @@ object PhoneRepAnalyzer {
         val result = SetAnalysisResult(
             watchDetectedReps = watchDetectedReps,
             phoneReanalyzedReps = events.size,
-            confirmedReps = events.size.takeIf { confidence >= 0.72 && it > 0 },
+            confirmedReps = events.size.takeIf { confidence >= 0.72 && it > 0 && replayMayConfirm(watchDetectedReps, it) },
             repSource = RepSource.CUSTOM_IMU,
             averageRepDurationMs = avgDuration,
             tempoVariance = tempoVariance,
@@ -231,7 +244,7 @@ object PhoneRepAnalyzer {
         val result = SetAnalysisResult(
             watchDetectedReps = watchDetectedReps,
             phoneReanalyzedReps = events.size,
-            confirmedReps = events.size.takeIf { confidence >= 0.72 && it > 0 },
+            confirmedReps = events.size.takeIf { confidence >= 0.72 && it > 0 && replayMayConfirm(watchDetectedReps, it) },
             repSource = RepSource.CUSTOM_IMU,
             averageRepDurationMs = durations.average().takeUnless { it.isNaN() },
             tempoVariance = variance(durations),

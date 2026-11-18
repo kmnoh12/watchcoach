@@ -276,6 +276,8 @@ class WearWorkoutService : Service(), SensorEventListener {
     private val shadowEvents = mutableListOf<dev.kyungmin.watchcoach.core.PatternTrialEvent>()
     private var patternBinding = ""
     private var patternWearing = ""
+    /** Watch X sign toward the hand for this attempt; frozen with the attempt so the phone replays the same press direction. */
+    private var forearmHandwardX = dev.kyungmin.watchcoach.core.ForearmAxis.DEFAULT_HANDWARD_X
     private var startWristContext = ""
     private var startWristDeviceId = ""
     private var startDirectionSnapshot = ""
@@ -888,7 +890,7 @@ class WearWorkoutService : Service(), SensorEventListener {
     private fun resetCountingWindow() {
         setEndGate.reset(); postTargetGuard.reset()
         forearmRotationDetector = forearmRotationDetector?.let { ForearmRotationRepDetector(trackingProfile).also { it.beginCounting() } }
-        profiledMotionDetector = profiledMotionDetector?.let { ProfiledMotionRepDetector(trackingProfile).also { it.beginCounting() } }
+        profiledMotionDetector = profiledMotionDetector?.let { ProfiledMotionRepDetector(trackingProfile, forearmHandwardX).also { it.beginCounting() } }
         frozenActive?.let { activeDetector = dev.kyungmin.watchcoach.core.ReviewedPatternDetector(exerciseId, it.runtime.compatibility, it.runtime) }
         frozenShadow?.let { shadowDetector = dev.kyungmin.watchcoach.core.ReviewedPatternDetector(exerciseId, it.runtime.compatibility, it.runtime) }
         startPoseGate?.reset()
@@ -961,6 +963,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             .put("patternShadowTrace", shadowTraceSnapshot().orEmpty())
             .put("patternBinding", patternBinding).put("activeUseConfirmed", activeUseConfirmed)
             .put("patternWearing", patternWearing)
+            .put("forearmHandwardX", forearmHandwardX)
             .put("patternSelectionMode", patternSelectionMode)
             .put("startWristContext", startWristContext).put("startWristDeviceId", startWristDeviceId)
             .put("startDirectionSnapshot", startDirectionSnapshot).put("startDirectionStatus", startDirectionStatus)
@@ -1056,7 +1059,8 @@ class WearWorkoutService : Service(), SensorEventListener {
                 require(profile.key.deviceId == startWristDeviceId &&
                     profile.key.context == dev.kyungmin.watchcoach.core.StartWristContextCodec.decode(startWristContext))
             }
-            configureTracking(state.optString("trackingProfileSnapshot").takeIf { it.isNotBlank() && ownsWorkingSet })
+            configureTracking(state.optString("trackingProfileSnapshot").takeIf { it.isNotBlank() && ownsWorkingSet },
+                state.optString("forearmHandwardX").takeIf { it.isNotBlank() && ownsWorkingSet }?.let(dev.kyungmin.watchcoach.core.ForearmAxis::decode))
             if (!bootChanged && startDirectionSnapshot.isNotEmpty()) {
                 val previousStatus = state.optString("startDirectionStatus")
                 countingStartNs = if (state.has("countingStartNs") && !state.isNull("countingStartNs")) state.getLong("countingStartNs").also { require(it > 0) } else null
@@ -1492,7 +1496,18 @@ class WearWorkoutService : Service(), SensorEventListener {
             shadowSampleCalls, shadowProcessingHistogram.toList(), shadowEvents.toList(), shadowInterrupted))
     }
 
-    private fun configureTracking(savedSnapshot: String? = null) {
+    /** Side comes from the confirmed wearing; a display turned upside down means the crown sits the other way. */
+    private fun currentForearmHandwardX(): Int {
+        val side = runCatching { dev.kyungmin.watchcoach.core.PatternWearingContext.decode(patternWearing).side }.getOrNull()
+        val rotated = runCatching {
+            (getSystemService(DISPLAY_SERVICE) as android.hardware.display.DisplayManager)
+                .getDisplay(android.view.Display.DEFAULT_DISPLAY)?.rotation == android.view.Surface.ROTATION_180
+        }.getOrDefault(false)
+        return dev.kyungmin.watchcoach.core.ForearmAxis.handwardX(side, rotated)
+    }
+
+    private fun configureTracking(savedSnapshot: String? = null, savedHandwardX: Int? = null) {
+        forearmHandwardX = savedHandwardX ?: currentForearmHandwardX()
         setEndGate.reset(); postTargetGuard.reset()
         learnedRepWaitNs = 3_000_000_000L
         handler.removeCallbacks(setEndTicker)
@@ -1517,7 +1532,7 @@ class WearWorkoutService : Service(), SensorEventListener {
             trackingProfile.mode != TrackingMode.MANUAL_REQUIRED &&
             trackingProfile.signal != TrackingSignal.FOREARM_ROTATION
         ) {
-            ProfiledMotionRepDetector(trackingProfile)
+            ProfiledMotionRepDetector(trackingProfile, forearmHandwardX)
         } else {
             null
         }
@@ -2219,6 +2234,7 @@ class WearWorkoutService : Service(), SensorEventListener {
                     "patternShadowTrace" to shadowTraceSnapshot().orEmpty(),
                     "patternBinding" to patternBinding,
                     "patternWearing" to patternWearing,
+                    dev.kyungmin.watchcoach.core.ForearmAxis.PAYLOAD_KEY to forearmHandwardX.toString(),
                     "patternSelectionMode" to patternSelectionMode,
                     "startDirectionStatus" to startDirectionStatus,
                     "startDirectionSnapshot" to startDirectionSnapshot,

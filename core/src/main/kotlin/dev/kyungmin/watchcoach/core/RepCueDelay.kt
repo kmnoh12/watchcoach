@@ -11,7 +11,7 @@ import kotlin.math.sqrt
  * Haptic cue timing helpers and unified online cue scheduler.
  *
  * The cue fires [TRIM_BEFORE_COMPLETION_NS] (75 ms) before the predicted full return of a repetition,
- * bounded to `[0, MAX_CUE_DELAY_MS]`. Counting is never modified.
+ * bounded to `[0, MAX_CUE_DELAY_MS]` (900 ms). Counting is never modified.
  */
 object RepCueDelay {
     const val FRACTION = 0.40
@@ -26,7 +26,7 @@ object RepCueDelay {
 
     /** Global trim ahead of predicted 90% return completion (tunable for motor latency). */
     const val TRIM_BEFORE_COMPLETION_NS = 75_000_000L
-    const val MAX_CUE_DELAY_MS = 600L
+    const val MAX_CUE_DELAY_MS = 900L
     const val MIN_LEARNED_RETURN_NS = 50_000_000L
     const val MAX_LEARNED_RETURN_NS = 2_500_000_000L
 
@@ -52,6 +52,15 @@ object RepCueDelay {
         return ((targetCueNs - emittedAtNs) / 1_000_000.0).roundToLong().coerceIn(0L, MAX_CUE_DELAY_MS)
     }
 
+    /**
+     * Per-exercise stretch of the predicted 90% return so the cue lands near the real stop (the last 10% is a slow tail).
+     * Measured on watch logs: machine_fly needs ~1.27 (see work/analysis-fly-cue-20261118).
+     */
+    fun returnScale(exerciseId: String): Double = when (exerciseId) {
+        "machine_fly" -> 1.27
+        else -> 1.0
+    }
+
     fun fallbackRatio(family: MotionFamily): Double = when (family) {
         MotionFamily.ARC_RETURN -> 0.72
         MotionFamily.FOREARM_ROTATION -> 0.80
@@ -75,6 +84,7 @@ object RepCueDelay {
  */
 class UnifiedCueScheduler(
     private val family: MotionFamily,
+    private val returnScale: Double = 1.0,
 ) {
     private data class Point(val t: Long, val theta: DoubleArray, val gPos: DoubleArray)
     private data class PendingReturn(
@@ -179,7 +189,7 @@ class UnifiedCueScheduler(
         val repIdx = repCount++
         val isCycle = event.endTimestampNs == turnNs
         val sinceTurn = max(0L, emittedAtNs - turnNs)
-        val predReturnNs = predictReturnNs(isCycle, sinceTurn)
+        val predReturnNs = (predictReturnNs(isCycle, sinceTurn) * returnScale).roundToLong()
         val delayMs = RepCueDelay.unifiedDelayMs(turnNs, emittedAtNs, predReturnNs)
 
         pending = null

@@ -434,7 +434,8 @@ class PhoneWearListenerService : WearableListenerService() {
             require(manifest.payload["patternActiveCandidateHash"].isNullOrEmpty() && manifest.payload["patternActiveUsed"] != "true") {
                 "capture active pattern snapshot missing"
             }
-            PhoneRepAnalyzer.analyze(document, trackingProfile, watchReps).result
+            PhoneRepAnalyzer.analyze(document, trackingProfile, watchReps,
+                dev.kyungmin.watchcoach.core.ForearmAxis.decode(manifest.payload[dev.kyungmin.watchcoach.core.ForearmAxis.PAYLOAD_KEY])).result
         }
         logEvent(WatchCoachEventMarker.ANALYSIS_FINISHED, manifest)
         SetAnalysisStore(this).persistAnalysis(manifest, encodeAnalysis(analysis))

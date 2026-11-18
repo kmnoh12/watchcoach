@@ -37,7 +37,7 @@ class RepCueDelayTest {
     fun unifiedDelayTrimsBeforeCompletionAndRespectsBounds() {
         // turn=1000ms, predReturn=1500ms -> comp=2500ms, cue=2425ms; emitted=2100ms -> delay=325ms
         assertEquals(325L, RepCueDelay.unifiedDelayMs(ms(1_000), ms(2_100), ms(1_500)))
-        // Upper bound clamped at MAX_CUE_DELAY_MS (600ms)
+        // Upper bound clamped at MAX_CUE_DELAY_MS (900ms)
         assertEquals(RepCueDelay.MAX_CUE_DELAY_MS, RepCueDelay.unifiedDelayMs(ms(1_000), ms(1_200), ms(2_000)))
         // Past cue never returns negative delay
         assertEquals(0L, RepCueDelay.unifiedDelayMs(ms(1_000), ms(2_450), ms(1_500)))
