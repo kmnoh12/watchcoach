@@ -12,7 +12,13 @@ class ExerciseDefaultsTest {
     @Test fun defaultRestFollowsBodyCategory() {
         val expectedByExercise = mapOf(
             "leg_extension" to 120,
-            "flat_bench" to 120,
+            "flat_bench" to 180,
+            "flat_machine_bench_press" to 180,
+            "lying_tbar_row" to 180,
+            "barbell_squat" to 180,
+            "leg_press" to 180,
+            "machine_chest_press_plate" to 120,
+            "lat_pull_down" to 120,
             "pull_up" to 120,
             "dumbbell_shoulder_press" to 90,
             "dumbbell_triceps_extension" to 90,
@@ -24,6 +30,16 @@ class ExerciseDefaultsTest {
             assertEquals(id, seconds, ExerciseDefaults.newExercise(definition).restSeconds)
         }
         assertEquals(90, ExerciseDefaults.restSeconds(exercise("unknown")))
+    }
+
+    @Test fun liftRaisesRestsToTheTierFloorAndNeverLowersThem() {
+        fun routine(vararg rests: Pair<String, Int>) = WorkoutRoutine("r", "루틴", "", "", rests.map { (id, rest) ->
+            RoutineExercise(WorkoutData.catalog.single { it.id == id }, mutableListOf(), rest) }.toMutableList())
+        val r = routine("flat_bench" to 150, "machine_chest_press_plate" to 90, "cable_pushdown" to 75, "dumbbell_lateral_raise" to 240)
+        val changed = DefaultRestSetting.liftRests(listOf(r)) { ExerciseDefaults.restSeconds(it) }
+        assertTrue(changed)
+        assertEquals(listOf(180, 120, 90, 240), r.exercises.map { it.restSeconds })
+        assertFalse(DefaultRestSetting.liftRests(listOf(r)) { ExerciseDefaults.restSeconds(it) })
     }
 
     @Test fun customRestAppliesOnlyBeforeFirstCompletedSet() {
@@ -88,11 +104,13 @@ class ExerciseDefaultsTest {
         assertFalse(item.sets.single().completed)
     }
 
-    @Test fun defaultTemplatesUpgradeOnlyNinetySecondRest() {
+    @Test fun defaultTemplatesRestAtLeastTheirTierExceptLightRotations() {
         val routines = WorkoutData.defaultRoutines()
-        assertTrue(routines.flatMap { it.exercises }.none { it.restSeconds == 90 })
-        assertEquals(45, routines.first().exercises.first().restSeconds)
-        assertEquals(150, routines.first { it.id == "chest_triceps" }.exercises.first { it.exercise.id == "flat_bench" }.restSeconds)
+        routines.flatMap { it.exercises }.forEach { item ->
+            assertTrue(item.exercise.id, item.restSeconds >= ExerciseDefaults.restSeconds(item.exercise))
+            if (item.exercise.pattern == "rotation") assertEquals(item.exercise.id, 60, ExerciseDefaults.restSeconds(item.exercise))
+        }
+        assertEquals(180, routines.first { it.id == "chest_triceps" }.exercises.first { it.exercise.id == "flat_bench" }.restSeconds)
     }
 
     @Test fun latestSessionCopiesEveryCompletedWorkingSetWithActualReps() {

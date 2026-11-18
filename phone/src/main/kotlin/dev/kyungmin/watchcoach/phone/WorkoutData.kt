@@ -822,7 +822,7 @@ object WorkoutData {
             muscles = "어깨, 등",
             lastPerformed = "기록 없음",
             exercises = mutableListOf(
-                RoutineExercise(ex("external_rotation"), sets(5.0 to 25, 5.0 to 25), 45),
+                RoutineExercise(ex("external_rotation"), sets(5.0 to 25, 5.0 to 25), 60),
                 RoutineExercise(ex("crossover_reverse_fly"), sets(10.0 to 20), 60),
                 RoutineExercise(ex("smith_shoulder_press"), sets(30.0 to 20, 30.0 to 10, 30.0 to 10), 120),
                 RoutineExercise(ex("machine_shoulder_press"), sets(27.0 to 20, 45.0 to 12, 45.0 to 10, 54.0 to 7), 120),
@@ -878,7 +878,8 @@ object WorkoutData {
             ),
         ),
     ).also { routines -> routines.flatMap { it.exercises }.forEach {
-        if (it.restSeconds == 90) it.restSeconds = ExerciseDefaults.restSeconds(it.exercise)
+        // Starter routines rest at least their tier's time (heavy 180, large 120, small 90); a longer written value stays.
+        if (it.restSeconds < ExerciseDefaults.restSeconds(it.exercise)) it.restSeconds = ExerciseDefaults.restSeconds(it.exercise)
     } }
 }
 

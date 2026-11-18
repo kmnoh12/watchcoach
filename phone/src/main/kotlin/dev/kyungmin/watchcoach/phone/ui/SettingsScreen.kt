@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -116,10 +117,14 @@ private fun DefaultRestSection(seconds: Map<RestMuscleGroup, Int>, onClick: (Res
         Spacer(Modifier.height(8.dp))
         RestMuscleGroup.entries.forEach { group ->
             Row(
-                Modifier.fillMaxWidth().height(44.dp).pressable { onClick(group) },
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).pressable { onClick(group) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(group.label, color = KColors.White, modifier = Modifier.weight(1f))
+                Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                    Text(group.label, color = KColors.White)
+                    Text(group.hint, color = KColors.Soft, fontSize = 12.sp)
+                }
+                Spacer(Modifier.width(12.dp))
                 Text("${seconds[group] ?: group.defaultSeconds}초", color = KColors.Accent)
             }
         }

@@ -3281,6 +3281,7 @@ class MainActivity : ComponentActivity() {
                 saved.routines.flatMap { it.exercises }.forEach { item ->
                     if (WorkoutData.catalog.none { it.id == item.exercise.id }) WorkoutData.catalog += item.exercise
                 }
+                DefaultRestSetting.liftSavedRoutines(this, routines) { saveRoutineLibrary() }   // one time: 3-tier rest floor
             }
         }.onFailure {
             Log.e(EVENT_TAG, "routine library load failed; file retained", it)

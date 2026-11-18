@@ -9,10 +9,33 @@ internal object ExerciseDefaults {
 
     private val cableSmallMuscle = setOf("curl", "triceps_pushdown", "triceps_extension", "rear_delt", "front_raise", "rotation", "chest_fly")
 
-    fun restGroup(exercise: ExerciseDefinition): RestMuscleGroup =
-        if (exercise.bodyCategory in largeMuscleGroups) RestMuscleGroup.LARGE else RestMuscleGroup.SMALL
+    /**
+     * Heavy compound lifts: barbell, dumbbell, smith and plate-machine bench presses, barbell and T-bar rows,
+     * loaded squats, barbell deadlifts and leg presses, barbell overhead presses. Machine chest presses, pulldowns and
+     * other large-muscle work stay in the middle tier on purpose.
+     */
+    private val heavyCompoundIds = setOf(
+        "flat_bench", "incline_bench", "decline_barbell_bench_press", "dumbbell_bench", "incline_dumbbell_bench_press",
+        "decline_dumbbell_bench_press", "smith_flat_bench_press", "smith_incline_bench_press", "flat_machine_bench_press",
+        "incline_machine_bench_press_plate", "decline_machine_bench_press_plate", "floor_press_barbell",
+        "lying_tbar_row", "machine_tbar_row", "tbar_row_landmine", "barbell_row",
+        "barbell_squat", "front_squat", "smith_squat", "hack_squat", "pendulum_squat", "box_squat", "zercher_squat", "belt_squat",
+        "rack_pull", "romanian_deadlift_barbell", "stiff_leg_deadlift", "conventional_deadlift", "sumo_deadlift", "trap_bar_deadlift",
+        "leg_press", "leg_press_horizontal",
+        "barbell_overhead_press", "seated_barbell_overhead_press",
+    )
 
-    fun restSeconds(exercise: ExerciseDefinition): Int = restGroup(exercise).defaultSeconds
+    fun restGroup(exercise: ExerciseDefinition): RestMuscleGroup = when {
+        exercise.id in heavyCompoundIds -> RestMuscleGroup.HEAVY
+        exercise.bodyCategory in largeMuscleGroups -> RestMuscleGroup.LARGE
+        else -> RestMuscleGroup.SMALL
+    }
+
+    /** Rotator-cuff rotations are light warm-ups: one minute, whatever their body category. */
+    private const val WARMUP_REST_SECONDS = 60
+
+    fun restSeconds(exercise: ExerciseDefinition): Int =
+        if (exercise.pattern == "rotation") WARMUP_REST_SECONDS else restGroup(exercise).defaultSeconds
 
     fun startingWeight(exercise: ExerciseDefinition, profile: WorkoutProfile? = null): Double? {
         if (exercise.equipment == "맨몸" && exercise.id !in setOf("weighted_dip", "weighted_pull_up")) return null
