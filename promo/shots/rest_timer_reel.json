@@ -1,0 +1,22 @@
+{
+  "title": "세트 사이, 몇 초 남았지?",
+  "scene": "gym",
+  "camera": "Cam_Front",
+  "seconds": 7,
+  "interp": "smooth",
+  "blend": 10,
+  "cuts": [{"t": 2.4, "camera": "Cam_Side"}, {"t": 5.1, "camera": "Cam_Low"}],
+  "cast": [{"id": "Guy", "kind": "hero", "at": [0, -0.4], "face": 0}],
+  "poses": [
+    {"who": "Guy", "t": 0, "pose": "hands_on_hips"},
+    {"who": "Guy", "t": 1.4, "pose": "phone_look"},
+    {"who": "Guy", "t": 2.4, "pose": "check_watch"},
+    {"who": "Guy", "t": 5.1, "pose": "hands_on_hips"},
+    {"who": "Guy", "t": 6.3, "pose": "triumph"}
+  ],
+  "fx": [
+    {"type": "watch_glow", "who": "Guy", "t": 2.4, "frames": 75},
+    {"type": "watch_buzz", "t": 2.55, "frames": 16},
+    {"type": "watch_buzz", "t": 3.4, "frames": 14}
+  ]
+}
