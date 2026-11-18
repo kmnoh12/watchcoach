@@ -1,0 +1,234 @@
+{
+  "title": "원판 안 치우고 간 사람 (시험 컷)",
+  "scene": "gym",
+  "camera": "Cam_Front",
+  "seconds": 10,
+  "interp": "smooth",
+  "hold": 6,
+  "cast": [
+    {
+      "id": "Guy",
+      "kind": "hero",
+      "at": [
+        0,
+        -0.4
+      ],
+      "face": 0
+    },
+    {
+      "id": "Red",
+      "kind": "extra",
+      "role": "red",
+      "at": [
+        0.8,
+        2.4
+      ],
+      "face": 90
+    }
+  ],
+  "poses": [
+    {
+      "who": "Guy",
+      "t": 0.0,
+      "pose": "hands_on_hips"
+    },
+    {
+      "who": "Guy",
+      "t": 2.0,
+      "pose": "surprise"
+    },
+    {
+      "who": "Guy",
+      "t": 3.4,
+      "pose": "despair_kneel"
+    },
+    {
+      "who": "Guy",
+      "t": 6.4,
+      "pose": "point_r"
+    },
+    {
+      "who": "Guy",
+      "t": 7.8,
+      "pose": "check_watch"
+    },
+    {
+      "who": "Guy",
+      "t": 9.2,
+      "pose": "despair_orz"
+    },
+    {
+      "who": "Red",
+      "t": 0.0,
+      "seq": [
+        "walk_a",
+        "walk_c",
+        "walk_b",
+        "walk_c"
+      ],
+      "until": 3.2,
+      "hold": 5
+    },
+    {
+      "who": "Red",
+      "t": 3.2,
+      "pose": "stand"
+    }
+  ],
+  "moves": [
+    {
+      "who": "Red",
+      "t": 0.0,
+      "dur": 3.2,
+      "from": [
+        0.8,
+        2.4
+      ],
+      "to": [
+        3.4,
+        2.7
+      ]
+    }
+  ],
+  "props": [
+    {
+      "kind": "plate",
+      "at": [
+        0.55,
+        0.95,
+        0.225
+      ]
+    },
+    {
+      "kind": "plate",
+      "at": [
+        0.68,
+        0.95,
+        0.225
+      ]
+    },
+    {
+      "kind": "plate",
+      "at": [
+        1.15,
+        0.55,
+        0.03
+      ],
+      "rot": [
+        0,
+        90,
+        0
+      ]
+    }
+  ],
+  "cameos": [
+    {
+      "who": "samsung",
+      "move": "peek",
+      "t": 5.6,
+      "dur": 0.8,
+      "side": -1,
+      "at": [
+        -1.15,
+        1.2,
+        2.05
+      ]
+    }
+  ],
+  "cuts": [
+    {
+      "t": 3.4,
+      "camera": "Cam_Low"
+    },
+    {
+      "t": 5.6,
+      "camera": "Cam_Front"
+    }
+  ],
+  "fx": [
+    {
+      "type": "exclaim",
+      "who": "Guy",
+      "t": 2.0,
+      "frames": 30
+    },
+    {
+      "type": "flash",
+      "t": 2.0,
+      "frames": 2
+    },
+    {
+      "type": "shake",
+      "t": 2.0,
+      "frames": 10
+    },
+    {
+      "type": "speedlines",
+      "t": 2.07,
+      "frames": 14
+    },
+    {
+      "type": "sweat",
+      "who": "Guy",
+      "t": 3.8,
+      "frames": 45
+    },
+    {
+      "type": "question",
+      "who": "Guy",
+      "t": 6.4,
+      "frames": 30
+    },
+    {
+      "type": "watch_glow",
+      "who": "Guy",
+      "t": 7.8,
+      "frames": 40
+    },
+    {
+      "type": "watch_buzz",
+      "t": 7.8,
+      "frames": 18
+    },
+    {
+      "type": "zoom",
+      "t": 9.2,
+      "frames": 6,
+      "factor": 1.4
+    }
+  ],
+  "lines": [
+    {
+      "t": 0.2,
+      "dur": 1.7,
+      "text": "오늘 벤치 조진다"
+    },
+    {
+      "t": 2.2,
+      "dur": 1.2,
+      "text": "...원판 누가 안 치웠냐"
+    },
+    {
+      "t": 3.6,
+      "dur": 1.9,
+      "text": "이거 다 내가 치워야 돼?"
+    },
+    {
+      "t": 6.5,
+      "dur": 1.2,
+      "text": "...누구세요"
+    },
+    {
+      "t": 8.0,
+      "dur": 1.9,
+      "text": "워치: 원판 정리도 1세트입니다.",
+      "color": [
+        0.4,
+        1.0,
+        0.8
+      ]
+    }
+  ],
+  "blend": 5,
+  "_note": "interp: smooth(기본, 포즈 유지 후 blend 프레임 동안 스윽 전환) | constant(뚝뚝 스톱모션) | linear"
+}

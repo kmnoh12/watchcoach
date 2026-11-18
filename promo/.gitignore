@@ -1,0 +1,5 @@
+*.blend[0-9]*
+__pycache__/
+/renders/
+/models/renders/
+/models/renders_v5_watch/
