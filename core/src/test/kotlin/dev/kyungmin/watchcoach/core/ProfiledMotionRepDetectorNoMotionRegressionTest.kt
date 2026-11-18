@@ -40,6 +40,22 @@ class ProfiledMotionRepDetectorNoMotionRegressionTest {
         assertEquals(0, feed(fly, still).size)
     }
 
+    /** Sumo and trap-bar deadlifts are counted from height change: still and noisy-but-idle wrists must count nothing. */
+    @Test fun lowFloorDeadliftsCountNothingOnStillOrNoisyWrist() {
+        for (id in listOf("sumo_deadlift", "trap_bar_deadlift")) {
+            val profile = ExerciseTrackingProfiles.resolve(id)
+            val still = (0 until 1_500).map { sample(it, ax = 0.07f, ay = -g + 0.10f, az = -0.05f) }
+            assertEquals(0, feed(profile, still).size, "$id still")
+            val random = java.util.Random(7)
+            val noisy = (0 until 1_500).map {
+                sample(it, ax = (random.nextGaussian() * 0.35).toFloat(), ay = -g + (random.nextGaussian() * 0.35).toFloat(),
+                    az = (random.nextGaussian() * 0.35).toFloat(),
+                    axG = (random.nextGaussian() * 0.03).toFloat(), ayG = (random.nextGaussian() * 0.03).toFloat(), azG = (random.nextGaussian() * 0.03).toFloat())
+            }
+            assertEquals(0, feed(profile, noisy).size, "$id noise")
+        }
+    }
+
     private inner class Stream {
         val samples = mutableListOf<SensorSample>()
         var index = 0

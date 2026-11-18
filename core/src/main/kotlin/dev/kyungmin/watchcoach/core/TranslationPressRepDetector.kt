@@ -23,6 +23,8 @@ import kotlin.math.sqrt
  */
 class TranslationPressRepDetector(
     private val profile: ExerciseTrackingProfile,
+    /** Rotate the gravity estimate with gyro (-omega x g) for exercises whose forearm swings while pressing. */
+    private val rotateGravityByGyro: Boolean = false,
 ) {
     companion object {
         private const val GRAVITY_TAU_S = 2.5
@@ -89,6 +91,25 @@ class TranslationPressRepDetector(
         val dt = (t - requireNotNull(previous)) / 1e9
         lastNs = t
         val g = requireNotNull(gravity)
+        if (rotateGravityByGyro) {
+            val gx = sample.gyroscopeX.toDouble()
+            val gy = sample.gyroscopeY.toDouble()
+            val gz = sample.gyroscopeZ.toDouble()
+            if (gx.isFinite() && gy.isFinite() && gz.isFinite()) {
+                val wx = gx * dt
+                val wy = gy * dt
+                val wz = gz * dt
+                val oldMag = sqrt(g.sumOf { it * it })
+                val nx = g[0] - (wy * g[2] - wz * g[1])
+                val ny = g[1] - (wz * g[0] - wx * g[2])
+                val nz = g[2] - (wx * g[1] - wy * g[0])
+                val newMag = sqrt(nx * nx + ny * ny + nz * nz)
+                if (newMag > 1e-6) {
+                    val scale = oldMag / newMag
+                    g[0] = nx * scale; g[1] = ny * scale; g[2] = nz * scale
+                }
+            }
+        }
         val alpha = 1.0 - exp(-dt / GRAVITY_TAU_S)
         for (i in 0..2) g[i] += (a[i] - g[i]) * alpha
         val magnitude = sqrt(g.sumOf { it * it })

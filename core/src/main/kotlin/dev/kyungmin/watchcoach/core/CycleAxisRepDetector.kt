@@ -30,6 +30,8 @@ class CycleAxisRepDetector(
      */
     private val countOnReturn: Boolean = false,
     private val phaseKernel: Boolean = true,
+    /** When true, skip the gyroscope candidate so forearm pitch wiggle cannot mask a clean linear rowing stroke. */
+    private val dynOnly: Boolean = false,
 ) {
     companion object {
         private const val MIN_SAMPLE_GAP_NS = 38_000_000L
@@ -80,7 +82,7 @@ class CycleAxisRepDetector(
     }
 
     private data class PhaseEvent(val event: ProfiledMotionRepEvent, val emittedNs: Long)
-    private val phases = if (phaseKernel) emptyList() else List(4) { CycleAxisRepDetector(countOnReturn, true) }
+    private val phases = if (phaseKernel) emptyList() else List(4) { CycleAxisRepDetector(countOnReturn, true, dynOnly) }
     private val phaseCounts = IntArray(4)
     private val phaseEvents = Array(4) { ArrayDeque<PhaseEvent>() }
     private var phaseSamples = 0
@@ -214,7 +216,8 @@ class CycleAxisRepDetector(
         val from = windowStart(nowNs)
         if (count - from < 40) return
         var best: Candidate? = null
-        for (gyroSource in booleanArrayOf(true, false)) {
+        val sources = if (dynOnly) booleanArrayOf(false) else booleanArrayOf(true, false)
+        for (gyroSource in sources) {
             val series = if (gyroSource) gyro else dyn
             val projected = project(series, from)
             val sorted = projected.map { abs(it) }.sorted()
@@ -337,7 +340,9 @@ class CycleAxisRepDetector(
         val onset = (startIdx until count).firstOrNull { i ->
             source.sumOf { it.data[i] * it.data[i] } >= floor * floor
         } ?: return IntArray(0)
-        return peaks.filter { it >= onset }.toIntArray()
+        // For dynOnly (acceleration-based rowing), skip the 200ms onset edge where window-mean subtraction creates a boundary bump.
+        val minTimeNs = if (dynOnly) times[onset] + 200_000_000L else times[onset]
+        return peaks.filter { it >= onset && times[it] >= minTimeNs }.toIntArray()
     }
 
     /** Returns indices into the full history; [base] is the history index of p[0]. */

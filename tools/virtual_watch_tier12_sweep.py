@@ -26,6 +26,45 @@ from replay_virtual_watch_pilot import compare_events, engine_sources, read_even
 WORK = REPO / "work/virtual-watch/tier12"
 
 
+VARIANT_DEFS = {
+    # Noise levels: a Watch-class MEMS accelerometer is roughly 1 mg rms at 25-50 Hz; 'noise' assumes 5 mg (0.05 m/s^2) and
+    # 0.01 rad/s gyro with a constant bias, 'noise_hi' a 3x harsher stress case. Tilt rotates the sensor frame (start posture).
+    "clean": {},
+    "noise": {"an": 0.05, "gn": 0.01, "ab": (0.04, -0.03, 0.05), "gb": (0.008, -0.006, 0.01)},
+    "noise_hi": {"an": 0.15, "gn": 0.03, "ab": (0.12, -0.09, 0.15), "gb": (0.024, -0.018, 0.03)},
+    "tilt_x+15": {"tilt": ("x", 15)}, "tilt_x-15": {"tilt": ("x", -15)},
+    "tilt_z+15": {"tilt": ("z", 15)}, "tilt_z-15": {"tilt": ("z", -15)},
+    "still": {"still": True},
+    "still_noise": {"still": True, "an": 0.15, "gn": 0.03, "ab": (0.12, -0.09, 0.15), "gb": (0.024, -0.018, 0.03)},
+    "sway": {"still": True, "sway_m": 0.04},
+}
+
+
+def apply_variant(name, stamps, acc, gyr, truth):
+    cfg = VARIANT_DEFS[name]
+    acc, gyr, truth = acc.copy(), gyr.copy(), dict(truth)
+    rng = np.random.default_rng(int(hashlib.sha1(name.encode()).hexdigest()[:8], 16))
+    t = (stamps - stamps[0]) / 1e9
+    if cfg.get("still"):
+        acc[:] = acc[0]; gyr[:] = 0.0
+        truth.update(expected_reps=0, repetitions=[])
+    if cfg.get("sway_m"):
+        up = acc[0] / np.linalg.norm(acc[0]); w = 2 * np.pi * 0.4
+        envelope = np.minimum(1.0, t / 3.0)  # sway builds up over the 3 s preparation, no abrupt start
+        acc = acc + np.outer(envelope * cfg["sway_m"] * w * w * np.sin(w * t), up)
+    if cfg.get("tilt"):
+        axis, deg = cfg["tilt"]; c, s_ = np.cos(np.radians(deg)), np.sin(np.radians(deg))
+        R = np.array({"x": [[1, 0, 0], [0, c, -s_], [0, s_, c]], "z": [[c, -s_, 0], [s_, c, 0], [0, 0, 1]]}[axis])
+        acc, gyr = acc @ R.T, gyr @ R.T
+    if cfg.get("an"):
+        acc = acc + rng.normal(0, cfg["an"], acc.shape) + np.array(cfg["ab"])
+        gyr = gyr + rng.normal(0, cfg["gn"], gyr.shape) + np.array(cfg["gb"])
+    return acc, gyr, truth
+
+
+TEMPO_SCALE = 1.0  # --tempo-scale: >1 makes every rep proportionally slower
+
+
 def parse_id_list(path):
     """Plain list file: one 'section: id, id, ...' per line (tier3 squat sweep)."""
     items = []
@@ -233,7 +272,7 @@ def playback_override_for(mid, acts, poses, metadata):
 
 def synthesize_stream(poses, acts, metadata, reps=REPS, playback_override=None):
     mode = playback_override["mode"] if playback_override else metadata.get("playback_mode", "pingpong")
-    period = float(playback_override["period_s"]) if playback_override else float(metadata.get("playback_ms") or 2600) / 1000
+    period = (float(playback_override["period_s"]) if playback_override else float(metadata.get("playback_ms") or 2600) / 1000) * TEMPO_SCALE
     n_cycles = playback_override.get("reps", reps) if playback_override else reps
     eff_mode = "pingpong" if mode == "pingpong_double" else mode
     eff_meta = dict(metadata, playback_mode="cycle" if mode == "cycle_half_hold" else eff_mode, playback_ms=round(period * 1000))
@@ -309,9 +348,12 @@ def main():
     parser.add_argument("--replay-only", action="store_true", help="Reuse existing generated KCS cases")
     parser.add_argument("--only", nargs="+", help="Filter exercise IDs")
     parser.add_argument("--list-file", help="Alternate id list file (replaces work/virtual-watch-tier12.md)")
+    parser.add_argument("--tempo-scale", type=float, default=1.0, help="Stretch every rep period (1.25 = 25%% slower)")
+    parser.add_argument("--variants", default="clean", help="Comma list of VARIANT_DEFS names")
     parser.add_argument("--work-dir", help="Output dir under repo (default work/virtual-watch/tier12)")
     args = parser.parse_args()
-    global WORK
+    global WORK, TEMPO_SCALE
+    TEMPO_SCALE = args.tempo_scale
     if args.work_dir:
         WORK = REPO / args.work_dir
 
@@ -394,21 +436,24 @@ def main():
             pb_override = playback_override_for(mid, acts, variants[0][2], meta)
             for carrier_kind, side, poses, qa in variants:
                 case_id = f"{eid}__{carrier_kind}_{side}"
-                stamps, acc, gyr, truth, sig_qa = synthesize_stream(poses, acts, meta, REPS, pb_override)
-                truth["case_id"] = case_id
-                truth["exercise_id"] = eid
-                cdir = WORK / case_id
-                cdir.mkdir(parents=True, exist_ok=True)
-                (cdir / "capture.kcs").write_bytes(encode_capture(stamps, acc, gyr))
-                (cdir / "truth.json").write_bytes(json_bytes(truth))
-                cases_meta.append({
-                    "tier": sec, "group": grp, "exercise_id": eid, "model_id": mid,
-                    "case_id": case_id, "carrier_kind": carrier_kind, "side": side,
-                    "qa": qa, "sig_qa": sig_qa,
-                    "playback_override": pb_override,
-                    "prep_end_ns": truth["preparation"]["end_ns"],
-                    "kcs_path": str(cdir / "capture.kcs"),
-                })
+                stamps, acc0, gyr0, truth0, sig_qa = synthesize_stream(poses, acts, meta, REPS, pb_override)
+                for vname in args.variants.split(","):
+                    acc, gyr, truth = apply_variant(vname, stamps, acc0, gyr0, truth0)
+                    vcase = case_id if vname == "clean" else f"{case_id}__{vname}"
+                    truth["case_id"] = vcase
+                    truth["exercise_id"] = eid
+                    cdir = WORK / vcase
+                    cdir.mkdir(parents=True, exist_ok=True)
+                    (cdir / "capture.kcs").write_bytes(encode_capture(stamps, acc, gyr))
+                    (cdir / "truth.json").write_bytes(json_bytes(truth))
+                    cases_meta.append({
+                        "tier": sec, "group": grp, "exercise_id": eid, "model_id": mid,
+                        "case_id": vcase, "variant": vname, "carrier_kind": carrier_kind, "side": side,
+                        "qa": qa, "sig_qa": sig_qa,
+                        "playback_override": pb_override,
+                        "prep_end_ns": truth["preparation"]["end_ns"],
+                        "kcs_path": str(cdir / "capture.kcs"),
+                    })
         (WORK / "cases_meta.json").write_bytes(json_bytes(cases_meta))
     else:
         cases_meta = json.loads((WORK / "cases_meta.json").read_text())
@@ -435,9 +480,9 @@ def main():
         if sdk.is_dir():
             env.setdefault("ANDROID_SDK_ROOT", str(sdk))
         log = WORK / "replay.log"
-        cmd = [str(gradle), ":core:test", "--tests", "dev.kyungmin.watchcoach.core.VirtualWatchTier12ReplayTest", "--rerun", "--console=plain"]
+        cmd = [str(gradle), ":core:test", "--tests", "dev.kyungmin.watchcoach.core.VirtualWatchTier12ReplayTest", "--rerun", "--console=plain", "-PcoreOnly", "-Pkotlin.compiler.execution.strategy=in-process", "-Pkotlin.incremental=false"]
         with log.open("w") as h:
-            proc = subprocess.run(cmd, cwd=REPO, env=env, stdout=h, stderr=subprocess.STDOUT)
+            proc = subprocess.run(cmd, cwd=os.environ.get("WATCHCOACH_GRADLE_PROJECT", REPO), env=env, stdout=h, stderr=subprocess.STDOUT)
         if proc.returncode != 0:
             raise RuntimeError(f"Kotlin replay test failed (exit {proc.returncode}); see {log}")
 
@@ -466,7 +511,7 @@ def main():
         ok = (c["accepted_live_count"] == c["expected_reps"] and c["one_to_one_coverage"] and c["offline_flush_count"] == 0)
         ret_ok = (not ok and st["family"] == "CYCLE_AXIS_RETURN" and c["return_end_1to1"] and c["offline_flush_count"] == 0)
         tag = "PASS" if ok else ("PASS(ret_end)" if ret_ok else f"FAIL({c['accepted_live_count']}/{c['expected_reps']},1to1={c['one_to_one_coverage']},flush={c['offline_flush_count']})")
-        print(f"[{r['tier']:8s}] {r['exercise_id']:38s} {r['carrier_kind']:10s}({r['side']:5s}) {st['family']:25s} disp={r['qa']['disp_mm']:5.1f}mm ang={r['qa']['ang_deg']:5.1f}d gyr={r['sig_qa']['max_gyro_radps']:5.2f} | {tag}")
+        print(f"[{r['tier']:8s}] {r['exercise_id']:30s} {r.get('variant', 'clean'):11s} {r['carrier_kind']:10s}({r['side']:5s}) {st['family']:25s} disp={r['qa']['disp_mm']:5.1f}mm ang={r['qa']['ang_deg']:5.1f}d gyr={r['sig_qa']['max_gyro_radps']:5.2f} | {tag}")
 
 
 if __name__ == "__main__":

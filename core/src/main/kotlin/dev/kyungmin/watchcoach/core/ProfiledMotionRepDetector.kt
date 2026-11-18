@@ -106,17 +106,37 @@ class ProfiledMotionRepDetector(
             "squat", "goblet_squat", "dumbbell_goblet_squat", "smith_squat", "box_squat", "zercher_squat", "overhead_squat",
             "dumbbell_deadlift", "conventional_deadlift", "sumo_deadlift", "good_morning", "kettlebell_swing",
         )
+
+        /** Deadlifts and hinges counted from the wrist's height change in metres instead of acceleration size (tempo independent). */
+        private val HINGE_DISPLACEMENT = setOf(
+            "sumo_deadlift", "trap_bar_deadlift", "conventional_deadlift", "dumbbell_deadlift",
+            "romanian_deadlift_barbell", "romanian_deadlift_dumbbell", "stiff_leg_deadlift", "good_morning",
+        )
+
+        /** Translation-routed pushdowns whose forearm rotates ~66 deg around the elbow, lagging the slow gravity LPF on rep 1. */
+        private val GYRO_GRAVITY_PUSHDOWNS = setOf("single_arm_cable_pushdown", "reverse_grip_pushdown")
+
+        /** Flexion-extension curls that pronate at the top and lower pronated, inverting X/Z gravity while forearm Y matches bottom. */
+        private val PRONATION_INVARIANT_POSES = setOf("zottman_curl")
+
+        /** Rowing strokes with strong linear travel whose minor forearm pitch wiggle double-peaks in gyro. */
+        private val DYN_ONLY_ROWS = setOf("one_arm_dumbbell_row")
     }
 
-    private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION) ReturnToPoseRepDetector(profile.minimumRepMs) else null
+    private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION)
+        ReturnToPoseRepDetector(profile.minimumRepMs, pronationInvariant = profile.exerciseId in PRONATION_INVARIANT_POSES) else null
     private val verticalCounter = if (profile.family == MotionFamily.VERTICAL_PRESS_RETURN) VerticalPressRepDetector(profile) else null
-    private val translationCounter = if (profile.family == MotionFamily.TRANSLATION_PRESS_RETURN) TranslationPressRepDetector(profile) else null
-    private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN)
+    private val translationCounter = if (profile.family == MotionFamily.TRANSLATION_PRESS_RETURN)
+        TranslationPressRepDetector(profile, rotateGravityByGyro = profile.exerciseId in GYRO_GRAVITY_PUSHDOWNS) else null
+    private val hingeCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN && profile.exerciseId in HINGE_DISPLACEMENT)
+        HingeDisplacementRepDetector() else null
+    private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN && hingeCounter == null)
         CycleAxisRepDetector(
             countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe in
                 setOf(MeasurementRecipe.LATERAL_RAISE, MeasurementRecipe.ROW) ||
                 profile.exerciseId in SEATED_ROWS || profile.exerciseId in RETURN_COUNTED,
             phaseKernel = false,
+            dynOnly = profile.exerciseId in DYN_ONLY_ROWS,
         ) else null
     private val arcCounter = if (profile.family == MotionFamily.ARC_RETURN) ForearmRotationRepDetector(profile) else null
     private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
@@ -160,13 +180,13 @@ class ProfiledMotionRepDetector(
 
     // Pose counting previously allowed long top holds without a maximum duration.
     // Bound set-end grace at 12s, preserving slow returns; this policy still needs Watch8 validation.
-    val maximumCycleNs: Long get() = translationCounter?.maximumCycleNs ?: verticalCounter?.maximumCycleNs ?: cycleCounter?.maximumCycleNs ?: if (poseCounter != null) 12_000_000_000L else profile.maximumRepMs * 1_000_000L
+    val maximumCycleNs: Long get() = translationCounter?.maximumCycleNs ?: verticalCounter?.maximumCycleNs ?: hingeCounter?.maximumCycleNs ?: cycleCounter?.maximumCycleNs ?: if (poseCounter != null) 12_000_000_000L else profile.maximumRepMs * 1_000_000L
 
     /** Latest sample that looked like working motion, even when no complete rep was accepted. */
     var lastMotionNs: Long = 0L
         private set
 
-    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (cycleCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
+    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (cycleCounter != null || hingeCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
         ?: lobeStartNs.takeIf { it > 0L && lobeDisplacement >= profile.minimumLobeDisplacement }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
@@ -180,6 +200,7 @@ class ProfiledMotionRepDetector(
         arcCounter?.let { return it.add(sample)?.asProfiledEvent() }
         translationCounter?.let { return it.add(sample) }
         verticalCounter?.let { return it.add(sample) }
+        hingeCounter?.let { return it.add(sample) }
         cycleCounter?.let { return it.add(sample) }
         poseCounter?.let { return it.add(sample) }
         excursionCounter?.let { return it.add(sample) }
@@ -233,7 +254,7 @@ class ProfiledMotionRepDetector(
 
     fun finish(): ProfiledMotionRepEvent? {
         arcCounter?.let { return it.finish()?.asProfiledEvent() }
-        if (translationCounter != null || verticalCounter != null || cycleCounter != null || excursionCounter != null) return null
+        if (translationCounter != null || verticalCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) return null
         if (poseCounter != null) return null // A partial return never becomes a rep when the set ends.
         if (!legacyLobes) { resetAll(); return null } // Only observed quiet/reversal closes a new-engine lobe.
         if (direction == 0 || lastTimestampNs == 0L) return null
@@ -247,12 +268,13 @@ class ProfiledMotionRepDetector(
      * estimate learned from the user's real starting pose.
      */
     /** Offline end of stream: every rep still undelivered (the cycle engine confirms reps with a delay). */
-    fun finishAll(): List<ProfiledMotionRepEvent> = translationCounter?.finishAll() ?: cycleCounter?.finishAll() ?: listOfNotNull(finish())
+    fun finishAll(): List<ProfiledMotionRepEvent> = translationCounter?.finishAll() ?: hingeCounter?.finishAll() ?: cycleCounter?.finishAll() ?: listOfNotNull(finish())
 
     fun beginCounting() {
         arcCounter?.beginCounting()
         translationCounter?.beginCounting()
         verticalCounter?.beginCounting()
+        hingeCounter?.beginCounting()
         cycleCounter?.beginCounting()
         poseCounter?.reset()
         excursionCounter?.beginCounting()
@@ -288,6 +310,7 @@ class ProfiledMotionRepDetector(
                 while (iterator.hasNext()) verticalCounter.add(iterator.next())
                 verticalCounter.beginCounting()
             }
+            hingeCounter != null -> hingeCounter.prime(samples)
             cycleCounter != null -> cycleCounter.prime(samples)
             poseCounter != null -> while (iterator.hasNext()) poseCounter.add(iterator.next())
             excursionCounter != null -> excursionCounter.prime(samples)

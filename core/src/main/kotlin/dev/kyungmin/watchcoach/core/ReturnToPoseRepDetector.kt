@@ -11,7 +11,11 @@ import kotlin.math.sqrt
  * Uses gravity-relative tilt only; it does not reconstruct a 3D path or joint angle.
  * 60° departure / 20° return are provisional motion hysteresis, not form criteria.
  */
-internal class ReturnToPoseRepDetector(private val minimumRepMs: Long) {
+internal class ReturnToPoseRepDetector(
+    private val minimumRepMs: Long,
+    /** Compare elevation from the forearm Y axis so pronation/supination around Y does not mask return to the starting angle. */
+    private val pronationInvariant: Boolean = false,
+) {
     private val filtered = DoubleArray(3)
     private val baselineSum = DoubleArray(3)
     private var baselineCount = 0
@@ -76,12 +80,22 @@ internal class ReturnToPoseRepDetector(private val minimumRepMs: Long) {
             if (t - invalidGravitySinceNs >= 450_000_000L) {
                 resetCycle()
                 waitForBottom = true
+                return null
             }
-            return null
+            if (!pronationInvariant || magnitude < 1.5) return null
+        } else {
+            invalidGravitySinceNs = 0L
         }
-        invalidGravitySinceNs = 0L
         val reference = baseline!!
-        val tilt = acos((filtered.indices.sumOf { filtered[it] * reference[it] } / magnitude).coerceIn(-1.0, 1.0))
+        val tilt = if (pronationInvariant) {
+            val uY = (filtered[1] / magnitude).coerceIn(-1.0, 1.0)
+            val uR = sqrt((1.0 - uY * uY).coerceAtLeast(0.0))
+            val bY = reference[1].coerceIn(-1.0, 1.0)
+            val bR = sqrt((1.0 - bY * bY).coerceAtLeast(0.0))
+            acos((uY * bY + uR * bR).coerceIn(-1.0, 1.0))
+        } else {
+            acos((filtered.indices.sumOf { filtered[it] * reference[it] } / magnitude).coerceIn(-1.0, 1.0))
+        }
         if (waitForBottom) {
             if (tilt <= RETURN_TILT) waitForBottom = false
             return null

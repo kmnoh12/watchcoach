@@ -2,6 +2,7 @@ package dev.kyungmin.watchcoach.core
 
 import java.io.File
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
@@ -174,5 +175,84 @@ class VirtualWatchTier12ReplayTest {
         assertEquals(4, events.size)
         assertTrue(events.first().startTimestampNs >= activeStartNs, "rep start must not sit in prime window")
         assertTrue(events.first().turnaroundTimestampNs >= activeStartNs, "rep turnaround must not sit in prime window")
+    }
+
+    @Test
+    fun uprightRowBarbellAndDumbbellUsePullReturn() {
+        listOf("upright_row_barbell", "upright_row_dumbbell").forEach { id ->
+            assertEquals(MotionFamily.PULL_RETURN, ExerciseTrackingProfiles.resolve(id).family, id)
+        }
+    }
+
+    @Test
+    fun tier12NineFixOverridesCountZeroOnStillOrNoisyWrist() {
+        val g = 9.80665f
+        val fixedIds = listOf(
+            "single_arm_cable_pushdown",
+            "reverse_grip_pushdown",
+            "upright_row_barbell",
+            "upright_row_dumbbell",
+            "one_arm_dumbbell_row",
+            "zottman_curl",
+        )
+        for (id in fixedIds) {
+            val profile = ExerciseTrackingProfiles.resolve(id)
+            val still = (0 until 1_500).map { i ->
+                SensorSample(1_000_000_000L + i * 20_000_000L, 0.07f, -g + 0.10f, -0.05f, 0f, 0f, 0f, 3)
+            }
+            val detStill = ProfiledMotionRepDetector(profile)
+            detStill.beginCounting()
+            val stillCount = still.count { detStill.add(it) != null } + detStill.finishAll().size
+            assertEquals(0, stillCount, "$id still")
+
+            val rng = java.util.Random(17)
+            val noisy = (0 until 1_500).map { i ->
+                SensorSample(
+                    1_000_000_000L + i * 20_000_000L,
+                    (rng.nextGaussian() * 0.35).toFloat(),
+                    -g + (rng.nextGaussian() * 0.35).toFloat(),
+                    (rng.nextGaussian() * 0.35).toFloat(),
+                    (rng.nextGaussian() * 0.03).toFloat(),
+                    (rng.nextGaussian() * 0.03).toFloat(),
+                    (rng.nextGaussian() * 0.03).toFloat(),
+                    3,
+                )
+            }
+            val detNoisy = ProfiledMotionRepDetector(profile)
+            detNoisy.beginCounting()
+            val noisyCount = noisy.count { detNoisy.add(it) != null } + detNoisy.finishAll().size
+            assertEquals(0, noisyCount, "$id noise")
+        }
+    }
+
+    @Test
+    fun zottmanCurlPronationInvariantCountsSupinatedAndPronatedReps() {
+        val detector = ProfiledMotionRepDetector(ExerciseTrackingProfiles.resolve("zottman_curl"))
+        detector.beginCounting()
+        val dtNs = 20_000_000L
+        var t = 1_000_000_000L
+        val samples = ArrayList<SensorSample>()
+        // 30-deg forearm angle at bottom; pronation flips X/Z gravity while forearm Y stays invariant.
+        fun addSample(elevDeg: Double, rollRad: Double, gyY: Float = 0f) {
+            val elev = Math.toRadians(elevDeg)
+            val ay = (9.80665 * cos(elev)).toFloat()
+            val radial = 9.80665 * sin(elev)
+            val ax = (radial * sin(rollRad)).toFloat()
+            val az = (-radial * cos(rollRad)).toFloat()
+            samples += SensorSample(t, ax, ay, az, 0f, gyY, 0f, 3)
+            t += dtNs
+        }
+        repeat(20) { addSample(30.0, 0.0) }
+        repeat(2) {
+            // Rep 1: curl up supinated (roll=0), pronate at top (roll->PI), lower pronated (roll=PI)
+            for (i in 1..65) addSample(30.0 + 100.0 * (i / 65.0), 0.0)
+            for (i in 1..65) addSample(130.0 - 100.0 * (i / 65.0), PI)
+            // Rep 2: curl up pronated (roll=PI), supinate at top (roll->0), lower supinated (roll=0)
+            for (i in 1..65) addSample(30.0 + 100.0 * (i / 65.0), PI)
+            for (i in 1..65) addSample(130.0 - 100.0 * (i / 65.0), 0.0)
+        }
+        repeat(20) { addSample(30.0, 0.0) }
+        val count = samples.count { detector.add(it) != null } + detector.finishAll().size
+        assertEquals(4, count)
     }
 }
