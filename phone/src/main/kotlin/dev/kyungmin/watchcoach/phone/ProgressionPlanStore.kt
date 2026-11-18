@@ -12,7 +12,7 @@ internal class ProgressionPlanStore(private val context: Context) {
     fun prefill(routine: WorkoutRoutine): Result<Unit> = synchronized(lock) { runCatching {
         val settings = ProgressionSettingsStore(context).load().getOrThrow()
         if (!settings.enabled) return@runCatching
-        val history = ExerciseHistoryStore(context).load().all
+        val history = ExerciseHistoryStore(context).loadForCarry().all
         val edit = prefs.edit()
         val changes = mutableListOf<() -> Unit>()
         routine.exercises.forEachIndexed { index, item ->

@@ -14,6 +14,15 @@ class ExerciseHistoryStore(context: Context) {
             .getOrDefault(ExerciseHistory())
     }
 
+    private val carryOver = CarryOverStore(context)
+
+    /** What next-time targets and "last time" read: everything except sessions the user chose not to carry over. */
+    fun loadForCarry(): ExerciseHistory {
+        val all = load()
+        val skipped = carryOver.excluded()
+        return if (skipped.isEmpty()) all else ExerciseHistory(all.all.filterNot { it.sessionId in skipped })
+    }
+
     fun add(log: ExerciseLog): ExerciseHistory = synchronized(lock) {
         val updated = load().with(log)
         check(prefs.edit().putString(KEY, ExerciseHistoryCodec.encode(updated.all)).commit()) { "Failed to save exercise history" }

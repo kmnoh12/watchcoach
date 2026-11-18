@@ -63,6 +63,20 @@ class ExerciseHistory(logs: List<ExerciseLog> = emptyList()) {
             it.routineId == routineId && it.exerciseIndex == exerciseIndex && it.equipment == equipment
         }
 
+    /**
+     * "Last time" as the user means it: the most recent finished session of this exercise on this equipment, wherever it sat
+     * in whichever routine. [last] with a routine position skips a session once the exercise moved, and then shows an old one.
+     * When that session did the exercise more than once, the entry at this position wins.
+     */
+    fun lastDone(exerciseId: String, routineId: String, exerciseIndex: Int, equipment: String): ExerciseLog? {
+        val done = byExercise[exerciseId].orEmpty().filter { log ->
+            (log.equipment == equipment || log.equipment.isEmpty()) && log.sets.any { it.completed && it.repsEntered }
+        }
+        val newest = done.firstOrNull() ?: return null
+        val sameSession = done.filter { it.sessionId == newest.sessionId && it.epochDay == newest.epochDay }
+        return sameSession.firstOrNull { it.routineId == routineId && it.exerciseIndex == exerciseIndex } ?: newest
+    }
+
     fun recent(exerciseId: String, count: Int = 5): List<ExerciseLog> = byExercise[exerciseId].orEmpty().take(count)
 
     fun bestVolume(exerciseId: String): ExerciseLog? = byExercise[exerciseId]?.maxByOrNull { it.volumeKg }

@@ -36,6 +36,16 @@ class ExerciseHistoryTest {
     }
 
     @Test
+    fun `lastDone shows the newest finished session even when the exercise moved to another slot`() {
+        val old = log(1, 60.0 to 10, 60.0 to 10).copy(routineId = "r", exerciseIndex = 1, equipment = "machine", sessionId = "old")
+        val moved = log(5, 40.0 to 10, 60.0 to 8).copy(routineId = "other", exerciseIndex = 0, equipment = "machine", sessionId = "new")
+        val history = ExerciseHistory(listOf(old, moved))
+        assertEquals(old, history.last("bench", "r", 1, "machine"))      // the slot-keyed lookup is stuck on the old session
+        assertEquals(moved, history.lastDone("bench", "r", 1, "machine"))
+        assertNull(history.lastDone("bench", "r", 1, "barbell"))
+    }
+
+    @Test
     fun `last matches routine position and equipment without falling back to legacy history`() {
         val matching = log(2, 60.0 to 10).copy(routineId = "routine-a", exerciseIndex = 0, equipment = "barbell")
         val history = ExerciseHistory(listOf(

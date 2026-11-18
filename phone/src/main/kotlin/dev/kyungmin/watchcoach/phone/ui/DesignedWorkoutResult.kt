@@ -180,7 +180,19 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                 }
                 Column(Modifier.fillMaxWidth().background(Color.Black).padding(horizontal = 16.dp)) {
                     Spacer(Modifier.height(18.dp))
-                    Text("${result.title} 완료", color = ResultBone, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${result.title} 완료", color = ResultBone, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        result.carryOver?.let { initial ->
+                            var carry by remember(result.sessionId) { mutableStateOf(initial) }
+                            Column(Modifier.padding(start = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("루틴 저장", color = KColors.Soft, fontSize = 12.sp)
+                                Spacer(Modifier.height(4.dp))
+                                SquareSwitch(carry, "루틴 저장") { want ->
+                                    if (result.onCarryChange?.invoke(want) != false) carry = want
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(12.dp))
                     read?.let { data ->
                         ResultNumbers(data)

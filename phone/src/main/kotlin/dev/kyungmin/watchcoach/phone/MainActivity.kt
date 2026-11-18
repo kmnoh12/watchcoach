@@ -462,7 +462,16 @@ class MainActivity : ComponentActivity() {
     private val overlays = OverlayState()
     private val historyStore by lazy { ExerciseHistoryStore(applicationContext) }
     private var historyCache: ExerciseHistory? = null
+        set(value) { field = value; carryHistoryCache = null }
     private val history: ExerciseHistory get() = historyCache ?: historyStore.load().also { historyCache = it }
+    // "Last time" lines read this: sessions the user chose not to carry over are left out. Stats keep reading `history`.
+    private var carryHistoryCache: ExerciseHistory? = null
+    private val carryHistory: ExerciseHistory get() = carryHistoryCache ?: historyStore.loadForCarry().also { carryHistoryCache = it }
+    // Set only while the just-finished result is on screen; the "루틴 저장" switch shows for that session alone.
+    private var carryChoiceSessionId: String? = null
+    /** What "루틴 저장" needs to flip the just-finished day's exercise changes on and off; memory only, like the switch itself. */
+    private class CarryDay(val sessionId: String, val routineId: String, val original: List<RoutineExercise>, val day: List<RoutineExercise>)
+    private var carryDay: CarryDay? = null
     private lateinit var otaCoordinator: dev.kyungmin.watchcoach.updates.OtaCoordinator
     private lateinit var sessionStore: SessionStore
     private var currentTab = RootTab.HOME
@@ -1019,6 +1028,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showRecords() {
         visibleWorkoutResultSessionId = null
+        carryChoiceSessionId = null
         stopTicker()
         currentTab = RootTab.RECORDS
         currentScreen = Screen.ROOT
@@ -1276,11 +1286,18 @@ class MainActivity : ComponentActivity() {
             records = if (lastWorkoutResult?.sessionId == result.sessionId) lastWorkoutRecords else emptyList(),
             footnote = "반복 시간은 워치 움직임을 기준으로 계산합니다.",
             sessionId = result.sessionId,
+            carryOver = if (carryChoiceSessionId == result.sessionId) CarryOverStore(this).carries(result.sessionId) else null,
+            onCarryChange = { carry ->
+                CarryOverStore(this).setCarry(result.sessionId, carry).also { saved ->
+                    if (saved) { carryHistoryCache = null; applyCarryChoice(result.sessionId, carry) }
+                    else Toast.makeText(this, "루틴 저장 설정을 바꾸지 못했습니다", Toast.LENGTH_SHORT).show()
+                }
+            },
         )
         showStandalone(ComposeView(this).apply {
             setContent {
                 WorkoutResultScreen(
-                    ui, back = { onBackPressed() }, toRecords = { recordMonth = YearMonth.now(); showRecords() },
+                    ui, back = { carryChoiceSessionId = null; onBackPressed() }, toRecords = { recordMonth = YearMonth.now(); showRecords() },
                     onMenu = {
                         val record = workoutRecords().firstOrNull { it.sessionId == result.sessionId }
                             ?: WorkoutRecord(LocalDate.now().toString(), result.title, result.durationMinutes, result.completedSets, 0, result.sessionId)
@@ -1912,9 +1929,35 @@ class MainActivity : ComponentActivity() {
             val updated = routines[index].copy(lastPerformedEpochDay = performedDay)
             val candidate = routines.toMutableList().apply { set(index, updated) }
             if (saveRoutineLibrary(candidate)) routines[index] = updated
+            carryDayStructure(workout)
         }
         WatchOverviewPublisher.publish(this)
         historyCache = null
+    }
+
+    private fun setRoutineExercises(routine: WorkoutRoutine, exercises: List<RoutineExercise>): Boolean {
+        val before = routine.exercises.toList()
+        routine.exercises.clear(); routine.exercises.addAll(exercises)
+        if (saveRoutineLibrary()) return true
+        routine.exercises.clear(); routine.exercises.addAll(before)
+        return false
+    }
+
+    /** "루틴 저장" is on by default: exercises added, removed or reordered during the day become the saved routine. */
+    private fun carryDayStructure(workout: ActiveWorkout) {
+        val saved = routines.firstOrNull { it.id == workout.routine.id } ?: return
+        val day = workout.routine.exercises.toList()
+        val carried = RoutineDayStructure.carried(saved.exercises, day) ?: return
+        val original = saved.exercises.toList()
+        if (setRoutineExercises(saved, carried)) carryDay = CarryDay(workout.sessionId, saved.id, original, day)
+    }
+
+    /** The switch on the fresh result: off puts the routine back as it was before the day, on applies the day again. */
+    private fun applyCarryChoice(sessionId: String, carry: Boolean) {
+        val state = carryDay?.takeIf { it.sessionId == sessionId } ?: return
+        val saved = routines.firstOrNull { it.id == state.routineId } ?: return
+        val target = if (carry) RoutineDayStructure.carried(saved.exercises, state.day) else state.original
+        if (target != null && setRoutineExercises(saved, target)) WatchOverviewPublisher.publish(this)
     }
 
     private fun statsUi(): StatsUi {
@@ -1941,10 +1984,11 @@ class MainActivity : ComponentActivity() {
 
     private fun newRoutineExercise(exercise: ExerciseDefinition): RoutineExercise =
         ExerciseDefaults.newExercise(exercise, UserProfileStore(this).deviceProfile()?.profile,
-            ExerciseHistoryStore(this).load().all,
+            ExerciseHistoryStore(this).loadForCarry().all,
             DefaultRestSetting.seconds(this, ExerciseDefaults.restGroup(exercise)))
 
     private fun prefillProgression(routine: WorkoutRoutine) {
+        carryChoiceSessionId = null   // targets are about to be built from history, so the carry choice is final
         ProgressionPlanStore(this).prefill(routine)
             .onSuccess { if (routines.any { it === routine }) saveRoutineLibrary() }
             .onFailure { Log.e(EVENT_TAG, "progression prefill failed", it) }
@@ -2008,7 +2052,7 @@ class MainActivity : ComponentActivity() {
                 val currentSet = if (exerciseIndex == workout.exerciseIndex) workout.setIndex
                 else workout.setIndexByExercise[workoutExerciseKey(routineExercise)]
                     ?: routineExercise.sets.indexOfFirst { !it.completed }.coerceAtLeast(0)
-                val last = history.last(routineExercise.exercise.id, workout.routine.id, exerciseIndex, routineExercise.exercise.equipment)
+                val last = carryHistory.lastDone(routineExercise.exercise.id, workout.routine.id, exerciseIndex, routineExercise.exercise.equipment)
                 ExerciseUi(
                     id = routineExercise.exercise.id,
                     name = routineExercise.exercise.name,
@@ -2674,7 +2718,7 @@ class MainActivity : ComponentActivity() {
     private fun showWorkoutMenu(workout: ActiveWorkout) {
         val pageIndex = workout.restingPageIndex ?: workout.exerciseIndex
         val routineExercise = workout.routine.exercises.getOrNull(pageIndex) ?: return
-        val last = history.last(routineExercise.exercise.id, workout.routine.id, pageIndex, routineExercise.exercise.equipment)
+        val last = carryHistory.lastDone(routineExercise.exercise.id, workout.routine.id, pageIndex, routineExercise.exercise.equipment)
         showSheet { dismiss ->
             SheetOptions(
                 routineExercise.exercise.name,
@@ -2889,6 +2933,7 @@ class MainActivity : ComponentActivity() {
         activeRestStartAtMs = 0L
         activeRestEndAtMs = 0L
         pausedRestRemainingMs = 0L
+        carryChoiceSessionId = completedWorkout?.sessionId   // the switch is offered only on this fresh result
         showWorkoutResult(lastWorkoutResult)
     }
 

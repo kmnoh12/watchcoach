@@ -75,6 +75,7 @@ internal class FinishedWorkoutStore(private val context: Context) {
         if (!prefs.edit().remove("session:$sessionId").commit()) return@synchronized false
         WorkoutLogStore(context).remove { it.sessionId == sessionId }
         ExerciseHistoryStore(context).removeSession(sessionId)
+        CarryOverStore(context).setCarry(sessionId, true)   // forget the choice with the session
         true
     }
 

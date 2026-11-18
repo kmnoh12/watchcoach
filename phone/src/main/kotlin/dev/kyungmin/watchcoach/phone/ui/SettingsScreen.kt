@@ -210,14 +210,15 @@ private fun ProgressionSection(settings: ProgressionSettings, onChange: (Progres
     }
 }
 
+/** The app's one switch: the settings rows and the result screen's "루틴 저장" both draw it. */
 @Composable
-private fun SquareSwitch(on: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SquareSwitch(on: Boolean, description: String = "점진적 과부하 사용", onChange: (Boolean) -> Unit) {
     val position by animateFloatAsState(if (on) 1f else 0f, tween(200), label = "switch")
     Box(
         Modifier.size(width = 44.dp, height = 26.dp).clip(KShape.Control)
             .background(if (on) KColors.Accent else KColors.Hairline)
             .tapToggleable(on, remember { MutableInteractionSource() }, indication = null, role = Role.Switch, onValueChange = onChange)
-            .semantics { contentDescription = "점진적 과부하 사용" },
+            .semantics { contentDescription = description },
     ) {
         Box(
             Modifier.offset(x = (3 + 18 * position).dp, y = 3.dp).size(20.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))

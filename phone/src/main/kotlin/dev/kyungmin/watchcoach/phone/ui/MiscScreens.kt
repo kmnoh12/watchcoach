@@ -150,6 +150,9 @@ class ResultUi(
     val footnote: String,
     val records: List<RecordUi> = emptyList(),
     val sessionId: String? = null,
+    /** null hides the "루틴 저장" switch (old results); otherwise its current state. Returns false when saving failed. */
+    val carryOver: Boolean? = null,
+    val onCarryChange: ((Boolean) -> Boolean)? = null,
 )
 
 @Composable
