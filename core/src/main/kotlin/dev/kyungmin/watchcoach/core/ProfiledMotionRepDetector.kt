@@ -101,7 +101,11 @@ class ProfiledMotionRepDetector(
             "single_arm_machine_seated_row", "single_arm_cable_seated_row")
 
         /** Straight-arm pulldown and pullovers: the first lobe is the pull, so count at the return or 10 reps read 11 (virtual-watch replay). */
-        private val RETURN_COUNTED = setOf("straight_arm_pulldown", "cable_pullover", "machine_pullover")
+        private val RETURN_COUNTED = setOf("straight_arm_pulldown", "cable_pullover", "machine_pullover") + setOf(
+            // Squats and hinges (virtual-watch tier 3): the wrist travels with the body, a rep is done when the lifter stands again.
+            "squat", "goblet_squat", "dumbbell_goblet_squat", "smith_squat", "box_squat", "zercher_squat", "overhead_squat",
+            "dumbbell_deadlift", "conventional_deadlift", "sumo_deadlift", "good_morning", "kettlebell_swing",
+        )
     }
 
     private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION) ReturnToPoseRepDetector(profile.minimumRepMs) else null

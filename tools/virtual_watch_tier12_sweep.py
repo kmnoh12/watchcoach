@@ -24,6 +24,16 @@ from gen_virtual_watch_pilot import (
 from replay_virtual_watch_pilot import compare_events, engine_sources, read_events
 
 WORK = REPO / "work/virtual-watch/tier12"
+
+
+def parse_id_list(path):
+    """Plain list file: one 'section: id, id, ...' per line (tier3 squat sweep)."""
+    items = []
+    for line in Path(path).read_text().splitlines():
+        if line.startswith("- ") and ":" in line:
+            head, tail = line[2:].split(":", 1)
+            items += [("tier3", head.strip(), e.strip()) for e in tail.split(",") if e.strip()]
+    return items
 REPS = 10
 
 
@@ -298,7 +308,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--replay-only", action="store_true", help="Reuse existing generated KCS cases")
     parser.add_argument("--only", nargs="+", help="Filter exercise IDs")
+    parser.add_argument("--list-file", help="Alternate id list file (replaces work/virtual-watch-tier12.md)")
+    parser.add_argument("--work-dir", help="Output dir under repo (default work/virtual-watch/tier12)")
     args = parser.parse_args()
+    global WORK
+    if args.work_dir:
+        WORK = REPO / args.work_dir
 
     candidates = [Path.home() / "Library/Application Support" / n / "v5-catalog"
                   for n in ("__PROTECTED_WATCHCOACH_VIEWER__", "WatchGymViewer")]
@@ -313,7 +328,7 @@ def main():
     names = base["bone_names"]
     rest = np.asarray(base["rest"]).reshape(-1, 3)
 
-    items = parse_tier12()
+    items = parse_id_list(args.list_file) if args.list_file else parse_tier12()
     if args.only:
         only = set(args.only)
         items = [x for x in items if x[2] in only]
