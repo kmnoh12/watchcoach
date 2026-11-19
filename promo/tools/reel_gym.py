@@ -235,6 +235,431 @@ def inbody_270(c,root):
             appliance_label("Key legend",letter,(x,-.057,z),.009,pale,c,console)
 
 
+def paper_cup_dispenser(c, root):
+    """Wall-mounted vertical paper cup dispenser next to the water purifier."""
+    dark = W.mat("Dispenser charcoal ABS", (.028, .031, .035), rough=.38)
+    tube = W.mat("Dispenser frosted tube", (.76, .79, .80), rough=.26)
+    cup_w = W.mat("Paper cup white", (.88, .88, .85), rough=.72)
+    cup_rim = W.mat("Paper cup band", (.22, .48, .72), rough=.62)
+    chrome = W.mat("Brushed alloy", (.46, .5, .51), rough=.27, metal=.8)
+    # Wall plate & clamping collar (local -Y faces the room)
+    molded("Cup dispenser plate", (.072, .014, .11), dark, c, (0, .052, .02), root, .004)
+    molded("Cup dispenser collar", (.096, .085, .048), dark, c, (0, .012, .02), root, .008)
+    # Main vertical sleeve (z = -0.18 .. +0.24)
+    W.cyl("Cup dispenser tube", .041, .41, tube, c, (0, -.018, .035), parent=root, seg=28)
+    # Top hinged cap
+    W.cyl("Cup dispenser lid", .046, .024, dark, c, (0, -.018, .248), parent=root, seg=28)
+    molded("Cup lid tab", (.022, .016, .010), dark, c, (0, -.062, .248), root, .003)
+    # Bottom pull collar
+    W.cyl("Cup dispenser nozzle", .045, .032, dark, c, (0, -.018, -.175), parent=root, seg=28)
+    W.cyl("Cup nozzle ring", .039, .010, chrome, c, (0, -.018, -.192), parent=root, seg=24)
+    # Ready-to-pull paper cup peeking out the bottom
+    W.cyl("Bottom paper cup", .031, .068, cup_w, c, (0, -.018, -.215), r2=.024, parent=root, seg=24)
+    W.cyl("Bottom cup stripe", .0285, .012, cup_rim, c, (0, -.018, -.218), r2=.027, parent=root, seg=24)
+
+
+def gym_trash_bin(c, root):
+    """Matte black commercial gym waste bin under the paper cup dispenser."""
+    black = W.mat("Trash bin matte black", (.018, .020, .023), rough=.52)
+    lid_m = W.mat("Trash bin satin lid", (.030, .033, .037), rough=.40)
+    liner = W.mat("Trash bin dark interior", (.006, .007, .008), rough=.85)
+    cup_w = W.mat("Paper cup white", (.88, .88, .85), rough=.72)
+    # Tapered rounded-rect body (z = 0 .. 0.56)
+    appliance_shell("Trash bin body", [
+        (.004, .23, .19, .032), (.02, .25, .21, .036),
+        (.52, .31, .25, .042), (.56, .32, .26, .044)
+    ], black, c, root)
+    # Rim collar + hooded top with front open chute (local -Y faces room)
+    appliance_shell("Trash bin collar", [
+        (.555, .332, .272, .046), (.595, .332, .272, .046)
+    ], lid_m, c, root)
+    appliance_shell("Trash bin hood", [
+        (.592, .322, .262, .044), (.695, .300, .240, .042), (.728, .260, .200, .038)
+    ], lid_m, c, root)
+    molded("Trash bin chute", (.20, .05, .095), liner, c, (0, -.112, .645), root, .012)
+
+
+def fire_extinguisher(c, root):
+    """Korean 3.3 kg red ABC fire extinguisher on a floor stand."""
+    red = W.mat("Extinguisher red enamel", (.68, .022, .020), rough=.24, metal=.28)
+    stand_m = W.mat("Extinguisher stand", (.022, .024, .027), rough=.55)
+    black = W.mat("Extinguisher hose rubber", (.014, .015, .017), rough=.68)
+    brass = W.mat("Extinguisher brass valve", (.65, .50, .18), rough=.28, metal=.88)
+    white = W.mat("Extinguisher label white", (.88, .88, .85), rough=.50)
+    yellow = W.mat("Extinguisher label yellow", (.92, .72, .06), rough=.45)
+    green = W.shadeless("Gauge green zone", (.15, .82, .25), strength=.7)
+    # Floor stand tray
+    W.cyl("Extinguisher stand base", .096, .024, stand_m, c, (0, 0, .012), parent=root, seg=28)
+    W.cyl("Extinguisher stand rim", .096, .032, red, c, (0, 0, .034), r2=.090, parent=root, seg=28)
+    # Main tank + domed shoulder
+    W.cyl("Extinguisher tank", .068, .355, red, c, (0, 0, .205), parent=root, seg=32)
+    smooth_mesh(oval("Extinguisher dome", (0, 0, .382), (.068, .068, .058), red, c, root))
+    # Front instruction label band + Korean title (local -Y faces room)
+    W.cyl("Extinguisher label", .0695, .155, white, c, (0, 0, .235), parent=root, seg=32)
+    W.cyl("Extinguisher label band", .070, .028, yellow, c, (0, 0, .295), parent=root, seg=32)
+    appliance_label("Extinguisher title", "소화기", (0, -.071, .255), .024, red, c, root)
+    # Valve assembly, squeeze handle, safety pin & gauge
+    W.cyl("Valve collar", .022, .042, brass, c, (0, 0, .448), parent=root, seg=20)
+    molded("Valve block", (.034, .048, .036), brass, c, (0, .004, .476), root, .004)
+    rod("Lower carry handle", (0, .012, .468), (0, .105, .448), .007, black, c, root)
+    rod("Upper squeeze lever", (0, .008, .488), (0, .112, .518), .007, black, c, root)
+    W.cyl("Pressure gauge body", .015, .012, brass, c, (.014, -.024, .478), (90, 0, 0), parent=root, seg=18)
+    W.cyl("Pressure gauge dial", .012, .004, green, c, (.014, -.031, .478), (90, 0, 0), parent=root, seg=18)
+    # Safety pin ring
+    pin_pts = [(-.024, -.016 + .013 * math.cos(t * math.tau / 16), .484 + .013 * math.sin(t * math.tau / 16))
+               for t in range(17)]
+    piping("Safety pin ring", pin_pts, .0022, yellow, c, root)
+    # Rubber hose looping down the +X side into a flare nozzle
+    hose_pts = [(0, -.020, .476), (.052, -.026, .465), (.088, -.012, .410),
+                (.092, .004, .300), (.088, .008, .175), (.084, .002, .125)]
+    piping("Discharge hose", hose_pts, .0095, black, c, root)
+    W.cyl("Discharge nozzle", .016, .062, black, c, (.084, .002, .095), r2=.010, parent=root, seg=18)
+    molded("Hose clip", (.024, .018, .022), black, c, (.078, .006, .190), root, .003)
+
+
+def ceiling_cassette_ac(c, root):
+    """4-way commercial ceiling cassette air conditioner (0.95 x 0.95 m)."""
+    body_m = W.mat("Cassette AC offwhite", (.74, .75, .74), rough=.38)
+    vent_m = W.mat("Cassette AC dark vent", (.022, .024, .028), rough=.55)
+    grille_m = W.mat("Cassette AC grille", (.56, .58, .59), rough=.46)
+    led_m = W.shadeless("Cassette AC LED", (.18, .92, .38), strength=2.2)
+    # Main outer fascia plate (top sits flush with ceiling at z = +0.025)
+    molded("Cassette fascia", (.95, .95, .048), body_m, c, (0, 0, 0), root, .014)
+    # Central recessed return-air grille
+    molded("Cassette intake frame", (.48, .48, .012), grille_m, c, (0, 0, -.024), root, .004)
+    for i in range(9):
+        y = (i - 4) * .046
+        W.box("Intake slat", (.42, .010, .006), vent_m, c, (0, y, -.030), parent=root)
+    # 4 perimeter discharge vents + angled deflector louvers
+    for angle in (0, 90, 180, 270):
+        rad = math.radians(angle)
+        cx, cy = .36 * math.sin(rad), .36 * math.cos(rad)
+        sx, sy = (.62, .072) if angle in (0, 180) else (.072, .62)
+        W.box("Discharge slot", (sx, sy, .010), vent_m, c, (cx, cy, -.024), parent=root)
+        lx, ly = (.58, .036) if angle in (0, 180) else (.036, .58)
+        louver = molded("Air louver", (lx, ly, .006), body_m, c, (cx, cy, -.031), root, .002)
+        if angle == 0:
+            louver.rotation_euler.x = math.radians(-22)
+        elif angle == 180:
+            louver.rotation_euler.x = math.radians(22)
+        elif angle == 90:
+            louver.rotation_euler.y = math.radians(22)
+        else:
+            louver.rotation_euler.y = math.radians(-22)
+    # Corner IR receiver + tiny green power LED
+    molded("AC IR window", (.065, .028, .006), vent_m, c, (.36, -.36, -.025), root, .002)
+    W.cyl("AC status LED", .006, .004, led_m, c, (.34, -.36, -.028), parent=root, seg=12)
+
+
+def ceiling_spiral_duct(c, parent_root):
+    """Galvanized silver round HVAC spiral duct running along X across the ceiling."""
+    galv = W.mat("Galvanized HVAC duct", (.52, .55, .57), rough=.30, metal=.86)
+    band_m = W.mat("HVAC flange steel", (.36, .39, .41), rough=.36, metal=.82)
+    dark = W.mat("HVAC vent interior", (.012, .014, .016), rough=.85)
+    y, z, r = 3.20, 3.36, .145
+    x0, x1 = -4.45, 13.45
+    cx, length = (x0 + x1) / 2, x1 - x0
+    duct = W.cyl("Spiral HVAC duct", r, length, galv, c, (cx, y, z), (0, 90, 0), seg=32, parent=parent_root)
+    smooth_mesh(duct)
+    # Flanged coupler rings every 1.8 m
+    for i in range(10):
+        x = -3.6 + i * 1.8
+        ring = W.cyl("Duct coupler ring", r + .012, .036, band_m, c, (x, y, z), (0, 90, 0), seg=32, parent=parent_root)
+        smooth_mesh(ring)
+    # Ceiling hanger straps & threaded drop rods every 3.6 m
+    for x in (-3.6, 0.0, 3.6, 7.2, 10.8):
+        strap = W.cyl("Duct hanger strap", r + .006, .024, band_m, c, (x, y, z), (0, 90, 0), seg=24, parent=parent_root)
+        smooth_mesh(strap)
+        for dy in (-.145, .145):
+            rod("Duct hanger rod", (x, y + dy, z + .04), (x, y + dy, 3.59), .006, band_m, c, parent_root)
+    # 4 downward-angled side supply diffusers
+    for x in (-1.8, 2.6, 7.0, 11.4):
+        noz = W.empty("Duct air diffuser", c, (x, y - r * .72, z - r * .55), parent=parent_root)
+        noz.rotation_euler = (math.radians(48), 0, 0)
+        smooth_mesh(W.cyl("Diffuser collar", .072, .068, galv, c, (0, 0, 0), parent=noz, seg=24))
+        W.cyl("Diffuser opening", .060, .012, dark, c, (0, 0, -.032), parent=noz, seg=24)
+
+
+def wall_speaker(c, root):
+    """Compact commercial black wall-mounted PA speaker with U-bracket (y=0 sits on wall, -Y faces room)."""
+    cab = W.mat("PA speaker matte black", (.018, .020, .023), rough=.48)
+    grille = W.mat("PA speaker grille", (.010, .011, .013), rough=.62, metal=.45)
+    metal = W.mat("PA bracket steel", (.045, .048, .052), rough=.36, metal=.70)
+    badge = W.mat("PA silver logo", (.62, .65, .66), rough=.28, metal=.85)
+    # Wall plate at y = -0.007 + U-bracket extending into -Y
+    molded("Speaker wall plate", (.085, .014, .16), metal, c, (0, -.007, 0), root, .003)
+    rod("Speaker yoke stem", (0, -.012, 0), (0, -.072, 0), .012, metal, c, root)
+    for sz in (-1, 1):
+        rod("Speaker U-arm", (0, -.072, sz * .165), (0, -.160, sz * .165), .009, metal, c, root)
+    # Tilted speaker enclosure
+    head = W.empty("Speaker cabinet pivot", c, (0, -.160, 0), parent=root)
+    head.rotation_euler.x = math.radians(-18)
+    molded("Speaker cabinet", (.21, .185, .31), cab, c, (0, 0, 0), head, .014)
+    molded("Speaker front grille", (.182, .016, .275), grille, c, (0, -.092, 0), head, .006)
+    W.box("Speaker badge", (.036, .004, .014), badge, c, (0, -.102, -.112), parent=head)
+
+
+def cctv_camera(c, root):
+    """Compact white security CCTV bullet camera with wall arm (local -Y faces target)."""
+    white = W.mat("CCTV satin white", (.78, .80, .81), rough=.34)
+    dark = W.mat("CCTV matte black", (.015, .017, .020), rough=.44)
+    glass = W.mat("CCTV lens glass", (.005, .008, .012), rough=.08, metal=.25)
+    ir_led = W.shadeless("CCTV IR indicator", (.95, .08, .05), strength=2.6)
+    # Wall mount base + articulated arm
+    W.cyl("CCTV wall base", .042, .016, white, c, (0, .008, 0), (90, 0, 0), parent=root, seg=24)
+    rod("CCTV mount arm", (0, 0, 0), (0, -.11, -.025), .011, white, c, root)
+    smooth_mesh(oval("CCTV ball joint", (0, -.11, -.025), (.018, .018, .018), dark, c, root))
+    # Tilted camera housing
+    body = W.empty("CCTV head pivot", c, (0, -.12, -.032), parent=root)
+    body.rotation_euler.x = math.radians(-22)
+    smooth_mesh(W.cyl("CCTV housing", .038, .155, white, c, (0, -.055, 0), (90, 0, 0), parent=body, seg=24))
+    molded("CCTV sun hood", (.082, .165, .016), white, c, (0, -.062, .038), body, .004)
+    W.cyl("CCTV lens bezel", .036, .016, dark, c, (0, -.134, 0), (90, 0, 0), parent=body, seg=24)
+    W.cyl("CCTV lens glass", .024, .006, glass, c, (0, -.142, 0), (90, 0, 0), parent=body, seg=24)
+    W.cyl("CCTV IR LED", .0045, .004, ir_led, c, (.018, -.142, -.014), (90, 0, 0), parent=body, seg=12)
+
+
+def treadmill_wall_tv(c, root):
+    """55-inch commercial TV on ceiling-drop mount in front of the treadmills (local -Y faces runners)."""
+    import numpy as np
+    bezel = W.mat("TV slim bezel", (.012, .013, .015), rough=.32)
+    back_m = W.mat("TV rear shell", (.022, .024, .027), rough=.46)
+    steel = W.mat("TV mount steel", (.028, .030, .034), rough=.38, metal=.65)
+    led = W.shadeless("TV power LED", (.95, .15, .12), strength=1.5)
+    # Ceiling-drop twin poles from z = 0 up to ceiling (root is at z = 2.58, ceiling at 3.59 -> dz = 1.01)
+    pole_top = 1.01
+    for sx in (-.26, .26):
+        rod("TV ceiling pole", (sx, .075, -.14), (sx, .075, pole_top), .019, steel, c, root)
+        molded("TV ceiling flange", (.11, .11, .014), steel, c, (sx, .075, pole_top - .007), root, .004)
+    molded("TV VESA crossbar", (.66, .036, .065), steel, c, (0, .052, 0), root, .006)
+    # Tilted TV screen assembly
+    panel = W.empty("TV panel tilt", c, (0, 0, 0), parent=root)
+    panel.rotation_euler.x = math.radians(-10)
+    w, h = 1.24, .71
+    molded("TV bezel frame", (w, .032, h), bezel, c, (0, 0, 0), panel, .006)
+    molded("TV electronics hump", (w * .74, .028, h * .64), back_m, c, (0, .026, -.04), panel, .008)
+    W.cyl("TV standby LED", .004, .003, led, c, (w / 2 - .04, -.017, -h / 2 + .009), (90, 0, 0), parent=panel, seg=12)
+    # Procedural packed broadcast sports/fitness screen image (no external file dependency)
+    img = bpy.data.images.get("Gym_TV_Broadcast")
+    if img is None:
+        tw, th = 512, 288
+        px = np.zeros((th, tw, 4), dtype=np.float32)
+        px[:, :, 3] = 1.0
+        yy, xx = np.mgrid[0:th, 0:tw]
+        # Sports arena / broadcast studio gradient backdrop
+        grad = yy / float(th)
+        px[:, :, 0] = 0.05 + 0.07 * (1.0 - grad)
+        px[:, :, 1] = 0.14 + 0.24 * (1.0 - grad) * (1.0 - 0.35 * np.abs(xx / tw - 0.5))
+        px[:, :, 2] = 0.28 + 0.36 * (1.0 - grad)
+        # Bright stadium turf / court lower band
+        turf = (yy >= 44) & (yy < 155)
+        px[turf, 0] = 0.10 + 0.04 * ((xx[turf] // 28) % 2)
+        px[turf, 1] = 0.34 + 0.06 * ((xx[turf] // 28) % 2)
+        px[turf, 2] = 0.16 + 0.02 * ((xx[turf] // 28) % 2)
+        # White court / pitch lines
+        px[(yy >= 96) & (yy <= 99), :3] = (0.85, 0.88, 0.90)
+        px[(yy >= 44) & (yy < 155) & (xx >= 254) & (xx <= 258), :3] = (0.85, 0.88, 0.90)
+        # Bottom news/sports ticker bar
+        px[0:44, :, :3] = (0.04, 0.07, 0.15)
+        px[38:44, :, :3] = (0.88, 0.18, 0.14)
+        px[10:30, 18:118, :3] = (0.90, 0.14, 0.12)   # LIVE / SPORTS badge
+        px[14:26, 132:360, :3] = (0.88, 0.90, 0.94)  # Headline bar
+        px[14:26, 376:488, :3] = (0.95, 0.78, 0.14)  # Score pill
+        # Top-left scoreboard bug
+        px[238:270, 22:170, :3] = (0.05, 0.08, 0.16)
+        px[238:270, 22:62, :3] = (0.12, 0.42, 0.88)
+        px[246:262, 72:156, :3] = (0.92, 0.94, 0.96)
+        img = bpy.data.images.new("Gym_TV_Broadcast", tw, th, alpha=True, float_buffer=False)
+        img.pixels.foreach_set(px.ravel())
+        img.pack()
+    tv_mat = W.mat("TV Broadcast Screen", (.8, .8, .8), rough=.18)
+    nt = tv_mat.node_tree
+    shader = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    tex = next((n for n in nt.nodes if n.type == "TEX_IMAGE"), None) or nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    nt.links.new(tex.outputs["Color"], shader.inputs["Base Color"])
+    nt.links.new(tex.outputs["Color"], shader.inputs["Emission Color"])
+    shader.inputs["Emission Strength"].default_value = .95
+    sw, sh = w - .030, h - .030
+    mesh = bpy.data.meshes.new("TV screen face")
+    mesh.from_pydata([(-sw / 2, -.017, -sh / 2), (sw / 2, -.017, -sh / 2),
+                      (sw / 2, -.017, sh / 2), (-sw / 2, -.017, sh / 2)], [], [(0, 1, 2, 3)])
+    uv = mesh.uv_layers.new()
+    for loop, coord in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+        loop.uv = coord
+    mesh.materials.append(tv_mat)
+    screen = bpy.data.objects.new("TV screen face", mesh)
+    c.objects.link(screen)
+    screen.parent = panel
+
+
+def cable_grip_rack(c, root):
+    """Free-weight zone vertical A-frame stand holding MAG grip, tricep rope, V-bar and D-handle."""
+    steel = W.mat("Accessory rack steel", (.028, .031, .036), rough=.42, metal=.55)
+    chrome = W.mat("Brushed alloy", (.46, .5, .51), rough=.27, metal=.8)
+    rubber = W.mat("Accessory grip rubber", (.014, .016, .018), rough=.78)
+    mag_m = W.mat("MAG grip textured black", (.020, .022, .025), rough=.62, metal=.25)
+    rope_m = W.mat("Tricep braided rope", (.032, .034, .038), rough=.88)
+    # Steel A-frame base & uprights
+    for sx in (-.21, .21):
+        molded("Rack foot rail", (.05, .48, .04), steel, c, (sx, 0, .02), root, .006)
+        rod("Rack upright front", (sx, -.17, .03), (sx, -.04, 1.15), .020, steel, c, root)
+        rod("Rack upright rear", (sx, .17, .03), (sx, .04, 1.15), .020, steel, c, root)
+    for z in (.32, .72, 1.13):
+        molded("Rack crossbar", (.48, .045, .045), steel, c, (0, 0, z), root, .005)
+    # Top hook bar + 4 chrome hooks
+    for x, z in ((-.15, 1.13), (.15, 1.13), (-.14, .72), (.14, .72)):
+        rod("Attachment peg", (x, -.02, z), (x, -.12, z + .022), .008, chrome, c, root)
+    # 1) MAG grip (wide neutral-grip ergonomic lat bar) hanging on top-left/center hook
+    mag = W.empty("MAG grip attachment", c, (-.15, -.105, 1.13), parent=root)
+    W.cyl("MAG eyelet", .016, .010, chrome, c, (0, 0, -.018), (90, 0, 0), parent=mag, seg=16)
+    mag_pts = [(-.22, 0, -.12), (-.19, 0, -.055), (-.08, 0, -.045), (0, 0, -.035),
+               (.08, 0, -.045), (.19, 0, -.055), (.22, 0, -.12)]
+    piping("MAG grip frame", mag_pts, .016, mag_m, c, mag)
+    for sx in (-1, 1):
+        rod("MAG palm handle", (sx * .22, -.025, -.12), (sx * .22, .025, -.12), .019, rubber, c, mag)
+    # 2) Tricep braided rope hanging on top-right hook
+    rope = W.empty("Tricep rope attachment", c, (.15, -.105, 1.13), parent=root)
+    W.cyl("Rope swivel collar", .018, .036, chrome, c, (0, 0, -.028), parent=rope, seg=18)
+    for sx in (-1, 1):
+        pts = [(0, 0, -.045), (sx * .022, -.006, -.15), (sx * .038, -.004, -.28), (sx * .048, 0, -.39)]
+        piping("Tricep rope leg", pts, .015, rope_m, c, rope)
+        W.cyl("Rope bell stop", .030, .048, rubber, c, (sx * .048, 0, -.415), r2=.020, parent=rope, seg=18)
+    # 3) Chrome V-bar close-grip row handle on lower-left hook
+    vbar = W.empty("V-bar row handle", c, (-.14, -.095, .72), parent=root)
+    for sx in (-1, 1):
+        rod("V-bar arm", (0, 0, -.02), (sx * .085, 0, -.145), .012, chrome, c, vbar)
+        rod("V-bar grip", (sx * .085, -.068, -.145), (sx * .085, .068, -.145), .015, rubber, c, vbar)
+    # 4) Single D-handle on lower-right hook
+    dhand = W.empty("Single D-handle", c, (.14, -.095, .72), parent=root)
+    d_pts = [(0, 0, -.018), (-.062, 0, -.082), (-.062, 0, -.145), (.062, 0, -.145), (.062, 0, -.082), (0, 0, -.018)]
+    piping("D-handle stirrup", d_pts, .0065, chrome, c, dhand)
+    rod("D-handle grip", (-.056, 0, -.145), (.056, 0, -.145), .015, rubber, c, dhand)
+
+
+def squat_barbell_pad(c, root):
+    """High-density black foam squat barbell pad with slit and straps."""
+    foam = W.mat("Squat pad foam", (.018, .019, .022), rough=.82)
+    slit = W.mat("Squat pad bore", (.005, .006, .007), rough=.92)
+    strap = W.mat("Squat pad strap", (.035, .037, .042), rough=.74)
+    # Horizontal cylinder resting at z = +0.044
+    pad = W.cyl("Squat foam cylinder", .044, .43, foam, c, (0, 0, .044), (0, 90, 0), seg=28, parent=root)
+    smooth_mesh(pad)
+    # Longitudinal center bar bore & top slit
+    W.cyl("Squat pad inner bore", .016, .434, slit, c, (0, 0, .044), (0, 90, 0), seg=16, parent=root)
+    W.box("Squat pad top slit", (.432, .012, .026), slit, c, (0, 0, .074), parent=root)
+    # Twin Velcro wrap straps
+    for x in (-.135, .135):
+        band_o = W.cyl("Squat pad strap", .0465, .028, strap, c, (x, 0, .044), (0, 90, 0), seg=28, parent=root)
+        smooth_mesh(band_o)
+
+
+def kettlebell(c, root, radius, band_color, label):
+    """Cast-iron matte black kettlebell with flat base, arched handle and color band."""
+    iron = W.mat("Kettlebell cast iron", (.022, .024, .027), rough=.52, metal=.45)
+    band_m = W.mat("Kettlebell band " + label, band_color, rough=.40)
+    # Spherical bell with flattened bottom sitting at z = 0
+    center_z = radius * .84
+    bell = smooth_mesh(oval("Kettlebell body " + label, (0, 0, center_z), (radius, radius, radius * .96), iron, c, root))
+    # Flatten bottom vertices slightly below z = 0
+    for v in bell.data.vertices:
+        if v.co.z + center_z < 0:
+            v.co.z = -center_z
+    # Arched handle
+    h_r = radius * .175
+    span = radius * .72
+    top_z = center_z + radius * 1.56
+    base_z = center_z + radius * .62
+    handle_pts = [
+        (-span * .78, 0, base_z),
+        (-span * .96, 0, base_z + radius * .55),
+        (-span * .70, 0, top_z),
+        (0, 0, top_z + radius * .06),
+        (span * .70, 0, top_z),
+        (span * .96, 0, base_z + radius * .55),
+        (span * .78, 0, base_z),
+    ]
+    piping("Kettlebell handle " + label, handle_pts, h_r, iron, c, root)
+    # Weight-code color bands at the base of both handle horns
+    for sx in (-1, 1):
+        ring = W.cyl("Kettlebell weight band " + label, h_r * 1.12, .016, band_m, c,
+                     (sx * span * .86, 0, base_z + radius * .26), parent=root, seg=18)
+        ring.rotation_euler.y = math.radians(sx * 16)
+
+
+def build_gym_details(c):
+    """Lived-in Korean gym details: water area, fire extinguishers, ceiling HVAC/audio/CCTV, cardio TV, free-weight props."""
+    # 1) Paper cup dispenser + black trash bin right next to the water dispenser (5.9, -6.34)
+    disp = W.empty("Paper cup dispenser", c, (6.26, -6.62, 1.18))
+    disp.rotation_euler.z = math.pi
+    paper_cup_dispenser(c, disp)
+
+    trash = W.empty("Gym trash bin", c, (6.30, -6.36, 0))
+    trash.rotation_euler.z = math.pi
+    gym_trash_bin(c, trash)
+
+    # 2) Red fire extinguishers at pillar bases (Center pillar & Left pillar)
+    for name, loc, rot_deg in (
+        ("Fire extinguisher center", (4.86, -0.44, 0), -18),
+        ("Fire extinguisher left", (-1.04, -0.44, 0), 15),
+    ):
+        ext = W.empty(name, c, loc)
+        ext.rotation_euler.z = math.radians(rot_deg)
+        fire_extinguisher(c, ext)
+
+    # 3) Ceiling 4-way cassette ACs (3 units spaced cleanly between beams, strips, and downlights)
+    for i, x in enumerate((3.95, 6.95, 9.95), 1):
+        ac = W.empty(f"Ceiling cassette AC {i}", c, (x, 0.55, 3.568))
+        ceiling_cassette_ac(c, ac)
+
+    # 4) Galvanized silver spiral HVAC duct running along X near ceiling
+    duct_root = W.empty("Ceiling spiral HVAC duct", c, (0, 0, 0))
+    ceiling_spiral_duct(c, duct_root)
+
+    # 5) Wall-mounted black PA speakers high on the pillars
+    for label, loc, rot_deg in (
+        ("Left", (-1.40, -0.625, 2.86), 0),
+        ("Center front", (4.50, -0.625, 2.86), 0),
+        ("Center back", (4.50, -0.175, 2.86), 180),
+        ("Right", (10.40, -0.625, 2.86), 0),
+    ):
+        spk = W.empty(f"Pillar speaker {label}", c, loc)
+        spk.rotation_euler.z = math.radians(rot_deg)
+        wall_speaker(c, spk)
+
+    # 6) Compact CCTV security cameras high on pillars
+    for label, loc, rot_deg in (
+        ("Center", (4.725, -0.40, 3.16), 105),
+        ("Right", (10.175, -0.40, 3.16), -75),
+    ):
+        cam = W.empty(f"Gym CCTV {label}", c, loc)
+        cam.rotation_euler.z = math.radians(rot_deg)
+        cctv_camera(c, cam)
+
+    # 7) Wall/ceiling-mounted TV in front of the treadmills (no window blinds)
+    tv = W.empty("Treadmill wall TV", c, (13.28, 0.60, 2.58))
+    tv.rotation_euler.z = math.radians(-90)
+    treadmill_wall_tv(c, tv)
+
+    # 8) Free-weight zone floor props: cable grip rack, squat barbell pad, kettlebell trio
+    grip_rack = W.empty("Cable grip rack", c, (4.95, 2.95, 0))
+    grip_rack.rotation_euler.z = math.radians(-15)
+    cable_grip_rack(c, grip_rack)
+
+    pad = W.empty("Squat barbell pad", c, (1.98, 2.55, 0.024))
+    pad.rotation_euler.z = math.radians(28)
+    squat_barbell_pad(c, pad)
+
+    for label, loc, rot_deg, radius, color in (
+        ("8kg", (1.82, 1.98, 0), 18, .072, (.10, .38, .85)),
+        ("12kg", (2.05, 1.84, 0), -25, .084, (.92, .72, .06)),
+        ("16kg", (2.28, 2.00, 0), 10, .096, (.76, .08, .08)),
+    ):
+        kb = W.empty(f"Kettlebell {label}", c, loc)
+        kb.rotation_euler.z = math.radians(rot_deg)
+        kettlebell(c, kb, radius, color, label)
+
+
 def build_set(parent):
     c=W.coll("Reel gym fixtures",parent)
     graphite=W.mat("Graphite enamel",(.048,.06,.065),rough=.38,metal=.45)
@@ -351,6 +776,7 @@ def build_set(parent):
     light.color=(1,.86,.70); light.shadow_soft_size=.052
     ob=bpy.data.objects.new(light.name,light); c.objects.link(ob)
     ob.parent=pivot;ob.location=(0,0,-.122)
+    build_gym_details(c)
 
 
 def piping(name, points, radius, material, collection, parent):
