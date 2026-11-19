@@ -277,7 +277,7 @@ def build_set(parent):
             for side in (-1,1):
                 block("Door hinge",(.012,.013,.076),chrome,(x-.19,-.46,z+side*.31),wall)
     block("Locker kick plate",(3.29,.41,.09),graphite,(-2.665,-.21,.045),wall)
-    for x,filename in ((1.42,"plates.png"),(2.28,"training.png")):
+    for x,filename in ((1.42,"plates.png"),(2.28,"training.png"),(3.14,"student_discount.png")):
         block("Aluminum snap frame",(.73,.034,1.02),chrome,(x,-.017,1.68),wall)
         printed_face("Gym poster "+filename,filename,.704,.99,(x,-.0345,1.68),wall,c)
     cooler=W.empty("Water dispenser",c,(5.9,-6.34,0))

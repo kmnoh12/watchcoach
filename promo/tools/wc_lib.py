@@ -1144,6 +1144,16 @@ def build_neon_wall_window(parent, wall):
     look_at(lamp, (x+5, y+.7, 1))
 
 
+def exclude_mirror_from_window_lights(mirror):
+    receivers = bpy.data.collections.new("Window light mirror exclusion")
+    receivers.objects.link(mirror)
+    receivers.collection_objects[0].light_linking.link_state = "EXCLUDE"
+    for collection_name in ("Right Wall Daylight Window", "Neon Wall Window"):
+        for obj in bpy.data.collections[collection_name].objects:
+            if obj.type == "LIGHT" and obj.data.specular_factor > 0:
+                obj.light_linking.receiver_collection = receivers
+
+
 def build_gym_right_equipment(parent):
     import cardio_equipment as cardio
     import equipment_kit as K
@@ -1421,6 +1431,7 @@ def build_gym_set(c):
     build_gym_instagram_stickers(decc)
     build_gym_daylight_window(decc, c.objects["Wall_Right"])
     build_neon_wall_window(decc, c.objects["Wall_Left"])
+    exclude_mirror_from_window_lights(c.objects["Mirror"])
     build_gym_right_equipment(c)
     build_gym_extra_equipment(c)
     from reel_gym import build_set
