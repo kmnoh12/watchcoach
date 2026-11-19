@@ -28,6 +28,7 @@ HERO_SRC = os.path.join(ROOT, "cast", "src_v5_with_watch_copy.blend")
 EXTRA_SRC = os.path.join(ROOT, "cast", "src_figure_copy.blend")  # original low-poly man (figure.blend copy)
 POSE_LIB = os.path.join(ROOT, "poses", "pose_library.json")
 KFONT = os.path.join(PARTS, "fonts", "NanumGothic-Bold.ttf")
+OUNWAN_FONT = os.path.join(PARTS, "fonts", "Cafe24Ssurround.ttf")
 
 FPS = 30
 HOLD = 6  # frames per pose = 5 poses per second
@@ -388,7 +389,7 @@ def load_font(path):
     return font
 
 
-def _wall_text(name, text, loc, size, mat_ob, c, align_x="LEFT", offset=0.0022, extrude=0.003, shear=0.0):
+def _wall_text(name, text, loc, size, mat_ob, c, align_x="LEFT", offset=0.0022, extrude=0.003, shear=0.0, font_path=None):
     cu = bpy.data.curves.new(name, "FONT")
     cu.body = text
     cu.size = size
@@ -397,7 +398,7 @@ def _wall_text(name, text, loc, size, mat_ob, c, align_x="LEFT", offset=0.0022, 
     cu.offset = offset
     cu.extrude = extrude
     cu.shear = shear
-    cu.font = load_font(KFONT)
+    cu.font = load_font(font_path or KFONT)
     ob = bpy.data.objects.new(name, cu)
     c.objects.link(ob)
     ob.location = loc
@@ -1277,13 +1278,8 @@ def build_gym_set(c):
     build_left_wall_neon(decc, c.objects["Wall_Left"])
 
     # 2) White Vinyl Sticker Texts on the Mirror (Photos 2, 3, 4 style)
-    # Photo-zone corner brackets on upper-left mirror + #바디체크 / #오운완
-    box("Sticker_FrameTop", (0.72, 0.006, 0.014), sticker_m, decc, (-0.72, 4.956, 2.38))
-    box("Sticker_FrameBot", (0.72, 0.006, 0.014), sticker_m, decc, (-0.72, 4.956, 1.88))
-    box("Sticker_FrameL",   (0.014, 0.006, 0.51), sticker_m, decc, (-1.07, 4.956, 2.13))
-    box("Sticker_FrameR",   (0.014, 0.006, 0.51), sticker_m, decc, (-0.37, 4.956, 2.13))
-    _wall_text("Sticker_BodyCheck", "#바디체크", (-0.72, 4.954, 2.22), 0.13, sticker_m, decc, align_x="CENTER", offset=0.0025)
-    _wall_text("Sticker_Ounwan", "#오운완", (-0.82, 4.954, 1.18), 0.145, sticker_m, decc, align_x="CENTER", offset=0.0028)
+    # Left mirror: #오운완 (Cafe24 Ssurround rounded font)
+    _wall_text("Sticker_Ounwan", "#오운완", (-0.82, 4.954, 1.18), 0.145, sticker_m, decc, align_x="CENTER", offset=0.0, font_path=OUNWAN_FONT)
     # Right side of mirror above the dumbbell rack: #정리정돈_필수 / #안하면_근손실
     _wall_text("Sticker_Clean1", "#정리정돈_필수", (1.32, 4.954, 1.56), 0.125, sticker_m, decc, align_x="LEFT", offset=0.0024)
     _wall_text("Sticker_Clean2", "#안하면_근손실", (1.32, 4.954, 1.38), 0.125, sticker_m, decc, align_x="LEFT", offset=0.0024)
