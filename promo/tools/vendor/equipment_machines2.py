@@ -1,7 +1,7 @@
 """Second batch: the remaining apparatus from design/equipment-reference/taxonomy.py. Same conventions as equipment_machines."""
 import math
 from equipment_kit import cyl, box, part
-from equipment_machines import beam, rod, pad, stack_tower, _seat_unit
+from equipment_machines import beam, rod, pad, stack_tower, _seat_unit, pivot_hub, grip_handle
 
 
 def _base(p, y0=-0.65, y1=0.95, mat="silver"):
@@ -146,12 +146,23 @@ def _curl_base(p, lying=False):
 
 def seated_leg_curl():
     p = part("seated_leg_curl"); _curl_base(p)
-    pad("seat", p, (0.42, 0.50, 0.09), (0, 0.0, 0.50), (8, 0, 0)); beam("seat_post", p, (0, 0, 0.45), (0, 0, 0.06), 0.09, "silver")
+    pad("seat", p, (0.42, 0.50, 0.09), (0, 0.0, 0.50), (8, 0, 0))
+    beam("seat_post", p, (0, 0, 0.45), (0, 0, 0.06), 0.075, "silver")
     pad("back", p, (0.42, 0.10, 0.62), (0, 0.38, 0.88), (-15, 0, 0))
-    pad("thigh", p, (0.36, 0.30, 0.10), (0, -0.20, 0.68)); beam("thigh_arm", p, (0, -0.2, 0.62), (0, -0.2, 0.2), 0.05, "silver")
+    beam("back_post", p, (0, 0.44, 0.45), (0, 0.48, 1.05), 0.065, "silver")
+    pad("thigh", p, (0.36, 0.26, 0.10), (0, -0.20, 0.68))
+    beam("thigh_arm", p, (0, -0.2, 0.62), (0, -0.2, 0.2), 0.045, "silver")
+    cyl("thigh_pop_pin", p, 0.018, 0.045, "X", "accent", (0.06, -0.20, 0.52), sides=16)
+    for s in (-1, 1):
+        grip_handle("curl_grip", p, (s * 0.24, -0.26, 0.72), (s * 0.24, -0.10, 0.72), 0.020)
     lv = part("curl_lever"); lv.parent = p; lv.location = (0, -0.38, 0.35)
-    cyl("roller", lv, 0.055, 0.40, "X", "pad", (0, -0.1, -0.1), 8)
-    for s in (-1, 1): beam("arm", lv, (s * 0.20, 0.1, 0.1), (s * 0.20, -0.1, -0.1), 0.05, "silver")
+    pivot_hub("curl_pivot", lv, (0.21, 0.08, 0.08), r=0.056, width=0.06, axis="X")
+    cyl("curl_cam", lv, 0.12, 0.028, "X", "steel", (0.25, 0.08, 0.08), sides=28)
+    cyl("roller", lv, 0.062, 0.42, "X", "pad", (0, -0.1, -0.1), sides=24)
+    cyl("roller_cap_l", lv, 0.045, 0.016, "X", "steel", (-0.215, -0.1, -0.1), sides=20)
+    cyl("roller_cap_r", lv, 0.045, 0.016, "X", "steel", (0.215, -0.1, -0.1), sides=20)
+    for s in (-1, 1):
+        beam("arm", lv, (s * 0.20, 0.1, 0.1), (s * 0.20, -0.1, -0.1), 0.045, "silver")
     return p
 
 
@@ -181,8 +192,13 @@ def hip_abductor():
     p = part("hip_abductor"); _base(p, -0.55, 0.9); stack_tower(p, 0, 0.78, 0.48, 0.40, 1.4, 0.07)
     _seat_unit(p, 0.15)
     for s in (-1, 1):
-        beam("arm", p, (s * 0.10, -0.05, 0.50), (s * 0.40, -0.05, 0.56), 0.05, "silver")
-        pad("knee_pad", p, (0.10, 0.16, 0.34), (s * 0.40, -0.05, 0.68))
+        beam("arm", p, (s * 0.10, -0.05, 0.50), (s * 0.40, -0.05, 0.56), 0.045, "silver")
+        pivot_hub("abductor_hub", p, (s * 0.14, -0.05, 0.50), r=0.048, width=0.05, axis="Z")
+        pad("knee_pad", p, (0.10, 0.18, 0.32), (s * 0.40, -0.05, 0.68))
+        # Foot rest pegs & side seat handles
+        beam("foot_peg_arm", p, (s * 0.40, -0.05, 0.52), (s * 0.40, -0.22, 0.26), 0.032, "silver")
+        rod("foot_peg", p, (s * 0.32, -0.22, 0.26), (s * 0.46, -0.22, 0.26), 0.018, "grip")
+        grip_handle("side_grip", p, (s * 0.27, -0.14, 0.45), (s * 0.27, 0.06, 0.45), 0.020)
     return p
 
 

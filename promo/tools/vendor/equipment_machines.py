@@ -7,52 +7,107 @@ import equipment_kit as K
 from equipment_kit import cyl, box, part, _obj
 import bmesh
 
-K.COL.update({"silver": (0.035, 0.038, 0.045, 1), "stack": (0.020, 0.022, 0.026, 1), "red": (0.72, 0.04, 0.05, 1),
-              "wood": (0.45, 0.28, 0.14, 1), "frame": (0.68, 0.035, 0.040, 1), "pad": (0.018, 0.018, 0.022, 1), "plate": (0.018, 0.018, 0.022, 1),
-              "grip": (0.015, 0.015, 0.018, 1), "accent": (0.95, 0.72, 0.04, 1)})
+K.COL.update({"silver": (0.055, 0.060, 0.068, 1), "stack": (0.024, 0.027, 0.032, 1), "red": (0.72, 0.04, 0.05, 1),
+              "wood": (0.45, 0.28, 0.14, 1), "frame": (0.68, 0.035, 0.040, 1), "pad": (0.022, 0.024, 0.028, 1), "plate": (0.018, 0.019, 0.023, 1),
+              "grip": (0.014, 0.015, 0.018, 1), "accent": (0.95, 0.72, 0.04, 1)})
 THICK = 1.55   # photo machines are built from fat tube; thin beams read as scaffolding
 
 
 def beam(name, p, a, b, s=0.06, mat="frame", s2=None):
-    """Square tube from point a to point b."""
+    """Beveled structural square tube from point a to point b."""
     a, b = Vector(a), Vector(b); d = b - a
+    if d.length < 1e-4:
+        return None
     s = s * THICK; s2 = s if s2 is None else s2 * THICK
     bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.scale(bm, vec=Vector((d.length, s, s2)), verts=bm.verts)
     ob = _obj(name, bm, p, mat, tuple((a + b) / 2))
     ob.rotation_mode = "QUATERNION"; ob.rotation_quaternion = d.to_track_quat("X", "Z")
+    K._add_bevel(ob, min(0.010, min(s, s2) * 0.24), segments=2)
     return ob
 
 
-def rod(name, p, a, b, r=0.016, mat="steel", sides=8):
+def rod(name, p, a, b, r=0.016, mat="steel", sides=20):
     a, b = Vector(a), Vector(b); d = b - a
-    bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=sides, radius1=r, radius2=r, depth=d.length)
+    if d.length < 1e-4:
+        return None
+    seg = max(sides, 20)
+    bm = bmesh.new(); bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=r, radius2=r, depth=d.length)
     ob = _obj(name, bm, p, mat, tuple((a + b) / 2))
     ob.rotation_mode = "QUATERNION"; ob.rotation_quaternion = d.to_track_quat("Z", "Y")
-    return ob
+    return K._smooth_cyl(ob)
 
 
 def pad(name, p, size, loc, rot=(0, 0, 0), mat="pad"):
-    """Cushion: the thinnest side is thickened to >= 0.09 m and a lighter edge trim shows the stitched border."""
-    sz = list(size); i = sz.index(min(sz)); sz[i] = max(sz[i], 0.09)
-    ob = box(name, p, tuple(sz), mat, loc, rot)
+    """Molded rounded leather cushion with smooth pillowed edges."""
+    sz = list(size); i = sz.index(min(sz)); sz[i] = max(sz[i], 0.085)
+    ob = box(name, p, tuple(sz), mat, loc, rot, bevel=0.0)
+    K._add_bevel(ob, min(0.024, min(sz) * 0.34), segments=4)
+    for poly in ob.data.polygons:
+        poly.use_smooth = True
     return ob
 
 
+def pivot_hub(name, p, loc, r=0.052, width=0.06, axis="X"):
+    """Machined chrome/charcoal bearing housing at machine pivot joints."""
+    cyl(name + "_body", p, r, width, axis, "silver", loc, sides=24)
+    cyl(name + "_cap", p, r * 0.62, width + 0.016, axis, "steel", loc, sides=24)
+
+
+def grip_handle(name, p, a, b, r=0.022):
+    """Rubberized ergonomic handle with chrome end-caps."""
+    a, b = Vector(a), Vector(b); d = b - a
+    if d.length < 1e-4:
+        return
+    u = d.normalized()
+    rod(name, p, a, b, r, "grip", sides=20)
+    rod(name + "_cap1", p, a - u * 0.008, a + u * 0.010, r * 1.12, "steel", sides=20)
+    rod(name + "_cap2", p, b - u * 0.010, b + u * 0.008, r * 1.12, "steel", sides=20)
+
+
 def stack_tower(p, x, y, w=0.46, d=0.40, h=1.55, z0=0.05, mat="silver"):
-    """Selectorised weight stack: slotted housing, visible slabs, selector pin."""
-    box("housing", p, (w, d, 0.05), mat, (x, y, z0 + 0.025))
+    """Commercial selectorised weight stack: beveled shroud, twin chrome guide rods, 14 plates, T-pin & top pulley."""
+    # Base plinth + rubber feet
+    box("housing", p, (w + 0.02, d + 0.02, 0.055), mat, (x, y, z0 + 0.027), bevel=0.008)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cyl("tower_foot", p, 0.032, 0.024, "Z", "grip",
+                (x + sx * (w * 0.42), y + sy * (d * 0.40), 0.012), sides=16)
+    # Beveled side shrouds & back panel
     for s in (-1, 1):
-        box("hside", p, (0.04, d, h), mat, (x + s * (w / 2 - 0.02), y, z0 + h / 2))
-    box("hback", p, (w, 0.04, h), mat, (x, y + d / 2 - 0.02, z0 + h / 2))
-    box("hfront", p, (w * 0.5, 0.03, h), "grip", (x, y - d / 2 + 0.015, z0 + h / 2))
-    box("hcap", p, (w, d, 0.06), mat, (x, y, z0 + h))
-    n = 9
+        box("hside", p, (0.038, d, h), mat, (x + s * (w / 2 - 0.019), y, z0 + h / 2), bevel=0.010)
+    box("hback", p, (w - 0.02, 0.035, h), mat, (x, y + d / 2 - 0.018, z0 + h / 2), bevel=0.008)
+    # Twin front shroud wings leaving a clean vertical selector slot in the middle
+    wing_w = w * 0.24
+    for s in (-1, 1):
+        box("hfront_wing", p, (wing_w, 0.024, h * 0.86), "grip",
+            (x + s * (w / 2 - wing_w / 2 - 0.02), y - d / 2 + 0.014, z0 + h * 0.44), bevel=0.005)
+    # Molded top cap + angled instructional placard
+    box("hcap", p, (w + 0.02, d + 0.02, 0.065), mat, (x, y, z0 + h), bevel=0.014)
+    box("cover", p, (w + 0.01, 0.035, h * 0.22), mat, (x, y - d / 2 - 0.006, z0 + h * 0.89), bevel=0.008)
+    box("console", p, (w * 0.62, 0.022, 0.16), "grip", (x, y - d / 2 - 0.026, z0 + h * 0.90), (-14, 0, 0), bevel=0.005)
+    box("placard_strip", p, (w * 0.54, 0.008, 0.028), "accent", (x, y - d / 2 - 0.035, z0 + h * 0.935), (-14, 0, 0), bevel=0.002)
+    # Twin chrome vertical guide rods
+    for s in (-1, 1):
+        rod("guide_rod", p, (x + s * (w * 0.26), y, z0 + 0.05), (x + s * (w * 0.26), y, z0 + h - 0.03), 0.011, "steel", sides=16)
+    # 14 beveled weight plates with clean separation gaps + front weight sticker accents
+    n = 14
+    plate_h = 0.068
+    pitch = 0.078
     for i in range(n):
-        box("slab", p, (w - 0.10, d - 0.10, 0.105), "stack", (x, y, z0 + 0.12 + i * 0.125))
-    box("pin", p, (0.05, d, 0.04), "accent", (x, y - 0.02, z0 + 0.12 + 3 * 0.125 + 0.07))
-    box("cover", p, (w + 0.02, 0.04, h * 0.40), mat, (x, y - d / 2 - 0.005, z0 + h * 0.80))
-    box("console", p, (w * 0.55, 0.05, 0.16), "grip", (x, y - d / 2 - 0.03, z0 + h * 0.86), (-15, 0, 0))
+        pz = z0 + 0.10 + i * pitch
+        if pz > z0 + h - 0.18:
+            break
+        box("slab", p, (w - 0.11, d - 0.11, plate_h), "stack", (x, y, pz), bevel=0.005)
+        box("slab_tag", p, (0.042, 0.006, 0.022), "accent" if i % 4 == 0 else "steel",
+            (x + 0.065, y - (d - 0.11) / 2 - 0.002, pz), bevel=0.001)
+    # Yellow T-handle selector pin inserted into plate #5
+    pin_z = z0 + 0.10 + 4 * pitch
+    rod("pin_shaft", p, (x, y - d / 2 - 0.045, pin_z), (x, y + 0.05, pin_z), 0.007, "steel", sides=16)
+    cyl("pin", p, 0.022, 0.038, "Y", "accent", (x, y - d / 2 - 0.050, pin_z), sides=20)
+    # Top pulley wheel & vertical steel cable
+    cyl("top_pulley", p, 0.062, 0.028, "X", "steel", (x, y - 0.04, z0 + h + 0.055), sides=24)
+    rod("stack_cable", p, (x, y, z0 + 0.10 + (n - 2) * pitch), (x, y, z0 + h + 0.055), 0.0045, "grip", sides=12)
 
 
 def floor_feet(p, w, d, y0=0.0, mat="frame", s=0.07):
@@ -199,46 +254,69 @@ def seated_cable_row():
 
 # ---------------------------------------------------------------- selectorised / plate-loaded machines
 def _seat_unit(p, back_y=0.20):
-    pad("seat", p, (0.42, 0.40, 0.09), (0, back_y - 0.20, 0.45)); beam("seat_post", p, (0, back_y - 0.2, 0.44), (0, back_y - 0.2, 0.06), 0.09, "silver")
-    pad("back", p, (0.42, 0.10, 0.62), (0, back_y, 0.82), (-8, 0, 0)); beam("back_post", p, (0, back_y + 0.05, 0.44), (0, back_y + 0.10, 1.15), 0.08, "silver")
+    pad("seat", p, (0.42, 0.40, 0.09), (0, back_y - 0.20, 0.45))
+    beam("seat_post", p, (0, back_y - 0.2, 0.44), (0, back_y - 0.2, 0.06), 0.07, "silver")
+    rod("seat_slide", p, (0, back_y - 0.2, 0.20), (0, back_y - 0.2, 0.44), 0.024, "steel")
+    cyl("seat_pop_pin", p, 0.018, 0.045, "Y", "accent", (0, back_y - 0.29, 0.30), sides=16)
+    pad("back", p, (0.42, 0.10, 0.62), (0, back_y, 0.82), (-8, 0, 0))
+    beam("back_post", p, (0, back_y + 0.06, 0.44), (0, back_y + 0.11, 1.12), 0.065, "silver")
+    cyl("back_pop_pin", p, 0.016, 0.04, "X", "accent", (0.06, back_y + 0.08, 0.60), sides=16)
 
 
 def chest_press_machine():
     p = part("chest_press_machine")
-    beam("base", p, (0, -0.85, 0.05), (0, 1.0, 0.05), 0.14, "silver", 0.08)
-    for s in (-1, 1): beam("footbar", p, (s * 0.40, -0.85, 0.05), (s * 0.40, 0.4, 0.05), 0.07, "silver")
+    beam("base", p, (0, -0.85, 0.05), (0, 1.0, 0.05), 0.12, "silver", 0.07)
+    for s in (-1, 1):
+        beam("footbar", p, (s * 0.40, -0.85, 0.05), (s * 0.40, 0.4, 0.05), 0.06, "silver")
     stack_tower(p, 0, 0.82, 0.48, 0.40, 1.45, 0.07)
     _seat_unit(p, 0.15)
+    # Foot assist pedal & overhead pivot bridge
+    rod("foot_pedal", p, (-0.28, -0.58, 0.16), (0.28, -0.58, 0.16), 0.018, "steel")
+    beam("pivot_bridge", p, (-0.34, 0.20, 0.56), (0.34, 0.20, 0.56), 0.05, "silver")
     for s in (-1, 1):
-        beam("arm", p, (s * 0.32, 0.20, 0.95), (s * 0.40, -0.30, 0.95), 0.05, "silver")
-        beam("pivot_arm", p, (s * 0.32, 0.20, 0.95), (s * 0.32, 0.20, 0.55), 0.06, "silver")
-        rod("handle", p, (s * 0.40, -0.30, 0.95), (s * 0.40, -0.44, 0.95), 0.022, "grip")
+        beam("arm", p, (s * 0.32, 0.20, 0.95), (s * 0.40, -0.30, 0.95), 0.045, "silver")
+        beam("pivot_arm", p, (s * 0.32, 0.20, 0.95), (s * 0.32, 0.20, 0.55), 0.05, "silver")
+        pivot_hub("press_hub", p, (s * 0.32, 0.20, 0.95), r=0.052, width=0.07, axis="X")
+        # Dual horizontal + neutral press handles
+        grip_handle("handle", p, (s * 0.40, -0.30, 0.95), (s * 0.40, -0.46, 0.95), 0.022)
+        grip_handle("handle_v", p, (s * 0.40, -0.32, 0.86), (s * 0.40, -0.32, 1.04), 0.020)
     return p
 
 
 def pec_deck():
     p = part("pec_deck")
-    beam("base", p, (0, -0.45, 0.05), (0, 0.9, 0.05), 0.14, "silver", 0.08)
+    beam("base", p, (0, -0.45, 0.05), (0, 0.9, 0.05), 0.12, "silver", 0.07)
     stack_tower(p, 0, 0.78, 0.48, 0.40, 1.45, 0.07)
     _seat_unit(p, 0.15)
-    beam("hub", p, (0, -0.05, 0.80), (0, -0.05, 1.25), 0.10, "silver")
+    beam("hub", p, (0, -0.05, 0.80), (0, -0.05, 1.25), 0.09, "silver")
+    pivot_hub("pec_hub", p, (0, -0.05, 1.25), r=0.068, width=0.06, axis="Z")
     for s in (-1, 1):
-        beam("arm", p, (s * 0.05, -0.05, 1.15), (s * 0.38, -0.20, 1.15), 0.06, "silver")
-        beam("arm_dn", p, (s * 0.38, -0.20, 1.15), (s * 0.40, -0.28, 0.82), 0.06, "silver")
+        beam("arm", p, (s * 0.05, -0.05, 1.15), (s * 0.38, -0.20, 1.15), 0.05, "silver")
+        beam("arm_dn", p, (s * 0.38, -0.20, 1.15), (s * 0.40, -0.28, 0.82), 0.05, "silver")
         pad("pad", p, (0.10, 0.12, 0.34), (s * 0.40, -0.28, 0.98))
+        grip_handle("pec_grip", p, (s * 0.40, -0.28, 0.74), (s * 0.40, -0.28, 0.88), 0.020)
     return p
 
 
 def leg_extension():
     p = part("leg_extension")
-    beam("base", p, (0, -0.65, 0.05), (0, 0.95, 0.05), 0.14, "silver", 0.08)
+    beam("base", p, (0, -0.65, 0.05), (0, 0.95, 0.05), 0.12, "silver", 0.07)
     stack_tower(p, 0, 0.80, 0.46, 0.38, 1.35, 0.07)
-    pad("seat", p, (0.42, 0.44, 0.09), (0, 0.0, 0.44)); beam("seat_post", p, (0, 0.0, 0.40), (0, 0.0, 0.06), 0.09, "silver")
-    pad("back", p, (0.42, 0.10, 0.50), (0, 0.28, 0.76), (-12, 0, 0)); beam("back_post", p, (0, 0.34, 0.5), (0, 0.38, 0.9), 0.07, "silver")
+    pad("seat", p, (0.42, 0.44, 0.09), (0, 0.0, 0.44))
+    beam("seat_post", p, (0, 0.0, 0.40), (0, 0.0, 0.06), 0.075, "silver")
+    pad("back", p, (0.42, 0.10, 0.50), (0, 0.28, 0.76), (-12, 0, 0))
+    beam("back_post", p, (0, 0.34, 0.5), (0, 0.38, 0.9), 0.06, "silver")
+    for s in (-1, 1):
+        grip_handle("side_grip", p, (s * 0.27, -0.14, 0.44), (s * 0.27, 0.06, 0.44), 0.020)
     lv = part("leg_lever"); lv.parent = p; lv.location = (0, -0.25, 0.30)
-    for s in (-1, 1): beam("arm", lv, (s * 0.20, 0, 0), (s * 0.20, -0.30, -0.02), 0.05, "silver")
-    cyl("roller", lv, 0.055, 0.40, "X", "pad", (0, -0.32, -0.02), 8)
-    beam("cam", p, (0.2, -0.25, 0.30), (0.2, 0.45, 0.50), 0.04, "silver")
+    pivot_hub("leg_pivot", lv, (0.22, 0, 0), r=0.058, width=0.06, axis="X")
+    cyl("cam_wheel", lv, 0.12, 0.028, "X", "steel", (0.26, 0, 0), sides=28)
+    for s in (-1, 1):
+        beam("arm", lv, (s * 0.20, 0, 0), (s * 0.20, -0.30, -0.02), 0.045, "silver")
+    cyl("roller", lv, 0.062, 0.42, "X", "pad", (0, -0.32, -0.02), sides=24)
+    cyl("roller_cap_l", lv, 0.045, 0.016, "X", "steel", (-0.215, -0.32, -0.02), sides=20)
+    cyl("roller_cap_r", lv, 0.045, 0.016, "X", "steel", (0.215, -0.32, -0.02), sides=20)
+    beam("cam", p, (0.2, -0.25, 0.30), (0.2, 0.45, 0.50), 0.035, "silver")
     return p
 
 

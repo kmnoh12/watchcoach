@@ -4,14 +4,33 @@ Run inside Blender; rebuilds the `Kit` collection from scratch."""
 import bpy, bmesh, math
 from mathutils import Vector, Matrix
 
-COL = {"steel": (0.72, 0.75, 0.80, 1), "plate": (0.018, 0.018, 0.022, 1), "pad": (0.018, 0.018, 0.022, 1),
-       "frame": (0.68, 0.035, 0.040, 1), "grip": (0.015, 0.015, 0.018, 1), "accent": (0.95, 0.72, 0.04, 1),
-       "silver": (0.035, 0.038, 0.045, 1), "stack": (0.020, 0.022, 0.026, 1), "red": (0.72, 0.04, 0.05, 1),
+COL = {"steel": (0.76, 0.79, 0.84, 1), "plate": (0.018, 0.019, 0.023, 1), "pad": (0.022, 0.024, 0.028, 1),
+       "frame": (0.68, 0.035, 0.040, 1), "grip": (0.014, 0.015, 0.018, 1), "accent": (0.95, 0.72, 0.04, 1),
+       "silver": (0.055, 0.060, 0.068, 1), "stack": (0.024, 0.027, 0.032, 1), "red": (0.72, 0.04, 0.05, 1),
        "wood": (0.45, 0.28, 0.14, 1)}
-PBR = {"steel": (0.18, 0.92), "plate": (0.55, 0.20), "pad": (0.42, 0.0),
-       "frame": (0.32, 0.35), "grip": (0.85, 0.0), "accent": (0.30, 0.10),
-       "silver": (0.38, 0.45), "stack": (0.55, 0.25), "red": (0.32, 0.25),
+PBR = {"steel": (0.16, 0.94), "plate": (0.48, 0.22), "pad": (0.44, 0.0),
+       "frame": (0.28, 0.38), "grip": (0.82, 0.0), "accent": (0.28, 0.12),
+       "silver": (0.32, 0.58), "stack": (0.42, 0.38), "red": (0.30, 0.28),
        "wood": (0.50, 0.0)}
+
+
+def _add_bevel(ob, width, segments=3):
+    dims = ob.dimensions
+    min_dim = min(d for d in (dims.x, dims.y, dims.z) if d > 1e-4) if any(d > 1e-4 for d in dims) else width * 4
+    w = min(width, min_dim * 0.35)
+    if w < 1e-4:
+        return ob
+    bev = ob.modifiers.new("Bevel", "BEVEL")
+    bev.width = w
+    bev.segments = segments
+    ob.modifiers.new("WeightedNormal", "WEIGHTED_NORMAL")
+    return ob
+
+
+def _smooth_cyl(ob):
+    for p in ob.data.polygons:
+        p.use_smooth = len(p.vertices) == 4
+    return ob
 
 
 def mat(name):
@@ -38,17 +57,21 @@ def _obj(name, bm, parent, material, loc=(0, 0, 0), rot=(0, 0, 0)):
 
 
 def cyl(name, parent, r, length, axis="X", mat_name="steel", loc=(0, 0, 0), sides=8, r2=None):
+    seg = max(sides, 28 if r >= 0.08 else 20)
     bm = bmesh.new()
-    bmesh.ops.create_cone(bm, cap_ends=True, segments=sides, radius1=r, radius2=r if r2 is None else r2, depth=length)
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=r, radius2=r if r2 is None else r2, depth=length)
     rot = {"X": (0, 90, 0), "Y": (90, 0, 0), "Z": (0, 0, 0)}[axis]
-    return _obj(name, bm, parent, mat_name, loc, rot)
+    return _smooth_cyl(_obj(name, bm, parent, mat_name, loc, rot))
 
 
-def box(name, parent, size, mat_name="frame", loc=(0, 0, 0), rot=(0, 0, 0)):
+def box(name, parent, size, mat_name="frame", loc=(0, 0, 0), rot=(0, 0, 0), bevel=0.005):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.scale(bm, vec=Vector(size), verts=bm.verts)
-    return _obj(name, bm, parent, mat_name, loc, rot)
+    ob = _obj(name, bm, parent, mat_name, loc, rot)
+    if bevel and bevel > 0:
+        _add_bevel(ob, bevel, segments=2)
+    return ob
 
 
 def part(name):
