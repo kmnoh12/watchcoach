@@ -1371,32 +1371,43 @@ def build_gym_set(c):
     cyl("FoamRoller_1", 0.075, 0.62, trim_m, c, (-2.05, -4.45, 0.31), seg=16)
     cyl("FoamRoller_2", 0.075, 0.62, trim_m, c, (-2.05, -4.75, 0.31), seg=16)
 
-    # Expanded 2-tier dumbbell rack in front of the mirror: 20 dumbbells progressing light (left) -> heavy (right)
+    # Expanded 2-tier dumbbell rack in front of the mirror: 20 pairs (40 dumbbells)
+    # Lightest at top-left -> heaviest at bottom-right; same-weight pairs sit tightly together.
     shelf_m = K.mat("silver")
-    rack_w = 3.60
+    rack_w = 4.02
     rack = empty("P_dumbbell_rack", c, (-0.50, 4.55, 0))
     for z in (0.45, 0.85):
         box("shelf", (rack_w, 0.44, 0.04), shelf_m, c, (0, 0, z), (0, 0, 0), rack)
         box("shelf_lip", (rack_w + 0.02, 0.03, 0.06), red_m, c, (0, -0.21, z + 0.01), (0, 0, 0), rack)
-    for x in (-1.72, -0.58, 0.58, 1.72):
+    for x in (-1.92, -0.64, 0.64, 1.92):
         box("leg", (0.07, 0.44, 0.90), shelf_m, c, (x, 0, 0.45), (0, 0, 0), rack)
-    # Top tier (z=0.87): 10 lighter dumbbells left->right; Bottom tier (z=0.47): 10 heavier dumbbells left->right
-    for row, (z, r_min, r_max, l_min, l_max) in enumerate((
-        (0.87, 0.046, 0.076, 0.040, 0.074),   # top tier: light -> medium
-        (0.47, 0.076, 0.104, 0.074, 0.102),   # bottom tier: medium -> heavy
-    )):
-        count = 10
-        for i in range(count):
-            t = i / (count - 1)
-            hr = r_min + (r_max - r_min) * t
-            hl = l_min + (l_max - l_min) * t
-            x = -1.52 + i * (3.04 / (count - 1))
-            d = K.dumbbell(head_r=hr, head_len=hl)
-            d.parent = rack
-            d.location = (x, 0, z + hr)
-            d.rotation_euler.z = math.radians(90)
-            for o in [d] + list(d.children_recursive):
-                link(o, c)
+    # Top tier (z=0.87): 10 light->mid pairs (2.5..20 kg, fine steps)
+    # Bottom tier (z=0.47): 10 heavy pairs (22.5..50 kg, wider 2.5/5 kg steps)
+    tier_weights = (
+        (0.87, (2.5, 4, 6, 8, 10, 12, 14, 16, 18, 20)),
+        (0.47, (22.5, 25, 27.5, 30, 32.5, 35, 37.5, 40, 45, 50)),
+    )
+    for z, weights in tier_weights:
+        pairs = len(weights)
+        intra_gap = 0.010  # tight gap within the same-weight pair
+        # Scale head radius & length smoothly with cube root of weight (2.5 kg -> 50 kg)
+        radii = [0.036 + 0.056 * ((w / 50.0) ** (1 / 3)) for w in weights]
+        lengths = [0.032 + 0.062 * ((w / 50.0) ** (1 / 3)) for w in weights]
+        pair_widths = [4 * r + intra_gap for r in radii]
+        usable_w = rack_w - 0.16
+        inter_gap = max(0.035, (usable_w - sum(pair_widths)) / (pairs - 1))
+        total_w = sum(pair_widths) + inter_gap * (pairs - 1)
+        cursor = -total_w / 2
+        for hr, hl, pw in zip(radii, lengths, pair_widths):
+            for member in (0, 1):
+                x = cursor + hr + member * (2 * hr + intra_gap)
+                d = K.dumbbell(head_r=hr, head_len=hl)
+                d.parent = rack
+                d.location = (x, 0, z + hr)
+                d.rotation_euler.z = math.radians(90)
+                for o in [d] + list(d.children_recursive):
+                    link(o, c)
+            cursor += pw + inter_gap
     placed["dumbbell_rack"] = rack
 
     # Plate tree tucked cleanly beside the power rack & shoulder press

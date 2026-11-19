@@ -686,7 +686,7 @@ def build_gym_details(c):
     grip_rack.rotation_euler.z = math.radians(90)
     cable_grip_rack(c, grip_rack)
 
-    ez_rack = W.empty("Fixed EZ-bar rack", c, (-2.80, 4.45, 0))
+    ez_rack = W.empty("Fixed EZ-bar rack", c, (-3.05, 4.45, 0))
     ez_bar_rack(c, ez_rack)
 
     pad = W.empty("Squat barbell pad", c, (1.98, 2.55, 0.024))
@@ -1096,10 +1096,92 @@ def screen_switch(owner, display, labels, default):
     shader.inputs["Emission Strength"].default_value=.85
 
 
+def wall_framed_portrait(who, loc, height, c):
+    """Mount a WatchCoach cameo portrait inside a sleek wall poster frame (facing -Y)."""
+    import os
+    fn, _, _ = W.CAMEOS[who]
+    img_path = os.path.join(W.PARTS, fn)
+    im = bpy.data.images.load(img_path, check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    ratio = im.size[0] / im.size[1] if im.size[1] else 1.0
+    w = height * ratio
+    root = W.empty("WallFrame_" + who, c, loc)
+    frame_m = W.mat("Gallery frame graphite", (.035, .038, .042), rough=.34, metal=.55)
+    mat_w = W.mat("Gallery mat offwhite", (.86, .87, .85), rough=.65)
+    molded("Frame outer " + who, (w + .064, .028, height + .064), frame_m, c, (0, .014, 0), root, .004)
+    molded("Frame mat " + who, (w + .028, .010, height + .028), mat_w, c, (0, -.001, 0), root, .002)
+    art = W.shadeless("WallPortrait_" + who, image=img_path, strength=.95)
+    mesh = bpy.data.meshes.new("PortraitFace_" + who)
+    mesh.from_pydata([(-w / 2, -.008, -height / 2), (w / 2, -.008, -height / 2),
+                      (w / 2, -.008, height / 2), (-w / 2, -.008, height / 2)], [], [(0, 1, 2, 3)])
+    uv = mesh.uv_layers.new()
+    for loop, coord in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+        loop.uv = coord
+    mesh.materials.append(art)
+    ob = bpy.data.objects.new("PortraitFace_" + who, mesh)
+    c.objects.link(ob)
+    ob.parent = root
+    return root
+
+
+def wall_ai_logo(who, loc, height, c):
+    """Mount an AI logo plaque cleanly on the wall (facing -Y)."""
+    import os
+    fn, _, _ = W.CAMEOS[who]
+    img_path = os.path.join(W.PARTS, fn)
+    im = bpy.data.images.load(img_path, check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    ratio = im.size[0] / im.size[1] if im.size[1] else 1.0
+    w = height * ratio
+    root = W.empty("WallLogo_" + who, c, loc)
+    plaque_m = W.mat("Logo plaque charcoal", (.022, .024, .028), rough=.35, metal=.45)
+    molded("Logo plaque " + who, (w + .08, .016, height + .08), plaque_m, c, (0, .008, 0), root, .006)
+    mat = W.shadeless("WallLogoMat_" + who, image=img_path, strength=1.15)
+    try:
+        mat.surface_render_method = "BLENDED"
+    except AttributeError:
+        pass
+    mesh = bpy.data.meshes.new("LogoFace_" + who)
+    mesh.from_pydata([(-w / 2, -.004, -height / 2), (w / 2, -.004, -height / 2),
+                      (w / 2, -.004, height / 2), (-w / 2, -.004, height / 2)], [], [(0, 1, 2, 3)])
+    uv = mesh.uv_layers.new()
+    for loop, coord in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+        loop.uv = coord
+    mesh.materials.append(mat)
+    ob = bpy.data.objects.new("LogoFace_" + who, mesh)
+    c.objects.link(ob)
+    ob.parent = root
+    return root
+
+
+def stage_easter_eggs():
+    """Seat supporting WatchCoach extras on gym machines and hang cameo portraits & AI logos on the back wall."""
+    # 1) 5 supporting characters seated on machines across the gym
+    for role, loc, face_deg, pose in (
+        ("gray",   (5.45,  0.48, 0),   0, "sit_phone"),  # chest press — staring at phone
+        ("red",    (2.65,  0.58, 0),   0, "sit"),        # shoulder press
+        ("yellow", (0.15,  2.85, 0), 180, "sit"),        # flat bench facing dumbbell mirror
+        ("blue",   (7.15, -2.65, 0),   0, "sit"),        # leg extension
+        ("green",  (3.75, -2.65, 0),   0, "sit_phone"),  # dip machine
+    ):
+        ex = W.add_extra(role, loc=loc, face_deg=face_deg)
+        W.apply_pose(ex, pose)
+
+    # 2) Framed cameo portraits (samsung, altman, amodei) & AI logos (gpt, claude, gemini) on back wall above mirror
+    c = W.coll("CAMEO")
+    for who, x in (("samsung", 2.85), ("altman", 3.68), ("amodei", 4.52)):
+        wall_framed_portrait(who, (x, 4.97, 2.82), 0.44, c)
+    for who, x in (("gpt", 8.15), ("claude", 9.05), ("gemini", 9.95)):
+        wall_ai_logo(who, (x, 4.97, 2.82), 0.38, c)
+
+
 def stage_reel():
     hero,phone,display,watch=stage()
     screen_switch(phone,display,("camera","reels","record"),0)
     screen_switch(hero,watch,("rest","reps","next_set"),0)
     for arc in W.watch_buzz(25,dur=12):
         arc.data.transform(Matrix.Rotation(math.pi/2,4,"X"))
+    stage_easter_eggs()
     bpy.context.scene.frame_set(1)
