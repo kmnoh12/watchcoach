@@ -9,6 +9,8 @@ out = {}
 for kind in (["flat", "gym"] if which == "all" else [which]):
     sc = W.new_scene(kind, bg="yellow")
     if kind == "gym":
+        from reel_gym import stage_reel
+        stage_reel()
         W.frame_gym_interior()
     else:
         g = W.add_hero("Guy")

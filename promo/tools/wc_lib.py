@@ -517,8 +517,8 @@ def build_gym_strip_lights(c):
 
         # Use real area lights for the room and the warm bounce around each diffuser.
         for name, z, tilt, width, energy, color in (
-            ("StripArea", 3.499, 0, 0.25, 435, (1.0, 0.84, 0.63)),
-            ("StripWash", 3.495, math.pi, 0.38, 105, (1.0, 0.73, 0.47)),
+            ("StripArea", 3.499, 0, 0.25, 830, (1.0, 0.84, 0.63)),
+            ("StripWash", 3.495, math.pi, 0.38, 200, (1.0, 0.73, 0.47)),
         ):
             light = bpy.data.lights.new(f"{name}_{position}", "AREA")
             light.shape = "RECTANGLE"
@@ -542,7 +542,7 @@ def build_gym_ceiling_lights(c):
             # The ceiling underside is z=3.59 m. Only the lens face is visible.
             cyl("RecessedLens", 0.047, 0.012, downlight, c, (x, y, 3.587), seg=24)
             light = bpy.data.lights.new("RecessedSpot", "SPOT")
-            light.energy = 24
+            light.energy = 48
             light.color = (1.0, 0.88, 0.72)
             light.spot_size = math.radians(78)
             light.spot_blend = 0.65
@@ -1061,9 +1061,15 @@ def build_gym_daylight_window(parent, wall):
     window = coll("Right Wall Daylight Window", parent)
     bpy.context.view_layer.update()
     x = min((wall.matrix_world @ Vector(point)).x for point in wall.bound_box)
-    y, z = 1.25, 2.02
-    width, height = 3.65, 1.85
-    left, right = y - width / 2, y + width / 2
+    z, height = 2.02, 1.85
+    # Facing the right wall from inside, screen-right points toward decreasing Y.
+    old_width = 3.65
+    frame_overhang = 0.08
+    right = 1.25 + old_width / 2  # fixed end, next to the mirror wall
+    split = right - old_width
+    width = 2 * (old_width + frame_overhang) - frame_overhang
+    left = right - width
+    y = (left + right) / 2
     bottom, top = z - height / 2, z + height / 2
     artwork = shadeless("Window Sky Vinyl", image=os.path.join(PARTS, "gym_window_sky.png"), strength=1.15)
     sky = next(node.image for node in artwork.node_tree.nodes if node.type == "TEX_IMAGE")
@@ -1071,24 +1077,23 @@ def build_gym_daylight_window(parent, wall):
         sky.pack()
 
     mesh = bpy.data.meshes.new("Window Sky")
-    mesh.from_pydata([
-        (x - 0.014, right, bottom), (x - 0.014, left, bottom),
-        (x - 0.014, left, top), (x - 0.014, right, top),
-    ], [], [(0, 1, 2, 3)])
+    mesh.from_pydata([(x-.014, right, bottom), (x-.014, left, bottom),
+                      (x-.014, left, top), (x-.014, right, top)], [], [(0,1,2,3)])
     uv_map = mesh.uv_layers.new(name="UVMap")
-    for loop, uv in zip(uv_map.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+    for loop, uv in zip(uv_map.data, ((0,0),(1,0),(1,1),(0,1))):
         loop.uv = uv
     mesh.materials.append(artwork)
     window.objects.link(bpy.data.objects.new("Window Sky", mesh))
 
     frame = mat("Window Charcoal Frame", (0.046, 0.049, 0.052), rough=0.58, metal=0.15)
-    for name, yy in (("Far", left), ("Center", y), ("Near", right)):
+    for name, yy in (("Far", left), ("Extension", (left+split)/2), ("Join", split),
+                     ("Center", (split+right)/2), ("Near", right)):
         box("Window Jamb " + name, (0.106, 0.075, height + 0.06), frame, window, (x - 0.018, yy, z))
     for name, zz in (("Head", top + 0.014), ("Sill", bottom - 0.014)):
-        box("Window " + name, (0.126, width + 0.08, 0.074), frame, window, (x - 0.025, y, zz))
+        box("Window " + name, (0.126, width + frame_overhang, 0.074), frame, window, (x - 0.025, y, zz))
 
     for name, location, target, size_x, size_y, power, color, shadow in (
-        ("Window daylight", (x - 0.22, y, z), (6.7, 0.1, 1.0), 3.55, 1.77, 1020, (0.87, 0.94, 1.0), True),
+        ("Window daylight", (x - 0.22, y, z), (6.7, y - 1.15, 1.0), width - .10, 1.77, 1440, (0.87, 0.94, 1.0), True),
         ("Daylight room fill", (10.7, -2.4, 3.28), (4.4, 1.6, 0.85), 6.5, 4.0, 462, (0.93, 0.96, 1.0), False),
     ):
         light = bpy.data.lights.new(name, "AREA")
@@ -1103,7 +1108,44 @@ def build_gym_daylight_window(parent, wall):
         look_at(obj, target)
 
 
+def build_neon_wall_window(parent, wall):
+    """Reuse the mirror-side bay of the cardio window in the free space beside the neon."""
+    source = bpy.data.collections["Right Wall Daylight Window"]
+    dest = coll("Neon Wall Window", parent)
+    near = source.objects["Window Jamb Near"]
+    middle = source.objects["Window Jamb Center"]
+    width = near.location.y - middle.location.y
+    y = -5.56
+    z = near.location.z
+    x = max((wall.matrix_world @ Vector(p)).x for p in wall.bound_box)
+    height = near.dimensions.z - .06
+    frame = near.data.materials[0]
+    for edge in (-1, 1):
+        box("Neon window jamb", tuple(near.dimensions), frame, dest,
+            (x+.018, y+edge*width/2, z))
+    for name in ("Window Head", "Window Sill"):
+        rail = source.objects[name]
+        box("Neon " + name, (rail.dimensions.x, width+.08, rail.dimensions.z),
+            frame, dest, (x+.025, y, rail.location.z))
+    mesh = bpy.data.meshes.new("Neon window view")
+    mesh.from_pydata([(x+.014, y+dy*width/2, z+dz*height/2)
+                      for dy,dz in ((-1,-1),(1,-1),(1,1),(-1,1))], [], [(0,1,2,3)])
+    fraction = width / source.objects["Window Sky"].dimensions.y
+    for loop, uv in zip(mesh.uv_layers.new().data, ((0,0),(fraction,0),(fraction,1),(0,1))):
+        loop.uv = uv
+    mesh.materials.append(source.objects["Window Sky"].data.materials[0])
+    dest.objects.link(bpy.data.objects.new(mesh.name, mesh))
+    light = next(o.data for o in source.objects if o.type=="LIGHT" and o.name.startswith("Window daylight")).copy()
+    light.size *= fraction
+    light.energy *= fraction
+    lamp = bpy.data.objects.new("Neon window daylight", light)
+    dest.objects.link(lamp)
+    lamp.location = (x+.22, y, z)
+    look_at(lamp, (x+5, y+.7, 1))
+
+
 def build_gym_right_equipment(parent):
+    import cardio_equipment as cardio
     import equipment_kit as K
     import equipment_machines as M
     import equipment_machines2 as M2
@@ -1121,21 +1163,19 @@ def build_gym_right_equipment(parent):
             K.box("Treadmill side rail", machine, (0.11, 1.56, 0.045), "silver", (x, 0.135, 0.167))
             M.beam("Console upright", machine, (x, -0.83, 0.10), (x, -0.64, 1.17), 0.071, "silver")
             M.rod("Treadmill grip", machine, (x, -0.64, 1.05), (x, -0.20, 0.98), 0.031, "grip")
-        K.box("Console housing", machine, (0.76, 0.32, 0.086), "silver", (0, -0.66, 1.181), (19, 0, 0))
-        K.box("Console screen", machine, (0.31, 0.18, 0.015), "plate", (0, -0.674, 1.228), (19, 0, 0))
-        K.box("Stop button", machine, (0.058, 0.040, 0.015), "red", (0, -0.541, 1.271), (19, 0, 0))
+        cardio.redon_console(machine, equipment)
         return machine
 
     # Leave the far-right mirror clear for the Instagram photo spot.
     placements = (
-        (treadmill, (11.95, -0.86, 0), 90),
-        (treadmill, (11.95, 0.67, 0), 90),
+        *((treadmill, (12.20, y, 0), 90) for y in (2.10, 1.10, .10, -.90)),
         (M2.shoulder_press_machine, (5.99, 3.46, 0), 0),
         (M.chest_press_machine, (8.12, 3.46, 0), 0),
         (M2.seated_leg_curl, (10.02, 3.46, 0), 0),
         (M.leg_press_45, (7.50, -2.55, 0), -12),
     )
-    return place_gym_equipment(equipment, placements)
+    machines=place_gym_equipment(equipment, placements)
+    return [*machines,*cardio.add_cardio_pair(equipment)]
 
 
 def build_gym_extra_equipment(parent):
@@ -1147,7 +1187,7 @@ def build_gym_extra_equipment(parent):
         (M.smith_machine, (1.10, -2.30, 0), 8),
         (M.seated_cable_row, (-2.98, -2.88, 0), 90),
         (M.leg_extension, (9.70, -3.10, 0), -12),
-        (M2.hip_abductor, (11.90, -3.10, 0), -90),
+        (M2.hip_abductor, (8.40, 0.60, 0), -90),
     ))
 
 
@@ -1214,7 +1254,7 @@ def build_gym_set(c):
     box("Wall_Left", (0.2, 12.2, 3.65), wall_m, c, (-4.6, -0.8, 1.80))
     box("Wall_Right", (0.2, 12.2, 3.65), wall_m, c, (4.6, -0.8, 1.80))
     box("Wainscot_Back", (9.0, 0.03, 0.85), wain_m, c, (0, 4.99, 0.42))
-    box("Wainscot_Front", (9.0, 0.03, 0.85), wain_m, c, (0, -6.69, 0.42))
+    box("Wainscot_Front", (9.0, 0.03, 0.595), wain_m, c, (0, -6.69, 0.2925))
     box("Wainscot_Left", (0.03, 11.8, 0.85), wain_m, c, (-4.49, -0.8, 0.42))
     box("Wainscot_Right", (0.03, 11.8, 0.85), wain_m, c, (4.49, -0.8, 0.42))
     build_gym_back_baseboard(c, trim_m)
@@ -1380,8 +1420,11 @@ def build_gym_set(c):
     add_symmetric_gym_pillars(c)
     build_gym_instagram_stickers(decc)
     build_gym_daylight_window(decc, c.objects["Wall_Right"])
+    build_neon_wall_window(decc, c.objects["Wall_Left"])
     build_gym_right_equipment(c)
     build_gym_extra_equipment(c)
+    from reel_gym import build_set
+    build_set(c)
     return placed
 
 
