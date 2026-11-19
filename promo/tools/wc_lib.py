@@ -1179,10 +1179,10 @@ def build_gym_right_equipment(parent):
     # Leave the far-right mirror clear for the Instagram photo spot.
     placements = (
         *((treadmill, (12.20, y, 0), 90) for y in (2.10, 1.10, .10, -.90)),
-        (M2.shoulder_press_machine, (5.99, 3.46, 0), 0),
-        (M.chest_press_machine, (8.12, 3.46, 0), 0),
-        (M2.seated_leg_curl, (10.02, 3.46, 0), 0),
-        (M.leg_press_45, (7.50, -2.55, 0), -12),
+        (M2.shoulder_press_machine, (5.65, 3.55, 0), 0),
+        (M.chest_press_machine, (7.55, 3.55, 0), 0),
+        (M2.seated_leg_curl, (8.55, -2.65, 0), 0),
+        (M.leg_press_45, (5.35, -2.55, 0), 0),
     )
     machines=place_gym_equipment(equipment, placements)
     return [*machines,*cardio.add_cardio_pair(equipment)]
@@ -1194,10 +1194,10 @@ def build_gym_extra_equipment(parent):
 
     equipment = coll("Extra Gym Equipment", parent)
     return place_gym_equipment(equipment, (
-        (M.smith_machine, (1.10, -2.30, 0), 8),
-        (M.seated_cable_row, (-2.98, -2.88, 0), 90),
-        (M.leg_extension, (9.70, -3.10, 0), -12),
-        (M2.hip_abductor, (8.40, 0.60, 0), -90),
+        (M.smith_machine, (1.45, -2.55, 0), 180),
+        (M.seated_cable_row, (-3.55, -2.20, 0), 90),
+        (M.leg_extension, (7.15, -2.65, 0), 0),
+        (M2.hip_abductor, (9.95, -2.65, 0), 0),
     ))
 
 
@@ -1349,15 +1349,15 @@ def build_gym_set(c):
     put("power_rack", M.power_rack, (2.9, 3.4, 0))
     bb = put("barbell", K.barbell, (2.9, 3.4 - 0.62, 1.38))
 
-    put("pec_deck", M.pec_deck, (-2.55, 3.95, 0), 0)
-    put("lat_pulldown", M.lat_pulldown, (-3.7, 0.4, 0), -90)
-    put("cable_crossover", M.cable_crossover, (-3.9, 3.4, 0), -90)
-    put("flat_bench", M.flat_bench, (1.5, 1.3, 0), 90)
-    put("adjustable_bench", M.adjustable_bench, (-0.95, 3.35, 0), 25)
-    # Green exercise mat & standing black foam rollers near the pillar/mirror (Photo 1 bottom-right detail)
-    box("GymMat_Pad", (0.55, 1.15, 0.035), mat_grn, c, (-1.85, 2.45, 0.018), (0, 0, -15))
-    cyl("FoamRoller_1", 0.075, 0.62, trim_m, c, (-1.62, 1.88, 0.31), seg=12)
-    cyl("FoamRoller_2", 0.075, 0.62, trim_m, c, (-1.45, 2.02, 0.31), seg=12)
+    put("pec_deck", M.pec_deck, (9.35, 3.55, 0), 0)
+    put("lat_pulldown", M.lat_pulldown, (-3.75, 0.70, 0), 90)
+    put("cable_crossover", M.cable_crossover, (-3.85, 3.30, 0), 90)
+    put("flat_bench", M.flat_bench, (1.05, 2.85, 0), 0)
+    put("adjustable_bench", M.adjustable_bench, (-0.15, 2.85, 0), 180)
+    # Dedicated stretching corner (green exercise mat & foam rollers) near front-left / InBody
+    box("GymMat_Pad", (0.65, 1.50, 0.035), mat_grn, c, (-2.65, -4.65, 0.018), (0, 0, 0))
+    cyl("FoamRoller_1", 0.075, 0.62, trim_m, c, (-2.05, -4.45, 0.31), seg=16)
+    cyl("FoamRoller_2", 0.075, 0.62, trim_m, c, (-2.05, -4.75, 0.31), seg=16)
 
     # Multi-tier dumbbell rack in front of the mirror loaded with yellow-ringed black dumbbells (Photo 2)
     shelf_m = K.mat("silver")
@@ -1377,8 +1377,8 @@ def build_gym_set(c):
                 link(o, c)
     placed["dumbbell_rack"] = rack
 
-    # Plate tree with black & yellow-ringed plates
-    tree = empty("P_plate_tree", c, (4.0, 1.6, 0))
+    # Plate tree tucked cleanly beside the power rack & shoulder press
+    tree = empty("P_plate_tree", c, (4.35, 3.45, 0))
     box("tree_base", (0.6, 0.6, 0.05), red_m, c, (0, 0, 0.025), (0, 0, 0), tree)
     box("tree_post", (0.08, 0.08, 1.5), red_m, c, (0, 0, 0.75), (0, 0, 0), tree)
     for i, (z, s) in enumerate([(0.30, 1), (0.30, -1), (0.80, 1), (0.80, -1), (1.30, 1)]):
