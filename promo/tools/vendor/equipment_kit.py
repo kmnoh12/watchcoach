@@ -98,13 +98,14 @@ def plain_bar(L=1.8):
     return p
 
 
-def dumbbell():
+def dumbbell(head_r=0.082, head_len=0.085, handle_len=0.165):
     p = part("dumbbell")
-    cyl("handle", p, 0.018, 0.17, "X", "steel", sides=8)
+    cyl("handle", p, 0.017, handle_len, "X", "steel", sides=20)
+    offset = handle_len / 2 + head_len / 2 - 0.008
     for s in (-1, 1):
-        cyl("head", p, 0.082, 0.085, "X", "plate", (s * 0.13, 0, 0), 10)
-        cyl("ring", p, 0.066, 0.091, "X", "accent", (s * 0.13, 0, 0), 10)
-        cyl("cap", p, 0.046, 0.096, "X", "plate", (s * 0.13, 0, 0), 10)
+        cyl("head", p, head_r, head_len, "X", "plate", (s * offset, 0, 0), 24)
+        cyl("ring", p, head_r * 0.78, head_len + 0.006, "X", "accent", (s * offset, 0, 0), 24)
+        cyl("cap", p, head_r * 0.54, head_len + 0.011, "X", "plate", (s * offset, 0, 0), 24)
     return p
 
 

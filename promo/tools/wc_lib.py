@@ -1179,23 +1179,35 @@ def build_gym_right_equipment(parent):
     # Leave the far-right mirror clear for the Instagram photo spot.
     placements = (
         *((treadmill, (12.20, y, 0), 90) for y in (2.10, 1.10, .10, -.90)),
-        (M2.shoulder_press_machine, (5.65, 3.55, 0), 0),
-        (M.chest_press_machine, (7.55, 3.55, 0), 0),
+        (M2.shoulder_press_machine, (2.65, 0.55, 0), 0),
+        (M.chest_press_machine, (5.45, 0.55, 0), 0),
         (M2.seated_leg_curl, (8.55, -2.65, 0), 0),
-        (M.leg_press_45, (5.35, -2.55, 0), 0),
+        (M.leg_press_45, (5.45, -2.55, 0), 0),
     )
     machines=place_gym_equipment(equipment, placements)
     return [*machines,*cardio.add_cardio_pair(equipment)]
 
 
 def build_gym_extra_equipment(parent):
+    import equipment_kit as K
     import equipment_machines as M
     import equipment_machines2 as M2
 
     equipment = coll("Extra Gym Equipment", parent)
     return place_gym_equipment(equipment, (
-        (M.smith_machine, (1.45, -2.55, 0), 180),
-        (M.seated_cable_row, (-3.55, -2.20, 0), 90),
+        # Mirror-wall free-weight & cable lineup: Dumbbell rack + Power rack + Smith machine + Functional trainer
+        (M.smith_machine, (5.95, 3.55, 0), 180),
+        (M2.functional_trainer, (8.65, 3.85, 0), 0),
+        # Left-wall cable back station
+        (M.seated_cable_row, (-3.55, -2.05, 0), 90),
+        # Middle island upper-body selectorised machines (with shoulder press & chest press)
+        (M2.lateral_raise_machine, (8.35, 0.55, 0), 0),
+        (M2.assisted_pullup, (9.80, 0.55, 0), 0),
+        # Front island: plate-loaded rows, arm machines, lower-body machines
+        (M2.tbar_row_machine, (-1.10, -2.65, 0), 0),
+        (M.plate_row, (0.75, -2.65, 0), 0),
+        (M2.preacher_machine, (2.35, -2.65, 0), 0),
+        (M2.dip_machine, (3.75, -2.65, 0), 0),
         (M.leg_extension, (7.15, -2.65, 0), 0),
         (M2.hip_abductor, (9.95, -2.65, 0), 0),
     ))
@@ -1349,29 +1361,39 @@ def build_gym_set(c):
     put("power_rack", M.power_rack, (2.9, 3.4, 0))
     bb = put("barbell", K.barbell, (2.9, 3.4 - 0.62, 1.38))
 
-    put("pec_deck", M.pec_deck, (9.35, 3.55, 0), 0)
+    put("pec_deck", M.pec_deck, (6.90, 0.55, 0), 0)
     put("lat_pulldown", M.lat_pulldown, (-3.75, 0.70, 0), 90)
     put("cable_crossover", M.cable_crossover, (-3.85, 3.30, 0), 90)
-    put("flat_bench", M.flat_bench, (1.05, 2.85, 0), 0)
-    put("adjustable_bench", M.adjustable_bench, (-0.15, 2.85, 0), 180)
+    put("flat_bench", M.flat_bench, (0.15, 2.85, 0), 0)
+    put("adjustable_bench", M.adjustable_bench, (-1.25, 2.85, 0), 180)
     # Dedicated stretching corner (green exercise mat & foam rollers) near front-left / InBody
     box("GymMat_Pad", (0.65, 1.50, 0.035), mat_grn, c, (-2.65, -4.65, 0.018), (0, 0, 0))
     cyl("FoamRoller_1", 0.075, 0.62, trim_m, c, (-2.05, -4.45, 0.31), seg=16)
     cyl("FoamRoller_2", 0.075, 0.62, trim_m, c, (-2.05, -4.75, 0.31), seg=16)
 
-    # Multi-tier dumbbell rack in front of the mirror loaded with yellow-ringed black dumbbells (Photo 2)
+    # Expanded 2-tier dumbbell rack in front of the mirror: 20 dumbbells progressing light (left) -> heavy (right)
     shelf_m = K.mat("silver")
-    rack = empty("P_dumbbell_rack", c, (0.45, 4.55, 0))
+    rack_w = 3.60
+    rack = empty("P_dumbbell_rack", c, (-0.50, 4.55, 0))
     for z in (0.45, 0.85):
-        box("shelf", (2.5, 0.42, 0.04), shelf_m, c, (0, 0, z), (0, 0, 0), rack)
-        box("shelf_lip", (2.52, 0.03, 0.06), red_m, c, (0, -0.20, z + 0.01), (0, 0, 0), rack)
-    for x in (-1.18, 0.0, 1.18):
-        box("leg", (0.07, 0.42, 0.9), shelf_m, c, (x, 0, 0.45), (0, 0, 0), rack)
-    for row, z in enumerate((0.47, 0.87)):
-        for i in range(6):
-            d = K.dumbbell()
+        box("shelf", (rack_w, 0.44, 0.04), shelf_m, c, (0, 0, z), (0, 0, 0), rack)
+        box("shelf_lip", (rack_w + 0.02, 0.03, 0.06), red_m, c, (0, -0.21, z + 0.01), (0, 0, 0), rack)
+    for x in (-1.72, -0.58, 0.58, 1.72):
+        box("leg", (0.07, 0.44, 0.90), shelf_m, c, (x, 0, 0.45), (0, 0, 0), rack)
+    # Top tier (z=0.87): 10 lighter dumbbells left->right; Bottom tier (z=0.47): 10 heavier dumbbells left->right
+    for row, (z, r_min, r_max, l_min, l_max) in enumerate((
+        (0.87, 0.046, 0.076, 0.040, 0.074),   # top tier: light -> medium
+        (0.47, 0.076, 0.104, 0.074, 0.102),   # bottom tier: medium -> heavy
+    )):
+        count = 10
+        for i in range(count):
+            t = i / (count - 1)
+            hr = r_min + (r_max - r_min) * t
+            hl = l_min + (l_max - l_min) * t
+            x = -1.52 + i * (3.04 / (count - 1))
+            d = K.dumbbell(head_r=hr, head_len=hl)
             d.parent = rack
-            d.location = (-0.95 + i * 0.38, 0, z + 0.082)
+            d.location = (x, 0, z + hr)
             d.rotation_euler.z = math.radians(90)
             for o in [d] + list(d.children_recursive):
                 link(o, c)

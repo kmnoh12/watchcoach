@@ -587,6 +587,46 @@ def kettlebell(c, root, radius, band_color, label):
         ring.rotation_euler.y = math.radians(sx * 16)
 
 
+def ez_bar_rack(c, root):
+    """5-tier vertical A-frame fixed-weight EZ-bar rack (10, 15, 20, 25, 30 kg top to bottom)."""
+    steel = W.mat("EZ rack charcoal", (.028, .031, .036), rough=.38, metal=.58)
+    red = W.mat("EZ rack accent red", (.68, .035, .040), rough=.32, metal=.35)
+    chrome = W.mat("Brushed alloy", (.46, .5, .51), rough=.22, metal=.88)
+    rubber = W.mat("EZ bar rubber head", (.018, .019, .022), rough=.52)
+    yellow = W.mat("EZ bar yellow ring", (.95, .72, .04), rough=.32)
+    # Twin A-frame uprights & base rails (width 0.64m between posts, total rack height 1.38m)
+    for sx in (-.30, .30):
+        molded("EZ rack foot", (.065, .64, .045), steel, c, (sx, 0, .0225), root, .006)
+        rod("EZ rack rear post", (sx, .20, .04), (sx, .05, 1.36), .028, steel, c, root)
+        rod("EZ rack front post", (sx, -.22, .04), (sx, -.02, 1.36), .028, steel, c, root)
+    for z in (.22, .80, 1.34):
+        molded("EZ rack crossbar", (.64, .045, .045), red if z == 1.34 else steel, c, (0, .04, z), root, .005)
+    # 5 fixed-weight EZ bars: 10 kg (top) -> 30 kg (bottom) in 5 kg increments
+    specs = (
+        (10, 1.24, .062, .044),
+        (15, 1.00, .072, .056),
+        (20, 0.76, .082, .068),
+        (25, 0.52, .092, .080),
+        (30, 0.28, .102, .094),
+    )
+    for kg, z, head_r, head_len in specs:
+        # Cradle hooks extending toward -Y (room side)
+        y_hook = -.16 - (1.24 - z) * .12
+        for sx in (-.30, .30):
+            rod(f"EZ cradle {kg}kg", (sx, y_hook + .12, z - .02), (sx, y_hook - .04, z - .005), .012, steel, c, root)
+            molded(f"EZ cradle lip {kg}kg", (.026, .016, .038), red, c, (sx, y_hook - .045, z + .005), root, .003)
+        # Bent chrome EZ-bar shaft (W-shaped curl profile)
+        pts = [(-.46, y_hook, z), (-.25, y_hook, z), (-.15, y_hook - .038, z),
+               (0, y_hook, z), (.15, y_hook - .038, z), (.25, y_hook, z), (.46, y_hook, z)]
+        piping(f"EZ bar shaft {kg}kg", pts, .0145, chrome, c, root)
+        # Fixed rubber weight heads + yellow weight rings on both ends
+        for sx in (-1, 1):
+            hx = sx * (.46 + head_len / 2)
+            smooth_mesh(W.cyl(f"EZ head {kg}kg", head_r, head_len, rubber, c, (hx, y_hook, z), (0, 90, 0), seg=24, parent=root))
+            smooth_mesh(W.cyl(f"EZ ring {kg}kg", head_r * .78, head_len + .006, yellow, c, (hx, y_hook, z), (0, 90, 0), seg=24, parent=root))
+            smooth_mesh(W.cyl(f"EZ cap {kg}kg", head_r * .52, head_len + .011, rubber, c, (hx, y_hook, z), (0, 90, 0), seg=24, parent=root))
+
+
 def build_gym_details(c):
     """Lived-in Korean gym details: water area, fire extinguishers, ceiling HVAC/audio/CCTV, cardio TV, free-weight props."""
     # 1) Paper cup dispenser + black trash bin right next to the water dispenser (5.9, -6.34)
@@ -641,10 +681,13 @@ def build_gym_details(c):
     tv.rotation_euler.z = math.radians(-90)
     treadmill_wall_tv(c, tv)
 
-    # 8) Free-weight & cable zone floor props: cable grip rack near cable machines, squat pad, kettlebells
+    # 8) Free-weight & cable zone floor props: cable grip rack, 5-tier EZ-bar rack (10-30kg), squat pad, kettlebells
     grip_rack = W.empty("Cable grip rack", c, (-3.95, -0.75, 0))
     grip_rack.rotation_euler.z = math.radians(90)
     cable_grip_rack(c, grip_rack)
+
+    ez_rack = W.empty("Fixed EZ-bar rack", c, (-2.80, 4.45, 0))
+    ez_bar_rack(c, ez_rack)
 
     pad = W.empty("Squat barbell pad", c, (1.98, 2.55, 0.024))
     pad.rotation_euler.z = math.radians(28)
