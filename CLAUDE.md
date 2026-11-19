@@ -13,5 +13,8 @@
 - 운동을 앱 목록에서 빼면: `WorkoutData.kt`(목록) + `WorkoutDataTest.kt`(개수) + `tools/viewer3d/camera_views.json` + `phone/src/main/assets/previews/<id>.webp` + 위 `--remove`.
 - 구도 `tools/gen_camera_views.py`, 썸네일 촬영 `tools/preview_capture.py`.
 
+## 변경 완료와 GitHub 반영
+- 워치코치 수정 요청(앱 코드, Blender 씬·모델, 생성 코드·에셋 등)은 결과를 확인한 뒤 해당 요청의 변경만 커밋하고 GitHub의 `main`에 푸시한다. 원격 반영을 확인하고 커밋 링크를 보고한다. 사용자가 로컬 작업만 요청하면 푸시를 생략한다.
+
 ## 하지 말 것
 - 사용자가 말하기 전에 배포하지 않는다. 다른 작업(결과 화면 등)의 미커밋 변경을 같이 커밋하지 않는다.
