@@ -452,14 +452,25 @@ def build_gym_floor(c):
     grain_surface.inputs["Scale"].default_value = 5.5
     links.new(position.outputs["Position"], grain_surface.inputs["Vector"])
 
+    # Broad low-frequency aisle wear breaks up uniform CG sheen across high-traffic walkways.
+    walkway_wear = nodes.new("ShaderNodeTexNoise")
+    walkway_wear.inputs["Scale"].default_value = 0.42
+    walkway_wear.inputs["Detail"].default_value = 4.0
+    walkway_wear.inputs["Roughness"].default_value = 0.65
+    links.new(position.outputs["Position"], walkway_wear.inputs["Vector"])
+
     sheen = nodes.new("ShaderNodeMixRGB")
     sheen.inputs[0].default_value = 0.38
     links.new(tile_variation.outputs["Value"], sheen.inputs[1])
     links.new(grain_surface.outputs["Fac"], sheen.inputs[2])
+    wear_sheen = nodes.new("ShaderNodeMixRGB")
+    wear_sheen.inputs[0].default_value = 0.32
+    links.new(sheen.outputs["Color"], wear_sheen.inputs[1])
+    links.new(walkway_wear.outputs["Fac"], wear_sheen.inputs[2])
     roughness = nodes.new("ShaderNodeMapRange")
-    roughness.inputs["To Min"].default_value = 0.44
-    roughness.inputs["To Max"].default_value = 0.80
-    links.new(sheen.outputs["Color"], roughness.inputs["Value"])
+    roughness.inputs["To Min"].default_value = 0.38
+    roughness.inputs["To Max"].default_value = 0.84
+    links.new(wear_sheen.outputs["Color"], roughness.inputs["Value"])
     links.new(roughness.outputs["Result"], shader.inputs["Roughness"])
     bump = nodes.new("ShaderNodeBump")
     bump.inputs["Strength"].default_value = 0.21
@@ -468,14 +479,22 @@ def build_gym_floor(c):
     links.new(bump.outputs["Normal"], shader.inputs["Normal"])
 
     shade = nodes.new("ShaderNodeMapRange")
-    shade.inputs["To Min"].default_value = 0.91
-    shade.inputs["To Max"].default_value = 1.09
+    shade.inputs["To Min"].default_value = 0.89
+    shade.inputs["To Max"].default_value = 1.11
     links.new(tile_variation.outputs["Value"], shade.inputs["Value"])
+    wear_shade = nodes.new("ShaderNodeMapRange")
+    wear_shade.inputs["To Min"].default_value = 0.93
+    wear_shade.inputs["To Max"].default_value = 1.07
+    links.new(walkway_wear.outputs["Fac"], wear_shade.inputs["Value"])
+    combined_shade = nodes.new("ShaderNodeMath")
+    combined_shade.operation = "MULTIPLY"
+    links.new(shade.outputs["Result"], combined_shade.inputs[0])
+    links.new(wear_shade.outputs["Result"], combined_shade.inputs[1])
     tinted_rubber = nodes.new("ShaderNodeMixRGB")
     tinted_rubber.blend_type = "MULTIPLY"
     tinted_rubber.inputs[0].default_value = 1.0
     links.new(flecks.outputs["Color"], tinted_rubber.inputs[1])
-    links.new(shade.outputs["Result"], tinted_rubber.inputs[2])
+    links.new(combined_shade.outputs["Value"], tinted_rubber.inputs[2])
     links.new(tinted_rubber.outputs["Color"], shader.inputs["Base Color"])
 
     width = pitch - 0.009
@@ -1168,7 +1187,10 @@ def exclude_mirror_from_window_lights(mirror):
     receivers.objects.link(mirror)
     receivers.collection_objects[0].light_linking.link_state = "EXCLUDE"
     for collection_name in ("Right Wall Daylight Window", "Neon Wall Window"):
-        for obj in bpy.data.collections[collection_name].objects:
+        col = bpy.data.collections.get(collection_name)
+        if not col:
+            continue
+        for obj in col.objects:
             if obj.type == "LIGHT" and obj.data.specular_factor > 0:
                 obj.light_linking.receiver_collection = receivers
 
@@ -1507,7 +1529,6 @@ def build_gym_set(c):
     add_symmetric_gym_pillars(c)
     build_gym_instagram_stickers(decc)
     build_gym_daylight_window(decc, c.objects["Wall_Right"])
-    build_neon_wall_window(decc, c.objects["Wall_Left"])
     exclude_mirror_from_window_lights(c.objects["Mirror"])
     build_gym_right_equipment(c)
     build_gym_extra_equipment(c)

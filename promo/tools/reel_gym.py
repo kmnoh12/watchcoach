@@ -728,6 +728,88 @@ def build_gym_details(c):
     bag.rotation_euler.z = math.radians(22)
     gym_duffel_bag(c, bag)
 
+    # 10) Korean commercial gym architectural details: ceiling sprinklers, wall outlets/switches
+    # (Emergency exit sign now lives directly above the Main Entrance door in gym_annex.py)
+    for ix, sx in enumerate((-1.2, 2.0, 5.2, 8.4, 11.6), 1):
+        for iy, sy in enumerate((-2.6, 1.8), 1):
+            sp = W.empty(f"Ceiling sprinkler {ix}_{iy}", c, (sx, sy, 3.588))
+            ceiling_sprinkler(c, sp)
+
+    for name, loc, rot_deg, kind in (
+        ("Wall outlet InBody", (-4.48, -3.55, 0.34), 90, "outlet"),
+        ("Wall outlet water", (5.38, -6.68, 0.34), 180, "outlet"),
+        ("Wall outlet left", (-4.48, 0.90, 0.34), 90, "outlet"),
+        ("Pillar light switch", (-1.40, -0.635, 1.24), 0, "switch"),
+    ):
+        el = W.empty(name, c, loc)
+        el.rotation_euler.z = math.radians(rot_deg)
+        wall_electrical_plate(c, el, kind=kind)
+
+    from gym_annex import build_gym_doors
+    build_gym_doors(c)
+
+
+def korean_exit_sign(c, root):
+    """Korean fire-code standard medium emergency exit sign (중형 피난구유도등, ~290x230x44 mm, NFTC 303 / KS ISO 3864-3)."""
+    import os
+    housing = W.mat("ExitSign_Housing", (0.86, 0.88, 0.87), rough=0.38, metal=0.10)
+    trim = W.mat("ExitSign_Trim", (0.74, 0.76, 0.75), rough=0.45, metal=0.15)
+    led_g = W.shadeless("ExitSign_StatusLED", (0.08, 0.95, 0.22), strength=3.0)
+    # Standard wall-mounted medium housing: 290 x 230 x 44 mm
+    molded("Exit sign body", (0.290, 0.044, 0.230), housing, c, (0, 0.022, 0), root, radius=0.006)
+    molded("Exit sign bezel", (0.278, 0.010, 0.218), trim, c, (0, 0.002, 0), root, radius=0.003)
+    # Emissive textured face using Korean standard pictogram PNG (266 x 206 mm)
+    img_path = os.path.join(W.PARTS, "korean_exit_sign.png")
+    im = bpy.data.images.load(img_path, check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    face_m = W.shadeless("ExitSign_FaceMat", image=img_path, strength=2.6)
+    hw, hh = 0.133, 0.103
+    me = bpy.data.meshes.new("Exit sign face")
+    me.from_pydata([(-hw, -0.004, -hh), (hw, -0.004, -hh), (hw, -0.004, hh), (-hw, -0.004, hh)], [], [(0, 1, 2, 3)])
+    uv = me.uv_layers.new()
+    for loop, coord in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+        loop.uv = coord
+    me.materials.append(face_m)
+    face_ob = bpy.data.objects.new("Exit sign face", me)
+    face_ob.parent = root
+    c.objects.link(face_ob)
+    # Bottom inspection button + green power status LED (classic Korean exit light detail)
+    W.cyl("Exit test button", 0.006, 0.005, trim, c, (-0.095, 0.020, -0.116), parent=root, seg=12)
+    W.cyl("Exit status LED", 0.004, 0.004, led_g, c, (-0.072, 0.020, -0.116), parent=root, seg=12)
+    # Subtle localized emerald bounce light
+    ld = bpy.data.lights.new("ExitSignGlow", "POINT")
+    ld.energy = 5.5
+    ld.color = (0.10, 0.92, 0.40)
+    ld.shadow_soft_size = 0.16
+    ld.use_shadow = False
+    ob = bpy.data.objects.new(ld.name, ld)
+    ob.location = (0, -0.10, -0.02)
+    ob.parent = root
+    c.objects.link(ob)
+
+
+def ceiling_sprinkler(c, root):
+    """Recessed commercial fire sprinkler head with chrome escutcheon ring and brass deflector."""
+    chrome = W.mat("Sprinkler_Chrome", (0.68, 0.70, 0.72), rough=0.22, metal=0.90)
+    brass = W.mat("Sprinkler_Brass", (0.72, 0.56, 0.24), rough=0.32, metal=0.85)
+    W.cyl("Sprinkler escutcheon", 0.034, 0.008, chrome, c, (0, 0, -0.004), parent=root, seg=18)
+    W.cyl("Sprinkler stem", 0.009, 0.024, brass, c, (0, 0, -0.018), parent=root, seg=12)
+    W.cyl("Sprinkler deflector", 0.017, 0.004, brass, c, (0, 0, -0.032), parent=root, seg=16)
+
+
+def wall_electrical_plate(c, root, kind="outlet"):
+    """Korean recessed 2-gang wall power outlet or 3-gang rocker light switch."""
+    plate_m = W.mat("WallPlate_Dark", (0.08, 0.085, 0.095), rough=0.45, metal=0.08) if kind == "switch" else W.mat("WallPlate_White", (0.82, 0.83, 0.81), rough=0.42, metal=0.04)
+    socket_m = W.mat("WallSocket_Recess", (0.04, 0.042, 0.048), rough=0.65, metal=0.05)
+    molded("Electrical plate", (0.118, 0.010, 0.072), plate_m, c, (0, -0.005, 0), root, radius=0.003)
+    if kind == "outlet":
+        for x in (-0.026, 0.026):
+            W.cyl("Outlet well", 0.019, 0.006, socket_m, c, (x, -0.009, 0), (90, 0, 0), parent=root, seg=18)
+    else:
+        for x in (-0.030, 0.0, 0.030):
+            molded("Rocker switch", (0.024, 0.008, 0.044), plate_m, c, (x, -0.011, 0), root, radius=0.002)
+
 
 def shaker_bottle(c, root, body_color, lid_color, accent_color, metal=0.08):
     """Tapered sports shaker bottle or insulated gym tumbler (~23 cm tall)."""
@@ -889,7 +971,7 @@ def build_set(parent):
             scene_timebase(curve)
     for z in (-.075,.075):
         block("Timer colon",(.037,.006,.037),red,(0,-.058,z),clock)
-    scan=W.empty("Body composition analyzer",c,(-4.05,-5.23,0))
+    scan=W.empty("Body composition analyzer",c,(-4.05,-3.55,0))
     scan.rotation_euler.z=math.pi/2
     inbody_270(c,scan)
     # Align the head, recessed optic and actual light to one pivot.
@@ -1160,7 +1242,7 @@ def stage():
     tripod(c,stand)
     with bpy.data.libraries.load(str(Path(W.ROOT)/"models/galaxy_s25_ultra.blend")) as (src,dst):
         dst.objects=[n for n in src.objects if n=="Galaxy_S25_Ultra" or n.startswith("S25U_") and not n.endswith("_Copy")]
-    phone=next(o for o in dst.objects if o.name=="Galaxy_S25_Ultra")
+    phone=next(o for o in dst.objects if o.name.startswith("Galaxy_S25_Ultra"))
     for o in [phone]+list(phone.children_recursive): W.link(o,c)
     phone.parent=stand; phone.location=(0,0,1.48)
     display=next(o for o in phone.children_recursive if o.name.startswith("S25U_Display_Screen"))

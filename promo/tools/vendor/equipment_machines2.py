@@ -1,7 +1,8 @@
 """Second batch: the remaining apparatus from design/equipment-reference/taxonomy.py. Same conventions as equipment_machines."""
 import math
+import equipment_kit as K
 from equipment_kit import cyl, box, part, _plate
-from equipment_machines import beam, rod, pad, stack_tower, _seat_unit, pivot_hub, grip_handle, _drive, _dial, _seat_lever, _trolley
+from equipment_machines import beam, rod, pad, stack_tower, _seat_unit, pivot_hub, grip_handle, _drive, _dial, _seat_lever, _trolley, _rack_post, _chin_grips, _hinge, _linkage
 
 
 def _base(p, y0=-0.65, y1=0.95, mat="silver"):
@@ -11,7 +12,7 @@ def _base(p, y0=-0.65, y1=0.95, mat="silver"):
 def lateral_raise_machine():
     p = part("lateral_raise_machine"); _base(p, -0.5, 0.9); stack_tower(p, 0, 0.78, 0.48, 0.40, 1.45, 0.07)
     _seat_unit(p, 0.12)
-    _drive(p,(.28,.10,1.25),.78,1.50)
+    _drive(p,(.28,.10,1.25))
     beam("pivot_bridge",p,(-.28,.10,1.25),(.28,.10,1.25),.045,"silver")
     beam("bridge_stay",p,(0,.68,1.21),(0,.10,1.25),.052,"silver")
     for s in (-1, 1):
@@ -20,13 +21,16 @@ def lateral_raise_machine():
         beam("pivot", p, (s * 0.30, 0.0, 1.0), (s * 0.28, 0.1, 1.25), 0.05, "silver")
         grip_handle("neutral",p,(s*.52,-.20,.93),(s*.44,-.20,.93),.018)
         rod("grip_stem",p,(s*.52,-.20,.95),(s*.55,-.12,.99),.019)
+    for side in (-1,1):
+        _hinge(p,(side*.28,.10,1.25),("arm","elbow","grip","pivot","neutral","grip_stem"),
+               1,-side*44,side)
     return p
 
 
 def shoulder_press_machine():
     p = part("shoulder_press_machine")
     stack_tower(p,0,.72,.47,.35,1.70,.07)
-    _drive(p,(.45,.45,1.90),.72,1.80)
+    _drive(p,(.45,.45,1.90))
     for side in (-1,1):
         beam("runner",p,(side*.60,-.55,.04),(side*.60,.95,.04),.10,"silver",.08)
         beam("upright",p,(side*.55,.56,.06),(side*.45,.45,2.05),.064,"frame")
@@ -47,6 +51,8 @@ def shoulder_press_machine():
     pad("lumbar",p,(.39,.10,.24),(0,.254,.702),(-12,0,0))
     pad("back",p,(.40,.10,.45),(0,.328,1.055),(-12,0,0))
     beam("back_stay",p,(0,.15,.37),(0,.43,1.21),.05,"silver")
+    for side in (-1,1):
+        _hinge(p,(side*.45,.45,1.90),("upper_lever","lower_lever","overhand","neutral"),0,-35,side)
     return p
 
 
@@ -79,6 +85,7 @@ def tbar_row_machine():
         pivot_hub("lever_bearing",lv,(x,.50,0),.066,.075)
         arm = part("tbar_arm_L" if side < 0 else "tbar_arm_R")
         arm.parent, arm.location = lv, (x, .50, 0)
+        K._stroke(arm,"rotation_euler",0,p,-.42,"Stroke L" if side<0 else "Stroke R")
         beam("lever", arm, (0, .04, 0), (0, -1.05, .22), .043, "silver")
         cyl("counterweight", arm, .083, .065, "X", "silver", (0, .08, 0))
         cyl("weight_horn", arm, .024, .19, "X", "steel", (side*.10, -.74, .16))
@@ -126,7 +133,20 @@ def assisted_pullup():
         box("step",p,(.18,.28,.035),"silver",(side*.40,-.27,.42))
         beam("step_support",p,(side*.50,.20,.31),(side*.40,-.27,.41),.036,"silver")
         grip_handle("dip_grip",p,(side*.50,.19,1.32),(side*.49,-.16,1.32))
-    rod("assist_cable",p,(.17,.35,.87),(.17,.58,1.49),.005,"grip")
+    # Parallel links keep the knee platform level through the assisted descent.
+    carriage = _linkage(p,(0,-.09,.82),("knee","knee_post","knee_carrier"))
+    theta = ".53*v"
+    for target,path,index,expr in (
+        (carriage,"location",1,".41-.50*cos("+theta+")+.09*sin("+theta+")"),
+        (carriage,"location",2,".91-.50*sin("+theta+")-.09*cos("+theta+")")):
+        K._driver(target,path,index,p,expr,v="Stroke")
+    for link in [ob for ob in p.children if ob.name.split(".")[0]=="knee_link"]:
+        joint = part("Assist link bearing")
+        joint.parent = p
+        joint.location = (link.location.x,.41,link.location.z+.045)
+        link.parent = joint
+        link.location -= joint.location
+        K._stroke(joint,"rotation_euler",0,p,.53)
     return p
 
 
@@ -139,6 +159,7 @@ def preacher_machine():
     _dial(p,.177,.05,1.00,.084)
     beam("lever_mount",p,(0,.04,.73),(.14,.05,1.0),.038,"silver")
     _seat_lever(p,.30,.34)
+    _hinge(p,(0,.05,1.0),("arm","grip"),0,-58)
     return p
 
 
@@ -203,6 +224,9 @@ def seated_leg_curl():
     cyl("roller_cap_r", lv, 0.045, 0.016, "X", "steel", (0.215, -0.1, -0.1), sides=20)
     for s in (-1, 1):
         beam("arm", lv, (s * 0.20, 0.1, 0.1), (s * 0.20, -0.1, -0.1), 0.045, "silver")
+    # The roller swings about the side bearing, offset from the lever's legacy origin.
+    axle = _linkage(p,(0,-.30,.43),("P_curl_lever",))
+    K._stroke(axle,"rotation_euler",0,p,.86)
     return p
 
 
@@ -241,6 +265,8 @@ def hip_abductor():
         beam("foot_peg_arm", p, (s * 0.40, -0.05, 0.52), (s * 0.40, -0.22, 0.26), 0.032, "silver")
         rod("foot_peg", p, (s * 0.32, -0.22, 0.26), (s * 0.46, -0.22, 0.26), 0.018, "grip")
         grip_handle("side_grip", p, (s * 0.27, -0.14, 0.45), (s * 0.27, 0.06, 0.45), 0.020)
+    for side in (-1,1):
+        _hinge(p,(side*.14,-.05,.50),("arm","knee_pad","foot_peg","foot_peg_arm"),2,side*23,side)
     return p
 
 
@@ -302,14 +328,16 @@ def high_pulley():
 def functional_trainer():
     p = part("functional_trainer"); W = 1.1; H = 2.3
     for s in (-1, 1):
-        beam("post", p, (s * W / 2, 0, 0), (s * W / 2, 0, H), 0.10, "frame", 0.10)
+        _rack_post(p,s*W/2,0,H,.155,.155)
         beam("post_b", p, (s * W / 2, 0.40, 0), (s * W / 2, 0.40, H), 0.10, "frame", 0.10)
         beam("link", p, (s * W / 2, 0, H), (s * W / 2, 0.40, H), 0.08, "frame")
         stack_tower(p, s * (W / 2 + 0.28), 0.2, 0.22, 0.34, 1.6, 0.05)
         beam("foot", p, (s * W / 2, -0.3, 0.04), (s * W / 2, 0.7, 0.04), 0.106, "frame", 0.083)
         _trolley(p,s*W/2,1.30)
+        cyl("Storage pin",p,.021,.16,"X","steel",(s*(W/2+.13),.40,.57))
     beam("top", p, (-W / 2, 0, H), (W / 2, 0, H), 0.10); beam("top_b", p, (-W / 2, 0.4, H), (W / 2, 0.4, H), 0.10)
     beam("mid", p, (-W / 2, 0.4, 1.2), (W / 2, 0.4, 1.2), 0.08)
+    _chin_grips(p,W/2,H,.18)
     return p
 
 
@@ -444,6 +472,7 @@ def dip_machine():
     for side in (-1,1):
         beam("dip_mount",p,(0,.31,.65),(side*.30,.10,1.05),.039,"silver")
     box("foot_bar", p, (0.55, 0.08, 0.06), "silver", (0, -0.30, 0.22))
+    _hinge(p,(0,.10,1.05),("arm","grip"),0,29)
     return p
 
 

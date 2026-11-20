@@ -8,7 +8,8 @@ COL = {"steel": (0.76, 0.79, 0.84, 1), "plate": (0.018, 0.019, 0.023, 1), "pad":
        "frame": (0.68, 0.035, 0.040, 1), "grip": (0.014, 0.015, 0.018, 1), "accent": (0.95, 0.72, 0.04, 1),
        "silver": (0.055, 0.060, 0.068, 1), "stack": (0.024, 0.027, 0.032, 1), "red": (0.72, 0.04, 0.05, 1),
        "wood": (0.45, 0.28, 0.14, 1)}
-PBR = {"steel": (0.16, 0.94), "plate": (0.48, 0.22), "pad": (0.44, 0.0),
+COL.update({"print": (.80, .82, .80, 1), "thread": (.12, .105, .098, 1), "knurl": COL["steel"], "stitch": (.12,.10,.085,1)})
+PBR = {"knurl": (.29, .94), "stitch": (.74,0), "thread": (.82, 0), "print": (.51, 0), "steel": (0.16, 0.94), "plate": (0.48, 0.22), "pad": (0.44, 0.0),
        "frame": (0.33, 0.0), "grip": (0.82, 0.0), "accent": (0.28, 0.12),
        "silver": (0.32, 0.58), "stack": (0.42, 0.38), "red": (0.32, 0.0),
        "wood": (0.50, 0.0)}
@@ -49,17 +50,56 @@ def mat(name):
                 b.inputs["Coat Roughness"].default_value = 0.32
             if name == "steel":
                 b.inputs["Anisotropic"].default_value = 0.32
-            if name in ("pad", "frame", "grip") and not b.inputs["Normal"].is_linked:
+            if name in ("pad", "frame", "red", "silver", "grip") and not b.inputs["Normal"].is_linked:
                 nodes, links = m.node_tree.nodes, m.node_tree.links
                 grain = nodes.new("ShaderNodeTexNoise")
                 grain.inputs["Scale"].default_value = 720 if name == "pad" else 1100
                 grain.inputs["Detail"].default_value = 1
                 coord = nodes.new("ShaderNodeTexCoord")
                 links.new(coord.outputs["Object"], grain.inputs["Vector"])
+                roughness = nodes.new("ShaderNodeMapRange")
+                roughness.inputs["To Min"].default_value = rough - .075
+                roughness.inputs["To Max"].default_value = rough + .075
+                links.new(grain.outputs["Fac"], roughness.inputs["Value"])
+                links.new(roughness.outputs["Result"], b.inputs["Roughness"])
                 bump = nodes.new("ShaderNodeBump")
                 bump.inputs["Strength"].default_value = 0.16
                 bump.inputs["Distance"].default_value = 0.00032
                 links.new(grain.outputs["Fac"], bump.inputs["Height"])
+                links.new(bump.outputs["Normal"], b.inputs["Normal"])
+            if name == "stitch" and not b.inputs["Base Color"].is_linked:
+                nodes, links = m.node_tree.nodes, m.node_tree.links
+                uv = nodes.new("ShaderNodeTexCoord")
+                dash = nodes.new("ShaderNodeTexWave")
+                dash.bands_direction = "X"
+                dash.inputs["Scale"].default_value = 48
+                ramp = nodes.new("ShaderNodeValToRGB")
+                ramp.color_ramp.elements[0].position = .18
+                ramp.color_ramp.elements[0].color = COL["pad"]
+                ramp.color_ramp.elements[1].position = .48
+                ramp.color_ramp.elements[1].color = c
+                links.new(uv.outputs["UV"],dash.inputs["Vector"])
+                links.new(dash.outputs["Fac"],ramp.inputs["Fac"])
+                links.new(ramp.outputs["Color"],b.inputs["Base Color"])
+            if name == "knurl" and not b.inputs["Normal"].is_linked:
+                nodes, links = m.node_tree.nodes, m.node_tree.links
+                uv = nodes.new("ShaderNodeTexCoord")
+                ridge = nodes.new("ShaderNodeMath")
+                ridge.operation = "MINIMUM"
+                for index, slope in enumerate((-1, 1)):
+                    phase = nodes.new("ShaderNodeVectorMath")
+                    phase.operation = "DOT_PRODUCT"
+                    phase.inputs[1].default_value = (36, slope * 350, 0)
+                    wave = nodes.new("ShaderNodeMath")
+                    wave.operation = "PINGPONG"
+                    wave.inputs[1].default_value = .5
+                    links.new(uv.outputs["UV"], phase.inputs[0])
+                    links.new(phase.outputs["Value"], wave.inputs[0])
+                    links.new(wave.outputs[0], ridge.inputs[index])
+                bump = nodes.new("ShaderNodeBump")
+                bump.inputs["Strength"].default_value = .55
+                bump.inputs["Distance"].default_value = .00065
+                links.new(ridge.outputs[0], bump.inputs["Height"])
                 links.new(bump.outputs["Normal"], b.inputs["Normal"])
     return m
 
@@ -97,6 +137,62 @@ def part(name):
     return e
 
 
+def _knurled_bar(name, parent, radius, length):
+    bar = cyl(name, parent, radius, length, "X", "knurl", sides=24)
+    mesh = bar.data
+    uv = mesh.uv_layers.new(name="Turned grip")
+    for face in mesh.polygons:
+        corners = [mesh.vertices[mesh.loops[i].vertex_index].co for i in face.loop_indices]
+        turns = [math.atan2(v.y, v.x) / math.tau % 1 for v in corners]
+        crosses_seam = max(turns) - min(turns) > .5
+        for loop, u, v in zip(face.loop_indices, turns, corners):
+            uv.data[loop].uv = (u + int(crosses_seam and u < .5), v.z)
+    return bar
+
+
+def _lettering(parent, body, loc, size, rotation, material="print", relief=0):
+    # Share outlines across the dumbbell pairs and identical selector plates.
+    key = f"Equipment type {material} {size:.5f} {relief:.5f} {body}"
+    font = bpy.data.curves.get(key)
+    if font is None:
+        font = bpy.data.curves.new(key, "FONT")
+        font.body, font.size, font.align_x = body, size, "CENTER"
+        font.align_y = "CENTER"
+        font.resolution_u, font.extrude = 2, relief
+        font.materials.append(mat(material))
+    ob = bpy.data.objects.new("Mark " + body, font)
+    bpy.data.collections["Kit"].objects.link(ob)
+    ob.parent, ob.location = parent, loc
+    ob.rotation_euler = tuple(math.radians(a) for a in rotation)
+    return ob
+
+
+def _control(root, key, initial=0.0, minimum=0, maximum=1, description="Exercise travel"):
+    if key not in root:
+        root[key] = initial
+        root.id_properties_ui(key).update(min=minimum,max=maximum,description=description)
+    return key
+
+
+def _driver(target, path, index, root, expression, **inputs):
+    curve = target.driver_add(path,index)
+    driver = curve.driver
+    for name, key in inputs.items():
+        var = driver.variables.new()
+        var.name = name
+        var.type = "SINGLE_PROP"
+        var.targets[0].id = root
+        var.targets[0].data_path = '["' + key + '"]'
+    driver.expression = expression
+    return curve
+
+
+def _stroke(target, path, index, root, delta, key="Stroke"):
+    _control(root,key)
+    rest = getattr(target,path)[index]
+    _driver(target,path,index,root,f"{rest!r}+{delta!r}*v",v=key)
+
+
 def _plate(p, radius, depth, loc, grips=False):
     """Cast rim, recessed web and through-bore. Omit web sectors for hand holes."""
     profile = [(0.115, .54), (.20, .54), (.24, .34), (.53, .34),
@@ -126,12 +222,16 @@ def _plate(p, radius, depth, loc, grips=False):
         if all(math.hypot(plate.data.vertices[i].co.y, plate.data.vertices[i].co.z)
                <= radius*.201 for i in face.vertices):
             face.material_index = 1
+    kg = 20 if radius >= .20 else 10 if radius >= .16 else 5
+    for side in (-1, 1):
+        _lettering(plate, f"{kg} KG", (side * depth * .344, 0, radius * .375),
+                   radius * .105, (90, 0, side * 90), "thread", .00065)
     return plate
 
 
 def barbell(L=2.2, plate_r=0.225):
     p = part("barbell")
-    cyl("bar", p, .015, max(.03,L-.10), "X", "steel", sides=16)
+    _knurled_bar("bar", p, .015, max(.03, L-.10))
     for s in (-1, 1):
         shoulder = L / 2 - .42
         cyl("sleeve", p, .025, .42, "X", "steel", (s*(shoulder+.21),0,0))
@@ -151,13 +251,18 @@ def plain_bar(L=1.8):
 
 def dumbbell(head_r=0.082, head_len=0.085, handle_len=0.165):
     p = part("dumbbell")
-    cyl("handle", p, 0.017, handle_len, "X", "steel", sides=20)
+    _knurled_bar("handle", p, .017, handle_len)
+    # Invert the rack builder's cube-root mass scaling without changing its API.
+    kg = max(.5, round(100 * (max(0, head_r-.036)/.056)**3) / 2)
     offset = handle_len / 2 + head_len / 2 - 0.008
     for s in (-1, 1):
         cyl("ferrule", p, 0.026, 0.015, "X", "steel", (s*(handle_len/2-0.013),0,0))
         cyl("head", p, head_r, head_len, "X", "plate", (s * offset, 0, 0), 24)
         cyl("ring", p, head_r * 0.83, head_len + 0.006, "X", "silver", (s * offset, 0, 0), 24)
         cyl("cap", p, head_r * 0.54, head_len + 0.011, "X", "plate", (s * offset, 0, 0), 24)
+        face_x = s * (offset + (head_len+.011)/2 + .0002)
+        _lettering(p, f"{kg:g}", (face_x, 0, head_r*.047), head_r*.53, (90, 0, s*90))
+        _lettering(p, "KG", (face_x, 0, -head_r*.248), head_r*.14, (90, 0, s*90))
     return p
 
 

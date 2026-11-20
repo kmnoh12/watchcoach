@@ -4,6 +4,7 @@ import os
 
 import bpy
 
+import equipment_kit as K
 import wc_lib as W
 import reel_gym as R
 
@@ -86,7 +87,37 @@ def display(name, c, root, loc, width, height, tilt, artwork, screen_fraction):
     return pivot
 
 
+def _running_belt(machine):
+    """Scroll the tread surface along the deck. Each treadmill has its own phase."""
+    belt = next((ob for ob in machine.children if ob.name.startswith("Running belt")),None)
+    if belt is None:
+        return
+    phase = K._control(machine,"Belt cycles",0.0,0,10000,"Belt travel in revolutions")
+    fabric = belt.data.materials[0].copy()
+    fabric.name = "Moving belt rubber"
+    belt.data.materials[0] = fabric
+    nodes, links = fabric.node_tree.nodes,fabric.node_tree.links
+    shader = next(n for n in nodes if n.type=="BSDF_PRINCIPLED")
+    coord = nodes.new("ShaderNodeTexCoord")
+    axis = nodes.new("ShaderNodeSeparateXYZ")
+    offset = nodes.new("ShaderNodeMath")
+    offset.operation = "ADD"
+    K._driver(offset.inputs[1],"default_value",-1,machine,"-v",v=phase)
+    repeat = nodes.new("ShaderNodeMath")
+    repeat.operation = "FRACT"
+    color = nodes.new("ShaderNodeValToRGB")
+    ramp = color.color_ramp
+    ramp.elements[0].position, ramp.elements[0].color = .008,(.028,.030,.034,1)
+    ramp.elements[1].position, ramp.elements[1].color = .018,(.012,.013,.016,1)
+    links.new(coord.outputs["Generated"],axis.inputs[0])
+    links.new(axis.outputs["Y"],offset.inputs[0])
+    links.new(offset.outputs[0],repeat.inputs[0])
+    links.new(repeat.outputs[0],color.inputs[0])
+    links.new(color.outputs[0],shader.inputs["Base Color"])
+
+
 def redon_console(machine,c):
+    _running_belt(machine)
     dark=W.mat("Cardio rubber",(.019,.023,.023),rough=.78)
     alloy=W.mat("Cardio satin shell",(.066,.073,.075),rough=.43,metal=.26)
     R.rod("Redon console bridge",(-.34,-.64,1.16),(.34,-.64,1.16),.043,alloy,c,machine)
@@ -125,13 +156,26 @@ def stair_climber(c,loc):
         R.rod("Rail support",(x,-.49,1.11),(x,-.345,1.70),.022,rail,c,root)
         R.rod("Upper climbing grip",(x,-.34,1.69),(x,-.50,1.91),.030,rubber,c,root)
         R.molded("Boarding ledge",(.125,.24,.048),rubber,c,(sign*.33,.74,.18),root)
-    for i in range(4):
-        y=.52-.275*i
-        z=.267+.196*i
-        R.molded("Stair tread",(.618,.277,.047),rubber,c,(0,y,z),root,.012)
-        R.molded("Step riser",(.61,.020,.181),shell,c,(0,y+.125,z-.105),root)
+    K._control(root,"Step cycles",0.0,0,10000,"Descending steps, including concealed return")
+    track=[(.52,.267),(.245,.463),(-.030,.659),(-.305,.855),
+           (-.57,1.045),(-.53,.76),(.29,.18)]
+    for i in range(len(track)):
+        tread = W.empty("Step carrier",c)
+        tread.parent = root
+        # A linear path around the closed drive chain; return treads are inside the fairing.
+        for index in (1,2):
+            coords = [pt[index-1] for pt in track]
+            f = f"(({i}-v)%{len(track)})"
+            curve = K._driver(tread,"location",index,root,f,v="Step cycles")
+            for modifier in list(curve.modifiers):
+                curve.modifiers.remove(modifier)
+            for j,val in enumerate(coords+[coords[0]]):
+                key = curve.keyframe_points.insert(j,val)
+                key.interpolation="LINEAR"
+        R.molded("Stair tread",(.618,.277,.047),rubber,c,(0,0,0),tread,.012)
+        R.molded("Step riser",(.61,.020,.181),shell,c,(0,.125,-.105),tread)
         for row in range(7):
-            R.molded("Tread grip ridge",(.572,.008,.004),shell,c,(0,y-.09+row*.029,z+.024),root,.001)
+            R.molded("Tread grip ridge",(.572,.008,.004),shell,c,(0,-.09+row*.029,.024),tread,.001)
     R.molded("Upper return cover",(.70,.28,.105),shell,c,(0,-.57,1.108),root,.034)
     R.rod("Climber console mast",(0,-.57,1.13),(0,-.67,1.93),.046,rail,c,root)
     display("Climber display",c,root,(0,-.67,1.94),.40,.294,22,"step_console.png",.84)
@@ -162,16 +206,23 @@ def upright_cycle(c,loc):
     R.rod("Height knob",(0,.26,.66),(.088,.26,.66),.022,rubber,c,root)
     R.smooth_mesh(R.oval("Saddle rear",(0,.336,.916),(.139,.116,.046),rubber,c,root))
     R.smooth_mesh(R.oval("Saddle nose",(0,.230,.92),(.075,.105,.034),rubber,c,root))
+    K._control(root,"Pedal turns",0.0,-10000,10000,"Crank revolutions")
+    crank = W.empty("Crank axle",c)
+    crank.parent,crank.location = root,(0,.23,.34)
+    K._stroke(crank,"rotation_euler",0,root,math.tau,"Pedal turns")
     for sign in (-1,1):
         x=.164*sign
-        hub=(x,.23,.34); tip=(x,.23+sign*.113,.34+sign*.087)
-        R.rod("Crank spindle",(sign*.105,.23,.34),hub,.024,shell,c,root)
-        R.rod("Crank arm",hub,tip,.019,shell,c,root)
-        R.rod("Pedal axle",tip,(x+sign*.069,tip[1],tip[2]),.009,dark,c,root)
-        px=x+sign*.070
-        R.molded("Platform pedal",(.106,.135,.027),rubber,c,(px,tip[1],tip[2]),root)
-        bent_tube("Pedal strap",[(px-.047,tip[1],tip[2]),(px-.04,tip[1]-.022,tip[2]+.046),
-                  (px+.04,tip[1]-.022,tip[2]+.046),(px+.047,tip[1],tip[2])],.009,rubber,c,root)
+        hub=(x,0,0)
+        tip=(x,sign*.113,sign*.087)
+        R.rod("Crank spindle",(sign*.105,0,0),hub,.024,shell,c,crank)
+        R.rod("Crank arm",hub,tip,.019,shell,c,crank)
+        R.rod("Pedal axle",tip,(x+sign*.069,tip[1],tip[2]),.009,dark,c,crank)
+        pedal = W.empty("Pedal bearing",c)
+        pedal.parent,pedal.location = crank,(x+sign*.070,tip[1],tip[2])
+        K._stroke(pedal,"rotation_euler",0,root,-math.tau,"Pedal turns")
+        R.molded("Platform pedal",(.106,.135,.027),rubber,c,(0,0,0),pedal)
+        bent_tube("Pedal strap",[(-.047,0,0),(-.04,-.022,.046),
+                  (.04,-.022,.046),(.047,0,0)],.009,rubber,c,pedal)
         bent_tube("Multi position cycle grip",[(0,-.58,1.15),(sign*.19,-.47,1.12),
                   (sign*.245,-.405,1.17),(sign*.226,-.495,1.34)],.022,rubber,c,root)
     display("Cycle monitor",c,root,(0,-.59,1.303),.31,.22,25,"bike_console.png",.83)
