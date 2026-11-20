@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WatchCoach 3D Gym Simulator</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="app"></canvas>
+
+  <!-- Click to enter (only visible when pointer is unlocked) -->
+  <div id="lock-hint" class="lock-hint">
+    <div class="lock-card">
+      <div class="lock-title">WatchCoach 3D Gym</div>
+      <div class="lock-sub">클릭해서 시뮬레이터 시작 · <kbd>H</kbd> 조작법</div>
+    </div>
+  </div>
+
+  <!-- Minimal single-line interaction prompt -->
+  <div id="prompt-pill" class="prompt-pill hidden"></div>
+
+  <!-- Compact posing bar (only inside posing room) -->
+  <div id="posing-bar" class="posing-bar hidden"></div>
+
+  <!-- Optional FPS counter (F3 toggle, hidden by default) -->
+  <div id="fps-badge" class="fps-badge hidden">0 FPS</div>
+
+  <!-- Optional Controls Help (H toggle, hidden by default) -->
+  <div id="help-overlay" class="help-overlay hidden">
+    <div class="help-card">
+      <div class="help-header">
+        <span>조작 가이드</span>
+        <span class="help-close"><kbd>H</kbd> 닫기</span>
+      </div>
+      <div class="help-grid">
+        <div><kbd>W A S D</kbd></div><div>이동</div>
+        <div><kbd>Shift</kbd></div><div>달리기</div>
+        <div><kbd>마우스</kbd></div><div>시점 회전</div>
+        <div><kbd>V</kbd></div><div>1인칭 / 3인칭 전환</div>
+        <div><kbd>Q</kbd></div><div>워치 화면 확인</div>
+        <div><kbd>E</kbd></div><div>문 개폐 / 기구·샤워·화장실 이용</div>
+        <div><kbd>1 ~ 8</kbd></div><div>포징룸 IFBB 포징 8종</div>
+        <div><kbd>ESC</kbd></div><div>기구 종료 / 마우스 해제</div>
+        <div><kbd>F3</kbd></div><div>FPS 표시 토글</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
