@@ -13,6 +13,7 @@
 5. `work/viewer3d-oldhand`가 없는 PC에서는 3번(전체 재생성)부터 한다. `tools/sync_v5_to_app.sh`도 3번→4번 순서로 돈다.
 6. 반영 확인 후 앱을 빌드한다. 4번까지가 "내 폰에 반영"이고, 폰 배포(`tools/release.sh`)는 사용자가 말할 때만 한다.
 - 새 손 모델 자체를 다시 만들 때: `promo/models/fix_v5_hands.py`(옛 손 blend에만 적용), 워치 위치는 `promo/models/build_v5_with_watch.py`, 워치 묶음 파일은 `python3 tools/build_v5_watch_asset.py`.
+- 통계 탭 인체(`tools/viewer3d/human_stats.html`)는 근육 면을 번호가 아니라 위치(면 중심 좌표)로 저장한다. 손·워치를 바꿔 면 번호가 섞여도 안 깨진다. 4번과 `tools/release.sh`가 `tools/check_stats_faces.py`로 검사해서 몸통이 바뀌어 면을 못 찾으면 멈추고, 페이지도 빨간 글씨로 불일치를 띄운다. 몸통 자체를 다시 만들면 근육 면을 새로 골라야 한다.
 - 폰 뷰어는 기구 움직임을 사람과 같은 시간축(`acts`)으로 재생한다. 사람 프레임마다 저장한 기구는 그 시각에 맞고, 다른 개수로 저장한 기구만 균등 간격으로 재생한다.
 - 운동을 앱 목록에서 빼면: `WorkoutData.kt`(목록) + `WorkoutDataTest.kt`(개수) + `tools/viewer3d/camera_views.json` + `phone/src/main/assets/previews/<id>.webp` + 위 `--remove`.
 - 구도 `tools/gen_camera_views.py`, 썸네일 촬영 `tools/preview_capture.py`.

@@ -57,6 +57,9 @@ def main():
     (stage / "v5_bundle_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     if worst[0] < -1:
         print(f"WARNING: fingers cut {-worst[0]:.1f} mm into {worst[1]} ({worst[2]}); fix that motion in the catalog")
+    # The stats figure finds its muscle faces by position on this body; refuse to replace the phone bundle if they no longer fit.
+    shutil.copyfile(REPO / "tools/viewer3d/human_stats.html", stage / "human_stats.html")
+    subprocess.run([sys.executable, str(REPO / "tools/check_stats_faces.py"), str(stage)], check=True)
     shutil.rmtree(args.output)
     stage.rename(args.output)
     print(json.dumps({k: v for k, v in report.items() if k != "rows"}, ensure_ascii=False))

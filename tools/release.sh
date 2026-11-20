@@ -95,6 +95,7 @@ if [ "$BUILD_PHONE" = 1 ] && [ "$PUBLISH_BUILT" = 0 ]; then
     BUNDLE=phone/src/main/assets/viewer3d
     if [ -d "$BUNDLE" ]; then
         for f in index.html human_stats.html camera_views.json; do cp "tools/viewer3d/$f" "$BUNDLE/$f"; done
+        python3 tools/check_stats_faces.py "$BUNDLE" || exit 1
     fi
     if [ ! -f "$BUNDLE/index.html" ]; then
         echo "3D 뷰어 묶음에 index.html이 없어. tools/build_app3d_v5.py로 묶음을 다시 만들어." >&2
