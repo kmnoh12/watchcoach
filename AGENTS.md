@@ -13,6 +13,11 @@
 - 운동을 앱 목록에서 빼면: `WorkoutData.kt`(목록) + `WorkoutDataTest.kt`(개수) + `tools/viewer3d/camera_views.json` + `phone/src/main/assets/previews/<id>.webp` + 위 `--remove`.
 - 구도 `tools/gen_camera_views.py`, 썸네일 촬영 `tools/preview_capture.py`.
 
+## 작업 시작 전 GitHub 최신화
+- 워치코치 작업이나 확인(최신 버전 조회, 렌더, 코드·씬 수정 등)을 시작하기 전에 먼저 `git fetch origin main`으로 원격 상태를 확인한다.
+- 로컬 `main`이 `origin/main`보다 뒤처져 있고 워킹 트리가 깨끗하면 `git pull --ff-only origin main`으로 최신본을 먼저 내려받은 뒤 진행한다.
+- 로컬에 미커밋 변경이 있거나 fast-forward가 안 되면 강제로 덮어쓰지 말고 상태를 먼저 알린다. 오프라인이면 로컬 기준임을 알리고 진행한다.
+
 ## 변경 완료와 GitHub 반영
 - 워치코치 수정 요청(앱 코드, Blender 씬·모델, 생성 코드·에셋 등)은 결과를 확인한 뒤 해당 요청의 변경만 커밋하고 GitHub의 `main`에 푸시한다. 원격 반영을 확인하고 커밋 링크를 보고한다. 사용자가 로컬 작업만 요청하면 푸시를 생략한다.
 
