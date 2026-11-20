@@ -618,7 +618,7 @@ def add_symmetric_gym_pillars(c):
     middle = (c.objects["Wall_Left"].location.x + c.objects["Wall_Right"].location.x) / 2
     original_x = c.objects["Pillar"].location.x
     parts = [obj for obj in c.objects if obj.name == "Pillar" or obj.name.startswith("Pillar_")]
-    for label, offset in (("Center", middle - original_x), ("Right", 2 * (middle - original_x))):
+    for label, offset in (("Right", 2 * (middle - original_x)),):
         for part in parts:
             copy = part.copy()
             copy.name = f"{part.name}_{label}"

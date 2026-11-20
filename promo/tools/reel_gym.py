@@ -638,9 +638,9 @@ def build_gym_details(c):
     trash.rotation_euler.z = math.pi
     gym_trash_bin(c, trash)
 
-    # 2) Red fire extinguishers at pillar bases (Center pillar & Left pillar)
+    # 2) Red fire extinguishers at pillar bases (Right pillar & Left pillar)
     for name, loc, rot_deg in (
-        ("Fire extinguisher center", (4.86, -0.44, 0), -18),
+        ("Fire extinguisher right", (10.04, -0.44, 0), -18),
         ("Fire extinguisher left", (-1.04, -0.44, 0), 15),
     ):
         ext = W.empty(name, c, loc)
@@ -659,8 +659,6 @@ def build_gym_details(c):
     # 5) Wall-mounted black PA speakers high on the pillars
     for label, loc, rot_deg in (
         ("Left", (-1.40, -0.625, 2.86), 0),
-        ("Center front", (4.50, -0.625, 2.86), 0),
-        ("Center back", (4.50, -0.175, 2.86), 180),
         ("Right", (10.40, -0.625, 2.86), 0),
     ):
         spk = W.empty(f"Pillar speaker {label}", c, loc)
@@ -669,7 +667,7 @@ def build_gym_details(c):
 
     # 6) Compact CCTV security cameras high on pillars
     for label, loc, rot_deg in (
-        ("Center", (4.725, -0.40, 3.16), 105),
+        ("Left", (-1.175, -0.40, 3.16), 105),
         ("Right", (10.175, -0.40, 3.16), -75),
     ):
         cam = W.empty(f"Gym CCTV {label}", c, loc)
