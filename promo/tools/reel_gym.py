@@ -737,9 +737,9 @@ def build_gym_details(c):
             ceiling_sprinkler(c, sp)
 
     for name, loc, rot_deg, kind in (
-        ("Wall outlet InBody", (-4.48, -3.55, 0.34), 90, "outlet"),
+        ("Wall outlet InBody", (-7.48, -3.55, 0.34), 90, "outlet"),
         ("Wall outlet water", (5.38, -6.68, 0.34), 180, "outlet"),
-        ("Wall outlet left", (-4.48, 0.90, 0.34), 90, "outlet"),
+        ("Wall outlet left", (-7.48, 0.90, 0.34), 90, "outlet"),
         ("Pillar light switch", (-1.40, -0.635, 1.24), 0, "switch"),
     ):
         el = W.empty(name, c, loc)
@@ -972,7 +972,7 @@ def build_set(parent):
             scene_timebase(curve)
     for z in (-.075,.075):
         block("Timer colon",(.037,.006,.037),red,(0,-.058,z),clock)
-    scan=W.empty("Body composition analyzer",c,(-4.05,-3.55,0))
+    scan=W.empty("Body composition analyzer",c,(-7.05,-3.55,0))
     scan.rotation_euler.z=math.pi/2
     inbody_270(c,scan)
     # Align the head, recessed optic and actual light to one pivot.

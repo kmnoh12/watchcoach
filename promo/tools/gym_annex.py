@@ -549,14 +549,219 @@ def build_room_door(c, loc, rot_deg, name_tag, label, sublabel, accent_color, ha
     return root
 
 
+def build_info_desk(c):
+    """Exact replica of the Korean premium gym reception/info desk reference:
+    - Gray veined marble paneled feature wall behind desk
+    - Backlit glowing 3D channel sign 'WATCH [emblem] COACH' on the marble wall
+    - Vertical warm-wood louver/slat partition screen on the right separating reception from gym floor
+    - 2-tier warm walnut wood counter: higher left check-in counter (1.04m) + lower right consultation desk (0.76m)
+    - Frosted glass desk dividers, dual monitors, acrylic promo stand, 2 sleek white shell consultation chairs
+    - 3 slim brass cylinder pendant lights hanging over the desk + warm beige epoxy reception floor pad."""
+    root = W.empty("Gym_InfoDesk", c, (-5.45, -6.02, 0))
+
+    # Materials
+    wood_m = W.mat("InfoRef_WarmWood", (0.42, 0.25, 0.14), rough=0.44, metal=0.04)
+    louver_m = W.mat("InfoRef_WoodLouver", (0.48, 0.30, 0.17), rough=0.48, metal=0.03)
+    charcoal = W.mat("InfoRef_Charcoal", (0.03, 0.032, 0.036), rough=0.40, metal=0.25)
+    white_chair = W.mat("InfoRef_WhiteChair", (0.86, 0.87, 0.85), rough=0.35, metal=0.05)
+    brass_m = W.mat("InfoRef_BrassPendant", (0.76, 0.62, 0.28), rough=0.24, metal=0.92)
+    epoxy_m = W.mat("InfoRef_BeigeEpoxy", (0.56, 0.48, 0.34), rough=0.20, metal=0.04)
+    led_white = W.shadeless("InfoRef_SignWhite", (0.96, 0.99, 1.0), strength=5.5)
+    led_gold = W.shadeless("InfoRef_SignGold", (1.0, 0.82, 0.08), strength=5.8)
+    pend_glow = W.shadeless("InfoRef_PendantGlow", (1.0, 0.92, 0.72), strength=6.0)
+    screen_m = W.shadeless("InfoRef_MonitorScr", (0.14, 0.50, 0.86), strength=1.4)
+    pop_m = W.shadeless("InfoRef_PromoCard", (0.94, 0.80, 0.22), strength=1.1)
+
+    # Gray veined marble tile feature wall material
+    marble_m = bpy.data.materials.new("InfoRef_GrayMarble")
+    marble_m.use_nodes = True
+    mn, ml = marble_m.node_tree.nodes, marble_m.node_tree.links
+    mbsdf = next(n for n in mn if n.type == "BSDF_PRINCIPLED")
+    mbsdf.inputs["Roughness"].default_value = 0.28
+    mbsdf.inputs["Specular IOR Level"].default_value = 0.52
+    mgeo = mn.new("ShaderNodeNewGeometry")
+    mnoise = mn.new("ShaderNodeTexNoise")
+    mnoise.inputs["Scale"].default_value = 2.6
+    mnoise.inputs["Detail"].default_value = 6.0
+    mnoise.inputs["Distortion"].default_value = 1.8
+    ml.new(mgeo.outputs["Position"], mnoise.inputs["Vector"])
+    mramp = mn.new("ShaderNodeValToRGB")
+    e0, e1 = mramp.color_ramp.elements
+    e0.position, e0.color = 0.36, (0.13, 0.14, 0.155, 1)
+    e1.position, e1.color = 0.66, (0.28, 0.295, 0.315, 1)
+    ml.new(mnoise.outputs["Fac"], mramp.inputs["Fac"])
+    ml.new(mramp.outputs["Color"], mbsdf.inputs["Base Color"])
+
+    # Frosted acrylic desk divider glass
+    frost_m = bpy.data.materials.new("InfoRef_FrostedGlass")
+    frost_m.use_nodes = True
+    try:
+        frost_m.surface_render_method = "BLENDED"
+    except AttributeError:
+        pass
+    fnt = frost_m.node_tree
+    fnt.nodes.clear()
+    fout = fnt.nodes.new("ShaderNodeOutputMaterial")
+    fmix = fnt.nodes.new("ShaderNodeMixShader")
+    fmix.inputs["Fac"].default_value = 0.56
+    ftrans = fnt.nodes.new("ShaderNodeBsdfTransparent")
+    ftrans.inputs["Color"].default_value = (0.86, 0.92, 0.94, 1)
+    fdiff = fnt.nodes.new("ShaderNodeBsdfPrincipled")
+    fdiff.inputs["Base Color"].default_value = (0.76, 0.84, 0.86, 1)
+    fdiff.inputs["Roughness"].default_value = 0.45
+    fnt.links.new(ftrans.outputs["BSDF"], fmix.inputs[1])
+    fnt.links.new(fdiff.outputs["BSDF"], fmix.inputs[2])
+    fnt.links.new(fmix.outputs["Shader"], fout.inputs["Surface"])
+
+    # 1) Warm beige glossy epoxy reception floor pad (cleanly delineates info zone from dark rubber floor)
+    _molded("InfoDesk epoxy pad", (3.65, 2.55, 0.012), epoxy_m, c, (0.05, 0.55, 0.006), root, 0.004)
+
+    # 2) Gray marble paneled feature wall mounted flush against Wall_Front (y_local = -0.64 -> world y = -6.66)
+    wall_y = -0.62
+    for px in (-1.35, -0.45, 0.45, 1.35):
+        _molded("Marble wall panel", (0.885, 0.032, 3.05), marble_m, c, (px, wall_y, 1.525), root, 0.003)
+
+    # 3) Backlit 3D glowing channel sign on the marble wall: 'WATCH  [W]  COACH' (facing +Y, so +X is viewer-left!)
+    _text(c, root, "InfoLogo_WATCH", "WATCH", ( 0.64, wall_y + 0.036, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
+    _text(c, root, "InfoLogo_COACH", "COACH", (-0.64, wall_y + 0.036, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
+    # Center glowing gold shield/watch emblem (matching the yellow 'U' badge in the reference!)
+    _molded("InfoLogo_BadgeBg", (0.24, 0.030, 0.27), led_gold, c, (0.0, wall_y + 0.030, 2.26), root, 0.012)
+    _molded("InfoLogo_BadgeInner", (0.16, 0.034, 0.19), charcoal, c, (0.0, wall_y + 0.032, 2.26), root, 0.008)
+    _text(c, root, "InfoLogo_W", "W", (0.0, wall_y + 0.052, 2.255), 0.135, led_gold, rot=(math.pi / 2, 0, math.pi))
+    # Subtle soft white halo backlight behind the logo onto the marble wall
+    logo_ld = bpy.data.lights.new("InfoLogoHalo", "AREA")
+    logo_ld.shape = "RECTANGLE"
+    logo_ld.size, logo_ld.size_y = 1.9, 0.24
+    logo_ld.energy = 11
+    logo_ld.color = (0.94, 0.97, 1.0)
+    logo_ld.use_shadow = False
+    logo_lo = bpy.data.objects.new(logo_ld.name, logo_ld)
+    logo_lo.location = (0.0, wall_y + 0.10, 2.26)
+    logo_lo.rotation_euler.x = -math.pi / 2
+    logo_lo.parent = root
+    c.objects.link(logo_lo)
+
+    # 4) Vertical warm-wood louver/slat partition screen on the right side (separating reception from gym machines!)
+    louv_x = 1.84
+    _molded("Louver top rail", (0.06, 1.88, 0.06), louver_m, c, (louv_x, 0.26, 2.86), root, 0.004)
+    _molded("Louver bottom rail", (0.06, 1.88, 0.06), louver_m, c, (louv_x, 0.26, 0.03), root, 0.004)
+    for i in range(9):
+        ly = -0.58 + i * 0.21
+        _molded("Louver vertical slat", (0.045, 0.055, 2.82), louver_m, c, (louv_x, ly, 1.44), root, 0.004)
+
+    # 5) 2-Tier Step-Down Warm Walnut Wood Counter Desk (exact shape from reference!)
+    # Left higher check-in block: x = -1.62 .. -0.56 (width 1.06m, height 1.04m, depth 0.68m)
+    _molded("Desk high body", (1.06, 0.64, 1.00), wood_m, c, (-1.09, 0.42, 0.50), root, 0.008)
+    _molded("Desk high top", (1.10, 0.70, 0.042), wood_m, c, (-1.09, 0.42, 1.02), root, 0.006)
+    # Right lower consultation desk: x = -0.56 .. +1.46 (width 2.02m, height 0.76m, depth 0.68m, knee space underneath)
+    _molded("Desk low top", (2.04, 0.70, 0.048), wood_m, c, (0.45, 0.42, 0.74), root, 0.006)
+    _molded("Desk low modesty", (2.00, 0.05, 0.68), wood_m, c, (0.45, 0.14, 0.36), root, 0.005)
+    _molded("Desk low right leg", (0.06, 0.66, 0.72), wood_m, c, (1.44, 0.42, 0.36), root, 0.005)
+
+    # 6) Two Frosted Glass Privacy Dividers on the lower consultation desk (exact reference!)
+    for dx in (0.18, 0.88):
+        _molded("Frosted divider", (0.012, 0.62, 0.44), frost_m, c, (dx, 0.42, 0.98), root, 0.003)
+
+    # 7) Desk Props: Check-in Monitor + Promo POP stand (high left), Consultation Monitor + File Box (low right)
+    for m_name, mx, mz, rot_z in (("Checkin_Mon", -1.26, 1.04, -18), ("Consult_Mon", -0.18, 0.765, 10)):
+        mon = W.empty(m_name, c, (mx, 0.36, mz), parent=root)
+        mon.rotation_euler.z = math.radians(rot_z)
+        _molded("Mon foot", (0.18, 0.14, 0.012), charcoal, c, (0, 0, 0.006), mon, 0.003)
+        _molded("Mon neck", (0.036, 0.028, 0.16), charcoal, c, (0, 0.02, 0.09), mon, 0.003)
+        _molded("Mon bezel", (0.46, 0.024, 0.28), charcoal, c, (0, 0.01, 0.24), mon, 0.004)
+        W.box("Mon screen", (0.43, 0.004, 0.25), screen_m, c, (0, -0.004, 0.24), parent=mon)
+    # Acrylic promo POP stand on high counter
+    _molded("Promo POP stand", (0.16, 0.018, 0.24), pop_m, c, (-0.82, 0.56, 1.16), root, 0.003)
+    # White file organizer box on consultation desk
+    _molded("Desk file box", (0.12, 0.24, 0.28), white_chair, c, (0.56, 0.42, 0.905), root, 0.004)
+
+    # 8) Two Sleek White Modern Consultation Chairs in front (+Y) of the lower desk!
+    for cx, cz_rot in ((0.44, -14), (1.06, -22)):
+        ch = W.empty(f"Consult_Chair_{cx:.1f}", c, (cx, 0.98, 0), parent=root)
+        ch.rotation_euler.z = math.radians(cz_rot)
+        for lx in (-0.17, 0.17):
+            for ly in (-0.16, 0.16):
+                leg = W.cyl("Chair leg", 0.013, 0.45, white_chair, c, (lx, ly, 0.22), parent=ch, seg=10)
+                leg.rotation_euler.x = math.radians(6 if ly > 0 else -6)
+                leg.rotation_euler.y = math.radians(-5 if lx > 0 else 5)
+        _molded("Chair seat", (0.42, 0.40, 0.042), white_chair, c, (0, 0, 0.44), ch, 0.014)
+        back = _molded("Chair back", (0.40, 0.036, 0.40), white_chair, c, (0, 0.19, 0.64), ch, 0.014)
+        back.rotation_euler.x = math.radians(8)
+
+    # 9) 3 Slim Brass Cylinder Pendant Lights hanging from ceiling over the info desk!
+    for px in (-0.85, 0.05, 0.95):
+        W.cyl("Pendant cord", 0.004, 0.85, charcoal, c, (px, 0.42, 3.16), parent=root, seg=8)
+        W.cyl("Pendant brass tube", 0.016, 0.36, brass_m, c, (px, 0.42, 2.58), parent=root, seg=16)
+        W.cyl("Pendant tip glow", 0.014, 0.012, pend_glow, c, (px, 0.42, 2.398), parent=root, seg=14)
+
+
+def build_stretching_zone(c):
+    """Spacious dedicated stretching & warm-up zone along the expanded left entry wall (x = -7.45..-4.85, y = -2.2..+2.2):
+    floor zone border, 3 cushioned mats, wall-mounted stretching mirror, foam rollers, stability balls, and plyo box."""
+    root = W.empty("Gym_StretchingZone", c, (-6.15, -0.20, 0))
+
+    zone_m = W.mat("Stretch_TurfBase", (0.024, 0.032, 0.028), rough=0.86, metal=0.0)
+    trim_m = W.mat("Stretch_Trim", (0.020, 0.022, 0.026), rough=0.45, metal=0.40)
+    mat_cols = [
+        W.mat("StretchMat_Sage", (0.05, 0.34, 0.22), rough=0.72, metal=0.0),
+        W.mat("StretchMat_Navy", (0.06, 0.14, 0.30), rough=0.72, metal=0.0),
+        W.mat("StretchMat_Charcoal", (0.08, 0.09, 0.11), rough=0.72, metal=0.0),
+    ]
+    roller_m = W.mat("Stretch_FoamRoller", (0.035, 0.038, 0.042), rough=0.68, metal=0.0)
+    ball1_m = W.mat("Stretch_GymBall1", (0.08, 0.38, 0.42), rough=0.38, metal=0.05)
+    ball2_m = W.mat("Stretch_GymBall2", (0.14, 0.15, 0.17), rough=0.38, metal=0.05)
+    plyo_m = W.mat("Stretch_PlyoWood", (0.46, 0.30, 0.15), rough=0.58, metal=0.0)
+    mirror_m = W.mat("Gym_Mirror", (0.78, 0.80, 0.84), rough=0.0, metal=1.0)
+
+    # Low cushioned stretching zone flooring pad (2.30 x 4.20 m)
+    _molded("Stretching zone mat base", (2.30, 4.20, 0.014), zone_m, c, (0, 0, 0.007), root, 0.004)
+
+    # 3 neatly laid exercise mats side-by-side along the stretching zone
+    for i, (my, mm) in enumerate(zip((-1.15, 0.0, 1.15), mat_cols)):
+        _molded(f"Stretch mat {i+1}", (1.72, 0.68, 0.022), mm, c, (0.08, my, 0.025), root, 0.008)
+
+    # Full-length framed stretching mirror mounted on the expanded left wall (x_local = -1.32 -> world x = -7.47)
+    _molded("Stretch mirror frame", (0.04, 2.48, 2.08), trim_m, c, (-1.32, 0.0, 1.38), root, 0.005)
+    W.box("Stretch mirror glass", (0.012, 2.40, 2.00), mirror_m, c, (-1.298, 0.0, 1.38), parent=root)
+
+    # Compact foam roller holder + 3 standing foam rollers at the back edge of the stretching zone
+    _molded("Roller rack base", (0.34, 0.88, 0.04), trim_m, c, (-1.04, 1.82, 0.02), root, 0.005)
+    for ry in (1.55, 1.82, 2.09):
+        W.cyl("Stretch foam roller", 0.072, 0.66, roller_m, c, (-1.04, ry, 0.36), parent=root, seg=18)
+
+    # 2 stability gym balls (짐볼) tucked neatly in the far-left stretching corner
+    for name, loc, r, bm_mat in (
+        ("GymBall_Large", (-0.82, 2.68, 0.32), 0.32, ball1_m),
+        ("GymBall_Medium", (-0.18, 2.78, 0.27), 0.27, ball2_m),
+    ):
+        s_bm = bmesh.new()
+        bmesh.ops.create_uvsphere(s_bm, u_segments=24, v_segments=16, radius=r)
+        s_me = bpy.data.meshes.new(name)
+        s_bm.to_mesh(s_me); s_bm.free()
+        for p in s_me.polygons:
+            p.use_smooth = True
+        s_ob = bpy.data.objects.new(name, s_me)
+        s_ob.data.materials.append(bm_mat)
+        s_ob.location = loc
+        s_ob.parent = root
+        c.objects.link(s_ob)
+
+    # 3-in-1 wooden plyometric box beside the stretching mats
+    _molded("Plyo box", (0.50, 0.60, 0.40), plyo_m, c, (0.58, 2.55, 0.20), root, 0.010)
+
+
 def build_gym_doors(parent):
-    """Plan B Phase 1: 4 real doors + wall openings (Main Entrance + Exit Sign, Posing Room, Men & Women Locker Rooms)."""
+    """Plan B Phase 1 + Left Entry Wing: 4 real doors + wall openings, Info Desk, Stretching Zone, and connected Annex Rooms."""
     c = W.coll("Gym Doors", parent)
     cutters = W.coll("Gym Door Cutters", parent)
 
-    # 1) Main Entrance on Wall_Left (replacing the deleted left glass window) + Korean EXIT sign above it
-    cut_wall_opening(("Wall_Left", "Wainscot_Left"), (-4.58, -5.55, 1.125), (0.60, 1.60, 2.25), cutters)
-    build_entrance_door(c, (-4.55, -5.55, 0), rot_deg=90)
+    # 1) Main Entrance on expanded Wall_Left (x = -7.55) + Korean EXIT sign & Sangga Hallway outside
+    cut_wall_opening(("Wall_Left", "Wainscot_Left"), (-7.58, -5.55, 1.125), (0.60, 1.60, 2.25), cutters)
+    build_entrance_door(c, (-7.55, -5.55, 0), rot_deg=90)
+
+    # Info Desk beside entrance + dedicated Stretching Zone along the expanded left entry wall
+    build_info_desk(c)
+    build_stretching_zone(c)
 
     # 2) Posing Room on Wall_Front (front-left, clear of posters & stretching corner)
     cut_wall_opening(("Wall_Front", "Wainscot_Front", "Locker wall mural"), (-1.45, -6.75, 1.09), (0.91, 0.60, 2.18), cutters)

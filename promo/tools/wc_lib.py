@@ -646,6 +646,57 @@ def extend_gym_right(c):
             c.objects.link(new_light)
 
 
+def extend_gym_left(c, extension=3.0):
+    """Extend the left entry wing (-X) by `extension` metres for the Info Desk & Stretching Zone
+    without moving any existing machines, posing room, or locker suites."""
+    def extend_mesh_left(obj, distance, axis=0):
+        coords = [v.co[axis] for v in obj.data.vertices]
+        length = (max(coords) - min(coords)) * obj.scale[axis]
+        obj.scale[axis] *= (length + distance) / length
+        obj.location.x -= distance / 2
+
+    for name in ("FloorBacking", "Wall_Back", "Wall_Front", "Wainscot_Back", "Wainscot_Front", "Ceiling", "Baseboard_BackLeft"):
+        if name in c.objects:
+            extend_mesh_left(c.objects[name], extension)
+    for obj in c.objects:
+        if obj.name.startswith("CeilBeam"):
+            extend_mesh_left(obj, extension)
+    for name in ("Wall_Left", "Wainscot_Left"):
+        c.objects[name].location.x -= extension
+
+    floor_tiles = c.objects["RubberFloorTiles"]
+    pitch = floor_tiles.modifiers["Columns"].constant_offset_displace.x
+    add_cols = round(extension / pitch)
+    floor_tiles.location.x -= add_cols * pitch
+    floor_tiles.modifiers["Columns"].count += add_cols
+    extend_mesh_left(c.objects["Pipe_Back"], extension, axis=2)
+
+    for position in ("Locker", "Front", "Back"):
+        extend_mesh_left(c.objects["StripChannel_" + position], extension)
+        extend_mesh_left(c.objects["CeilingStrip_" + position], extension, axis=2)
+        for name in ("StripArea_", "StripWash_"):
+            light = c.objects[name + position]
+            light.data.energy *= (light.data.size + extension) / light.data.size
+            light.data.size += extension
+            light.location.x -= extension / 2
+
+    left_downlights = [
+        obj for obj in c.objects
+        if obj.name.startswith(("RecessedLens", "RecessedSpot")) and math.isclose(obj.location.x, -2.45, abs_tol=1e-5)
+    ]
+    for obj in left_downlights:
+        new_light = obj.copy()
+        new_light.location.x = -2.45 - extension
+        c.objects.link(new_light)
+
+    # Shift the left-wall pink neon handwriting ("넌 운동할 때가 제일 예뻐") to stay flush on the new Wall_Left
+    neon_col = bpy.data.collections.get("Left Wall Handwriting")
+    if neon_col:
+        for obj in neon_col.objects:
+            if obj.parent is None:
+                obj.location.x -= extension
+
+
 def add_symmetric_gym_pillars(c):
     middle = (c.objects["Wall_Left"].location.x + c.objects["Wall_Right"].location.x) / 2
     original_x = c.objects["Pillar"].location.x
@@ -1432,10 +1483,6 @@ def build_gym_set(c):
     put("cable_crossover", M.cable_crossover, (-3.85, 2.45, 0), 90)
     put("flat_bench", M.flat_bench, (0.15, 2.85, 0), 0)
     put("adjustable_bench", M.adjustable_bench, (-1.25, 2.85, 0), 180)
-    # Dedicated stretching corner (green exercise mat & foam rollers) near front-left / InBody
-    box("GymMat_Pad", (0.65, 1.50, 0.035), mat_grn, c, (-2.65, -4.65, 0.018), (0, 0, 0))
-    cyl("FoamRoller_1", 0.075, 0.62, trim_m, c, (-2.05, -4.45, 0.31), seg=16)
-    cyl("FoamRoller_2", 0.075, 0.62, trim_m, c, (-2.05, -4.75, 0.31), seg=16)
 
     # Expanded 2-tier dumbbell rack in front of the mirror: 20 pairs (40 dumbbells)
     # Lightest at top-left -> heaviest at bottom-right; same-weight pairs sit tightly together.
@@ -1527,6 +1574,7 @@ def build_gym_set(c):
         bpy.data.collections.remove(kit)
     extend_gym_right(c)
     add_symmetric_gym_pillars(c)
+    extend_gym_left(c, extension=3.0)
     build_gym_instagram_stickers(decc)
     build_gym_daylight_window(decc, c.objects["Wall_Right"])
     exclude_mirror_from_window_lights(c.objects["Mirror"])
