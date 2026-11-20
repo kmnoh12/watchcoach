@@ -1,4 +1,4 @@
-"""Export the left-wrist watch of promo/models/v5_with_watch.blend for the phone viewer.
+"""Export the left-wrist watch of promo/models/v6.blend for the phone viewer.
 
   python3 tools/build_v5_watch_asset.py [--blender PATH]
 
@@ -16,7 +16,7 @@ import sys
 import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
-BLEND = REPO / "promo/models/v5_with_watch.blend"
+BLEND = REPO / "promo/models/v6.blend"
 OUT = REPO / "tools/viewer3d/watch_v5.json"
 PARTS = ("Watch_Case", "Watch_Strap", "Watch_Buckle", "Watch_Display", "Watch_ButtonA", "Watch_ButtonB")
 BLENDER = {
@@ -108,7 +108,7 @@ def main():
     c = int(np.argmax(off))
     anchors = [int(near[a]), int(near[b]), int(near[c])]
     out = dict(
-        source="promo/models/v5_with_watch.blend",
+        source="promo/models/v6.blend",
         bone="lowerarm_l",
         anchors=anchors,
         anchor_rest=np.round(rest[anchors], 6).ravel().tolist(),

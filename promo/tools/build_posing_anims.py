@@ -7,7 +7,7 @@ Outputs:
   - promo/renders/posing_sheet.png       (visual verification grid of all 7 peak poses on V5)
 
 Run:
-  Blender -b --factory-startup -P promo/tools/build_posing_anims.py
+  Blender -b --factory-startup -P promo/tools/build_posing_anims.py [-- --no-render]
 """
 import importlib.util
 import json
@@ -384,10 +384,11 @@ def solve_pose(arm, spec):
             for idx, deg in enumerate(degs, 1):
                 pb = arm.pose.bones.get(f"{f}_0{idx}_{side}")
                 if pb:
-                    pb.rotation_quaternion = Quaternion(Vector((0, 0, 1)), math.radians(deg))
+                    # Curl is -X on both hands of this rig (measured in bake_poses.curl_fingers); Z bent them sideways.
+                    pb.rotation_quaternion = Quaternion(Vector((1, 0, 0)), math.radians(-deg))
         th = arm.pose.bones.get(f"thumb_02_{side}")
         if th and style in ("fist", "grip"):
-            th.rotation_quaternion = Quaternion(Vector((1, 0, 0)), math.radians(40))
+            th.rotation_quaternion = Quaternion(Vector((1, 0, 0)), math.radians(-40))
     bpy.context.view_layer.update()
 
     # Ground lowest vertex to z = 0
@@ -488,6 +489,9 @@ def main():
     with open(json_out, "w", encoding="utf-8") as f:
         json.dump(export_json, f, ensure_ascii=False)
 
+    if "--no-render" in sys.argv:
+        print("@@POSING_OK@@", blend_out, json_out)
+        return
     # Render a clean 7-pose lineup contact sheet on V5 base model for visual verification!
     sc_sheet = W.new_scene("flat", bg="yellow", preview=False)
     sc_sheet.render.resolution_x, sc_sheet.render.resolution_y = 1920, 720

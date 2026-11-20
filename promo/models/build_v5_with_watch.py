@@ -1,8 +1,8 @@
 """Put the low-poly watch on the V5 character's LEFT wrist, bone-parented to lowerarm_l.
 
-Run: blender -b -P build_v5_with_watch.py
+Run: blender -b -P build_v5_with_watch.py [-- --no-render]
 Reads (never writes) the V5 rig blend: it is copied to a temp file first.
-Outputs next to this script: v5_with_watch.blend, renders_v5_watch/*.png + fit_report.json
+Outputs next to this script: v6.blend (the V6 base model), renders_v5_watch/*.png + fit_report.json
 The watch case/display/buttons are appended from lowpoly_watch.blend; the strap and buckle
 are regenerated (same builder code as build_lowpoly_watch.py) along the V5 forearm outline.
 """
@@ -11,6 +11,7 @@ import json
 import math
 import os
 import shutil
+import sys
 import tempfile
 
 import bmesh
@@ -21,11 +22,11 @@ from mathutils.bvhtree import BVHTree
 HERE = os.path.dirname(os.path.abspath(__file__))
 RIG_SRC = os.path.join(os.path.dirname(HERE), "cast", "src_v5_rig.blend")
 WATCH_BLEND = os.path.join(HERE, "lowpoly_watch.blend")
-OUT_BLEND = os.path.join(HERE, "v5_with_watch.blend")
+OUT_BLEND = os.path.join(HERE, "v6.blend")
 RENDER_DIR = os.path.join(HERE, "renders_v5_watch")
 
-K = 1.2              # watch scale: a bit oversized so it reads on camera
-WRIST_DIST = 0.055   # watch center: this far up the forearm from the wrist joint (m)
+K = 1.0              # watch scale: real size (44.8 mm case); at 1.2 the case was wider than the wrist and the strap stuck out
+WRIST_DIST = 0.045   # watch center: this far up the forearm from the wrist joint (m); the forearm is narrowest 30-50 mm up
 BONE = "lowerarm_l"
 CASE_BACK = 0.0121   # local depth of the sensor dome below the display center
 
@@ -119,7 +120,7 @@ def make_strap_path(local_pts):
     ys, zs = [p.x for p in hull], [p.y for p in hull]
     C = Vector(((min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2))
     # Leave room for the flat segments between radial samples and the buckle tongue.
-    off = 0.0035 / K + lpw.STRAP_T / 2
+    off = 0.0015 / K + lpw.STRAP_T / 2
     N = 360
     raw = [hull_radius(hull, C, Vector((math.sin(2 * math.pi * i / N), math.cos(2 * math.pi * i / N)))) + off
            for i in range(N)]
@@ -417,8 +418,9 @@ def main():
                   strap_path_local=dict(center=[round(C.x, 4), round(C.y, 4)], mean_radius=round(r_mean, 4)),
                   bind_error=err, body_verts=body_vcount, rest=clearance(body, parts), poses={})
 
-    cam = setup_render()
-    renders = [render(cam, "00_fullbody_front", (0.0, -4.6, 0.95), (0.0, 0.0, 0.88), lens=50, res=(800, 1100)),
+    no_render = "--no-render" in sys.argv
+    cam = None if no_render else setup_render()
+    renders = [] if no_render else [render(cam, "00_fullbody_front", (0.0, -4.6, 0.95), (0.0, 0.0, 0.88), lens=50, res=(800, 1100)),
                closeup(cam, "01_wrist_closeup", root),
                render(cam, "02_wrist_closeup_side", root.matrix_world.translation + Vector((0.55, -0.15, 0.10)),
                       root.matrix_world.translation, lens=85)]
@@ -433,9 +435,10 @@ def main():
         report["poses"][name] = dict(upperarm_roll_deg=psi, forearm_twist_deg=round(tw, 1),
                                      clearance=clearance(body, parts),
                                      watch_pos=[round(x, 3) for x in root.matrix_world.translation])
-        loc, tgt = cams[name]
-        renders.append(render(cam, name, loc, tgt, lens=50))
-        renders.append(closeup(cam, name + "_closeup", root))
+        if not no_render:
+            loc, tgt = cams[name]
+            renders.append(render(cam, name, loc, tgt, lens=50))
+            renders.append(closeup(cam, name + "_closeup", root))
 
     rest_pose(arm)   # saved file stays in rest pose
     report["body_verts_after"] = len(body.data.vertices)

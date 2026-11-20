@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(ROOT, "tools")
 sys.path.insert(0, os.path.join(TOOLS, "vendor"))
 PARTS = os.path.join(ROOT, "parts")
-HERO_SRC = os.path.join(ROOT, "cast", "src_v5_with_watch_copy.blend")
+HERO_SRC = os.path.join(ROOT, "models", "v6.blend")  # V6 base model: V5 body, new hands, left-wrist watch
 EXTRA_SRC = os.path.join(ROOT, "cast", "src_figure_copy.blend")  # original low-poly man (figure.blend copy)
 POSE_LIB = os.path.join(ROOT, "poses", "pose_library.json")
 KFONT = os.path.join(PARTS, "fonts", "NanumGothic-Bold.ttf")

@@ -2,7 +2,7 @@
 
 Reads (never modifies):
   - promo/scenes/scene_gym.blend
-  - promo/models/v5_with_watch.blend
+  - promo/models/v6.blend
   - promo/tools/reel_gym.py (for cap + headset)
   - promo/poses/pose_library.json
   - promo/poses/posing_animations.blend
@@ -757,8 +757,8 @@ def _make_procedural_clip(rig, name, frames_fn, total_frames=48):
 
 
 def export_player_v5():
-    print("[export_gym] Loading v5_with_watch.blend...")
-    bpy.ops.wm.open_mainfile(filepath=str(PROMO_DIR / "models" / "v5_with_watch.blend"))
+    print("[export_gym] Loading v6.blend...")
+    bpy.ops.wm.open_mainfile(filepath=str(PROMO_DIR / "models" / "v6.blend"))
     bpy.context.scene.render.fps = 30
 
     # Remove non-character objects (ReviewCam, Sun)

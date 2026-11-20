@@ -128,7 +128,10 @@ def palm_dir(arm, side):
     L = B["index_01_" + side].head_local - B["pinky_01_" + side].head_local
     F = (B["middle_01_" + side].tail_local - B["middle_01_" + side].head_local).normalized()
     D = L.cross(F).normalized()
-    return D
+    # This cross product is the back of the hand on the left side and the palm on the right. The thumb sits on
+    # the palm side, so flip D to that side; with the back of the hand here the left fingers curled backwards.
+    thumb = B["thumb_03_" + side].tail_local - (B["index_01_" + side].head_local + B["pinky_01_" + side].head_local) / 2
+    return D if thumb.dot(D) > 0 else -D
 
 
 def curl_fingers(arm, side, mode):

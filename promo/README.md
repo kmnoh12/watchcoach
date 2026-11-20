@@ -48,7 +48,9 @@ blender -b --factory-startup -P tools/make_reel.py -- shots/test_plate_meme.json
 - 조명(키·필·림) 각도 고정, 카메라 3종 고정. 단색 배경은 둥근 그릇 모양이라 어느 각도에서도 경계선이 안 보인다.
 - 헬스장: 벽·바닥·천장 조명·거울 벽·기둥, 파워랙+바벨, 랫풀다운, 케이블 크로스오버, 벤치, 덤벨 선반(12개), 원판 트리. 기구는 워치코치 기구 빌더 복사본(`tools/vendor/`)으로 만든다.
 
-**주인공 가이** (V5 모델, 얼굴 없음, 왼손목에 워치)
+**주인공 가이** (V6 기본 모델 `models/v6.blend`: V5 몸 + 새 손 + 왼손목 실제 크기 워치, 몸은 앱 아쿠아 #63d6de, 얼굴 없음)
+- 이미 만든 .blend의 주인공을 V6로 바꿀 때: `blender -b <파일.blend> --factory-startup -P tools/swap_hero_v6.py` (몸·워치만 교체, 포즈·소품·장면은 그대로. 왼손 손가락이 뒤로 꺾이던 옛 포즈 값도 같이 바로잡는다)
+- 손가락 굽힘은 양손 모두 뼈의 -X 방향이다(`tools/bake_poses.py`의 `palm_dir`가 엄지 쪽을 손바닥으로 잡는다).
 **포즈 라이브러리** (`poses/pose_library.json`, `poses/poses.blend`에 포즈 에셋으로도 저장, 시트: `renders/pose_sheet_*.png`)
 - stand, hands_on_hips, triumph(의기양양), surprise(놀람), despair_kneel / despair_orz / facepalm(절망), scared(겁먹음),
   point / point_r(가리킴), fallen(쓰러짐), walk_a/b/c(걷기), run_a/b(달리기), phone_look, mirror_flex, shrug,
