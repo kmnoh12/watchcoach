@@ -118,7 +118,8 @@ def make_strap_path(local_pts):
     hull = convex_hull(local_pts)
     ys, zs = [p.x for p in hull], [p.y for p in hull]
     C = Vector(((min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2))
-    off = 0.0010 / K + lpw.STRAP_T / 2
+    # Leave room for the flat segments between radial samples and the buckle tongue.
+    off = 0.0035 / K + lpw.STRAP_T / 2
     N = 360
     raw = [hull_radius(hull, C, Vector((math.sin(2 * math.pi * i / N), math.cos(2 * math.pi * i / N)))) + off
            for i in range(N)]
