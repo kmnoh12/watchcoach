@@ -549,15 +549,15 @@ def build_room_door(c, loc, rot_deg, name_tag, label, sublabel, accent_color, ha
     return root
 
 
-def _walnut_wood_mat(name, value_mult=1.0, sat_mult=1.0, scale=(0.75, 0.75, 0.75), rot_y=0.0, rough=0.38, bump_str=0.08):
-    """PBR architectural walnut wood material driven by compressed seamless walnut_wood.jpg with Box projection & subtle grain bump."""
+def _walnut_wood_mat(name, value_mult=1.0, sat_mult=1.0, scale=(0.75, 0.75, 0.75), rot_y=0.0, rough=0.78, spec=0.16, bump_str=0.04):
+    """PBR architectural matte wood material driven by compressed seamless walnut_wood.jpg with Box projection & subtle grain bump."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
     n, l = nt.nodes, nt.links
     bsdf = next(nd for nd in n if nd.type == "BSDF_PRINCIPLED")
     bsdf.inputs["Roughness"].default_value = rough
-    bsdf.inputs["Specular IOR Level"].default_value = 0.42
+    bsdf.inputs["Specular IOR Level"].default_value = spec
     coord = n.new("ShaderNodeTexCoord")
     mp = n.new("ShaderNodeMapping")
     mp.inputs["Scale"].default_value = scale
@@ -594,9 +594,9 @@ def build_info_desk(c):
     - 3 slim brass cylinder pendant lights + warm beige epoxy reception floor pad."""
     root = W.empty("Gym_InfoDesk", c, (-5.45, -6.02, 0))
 
-    # Materials: real compressed seamless walnut wood photo texture!
-    wood_m = _walnut_wood_mat("InfoRef_WarmWood", value_mult=1.02, sat_mult=1.05, scale=(0.85, 0.85, 0.85), rough=0.36, bump_str=0.09)
-    louver_m = _walnut_wood_mat("InfoRef_WoodLouver", value_mult=1.14, sat_mult=0.98, scale=(1.1, 1.1, 0.7), rough=0.42, bump_str=0.07)
+    # Materials: soft matte natural architectural wood (brighter, less saturated, low sheen!)
+    wood_m = _walnut_wood_mat("InfoRef_WarmWood", value_mult=1.52, sat_mult=0.72, scale=(0.85, 0.85, 0.85), rough=0.78, spec=0.15, bump_str=0.04)
+    louver_m = _walnut_wood_mat("InfoRef_WoodLouver", value_mult=1.58, sat_mult=0.68, scale=(1.1, 1.1, 0.7), rough=0.80, spec=0.14, bump_str=0.03)
     charcoal = W.mat("InfoRef_Charcoal", (0.025, 0.027, 0.032), rough=0.38, metal=0.35)
     white_chair = W.mat("InfoRef_WhiteChair", (0.86, 0.87, 0.85), rough=0.35, metal=0.05)
     brass_m = W.mat("InfoRef_BrassPendant", (0.76, 0.62, 0.28), rough=0.24, metal=0.92)
