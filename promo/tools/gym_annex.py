@@ -572,26 +572,6 @@ def build_info_desk(c):
     screen_m = W.shadeless("InfoRef_MonitorScr", (0.14, 0.50, 0.86), strength=1.4)
     pop_m = W.shadeless("InfoRef_PromoCard", (0.94, 0.80, 0.22), strength=1.1)
 
-    # Gray veined marble tile feature wall material
-    marble_m = bpy.data.materials.new("InfoRef_GrayMarble")
-    marble_m.use_nodes = True
-    mn, ml = marble_m.node_tree.nodes, marble_m.node_tree.links
-    mbsdf = next(n for n in mn if n.type == "BSDF_PRINCIPLED")
-    mbsdf.inputs["Roughness"].default_value = 0.28
-    mbsdf.inputs["Specular IOR Level"].default_value = 0.52
-    mgeo = mn.new("ShaderNodeNewGeometry")
-    mnoise = mn.new("ShaderNodeTexNoise")
-    mnoise.inputs["Scale"].default_value = 2.6
-    mnoise.inputs["Detail"].default_value = 6.0
-    mnoise.inputs["Distortion"].default_value = 1.8
-    ml.new(mgeo.outputs["Position"], mnoise.inputs["Vector"])
-    mramp = mn.new("ShaderNodeValToRGB")
-    e0, e1 = mramp.color_ramp.elements
-    e0.position, e0.color = 0.36, (0.13, 0.14, 0.155, 1)
-    e1.position, e1.color = 0.66, (0.28, 0.295, 0.315, 1)
-    ml.new(mnoise.outputs["Fac"], mramp.inputs["Fac"])
-    ml.new(mramp.outputs["Color"], mbsdf.inputs["Base Color"])
-
     # Frosted acrylic desk divider glass
     frost_m = bpy.data.materials.new("InfoRef_FrostedGlass")
     frost_m.use_nodes = True
@@ -616,18 +596,14 @@ def build_info_desk(c):
     # 1) Warm beige glossy epoxy reception floor pad (cleanly delineates info zone from dark rubber floor)
     _molded("InfoDesk epoxy pad", (3.65, 2.55, 0.012), epoxy_m, c, (0.05, 0.55, 0.006), root, 0.004)
 
-    # 2) Gray marble paneled feature wall mounted flush against Wall_Front (y_local = -0.64 -> world y = -6.66)
-    wall_y = -0.62
-    for px in (-1.35, -0.45, 0.45, 1.35):
-        _molded("Marble wall panel", (0.885, 0.032, 3.05), marble_m, c, (px, wall_y, 1.525), root, 0.003)
-
-    # 3) Backlit 3D glowing channel sign on the marble wall: 'WATCH  [W]  COACH' (facing +Y, so +X is viewer-left!)
-    _text(c, root, "InfoLogo_WATCH", "WATCH", ( 0.64, wall_y + 0.036, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
-    _text(c, root, "InfoLogo_COACH", "COACH", (-0.64, wall_y + 0.036, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
+    # 2) Backlit 3D glowing channel sign mounted directly on the dark gym wall: 'WATCH  [W]  COACH'
+    wall_y = -0.66
+    _text(c, root, "InfoLogo_WATCH", "WATCH", ( 0.64, wall_y + 0.026, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
+    _text(c, root, "InfoLogo_COACH", "COACH", (-0.64, wall_y + 0.026, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
     # Center glowing gold shield/watch emblem (matching the yellow 'U' badge in the reference!)
-    _molded("InfoLogo_BadgeBg", (0.24, 0.030, 0.27), led_gold, c, (0.0, wall_y + 0.030, 2.26), root, 0.012)
-    _molded("InfoLogo_BadgeInner", (0.16, 0.034, 0.19), charcoal, c, (0.0, wall_y + 0.032, 2.26), root, 0.008)
-    _text(c, root, "InfoLogo_W", "W", (0.0, wall_y + 0.052, 2.255), 0.135, led_gold, rot=(math.pi / 2, 0, math.pi))
+    _molded("InfoLogo_BadgeBg", (0.24, 0.026, 0.27), led_gold, c, (0.0, wall_y + 0.020, 2.26), root, 0.012)
+    _molded("InfoLogo_BadgeInner", (0.16, 0.030, 0.19), charcoal, c, (0.0, wall_y + 0.022, 2.26), root, 0.008)
+    _text(c, root, "InfoLogo_W", "W", (0.0, wall_y + 0.042, 2.255), 0.135, led_gold, rot=(math.pi / 2, 0, math.pi))
     # Subtle soft white halo backlight behind the logo onto the marble wall
     logo_ld = bpy.data.lights.new("InfoLogoHalo", "AREA")
     logo_ld.shape = "RECTANGLE"
