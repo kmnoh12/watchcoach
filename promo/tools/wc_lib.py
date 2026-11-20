@@ -1647,12 +1647,6 @@ def add_hero(name="Guy", loc=(0, 0, 0), face_deg=0.0):
     for polygon in body.data.polygons:
         polygon.use_smooth = False
     apply_hero_viewer_material(body, name)
-    # the buckle sat exactly on the strap (z-fighting, found by asset QA);
-    # it sits under the wrist and never reads on camera, so it is simply dropped
-    bk = next((o for o in objs if o.name.startswith("Watch_Buckle")), None)
-    if bk:
-        objs.remove(bk)
-        bpy.data.objects.remove(bk, do_unlink=True)
     # watch screen: make it emissive + keyable (Watch_Glow strength)
     disp = next((o for o in objs if o.name.startswith("Watch_Display")), None)
     if disp:

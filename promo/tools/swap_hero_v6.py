@@ -106,6 +106,14 @@ def main():
             elif child.type == "EMPTY" and child.parent_type == "BONE" and child.parent_bone == "lowerarm_l":
                 child.matrix_parent_inverse = watch.matrix_parent_inverse.copy()
                 child.matrix_basis = watch.matrix_basis.copy()
+                existing = {base_name(part.name) for part in child.children}
+                for name in PARTS:
+                    if name not in existing:
+                        new = parts[name]
+                        part = new.copy()
+                        part.name = name
+                        child.users_collection[0].objects.link(part)
+                        part.parent = child
                 for part in child.children:
                     new = parts.get(base_name(part.name))
                     if part.type != "MESH" or new is None:

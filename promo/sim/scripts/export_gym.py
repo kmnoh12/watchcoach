@@ -10,7 +10,7 @@ Reads (never modifies):
 Outputs to promo/sim/public/assets/:
   - gym_world.glb
   - gym_manifest.json
-  - player_v5.glb
+  - player_v6.glb
 """
 import json
 import math
@@ -691,7 +691,7 @@ def export_gym_world():
     print(f"[export_gym] Wrote {manifest_path} ({len(equipment_meta)} equipment, {len(doors_meta)} doors, {len(colliders)} colliders)")
 
 
-# ------------------------------------------------------------------ Player V5 + Cap + Headset + Watch + Animations
+# ------------------------------------------------------------------ Player V6 + Cap + Headset + Watch + Animations
 
 def _pose_bones_from_dict(rig, bone_map):
     for pb in rig.pose.bones:
@@ -756,7 +756,7 @@ def _make_procedural_clip(rig, name, frames_fn, total_frames=48):
     return act
 
 
-def export_player_v5():
+def export_player_v6():
     print("[export_gym] Loading v6.blend...")
     bpy.ops.wm.open_mainfile(filepath=str(PROMO_DIR / "models" / "v6.blend"))
     bpy.context.scene.render.fps = 30
@@ -1059,7 +1059,7 @@ def export_player_v5():
         strip = track.strips.new(act.name, 1, act)
         strip.name = act.name
 
-    player_glb = ASSETS_DIR / "player_v5.glb"
+    player_glb = ASSETS_DIR / "player_v6.glb"
     print(f"[export_gym] Exporting {player_glb} ({len(actions_to_export)} animations)...")
     bpy.ops.export_scene.gltf(
         filepath=str(player_glb),
@@ -1078,4 +1078,4 @@ def export_player_v5():
 
 if __name__ == "__main__":
     export_gym_world()
-    export_player_v5()
+    export_player_v6()

@@ -156,7 +156,7 @@ async function init() {
   const loader = new GLTFLoader();
   const [worldGltf, playerGltf] = await Promise.all([
     loader.loadAsync('/assets/gym_world.glb'),
-    loader.loadAsync('/assets/player_v5.glb')
+    loader.loadAsync('/assets/player_v6.glb')
   ]);
 
   const worldRoot = worldGltf.scene;
@@ -302,7 +302,7 @@ async function init() {
     })
     .join('');
 
-  // Setup Player V5 (pass opaque world meshes for real 3D camera wall-pull-in raycasting)
+  // Setup Player V6 (pass opaque world meshes for real 3D camera wall-pull-in raycasting)
   const raycastMeshes = [];
   mergedGroup.traverse((m) => {
     if (m.isMesh && !m.material?.transparent) raycastMeshes.push(m);
