@@ -1362,8 +1362,8 @@ def build_gym_set(c):
     bb = put("barbell", K.barbell, (2.9, 3.4 - 0.62, 1.38))
 
     put("pec_deck", M.pec_deck, (6.90, 0.90, 0), 180)
-    put("lat_pulldown", M.lat_pulldown, (-3.75, 0.70, 0), 90)
-    put("cable_crossover", M.cable_crossover, (-3.85, 3.30, 0), 90)
+    put("lat_pulldown", M.lat_pulldown, (-3.75, 0.25, 0), 90)
+    put("cable_crossover", M.cable_crossover, (-3.85, 2.45, 0), 90)
     put("flat_bench", M.flat_bench, (0.15, 2.85, 0), 0)
     put("adjustable_bench", M.adjustable_bench, (-1.25, 2.85, 0), 180)
     # Dedicated stretching corner (green exercise mat & foam rollers) near front-left / InBody

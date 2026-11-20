@@ -682,7 +682,7 @@ def build_gym_details(c):
     treadmill_wall_tv(c, tv)
 
     # 8) Free-weight & cable zone floor props: cable grip rack, 5-tier EZ-bar rack (10-30kg), squat pad, kettlebells
-    grip_rack = W.empty("Cable grip rack", c, (-3.95, -0.75, 0))
+    grip_rack = W.empty("Cable grip rack", c, (-3.95, -0.95, 0))
     grip_rack.rotation_euler.z = math.radians(90)
     cable_grip_rack(c, grip_rack)
 
