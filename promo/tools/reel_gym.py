@@ -1158,13 +1158,13 @@ def wall_ai_logo(who, loc, height, c):
 
 def stage_easter_eggs():
     """Seat supporting WatchCoach extras on gym machines and hang cameo portraits & AI logos on the back wall."""
-    # 1) 5 supporting characters seated on machines across the gym
+    # 1) 5 supporting characters seated on machines across the gym (facing the mirror wall +Y)
     for role, loc, face_deg, pose in (
-        ("gray",   (5.45,  0.48, 0),   0, "sit_phone"),  # chest press — staring at phone
-        ("red",    (2.65,  0.58, 0),   0, "sit"),        # shoulder press
+        ("gray",   (5.45,  0.97, 0), 180, "sit_phone"),  # chest press — staring at phone
+        ("red",    (2.65,  0.87, 0), 180, "sit"),        # shoulder press
         ("yellow", (0.15,  2.85, 0), 180, "sit"),        # flat bench facing dumbbell mirror
-        ("blue",   (7.15, -2.65, 0),   0, "sit"),        # leg extension
-        ("green",  (3.75, -2.65, 0),   0, "sit_phone"),  # dip machine
+        ("blue",   (7.15, -2.30, 0), 180, "sit"),        # leg extension
+        ("green",  (3.75, -2.30, 0), 180, "sit_phone"),  # dip machine
     ):
         ex = W.add_extra(role, loc=loc, face_deg=face_deg)
         W.apply_pose(ex, pose)

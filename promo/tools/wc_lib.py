@@ -1179,10 +1179,10 @@ def build_gym_right_equipment(parent):
     # Leave the far-right mirror clear for the Instagram photo spot.
     placements = (
         *((treadmill, (12.20, y, 0), 90) for y in (2.10, 1.10, .10, -.90)),
-        (M2.shoulder_press_machine, (2.65, 0.55, 0), 0),
-        (M.chest_press_machine, (5.45, 0.55, 0), 0),
-        (M2.seated_leg_curl, (8.55, -2.65, 0), 0),
-        (M.leg_press_45, (5.45, -2.55, 0), 0),
+        (M2.shoulder_press_machine, (2.65, 0.90, 0), 180),
+        (M.chest_press_machine, (5.45, 0.90, 0), 180),
+        (M2.seated_leg_curl, (8.55, -2.30, 0), 180),
+        (M.leg_press_45, (5.45, -2.45, 0), 180),
     )
     machines=place_gym_equipment(equipment, placements)
     return [*machines,*cardio.add_cardio_pair(equipment)]
@@ -1200,16 +1200,16 @@ def build_gym_extra_equipment(parent):
         (M2.functional_trainer, (8.65, 3.85, 0), 0),
         # Left-wall cable back station
         (M.seated_cable_row, (-3.55, -2.05, 0), 90),
-        # Middle island upper-body selectorised machines (with shoulder press & chest press)
-        (M2.lateral_raise_machine, (8.35, 0.55, 0), 0),
+        # Middle island upper-body selectorised machines (facing the mirror wall +Y)
+        (M2.lateral_raise_machine, (8.35, 0.90, 0), 180),
         (M2.assisted_pullup, (9.80, 0.55, 0), 0),
-        # Front island: plate-loaded rows, arm machines, lower-body machines
-        (M2.tbar_row_machine, (-1.10, -2.65, 0), 0),
-        (M.plate_row, (0.75, -2.65, 0), 0),
-        (M2.preacher_machine, (2.35, -2.65, 0), 0),
-        (M2.dip_machine, (3.75, -2.65, 0), 0),
-        (M.leg_extension, (7.15, -2.65, 0), 0),
-        (M2.hip_abductor, (9.95, -2.65, 0), 0),
+        # Front island: plate-loaded rows, arm machines, lower-body machines (facing the mirror wall +Y)
+        (M2.tbar_row_machine, (-1.10, -2.45, 0), 180),
+        (M.plate_row, (0.75, -2.30, 0), 180),
+        (M2.preacher_machine, (2.35, -2.30, 0), 180),
+        (M2.dip_machine, (3.75, -2.30, 0), 180),
+        (M.leg_extension, (7.15, -2.30, 0), 180),
+        (M2.hip_abductor, (9.95, -2.30, 0), 180),
     ))
 
 
@@ -1361,7 +1361,7 @@ def build_gym_set(c):
     put("power_rack", M.power_rack, (2.9, 3.4, 0))
     bb = put("barbell", K.barbell, (2.9, 3.4 - 0.62, 1.38))
 
-    put("pec_deck", M.pec_deck, (6.90, 0.55, 0), 0)
+    put("pec_deck", M.pec_deck, (6.90, 0.90, 0), 180)
     put("lat_pulldown", M.lat_pulldown, (-3.75, 0.70, 0), 90)
     put("cable_crossover", M.cable_crossover, (-3.85, 3.30, 0), 90)
     put("flat_bench", M.flat_bench, (0.15, 2.85, 0), 0)
