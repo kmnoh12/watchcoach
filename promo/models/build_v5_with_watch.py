@@ -130,7 +130,7 @@ def make_strap_path(local_pts):
     sm = [max(a, b) for a, b in zip(sm, raw)]
     attach = {s: Vector((s * 0.0205, -0.0080)) - C for s in (1, -1)}   # strap ends inside the lower case side
     att = {s: (math.atan2(v.x, v.y), v.length) for s, v in attach.items()}
-    blend = math.radians(40)
+    blend = math.radians(15)   # over 40 deg the strap stood about 1 cm off the wrist beside the case on one side
 
     def r_of(th):
         f = math.degrees(th) % 360.0
