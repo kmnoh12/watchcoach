@@ -119,34 +119,31 @@ def make_strap_path(local_pts):
     hull = convex_hull(local_pts)
     ys, zs = [p.x for p in hull], [p.y for p in hull]
     C = Vector(((min(ys) + max(ys)) / 2, (min(zs) + max(zs)) / 2))
-    # Leave room for the flat segments between radial samples and the buckle tongue.
-    off = 0.0015 / K + lpw.STRAP_T / 2
-    N = 360
-    raw = [hull_radius(hull, C, Vector((math.sin(2 * math.pi * i / N), math.cos(2 * math.pi * i / N)))) + off
-           for i in range(N)]
-    win = 12  # +-12 deg moving average rounds the low-poly corners
-    sm = [sum(raw[(i + j) % N] for j in range(-win, win + 1)) / (2 * win + 1) for i in range(N)]
-    # smoothing can pull the path inside convex corners: never go below the raw outline
-    sm = [max(a, b) for a, b in zip(sm, raw)]
-    attach = {s: Vector((s * 0.0205, -0.0080)) - C for s in (1, -1)}   # strap ends inside the lower case side
-    att = {s: (math.atan2(v.x, v.y), v.length) for s, v in attach.items()}
-    blend = math.radians(15)   # over 40 deg the strap stood about 1 cm off the wrist beside the case on one side
+    # A tensioned band spans from each lug to a tangent on the wrist. Include
+    # the lugs in the same convex envelope so neither side can turn inward.
+    off = lpw.STRAP_T / 2 + 0.0011 / K
+    rim = []
+    for i in range(360):
+        th = math.radians(i)
+        d = Vector((math.sin(th), math.cos(th)))
+        rim.append(C + d * (hull_radius(hull, C, d) + off))
+    lugs = {s: Vector((s * 0.018, -0.0070)) for s in (-1, 1)}
+    outline = convex_hull(rim + list(lugs.values()))
+    att = {}
+    for side, lug in lugs.items():
+        v = lug - C
+        att[side] = (math.atan2(v.x, v.y), v.length)
 
-    def r_of(th):
-        f = math.degrees(th) % 360.0
-        i0 = int(f) % N
-        t = f - int(f)
-        r = sm[i0] * (1 - t) + sm[(i0 + 1) % N] * t
-        tha, ra = att[1 if th >= 0 else -1]
-        dth = abs(th) - abs(tha)
-        if dth < blend:
-            u = max(0.0, dth / blend)
-            u = u * u * (3 - 2 * u)
-            r = max(ra * (1 - u) + r * u, r)   # ease out of the case without denting inward
-        return r
+    radii = [hull_radius(outline, C, Vector((math.sin(math.radians(i)), math.cos(math.radians(i)))))
+             for i in range(360)]
+    # Round the facets over a short arc, including the hidden ends in the case.
+    sm = [sum(radii[(i + j) % 360] for j in range(-10, 11)) / 21 for i in range(360)]
 
     def el_point(th):
-        return C + Vector((math.sin(th), math.cos(th))) * r_of(th)
+        deg = math.degrees(th) % 360
+        i = int(deg)
+        r = sm[i] + (deg - i) * (sm[(i + 1) % 360] - sm[i])
+        return C + Vector((math.sin(th), math.cos(th))) * r
 
     def el_frame(th):
         p = el_point(th)
@@ -156,14 +153,14 @@ def make_strap_path(local_pts):
             n = -n
         return p, t, n
 
-    return el_point, el_frame, C, att, sum(sm) / N
+    return el_point, el_frame, C, att, sum(sm) / len(sm)
 
 
 def build_fitted_strap(el_point, el_frame, C, att, r_mean, mats):
     lpw.el_point, lpw.el_frame, lpw.EL_A, lpw.EL_C = el_point, el_frame, r_mean, C
     bm = bmesh.new()
     holes = [math.radians(d) for d in (112, 124, 136, 148, 160)]
-    hole_faces = lpw.build_strap_piece(bm, abs(att[1][0]), math.radians(176), holes, 1)
+    hole_faces = lpw.build_strap_piece(bm, abs(att[1][0]), math.radians(202), holes, 1)
     lpw.build_strap_piece(bm, -abs(att[-1][0]), -math.radians(150), [], 1)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     res = bmesh.ops.inset_individual(bm, faces=hole_faces, thickness=0.0004, depth=-0.0018)
@@ -384,10 +381,18 @@ def main():
     w, A, D, S = forearm_frame(arm)
     P = w - A * WRIST_DIST
     pts = arm_section(body, P, A)
+    # The back of this forearm slopes toward the thumb. Seat the case on
+    # its broad face, measured along the long diagonal of the wrist section.
+    hull = convex_hull([((p - P).dot(S), (p - P).dot(D)) for p in pts])
+    across = max((a - b for a in hull for b in hull), key=lambda v: v.length_squared)
+    if across.x < 0:
+        across.negate()
+    S = (S * across.x + D * across.y).normalized()
+    D = A.cross(S).normalized()
     ys = [(p - P).dot(S) for p in pts]
     yc = (min(ys) + max(ys)) / 2
     ztop = max((p - P).dot(D) for p in pts if abs((p - P).dot(S) - yc) < 0.012)
-    origin = P + S * yc + D * (ztop + (CASE_BACK + 0.0004) * K)
+    origin = P + S * yc + D * (ztop + (CASE_BACK - 0.0011) * K)
     local = [Vector((((p - origin).dot(S)) / K, ((p - origin).dot(D)) / K)) for p in pts]
     el_point, el_frame, C, att, r_mean = make_strap_path(local)
 
@@ -446,6 +451,7 @@ def main():
     with open(os.path.join(RENDER_DIR, "fit_report.json"), "w") as f:
         json.dump(report, f, indent=1)
     print("V5WATCH", json.dumps({k: v for k, v in report.items() if k != "renders"}))
+    bpy.context.preferences.filepaths.save_version = 0
     bpy.ops.wm.save_as_mainfile(filepath=OUT_BLEND)
     print("V5WATCH_SAVED", OUT_BLEND)
 
