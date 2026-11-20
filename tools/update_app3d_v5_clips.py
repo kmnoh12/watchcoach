@@ -7,7 +7,8 @@
 --update re-packs the clip from the PC viewer's v5-catalog (the one you review at
 http://127.0.0.1:8765/v5-catalog/?human=v5-guide&front=moderate) with the same packer as build_app3d_v5.py.
 --remove drops a model key that no exercise uses any more (bundle, report, manifest, equipment).
-Other clips stay byte-identical. The bundle is gitignored; rebuild/deploy the app separately.
+Other clips stay byte-identical. It edits the old-hand master bundle (work/viewer3d-oldhand); afterwards run
+tools/refresh_app3d_newhand.py to rebuild the phone's new-hand bundle. Both are gitignored; rebuild/deploy the app separately.
 """
 import argparse, hashlib, importlib.util, json
 from pathlib import Path
@@ -24,7 +25,7 @@ def main():
     parser.add_argument('--remove', nargs='*', default=[])
     parser.add_argument('--add', nargs='*', default=[], help='model_key:exercise_id for a clip that is not in the bundle yet')
     parser.add_argument('--viewer-root', type=Path, default=Path.home()/'Library/Application Support/__PROTECTED_WATCHCOACH_VIEWER__')
-    parser.add_argument('--bundle', type=Path, default=REPO/'phone/src/main/assets/viewer3d')
+    parser.add_argument('--bundle', type=Path, default=REPO/'work/viewer3d-oldhand')
     args = parser.parse_args()
     source = args.viewer_root/'v5-catalog'
     bundle = args.bundle

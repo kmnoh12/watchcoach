@@ -174,7 +174,15 @@ def grip_objects(objs):
     ]
 
 
-def handles(objects, acts):
+def track_times(count, eq_acts):
+    # The phone viewer plays a track sampled once per equipment phase at those phase times,
+    # and any other track at uniform spacing.
+    if eq_acts is not None and count == len(eq_acts):
+        return np.asarray(eq_acts, float)
+    return np.linspace(0, 1, count)
+
+
+def handles(objects, acts, eq_acts=None):
     from scipy.spatial.transform import Rotation, Slerp
 
     result = []
@@ -190,7 +198,7 @@ def handles(objects, acts):
         if np.min(np.linalg.det(norm)) < 0:
             continue
         if len(m) > 1:
-            times = np.linspace(0, 1, len(m))
+            times = track_times(len(m), eq_acts)
             rots = Slerp(times, Rotation.from_matrix(norm))(
                 np.clip(acts, 0, 1)
             ).as_matrix()
@@ -451,7 +459,7 @@ def shift_equipment(machine, part, offsets, acts):
     objects = machine["objects"]
     anchor = centroid(next(o for o in objects if o["name"] == part))
     count = len(anchor)
-    times = np.linspace(0, 1, count)
+    times = track_times(count, machine.get("acts"))
     shift = np.stack([np.interp(times, acts, offsets[:, k]) for k in range(3)], axis=1)
     moved = []
     for o in objects:
@@ -502,7 +510,7 @@ def convert(clip, apk, outdir, tr):
         machine = json.loads(z.read(PREFIX + "data/" + key + ".json"))
         acts, points = decode(z.read(PREFIX + "human_v5/" + key + ".bin"))
         result, q, t = tr.skin(points)
-        options = handles(grip_objects(machine["objects"]), acts)
+        options = handles(grip_objects(machine["objects"]), acts, machine.get("acts"))
         row = {}
         chosen = {}
         for side in "lr":
@@ -564,7 +572,7 @@ def convert(clip, apk, outdir, tr):
                     again = True
             if not again:
                 break
-            options = handles(grip_objects(machine["objects"]), acts)
+            options = handles(grip_objects(machine["objects"]), acts, machine.get("acts"))
         for side, part in chosen.items():
             if part in shifted:
                 row[side]["handle_shift_mm"], row[side]["shifted_parts"] = shifted[part]
