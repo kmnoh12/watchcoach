@@ -549,41 +549,54 @@ def build_room_door(c, loc, rot_deg, name_tag, label, sublabel, accent_color, ha
     return root
 
 
+def _walnut_wood_mat(name, value_mult=1.0, sat_mult=1.0, scale=(0.75, 0.75, 0.75), rot_y=0.0, rough=0.38, bump_str=0.08):
+    """PBR architectural walnut wood material driven by compressed seamless walnut_wood.jpg with Box projection & subtle grain bump."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    n, l = nt.nodes, nt.links
+    bsdf = next(nd for nd in n if nd.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Roughness"].default_value = rough
+    bsdf.inputs["Specular IOR Level"].default_value = 0.42
+    coord = n.new("ShaderNodeTexCoord")
+    mp = n.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = scale
+    mp.inputs["Rotation"].default_value = (0.0, rot_y, 0.0)
+    l.new(coord.outputs["Object"], mp.inputs["Vector"])
+    tex = n.new("ShaderNodeTexImage")
+    tex.projection = "BOX"
+    tex.projection_blend = 0.20
+    img_path = os.path.join(W.PARTS, "gym_wall_opt", "walnut_wood.jpg")
+    im = bpy.data.images.load(img_path, check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    tex.image = im
+    l.new(mp.outputs["Vector"], tex.inputs["Vector"])
+    hsv = n.new("ShaderNodeHueSaturation")
+    hsv.inputs["Saturation"].default_value = sat_mult
+    hsv.inputs["Value"].default_value = value_mult
+    l.new(tex.outputs["Color"], hsv.inputs["Color"])
+    l.new(hsv.outputs["Color"], bsdf.inputs["Base Color"])
+    # Subtle grain bump + roughness breakup
+    bump = n.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = bump_str
+    bump.inputs["Distance"].default_value = 0.002
+    l.new(tex.outputs["Color"], bump.inputs["Height"])
+    l.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
+
+
 def build_info_desk(c):
     """Exact replica of the Korean premium gym reception/info desk reference:
-    - Gray veined marble paneled feature wall behind desk
-    - Backlit glowing 3D channel sign 'WATCH [emblem] COACH' on the marble wall
-    - Vertical warm-wood louver/slat partition screen on the right separating reception from gym floor
-    - 2-tier warm walnut wood counter: higher left check-in counter (1.04m) + lower right consultation desk (0.76m)
-    - Frosted glass desk dividers, dual monitors, acrylic promo stand, 2 sleek white shell consultation chairs
-    - 3 slim brass cylinder pendant lights hanging over the desk + warm beige epoxy reception floor pad."""
+    - Real walnut wood grain 2-tier counter & vertical wood louver partition
+    - Crisp 3D extruded channel sign 'WATCH [W] COACH' directly on bodybuilder mural wall
+    - Frosted glass desk dividers, dual monitors, acrylic promo stand, 2 sleek white consultation chairs
+    - 3 slim brass cylinder pendant lights + warm beige epoxy reception floor pad."""
     root = W.empty("Gym_InfoDesk", c, (-5.45, -6.02, 0))
 
-    # Materials: procedural warm walnut wood grain (not flat tan!), matte charcoal, crisp channel sign
-    wood_m = bpy.data.materials.new("InfoRef_WarmWood")
-    wood_m.use_nodes = True
-    wn, wl = wood_m.node_tree.nodes, wood_m.node_tree.links
-    wbsdf = next(n for n in wn if n.type == "BSDF_PRINCIPLED")
-    wbsdf.inputs["Roughness"].default_value = 0.42
-    wgeo = wn.new("ShaderNodeNewGeometry")
-    wmap = wn.new("ShaderNodeMapping")
-    wmap.inputs["Scale"].default_value = (1.2, 8.0, 1.5)
-    wl.new(wgeo.outputs["Position"], wmap.inputs["Vector"])
-    wwave = wn.new("ShaderNodeTexWave")
-    wwave.wave_type = "BANDS"
-    wwave.bands_direction = "Z"
-    wwave.inputs["Scale"].default_value = 3.2
-    wwave.inputs["Distortion"].default_value = 6.5
-    wwave.inputs["Detail"].default_value = 4.0
-    wl.new(wmap.outputs["Vector"], wwave.inputs["Vector"])
-    wramp = wn.new("ShaderNodeValToRGB")
-    we0, we1 = wramp.color_ramp.elements
-    we0.position, we0.color = 0.25, (0.19, 0.095, 0.048, 1)
-    we1.position, we1.color = 0.78, (0.36, 0.20, 0.105, 1)
-    wl.new(wwave.outputs["Fac"], wramp.inputs["Fac"])
-    wl.new(wramp.outputs["Color"], wbsdf.inputs["Base Color"])
-
-    louver_m = W.mat("InfoRef_WoodLouver", (0.34, 0.19, 0.10), rough=0.46, metal=0.03)
+    # Materials: real compressed seamless walnut wood photo texture!
+    wood_m = _walnut_wood_mat("InfoRef_WarmWood", value_mult=1.02, sat_mult=1.05, scale=(0.85, 0.85, 0.85), rough=0.36, bump_str=0.09)
+    louver_m = _walnut_wood_mat("InfoRef_WoodLouver", value_mult=1.14, sat_mult=0.98, scale=(1.1, 1.1, 0.7), rough=0.42, bump_str=0.07)
     charcoal = W.mat("InfoRef_Charcoal", (0.025, 0.027, 0.032), rough=0.38, metal=0.35)
     white_chair = W.mat("InfoRef_WhiteChair", (0.86, 0.87, 0.85), rough=0.35, metal=0.05)
     brass_m = W.mat("InfoRef_BrassPendant", (0.76, 0.62, 0.28), rough=0.24, metal=0.92)
@@ -727,7 +740,7 @@ def build_stretching_zone(c):
     roller_m = W.mat("Stretch_FoamRoller", (0.035, 0.038, 0.042), rough=0.68, metal=0.0)
     ball1_m = W.mat("Stretch_GymBall1", (0.08, 0.38, 0.42), rough=0.38, metal=0.05)
     ball2_m = W.mat("Stretch_GymBall2", (0.14, 0.15, 0.17), rough=0.38, metal=0.05)
-    plyo_m = W.mat("Stretch_PlyoWood", (0.46, 0.30, 0.15), rough=0.58, metal=0.0)
+    plyo_m = _walnut_wood_mat("Stretch_PlyoWood", value_mult=1.28, sat_mult=0.84, scale=(1.2, 1.2, 1.2), rough=0.52, bump_str=0.06)
     mirror_m = W.mat("Gym_Mirror", (0.78, 0.80, 0.84), rough=0.0, metal=1.0)
 
     # Low cushioned stretching zone flooring pad (2.30 x 4.20 m)
