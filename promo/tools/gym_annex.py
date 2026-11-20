@@ -559,16 +559,39 @@ def build_info_desk(c):
     - 3 slim brass cylinder pendant lights hanging over the desk + warm beige epoxy reception floor pad."""
     root = W.empty("Gym_InfoDesk", c, (-5.45, -6.02, 0))
 
-    # Materials
-    wood_m = W.mat("InfoRef_WarmWood", (0.42, 0.25, 0.14), rough=0.44, metal=0.04)
-    louver_m = W.mat("InfoRef_WoodLouver", (0.48, 0.30, 0.17), rough=0.48, metal=0.03)
-    charcoal = W.mat("InfoRef_Charcoal", (0.03, 0.032, 0.036), rough=0.40, metal=0.25)
+    # Materials: procedural warm walnut wood grain (not flat tan!), matte charcoal, crisp channel sign
+    wood_m = bpy.data.materials.new("InfoRef_WarmWood")
+    wood_m.use_nodes = True
+    wn, wl = wood_m.node_tree.nodes, wood_m.node_tree.links
+    wbsdf = next(n for n in wn if n.type == "BSDF_PRINCIPLED")
+    wbsdf.inputs["Roughness"].default_value = 0.42
+    wgeo = wn.new("ShaderNodeNewGeometry")
+    wmap = wn.new("ShaderNodeMapping")
+    wmap.inputs["Scale"].default_value = (1.2, 8.0, 1.5)
+    wl.new(wgeo.outputs["Position"], wmap.inputs["Vector"])
+    wwave = wn.new("ShaderNodeTexWave")
+    wwave.wave_type = "BANDS"
+    wwave.bands_direction = "Z"
+    wwave.inputs["Scale"].default_value = 3.2
+    wwave.inputs["Distortion"].default_value = 6.5
+    wwave.inputs["Detail"].default_value = 4.0
+    wl.new(wmap.outputs["Vector"], wwave.inputs["Vector"])
+    wramp = wn.new("ShaderNodeValToRGB")
+    we0, we1 = wramp.color_ramp.elements
+    we0.position, we0.color = 0.25, (0.19, 0.095, 0.048, 1)
+    we1.position, we1.color = 0.78, (0.36, 0.20, 0.105, 1)
+    wl.new(wwave.outputs["Fac"], wramp.inputs["Fac"])
+    wl.new(wramp.outputs["Color"], wbsdf.inputs["Base Color"])
+
+    louver_m = W.mat("InfoRef_WoodLouver", (0.34, 0.19, 0.10), rough=0.46, metal=0.03)
+    charcoal = W.mat("InfoRef_Charcoal", (0.025, 0.027, 0.032), rough=0.38, metal=0.35)
     white_chair = W.mat("InfoRef_WhiteChair", (0.86, 0.87, 0.85), rough=0.35, metal=0.05)
     brass_m = W.mat("InfoRef_BrassPendant", (0.76, 0.62, 0.28), rough=0.24, metal=0.92)
-    epoxy_m = W.mat("InfoRef_BeigeEpoxy", (0.56, 0.48, 0.34), rough=0.20, metal=0.04)
-    led_white = W.shadeless("InfoRef_SignWhite", (0.96, 0.99, 1.0), strength=5.5)
-    led_gold = W.shadeless("InfoRef_SignGold", (1.0, 0.82, 0.08), strength=5.8)
-    pend_glow = W.shadeless("InfoRef_PendantGlow", (1.0, 0.92, 0.72), strength=6.0)
+    epoxy_m = W.mat("InfoRef_BeigeEpoxy", (0.52, 0.44, 0.30), rough=0.20, metal=0.04)
+    # Controlled crisp architectural LED channel letters (no blown-out fog!)
+    led_white = W.shadeless("InfoRef_SignWhite", (0.94, 0.97, 1.0), strength=2.1)
+    led_gold = W.shadeless("InfoRef_SignGold", (0.96, 0.74, 0.02), strength=2.4)
+    pend_glow = W.shadeless("InfoRef_PendantGlow", (1.0, 0.92, 0.72), strength=4.5)
     screen_m = W.shadeless("InfoRef_MonitorScr", (0.14, 0.50, 0.86), strength=1.4)
     pop_m = W.shadeless("InfoRef_PromoCard", (0.94, 0.80, 0.22), strength=1.1)
 
@@ -596,26 +619,44 @@ def build_info_desk(c):
     # 1) Warm beige glossy epoxy reception floor pad (cleanly delineates info zone from dark rubber floor)
     _molded("InfoDesk epoxy pad", (3.65, 2.55, 0.012), epoxy_m, c, (0.05, 0.55, 0.006), root, 0.004)
 
-    # 2) Backlit 3D glowing channel sign mounted directly on the dark gym wall: 'WATCH  [W]  COACH'
-    wall_y = -0.66
-    _text(c, root, "InfoLogo_WATCH", "WATCH", ( 0.64, wall_y + 0.026, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
-    _text(c, root, "InfoLogo_COACH", "COACH", (-0.64, wall_y + 0.026, 2.26), 0.24, led_white, rot=(math.pi / 2, 0, math.pi))
-    # Center glowing gold shield/watch emblem (matching the yellow 'U' badge in the reference!)
-    _molded("InfoLogo_BadgeBg", (0.24, 0.026, 0.27), led_gold, c, (0.0, wall_y + 0.020, 2.26), root, 0.012)
-    _molded("InfoLogo_BadgeInner", (0.16, 0.030, 0.19), charcoal, c, (0.0, wall_y + 0.022, 2.26), root, 0.008)
-    _text(c, root, "InfoLogo_W", "W", (0.0, wall_y + 0.042, 2.255), 0.135, led_gold, rot=(math.pi / 2, 0, math.pi))
-    # Subtle soft white halo backlight behind the logo onto the marble wall
-    logo_ld = bpy.data.lights.new("InfoLogoHalo", "AREA")
-    logo_ld.shape = "RECTANGLE"
-    logo_ld.size, logo_ld.size_y = 1.9, 0.24
-    logo_ld.energy = 11
-    logo_ld.color = (0.94, 0.97, 1.0)
-    logo_ld.use_shadow = False
-    logo_lo = bpy.data.objects.new(logo_ld.name, logo_ld)
-    logo_lo.location = (0.0, wall_y + 0.10, 2.26)
-    logo_lo.rotation_euler.x = -math.pi / 2
-    logo_lo.parent = root
-    c.objects.link(logo_lo)
+    # 2) Real 3D extruded bold architectural channel sign directly on the bodybuilder mural wall: 'WATCH [W] COACH'
+    wall_y = -0.64
+    bold_font = bpy.data.fonts.load("C:/Windows/Fonts/arialbd.ttf", check_existing=True) if os.path.exists("C:/Windows/Fonts/arialbd.ttf") else W.load_font(W.KFONT)
+    for tag, word, lx in (("WATCH", "WATCH", 0.70), ("COACH", "COACH", -0.70)):
+        # Dark aluminum channel backing + crisp satin-white extruded front letter (no blown-out wall fog!)
+        for depth_off, mat_use, ext, nm_suf in ((0.012, charcoal, 0.016, "Back"), (0.029, led_white, 0.004, "Face")):
+            fdata = bpy.data.curves.new(f"InfoLogo_{tag}_{nm_suf}", "FONT")
+            fdata.body = word
+            fdata.font = bold_font
+            fdata.size = 0.25
+            fdata.space_character = 1.06
+            fdata.align_x = "CENTER"
+            fdata.align_y = "CENTER"
+            fdata.extrude = ext
+            fdata.bevel_depth = 0.002
+            fdata.materials.append(mat_use)
+            fob = bpy.data.objects.new(fdata.name, fdata)
+            fob.location = (lx, wall_y + depth_off, 2.26)
+            fob.rotation_euler = (math.pi / 2, 0, math.pi)
+            fob.parent = root
+            c.objects.link(fob)
+    # Sculpted 3D gold shield/watch emblem in the center (dark metal sides + crisp rich gold front!)
+    _molded("InfoLogo_BadgeSide", (0.24, 0.026, 0.27), charcoal, c, (0.0, wall_y + 0.014, 2.26), root, 0.010)
+    _molded("InfoLogo_BadgeFace", (0.22, 0.008, 0.25), led_gold, c, (0.0, wall_y + 0.028, 2.26), root, 0.008)
+    _molded("InfoLogo_BadgeCut", (0.145, 0.010, 0.175), charcoal, c, (0.0, wall_y + 0.030, 2.26), root, 0.005)
+    w_data = bpy.data.curves.new("InfoLogo_W", "FONT")
+    w_data.body = "W"
+    w_data.font = bold_font
+    w_data.size = 0.13
+    w_data.align_x = "CENTER"
+    w_data.align_y = "CENTER"
+    w_data.extrude = 0.004
+    w_data.materials.append(led_gold)
+    w_ob = bpy.data.objects.new("InfoLogo_W", w_data)
+    w_ob.location = (0.0, wall_y + 0.036, 2.255)
+    w_ob.rotation_euler = (math.pi / 2, 0, math.pi)
+    w_ob.parent = root
+    c.objects.link(w_ob)
 
     # 4) Vertical warm-wood louver/slat partition screen on the right side (separating reception from gym machines!)
     louv_x = 1.84

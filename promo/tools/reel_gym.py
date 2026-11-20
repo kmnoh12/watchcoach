@@ -906,7 +906,7 @@ def build_set(parent):
     # Local -Y faces the room on every front-wall unit.
     wall=W.empty("Front wall fittings",c,(6,-6.66,0))
     wall.rotation_euler.z=math.pi
-    printed_face("Locker wall mural","locker_mural.png",18,3,(1.5,.020,2.09),wall,c)
+    printed_face("Locker wall mural","locker_mural.png",21.2,3,(3.0,.020,2.09),wall,c)
     for i in range(8):
         x=-4.1+i*.41
         block("Locker shell",(.407,.44,1.775),graphite,(x,-.22,.9725),wall)
