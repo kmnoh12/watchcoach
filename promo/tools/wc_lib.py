@@ -1393,7 +1393,7 @@ def build_gym_set(c):
     box("Wall_Left", (0.2, 12.2, 3.65), wall_m, c, (-4.6, -0.8, 1.80))
     box("Wall_Right", (0.2, 12.2, 3.65), wall_m, c, (4.6, -0.8, 1.80))
     box("Wainscot_Back", (9.0, 0.03, 0.85), wain_m, c, (0, 4.99, 0.42))
-    box("Wainscot_Front", (9.0, 0.03, 0.595), wain_m, c, (0, -6.69, 0.2925))
+    box("Wainscot_Front", (9.0, 0.03, 0.10), wain_m, c, (0, -6.69, 0.05))
     box("Wainscot_Left", (0.03, 11.8, 0.85), wain_m, c, (-4.49, -0.8, 0.42))
     box("Wainscot_Right", (0.03, 11.8, 0.85), wain_m, c, (4.49, -0.8, 0.42))
     build_gym_back_baseboard(c, trim_m)
