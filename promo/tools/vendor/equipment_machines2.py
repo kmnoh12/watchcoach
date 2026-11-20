@@ -1,7 +1,7 @@
 """Second batch: the remaining apparatus from design/equipment-reference/taxonomy.py. Same conventions as equipment_machines."""
 import math
-from equipment_kit import cyl, box, part
-from equipment_machines import beam, rod, pad, stack_tower, _seat_unit, pivot_hub, grip_handle
+from equipment_kit import cyl, box, part, _plate
+from equipment_machines import beam, rod, pad, stack_tower, _seat_unit, pivot_hub, grip_handle, _drive, _dial, _seat_lever, _trolley
 
 
 def _base(p, y0=-0.65, y1=0.95, mat="silver"):
@@ -11,26 +11,42 @@ def _base(p, y0=-0.65, y1=0.95, mat="silver"):
 def lateral_raise_machine():
     p = part("lateral_raise_machine"); _base(p, -0.5, 0.9); stack_tower(p, 0, 0.78, 0.48, 0.40, 1.45, 0.07)
     _seat_unit(p, 0.12)
+    _drive(p,(.28,.10,1.25),.78,1.50)
+    beam("pivot_bridge",p,(-.28,.10,1.25),(.28,.10,1.25),.045,"silver")
+    beam("bridge_stay",p,(0,.68,1.21),(0,.10,1.25),.052,"silver")
     for s in (-1, 1):
         beam("arm", p, (s * 0.30, 0.0, 1.0), (s * 0.55, -0.12, 1.0), 0.05, "silver")
         pad("elbow", p, (0.10, 0.22, 0.10), (s * 0.55, -0.12, 0.98)); rod("grip", p, (s * 0.52, -0.20, 0.80), (s * 0.52, -0.20, 0.95), 0.02, "grip")
         beam("pivot", p, (s * 0.30, 0.0, 1.0), (s * 0.28, 0.1, 1.25), 0.05, "silver")
+        grip_handle("neutral",p,(s*.52,-.20,.93),(s*.44,-.20,.93),.018)
+        rod("grip_stem",p,(s*.52,-.20,.95),(s*.55,-.12,.99),.019)
     return p
 
 
 def shoulder_press_machine():
-    """Plate-loaded iso shoulder press: upright frame, seat, two angled press arms with plate pegs."""
     p = part("shoulder_press_machine")
-    for s in (-1, 1):
-        beam("foot", p, (s * 0.60, -0.55, 0.04), (s * 0.60, 0.95, 0.04), 0.10, "frame", 0.08)
-        beam("post", p, (s * 0.55, 0.45, 0.04), (s * 0.45, 0.45, 2.05), 0.07)
-        beam("arm", p, (s * 0.45, 0.45, 1.90), (s * 0.25, -0.20, 1.28), 0.06)
-        rod("handle", p, (s * 0.25, -0.20, 1.28), (s * 0.30, -0.35, 1.28), 0.022, "grip")
-        cyl("peg", p, 0.03, 0.35, "X", "steel", (s * 0.72, 0.45, 1.50), 6)
-        for i in range(2): cyl("plate", p, 0.22, 0.03, "X", "plate", (s * (0.80 + i * 0.04), 0.45, 1.50), 12)
-    beam("top", p, (-0.45, 0.45, 2.05), (0.45, 0.45, 2.05), 0.08)
-    pad("seat", p, (0.40, 0.40, 0.09), (0, 0.05, 0.46)); beam("seat_post", p, (0, 0.05, 0.42), (0, 0.05, 0.05), 0.08)
-    pad("back", p, (0.40, 0.10, 0.70), (0, 0.30, 0.92), (-12, 0, 0))
+    stack_tower(p,0,.72,.47,.35,1.70,.07)
+    _drive(p,(.45,.45,1.90),.72,1.80)
+    for side in (-1,1):
+        beam("runner",p,(side*.60,-.55,.04),(side*.60,.95,.04),.10,"silver",.08)
+        beam("upright",p,(side*.55,.56,.06),(side*.45,.45,2.05),.064,"frame")
+        if side < 0:
+            pivot_hub("press_bearing",p,(side*.45,.45,1.90),.074,.10)
+        beam("upper_lever",p,(side*.45,.45,1.90),(side*.47,.04,1.64),.055,"frame")
+        beam("lower_lever",p,(side*.47,.04,1.64),(side*.34,-.23,1.28),.048,"silver")
+        grip_handle("overhand",p,(side*.34,-.23,1.28),(side*.18,-.23,1.28))
+        grip_handle("neutral",p,(side*.34,-.23,1.28),(side*.34,-.37,1.28))
+        beam("rear_tie",p,(0,.72,.09),(side*.60,.72,.09),.042,"silver")
+        cyl("storage_horn",p,.025,.34,"X","steel",(side*.72,.47,.62))
+        beam("storage_mount",p,(side*.50,.53,.62),(side*.57,.47,.62),.052,"silver")
+    beam("crosshead",p,(-.45,.45,2.05),(.45,.45,2.05),.065,"silver")
+    pad("seat",p,(.40,.40,.09),(0,.05,.46))
+    beam("seat_post",p,(0,.05,.42),(0,.05,.07),.072,"silver")
+    beam("seat_base",p,(0,.05,.07),(0,.72,.09),.072,"silver")
+    _seat_lever(p,.05,.34)
+    pad("lumbar",p,(.39,.10,.24),(0,.254,.702),(-12,0,0))
+    pad("back",p,(.40,.10,.45),(0,.328,1.055),(-12,0,0))
+    beam("back_stay",p,(0,.15,.37),(0,.43,1.21),.05,"silver")
     return p
 
 
@@ -53,12 +69,24 @@ def tbar_row_machine():
     for s in (-1, 1): beam("foot", p, (s * 0.50, -0.6, 0.04), (s * 0.50, 1.0, 0.04), 0.10, "frame", 0.08)
     beam("frame", p, (0, 0.5, 0.05), (0, -0.3, 0.80), 0.10)
     pad("chest", p, (0.40, 0.70, 0.09), (0, 0.15, 0.72), (-38, 0, 0), "pad")
-    for s in (-1, 1): pad("shin", p, (0.12, 0.2, 0.10), (s * 0.15, 0.82, 0.4))
-    lv = part("tbar_lever"); lv.parent = p; lv.location = (0, 0.30, 0.50)
-    rod("arm", lv, (0, 0.5, 0.0), (0, -0.55, 0.22), 0.025, "steel")
-    for s in (-1, 1): rod("handle", lv, (s * 0.12, -0.55, 0.22), (s * 0.18, -0.35, 0.28), 0.02, "grip")
-    cyl("peg", lv, 0.03, 0.45, "Y", "steel", (0, 0.45, 0.0), 6)
-    for i in range(2): cyl("plate", lv, 0.22, 0.03, "X", "plate", (0.0, 0.45, 0.0), 12).location.x = 0.0
+    beam("foot_tie",p,(-.50,.50,.07),(.50,.50,.07),.055,"silver")
+    beam("chest_mount",p,(0,.15,.37),(0,.15,.71),.062,"silver")
+    lv = part("tbar_lever")
+    lv.parent, lv.location = p,(0,.30,.50)
+    for side in (-1,1):
+        x = side*.28
+        beam("pivot_stand",p,(side*.50,.80,.08),(x,.80,.47),.043,"silver")
+        pivot_hub("lever_bearing",lv,(x,.50,0),.066,.075)
+        arm = part("tbar_arm_L" if side < 0 else "tbar_arm_R")
+        arm.parent, arm.location = lv, (x, .50, 0)
+        beam("lever", arm, (0, .04, 0), (0, -1.05, .22), .043, "silver")
+        cyl("counterweight", arm, .083, .065, "X", "silver", (0, .08, 0))
+        cyl("weight_horn", arm, .024, .19, "X", "steel", (side*.10, -.74, .16))
+        _plate(arm, .16, .034, (side*.06, -.74, .16), True)
+        grip_handle("wide_grip", arm, (0, -1.05, .22), (side*.15, -1.05, .22))
+        grip_handle("parallel_grip", arm, (0, -1.05, .22), (0, -.88, .27))
+        box("incline_footrest",p,(.23,.38,.04),"silver",(side*.35,.60,.22),(18,0,0))
+        beam("footrest_stay",p,(side*.50,.59,.06),(side*.35,.61,.21),.038,"silver")
     return p
 
 
@@ -89,22 +117,34 @@ def assisted_pullup():
         beam("handle_arm", p, (s * 0.50, 0.20, H - 0.05), (s * 0.50, -0.20, H - 0.05), 0.06, "silver"); rod("pull", p, (s * 0.50, -0.20, H - 0.05), (s * 0.50, -0.20, H - 0.35), 0.02, "grip")
     rod("bar", p, (-0.5, -0.2, H - 0.05), (0.5, -0.2, H - 0.05), 0.017)
     pad("knee", p, (0.40, 0.30, 0.08), (0, -0.10, 0.90)); beam("knee_post", p, (0, -0.1, 0.9), (0, 0.2, 0.9), 0.06, "silver")
-    box("step", p, (0.50, 0.30, 0.04), "silver", (0, -0.35, 0.80))
+    for side in (-1,1):
+        for z in (.67,.82):
+            beam("knee_link",p,(side*.17,.41,z+.09),(side*.17,-.09,z),.029,"silver")
+            pivot_hub("link_bush",p,(side*.17,.41,z+.09),.036,.048)
+        beam("link_anchor",p,(side*.5,.2,.76),(side*.17,.41,.89),.038,"silver")
+        beam("knee_carrier",p,(side*.17,-.09,.67),(side*.17,-.09,.88),.03,"silver")
+        box("step",p,(.18,.28,.035),"silver",(side*.40,-.27,.42))
+        beam("step_support",p,(side*.50,.20,.31),(side*.40,-.27,.41),.036,"silver")
+        grip_handle("dip_grip",p,(side*.50,.19,1.32),(side*.49,-.16,1.32))
+    rod("assist_cable",p,(.17,.35,.87),(.17,.58,1.49),.005,"grip")
     return p
 
 
 def preacher_machine():
     p = part("preacher_machine"); _base(p, -0.5, 0.9); stack_tower(p, 0, 0.78, 0.48, 0.40, 1.45, 0.07)
-    pad("seat", p, (0.40, 0.36, 0.09), (0, 0.30, 0.46)); beam("seat_post", p, (0, 0.30, 0.4), (0, 0.30, 0.06), 0.08, "silver")
+    pad("seat", p, (0.40, 0.36, 0.09), (0, 0.30, 0.46)); beam("seat_post", p, (0, 0.30, 0.428), (0, 0.30, 0.06), 0.08, "silver")
     pad("arm_pad", p, (0.42, 0.50, 0.08), (0, 0.0, 0.85), (-40, 0, 0)); beam("pad_post", p, (0, 0.0, 0.80), (0, -0.05, 0.06), 0.09, "silver")
     for s in (-1, 1):
         beam("arm", p, (s * 0.14, 0.05, 1.0), (s * 0.20, -0.45, 0.88), 0.04, "silver"); rod("grip", p, (s * 0.20, -0.45, 0.88), (s * 0.20, -0.45, 1.0), 0.022, "grip")
+    _dial(p,.177,.05,1.00,.084)
+    beam("lever_mount",p,(0,.04,.73),(.14,.05,1.0),.038,"silver")
+    _seat_lever(p,.30,.34)
     return p
 
 
 def leg_press_horizontal():
     p = part("leg_press_horizontal"); _base(p, -0.9, 0.9); stack_tower(p, 0, 0.85, 0.48, 0.40, 1.4, 0.07)
-    pad("seat", p, (0.46, 0.46, 0.10), (0, 0.30, 0.46)); beam("seat_post", p, (0, 0.30, 0.4), (0, 0.30, 0.06), 0.1, "silver")
+    pad("seat", p, (0.46, 0.46, 0.10), (0, 0.30, 0.46)); beam("seat_post", p, (0, 0.30, 0.428), (0, 0.30, 0.06), 0.1, "silver")
     pad("back", p, (0.46, 0.10, 0.62), (0, 0.55, 0.85), (-12, 0, 0))
     box("foot_plate", p, (0.55, 0.06, 0.55), "silver", (0, -0.55, 0.70), (-10, 0, 0))
     for s in (-1, 1): beam("rail", p, (s * 0.30, -0.55, 0.40), (s * 0.30, 0.1, 0.40), 0.05, "silver")
@@ -151,13 +191,13 @@ def seated_leg_curl():
     pad("back", p, (0.42, 0.10, 0.62), (0, 0.38, 0.88), (-15, 0, 0))
     beam("back_post", p, (0, 0.44, 0.45), (0, 0.48, 1.05), 0.065, "silver")
     pad("thigh", p, (0.36, 0.26, 0.10), (0, -0.20, 0.68))
-    beam("thigh_arm", p, (0, -0.2, 0.62), (0, -0.2, 0.2), 0.045, "silver")
+    beam("thigh_arm", p, (0, -0.2, 0.65), (0, -0.2, 0.2), 0.045, "silver")
     cyl("thigh_pop_pin", p, 0.018, 0.045, "X", "accent", (0.06, -0.20, 0.52), sides=16)
     for s in (-1, 1):
         grip_handle("curl_grip", p, (s * 0.24, -0.26, 0.72), (s * 0.24, -0.10, 0.72), 0.020)
     lv = part("curl_lever"); lv.parent = p; lv.location = (0, -0.38, 0.35)
     pivot_hub("curl_pivot", lv, (0.21, 0.08, 0.08), r=0.056, width=0.06, axis="X")
-    cyl("curl_cam", lv, 0.12, 0.028, "X", "steel", (0.25, 0.08, 0.08), sides=28)
+    _dial(lv,.239,.08,.08,.111)
     cyl("roller", lv, 0.062, 0.42, "X", "pad", (0, -0.1, -0.1), sides=24)
     cyl("roller_cap_l", lv, 0.045, 0.016, "X", "steel", (-0.215, -0.1, -0.1), sides=20)
     cyl("roller_cap_r", lv, 0.045, 0.016, "X", "steel", (0.215, -0.1, -0.1), sides=20)
@@ -191,6 +231,8 @@ def standing_leg_curl():
 def hip_abductor():
     p = part("hip_abductor"); _base(p, -0.55, 0.9); stack_tower(p, 0, 0.78, 0.48, 0.40, 1.4, 0.07)
     _seat_unit(p, 0.15)
+    _dial(p,.19,-.03,.407,.079)
+    beam("range_mount",p,(0,.00,.38),(.19,-.03,.407),.031,"silver")
     for s in (-1, 1):
         beam("arm", p, (s * 0.10, -0.05, 0.50), (s * 0.40, -0.05, 0.56), 0.045, "silver")
         pivot_hub("abductor_hub", p, (s * 0.14, -0.05, 0.50), r=0.048, width=0.05, axis="Z")
@@ -264,8 +306,8 @@ def functional_trainer():
         beam("post_b", p, (s * W / 2, 0.40, 0), (s * W / 2, 0.40, H), 0.10, "frame", 0.10)
         beam("link", p, (s * W / 2, 0, H), (s * W / 2, 0.40, H), 0.08, "frame")
         stack_tower(p, s * (W / 2 + 0.28), 0.2, 0.22, 0.34, 1.6, 0.05)
-        beam("foot", p, (s * W / 2, -0.3, 0.04), (s * W / 2, 0.7, 0.04), 0.10, "frame", 0.08)
-        box("carriage", p, (0.10, 0.10, 0.16), "steel", (s * W / 2, -0.06, 1.3)); cyl("pulley", p, 0.06, 0.04, "X", "accent", (s * W / 2, -0.10, 1.3), 10)
+        beam("foot", p, (s * W / 2, -0.3, 0.04), (s * W / 2, 0.7, 0.04), 0.106, "frame", 0.083)
+        _trolley(p,s*W/2,1.30)
     beam("top", p, (-W / 2, 0, H), (W / 2, 0, H), 0.10); beam("top_b", p, (-W / 2, 0.4, H), (W / 2, 0.4, H), 0.10)
     beam("mid", p, (-W / 2, 0.4, 1.2), (W / 2, 0.4, 1.2), 0.08)
     return p
@@ -341,8 +383,9 @@ def kettlebell():
 
 
 def weight_plate():
-    p = part("weight_plate"); cyl("plate", p, 0.225, 0.05, "X", "plate", (0, 0, 0.225), 14); cyl("ring", p, 0.15, 0.056, "X", "accent", (0, 0, 0.225), 14)
-    cyl("face", p, 0.12, 0.058, "X", "plate", (0, 0, 0.225), 14); cyl("hub", p, 0.05, 0.06, "X", "steel", (0, 0, 0.225), 8); return p
+    p = part("weight_plate")
+    _plate(p,.225,.055,(0,0,.225),grips=True)
+    return p
 
 
 def hip_thrust_machine():
@@ -394,8 +437,12 @@ def dip_machine():
     p = part("dip_machine"); _base(p, -0.60, 0.9); stack_tower(p, 0, 0.80, 0.48, 0.40, 1.45, 0.07)
     _seat_unit(p, 0.18)
     for s in (-1, 1):
-        beam("arm", p, (s * 0.30, 0.10, 1.05), (s * 0.36, -0.30, 0.78), 0.07, "silver"); cyl("cam", p, 0.12, 0.05, "X", "silver", (s * 0.38, 0.12, 1.05), 10)
+        beam("arm", p, (s * 0.30, 0.10, 1.05), (s * 0.36, -0.30, 0.78), 0.07, "silver")
         rod("grip", p, (s * 0.36, -0.30, 0.78), (s * 0.36, -0.45, 0.78), 0.025, "grip")
+    beam("footbar_stem",p,(0,-.30,.075),(0,-.30,.218),.032,"silver")
+    _dial(p,.385,.12,1.05,.084)
+    for side in (-1,1):
+        beam("dip_mount",p,(0,.31,.65),(side*.30,.10,1.05),.039,"silver")
     box("foot_bar", p, (0.55, 0.08, 0.06), "silver", (0, -0.30, 0.22))
     return p
 

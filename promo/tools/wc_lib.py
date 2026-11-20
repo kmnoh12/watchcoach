@@ -221,7 +221,7 @@ def render_settings(sc, preview=False):
         pass
 
 
-GYM_FILL_ENERGY = {"Key": 0.24, "Fill": 0.16, "Rim": 0.30}
+GYM_FILL_ENERGY = {"Key": 0.16, "Fill": 0.045, "Rim": 0.09}
 
 
 def fixed_lights(c, kind="flat"):
@@ -497,9 +497,9 @@ def add_gym_light_glow(scene):
     glow = tree.nodes.new("CompositorNodeGlare")
     glow.inputs["Type"].default_value = "Fog Glow"
     glow.inputs["Quality"].default_value = "High"
-    glow.inputs["Threshold"].default_value = 5.4
-    glow.inputs["Strength"].default_value = 0.48
-    glow.inputs["Size"].default_value = 0.37
+    glow.inputs["Threshold"].default_value = 2.4
+    glow.inputs["Strength"].default_value = 0.38
+    glow.inputs["Size"].default_value = 0.45
     output = tree.nodes.new("NodeGroupOutput")
     tree.links.new(layers.outputs["Image"], glow.inputs["Image"])
     tree.links.new(glow.outputs["Image"], output.inputs["Image"])
@@ -511,14 +511,14 @@ def build_gym_strip_lights(c):
     channel = mat("Gym_StripChannel", (0.012, 0.012, 0.015), rough=0.8)
     strip = shadeless("Gym_WarmStripDiffuser", (1.0, 0.62, 0.25), strength=12.0)
     length = 8.65
-    for position, y in (("Front", -0.24), ("Back", 2.64)):
+    for position, y in (("Locker", -4.10), ("Front", -0.24), ("Back", 2.64)):
         box("StripChannel_" + position, (length, 0.068, 0.064), channel, c, (0, y, 3.560))
         cyl("CeilingStrip_" + position, 0.016, length - 0.01, strip, c, (0, y, 3.519), (0, 90, 0), seg=16)
 
         # Use real area lights for the room and the warm bounce around each diffuser.
         for name, z, tilt, width, energy, color in (
-            ("StripArea", 3.499, 0, 0.25, 830, (1.0, 0.84, 0.63)),
-            ("StripWash", 3.495, math.pi, 0.38, 200, (1.0, 0.73, 0.47)),
+            ("StripArea", 3.499, 0, 0.16, 528, (1.0, 0.84, 0.63)),
+            ("StripWash", 3.495, math.pi, 0.38, 115, (1.0, 0.73, 0.47)),
         ):
             light = bpy.data.lights.new(f"{name}_{position}", "AREA")
             light.shape = "RECTANGLE"
@@ -526,8 +526,14 @@ def build_gym_strip_lights(c):
             light.size_y = width
             light.energy = energy
             light.color = color
-            light.specular_factor = 0.42 if tilt == 0 else 0.0
+            light.specular_factor = 0.62 if tilt == 0 else 0.0
             light.use_shadow = tilt == 0
+            if tilt == 0:
+                try:
+                    light.use_shadow_jitter = True
+                    light.shadow_maximum_resolution = 0.012
+                except AttributeError:
+                    pass
             ob = bpy.data.objects.new(light.name, light)
             ob.location = (0, y, z)
             ob.rotation_euler.x = tilt
@@ -536,17 +542,24 @@ def build_gym_strip_lights(c):
 
 def build_gym_ceiling_lights(c):
     build_gym_strip_lights(c)
-    downlight = shadeless("Gym_Downlight", (1.0, 0.87, 0.64), strength=1.45)
+    downlight = shadeless("Gym_Downlight", (1.0, 0.87, 0.64), strength=2.6)
     for x in (-2.45, 0.0, 2.45):
-        for y in (-1.8, 0.65, 3.95):
+        for y in (-3.8, -1.8, 0.65, 3.95):
             # The ceiling underside is z=3.59 m. Only the lens face is visible.
             cyl("RecessedLens", 0.047, 0.012, downlight, c, (x, y, 3.587), seg=24)
             light = bpy.data.lights.new("RecessedSpot", "SPOT")
-            light.energy = 48
-            light.color = (1.0, 0.88, 0.72)
-            light.spot_size = math.radians(78)
-            light.spot_blend = 0.65
-            light.use_shadow = False
+            light.energy = 182 if y < -3.0 else 248
+            light.color = (1.0, 0.89, 0.74)
+            light.spot_size = math.radians(76)
+            light.spot_blend = 0.58
+            light.shadow_soft_size = 0.13
+            light.use_shadow = True
+            try:
+                light.use_shadow_jitter = True
+                light.shadow_maximum_resolution = 0.008
+                light.shadow_filter_radius = 1.4
+            except AttributeError:
+                pass
             ob = bpy.data.objects.new(light.name, light)
             ob.location = (x, y, 3.575)
             c.objects.link(ob)
@@ -595,7 +608,7 @@ def extend_gym_right(c):
     extend_mesh(right_baseboard, extension - mirror_extension)
     right_baseboard.location.x += mirror_extension
 
-    for position in ("Front", "Back"):
+    for position in ("Locker", "Front", "Back"):
         extend_mesh(c.objects["StripChannel_" + position], extension)
         extend_mesh(c.objects["CeilingStrip_" + position], extension, axis=2)
         for name in ("StripArea_", "StripWash_"):
@@ -1093,15 +1106,21 @@ def build_gym_daylight_window(parent, wall):
         box("Window " + name, (0.126, width + frame_overhang, 0.074), frame, window, (x - 0.025, y, zz))
 
     for name, location, target, size_x, size_y, power, color, shadow in (
-        ("Window daylight", (x - 0.22, y, z), (6.7, y - 1.15, 1.0), width - .10, 1.77, 1440, (0.87, 0.94, 1.0), True),
-        ("Daylight room fill", (10.7, -2.4, 3.28), (4.4, 1.6, 0.85), 6.5, 4.0, 462, (0.93, 0.96, 1.0), False),
+        ("Window daylight", (x - 0.22, y, z), (6.7, y - 1.15, 1.0), width - .10, 1.77, 1250, (0.86, 0.94, 1.0), True),
+        ("Daylight room fill", (10.7, -2.4, 3.28), (4.4, 1.6, 0.85), 6.5, 4.0, 140, (0.93, 0.96, 1.0), False),
     ):
         light = bpy.data.lights.new(name, "AREA")
         light.shape = "RECTANGLE"
         light.size, light.size_y = size_x, size_y
         light.energy, light.color = power, color
         light.use_shadow = shadow
-        light.specular_factor = 0.32 if shadow else 0
+        light.specular_factor = 0.36 if shadow else 0
+        if shadow:
+            try:
+                light.use_shadow_jitter = True
+                light.shadow_maximum_resolution = 0.012
+            except AttributeError:
+                pass
         obj = bpy.data.objects.new(name, light)
         window.objects.link(obj)
         obj.location = location
@@ -1245,9 +1264,34 @@ def build_gym_set(c):
         importlib.reload(mod)
     w = bpy.context.scene.world
     bg = next(n for n in w.node_tree.nodes if n.type == "BACKGROUND")
-    bg.inputs["Color"].default_value = (0.04, 0.04, 0.05, 1)
-    bg.inputs["Strength"].default_value = 0.20
-    bpy.context.scene.view_settings.exposure = -0.15
+    bg.inputs["Color"].default_value = (0.03, 0.032, 0.04, 1)
+    bg.inputs["Strength"].default_value = 0.06
+    sc = bpy.context.scene
+    sc.view_settings.view_transform = "AgX"
+    try:
+        sc.view_settings.look = "AgX - Medium High Contrast"
+    except TypeError:
+        sc.view_settings.look = "None"
+    sc.view_settings.exposure = 0.22
+    ee = sc.eevee
+    ee.taa_render_samples = max(ee.taa_render_samples, 64)
+    for attr, val in (
+        ("use_shadows", True),
+        ("shadow_resolution_scale", 1.0),
+        ("shadow_ray_count", 3),
+        ("shadow_step_count", 8),
+        ("shadow_pool_size", "512"),
+        ("use_raytracing", True),
+        ("use_fast_gi", True),
+        ("fast_gi_distance", 2.0),
+        ("fast_gi_ray_count", 4),
+        ("fast_gi_step_count", 12),
+        ("fast_gi_thickness_near", 0.25),
+    ):
+        try:
+            setattr(ee, attr, val)
+        except (AttributeError, TypeError):
+            pass
 
     wall_m = mat("Gym_Wall", (0.016, 0.017, 0.022), rough=0.85)
     wain_m = mat("Gym_Wainscot", (0.010, 0.011, 0.014), rough=0.72)
@@ -1637,9 +1681,11 @@ def key_transform(ob, frame, loc=None, rot_deg=None, scale=None):
 # ------------------------------------------------------------------ cameo boards
 
 CAMEOS = {
-    "samsung": ("samsung_portrait_original.webp", 1.0, "photo"),  # original portrait ratio (700x1078)
+    "samsung": ("samsung_square.png", 1.0, "photo"),
     "altman": ("altman_square.png", 1.0, "photo"),
     "amodei": ("amodei_square.png", 1.0, "photo"),
+    "musk": ("musk_square.png", 1.0, "photo"),
+    "hassabis": ("hassabis_square.png", 1.0, "photo"),
     "gpt": ("gpt_logo_filled.png", 1.0, "logo"),
     "claude": ("claude_logo.png", 1.0, "logo"),
     "gemini": ("gemini_logo.png", 1.0, "logo"),

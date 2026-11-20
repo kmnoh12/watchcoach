@@ -700,6 +700,102 @@ def build_gym_details(c):
         kb.rotation_euler.z = math.radians(rot_deg)
         kettlebell(c, kb, radius, color, label)
 
+    # 9) Lived-in personal workout props: shaker bottles/tumblers, folded gym towels, coiled lifting belt, locker duffel bag
+    for name, loc, rot_deg, body_col, lid_col, accent_col, metal in (
+        ("Shaker leg press", (6.18, -2.82, 0), 24, (.06, .07, .08), (.03, .03, .035), (.26, .82, .18), 0.08),
+        ("Tumbler dumbbell bench", (-0.38, 2.65, 0), -35, (.62, .65, .68), (.04, .04, .045), (.18, .19, .21), 0.85),
+        ("Shaker leg extension", (7.78, -2.55, 0), 115, (.14, .46, .82), (.88, .90, .92), (.08, .10, .12), 0.05),
+        ("Shaker dip machine", (3.12, -2.58, 0), -60, (.10, .11, .13), (.03, .03, .035), (.78, .10, .12), 0.10),
+    ):
+        btl = W.empty(name, c, loc)
+        btl.rotation_euler.z = math.radians(rot_deg)
+        shaker_bottle(c, btl, body_col, lid_col, accent_col, metal=metal)
+
+    for name, loc, rot_deg, col in (
+        ("Gym towel bench", (-1.68, 2.72, 0), 22, (.24, .26, .29)),
+        ("Gym towel leg press", (6.34, -2.52, 0), -18, (.08, .14, .28)),
+        ("Gym towel locker", (-1.85, -5.95, 0), 8, (.16, .17, .19)),
+    ):
+        tw = W.empty(name, c, loc)
+        tw.rotation_euler.z = math.radians(rot_deg)
+        folded_gym_towel(c, tw, col)
+
+    belt = W.empty("Lifting belt rack", c, (2.12, 3.32, 0))
+    belt.rotation_euler.z = math.radians(-32)
+    lifting_belt(c, belt)
+
+    bag = W.empty("Locker gym duffel bag", c, (-3.10, -5.85, 0))
+    bag.rotation_euler.z = math.radians(22)
+    gym_duffel_bag(c, bag)
+
+
+def shaker_bottle(c, root, body_color, lid_color, accent_color, metal=0.08):
+    """Tapered sports shaker bottle or insulated gym tumbler (~23 cm tall)."""
+    body_m = W.mat(f"ShakerBody_{body_color}", body_color, rough=0.28 if metal > 0.5 else 0.36, metal=metal)
+    lid_m = W.mat(f"ShakerLid_{lid_color}", lid_color, rough=0.42, metal=0.05)
+    acc_m = W.mat(f"ShakerAccent_{accent_color}", accent_color, rough=0.35, metal=0.05)
+    W.cyl("Shaker base", 0.036, 0.016, lid_m, c, (0, 0, 0.008), parent=root, seg=24)
+    # Tapered cup body
+    me = bpy.data.meshes.new("Shaker cup")
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, cap_tris=False, segments=24, radius1=0.035, radius2=0.044, depth=0.175)
+    bm.to_mesh(me); bm.free()
+    ob = bpy.data.objects.new("Shaker cup", me)
+    ob.data.materials.append(body_m)
+    ob.location = (0, 0, 0.098)
+    ob.parent = root
+    c.objects.link(ob)
+    smooth_mesh(ob)
+    # Measurement / grip accent ring
+    W.cyl("Shaker grip band", 0.0435, 0.018, acc_m, c, (0, 0, 0.145), parent=root, seg=24)
+    # Threaded lid + spout + carry loop
+    W.cyl("Shaker lid", 0.046, 0.032, lid_m, c, (0, 0, 0.198), parent=root, seg=24)
+    W.cyl("Shaker spout", 0.013, 0.022, acc_m, c, (0.018, 0, 0.222), parent=root, seg=16)
+    molded("Shaker flip cap", (0.034, 0.020, 0.012), acc_m, c, (0.014, 0, 0.234), root, radius=0.004)
+    piping("Shaker carry loop", [(-0.028, 0, 0.212), (-0.042, 0, 0.236), (-0.018, 0, 0.244), (-0.006, 0, 0.214)], 0.004, lid_m, c, root)
+
+
+def folded_gym_towel(c, root, color):
+    """Softly rounded folded cotton gym towel (~32 x 20 x 3.4 cm) with two-layer fold."""
+    towel_m = W.mat(f"GymTowel_{color}", color, rough=0.92, metal=0.0)
+    trim_col = tuple(min(1.0, ch * 1.35 + 0.04) for ch in color)
+    trim_m = W.mat(f"GymTowelTrim_{color}", trim_col, rough=0.88, metal=0.0)
+    molded("Towel bottom fold", (0.31, 0.20, 0.016), towel_m, c, (0, 0, 0.008), root, radius=0.006)
+    molded("Towel top fold", (0.295, 0.192, 0.016), towel_m, c, (0.004, -0.003, 0.024), root, radius=0.006)
+    molded("Towel hem stripe", (0.296, 0.014, 0.003), trim_m, c, (0.004, 0.068, 0.032), root, radius=0.001)
+
+
+def lifting_belt(c, root):
+    """Coiled leather weightlifting belt resting upright beside a rack."""
+    leather = W.mat("LiftingBelt_Leather", (0.025, 0.025, 0.028), rough=0.58, metal=0.05)
+    stitch = W.mat("LiftingBelt_Stitch", (0.72, 0.06, 0.07), rough=0.65, metal=0.0)
+    chrome = W.mat("Brushed alloy", (0.46, 0.50, 0.51), rough=0.27, metal=0.80)
+    # Coiled cylinder ring (open top/bottom)
+    pts = [(math.cos(a) * 0.145, math.sin(a) * 0.145, 0.054) for a in [math.radians(d) for d in range(0, 345, 18)]]
+    band("Lifting belt strap", pts, 0.105, 0.012, leather, c, root, closed=False)
+    for z_off in (0.012, 0.096):
+        s_pts = [(math.cos(a) * 0.1515, math.sin(a) * 0.1515, z_off) for a in [math.radians(d) for d in range(0, 345, 18)]]
+        piping("Belt trim", s_pts, 0.0022, stitch, c, root)
+    molded("Belt buckle frame", (0.016, 0.058, 0.074), chrome, c, (0.150, 0.0, 0.054), root, radius=0.003)
+    rod("Belt prong", (0.154, -0.022, 0.054), (0.154, 0.024, 0.054), 0.004, chrome, c, root)
+
+
+def gym_duffel_bag(c, root):
+    """Dark nylon gym duffel bag resting near the lockers."""
+    nylon = W.mat("GymBag_Nylon", (0.035, 0.038, 0.044), rough=0.78, metal=0.0)
+    webbing = W.mat("GymBag_Webbing", (0.018, 0.018, 0.022), rough=0.85, metal=0.0)
+    accent = W.mat("GymBag_Accent", (0.68, 0.07, 0.08), rough=0.55, metal=0.1)
+    chrome = W.mat("Brushed alloy", (0.46, 0.50, 0.51), rough=0.27, metal=0.80)
+    molded("Duffel main body", (0.48, 0.25, 0.23), nylon, c, (0, 0, 0.118), root, radius=0.055)
+    molded("Duffel front pocket", (0.26, 0.028, 0.14), nylon, c, (0, -0.128, 0.105), root, radius=0.012)
+    molded("Duffel zip accent", (0.24, 0.008, 0.010), accent, c, (0, -0.142, 0.165), root, radius=0.002)
+    for x in (-0.11, 0.11):
+        molded("Duffel strap band", (0.034, 0.258, 0.234), webbing, c, (x, 0, 0.118), root, radius=0.005)
+    for y_side in (-0.095, 0.095):
+        piping("Duffel handle", [(-0.11, y_side, 0.228), (-0.06, y_side * 0.65, 0.305), (0.06, y_side * 0.65, 0.305), (0.11, y_side, 0.228)], 0.008, webbing, c, root)
+    for x_end in (-0.242, 0.242):
+        W.cyl("Duffel D-ring", 0.014, 0.006, chrome, c, (x_end, 0, 0.165), (0, 90, 0), parent=root, seg=12)
+
 
 def build_set(parent):
     c=W.coll("Reel gym fixtures",parent)
@@ -1154,22 +1250,37 @@ def wall_ai_logo(who, loc, height, c):
     return root
 
 
+def _tweak_extra_bones(arm, tweaks):
+    """Apply subtle Euler degree offsets to pose bones so extras feel natural rather than cloned."""
+    from mathutils import Euler
+    for bname, degs in tweaks.items():
+        pb = arm.pose.bones.get(bname)
+        if not pb:
+            continue
+        delta = Euler([math.radians(d) for d in degs], "XYZ").to_quaternion()
+        if pb.rotation_mode == "QUATERNION":
+            pb.rotation_quaternion = pb.rotation_quaternion @ delta
+        else:
+            pb.rotation_euler.rotate(delta)
+
+
 def stage_easter_eggs():
     """Seat supporting WatchCoach extras on gym machines and hang cameo portraits & AI logos on the back wall."""
-    # 1) 5 supporting characters seated on machines across the gym (facing the mirror wall +Y)
-    for role, loc, face_deg, pose in (
-        ("gray",   (5.45,  0.97, 0), 180, "sit_phone"),  # chest press — staring at phone
-        ("red",    (2.65,  0.87, 0), 180, "sit"),        # shoulder press
-        ("yellow", (0.15,  2.85, 0), 180, "sit"),        # flat bench facing dumbbell mirror
-        ("blue",   (7.15, -2.30, 0), 180, "sit"),        # leg extension
-        ("green",  (3.75, -2.30, 0), 180, "sit_phone"),  # dip machine
+    # 1) 5 supporting characters across the gym with varied natural poses & head/torso angles
+    for role, loc, face_deg, pose, tweaks in (
+        ("gray",   (5.45,  0.97, 0), 180, "sit_phone",   {"head": (8, 0, -10), "neck": (4, 0, -4)}),       # chest press — scrolling phone
+        ("red",    (2.65,  0.87, 0), 180, "sit",         {"head": (-5, 0, 14), "spine.002": (5, 0, 6)}),    # shoulder press — glancing toward mirror
+        ("yellow", (-0.35, 3.65, 0), 172, "mirror_flex", {"head": (-4, 0, -8)}),                            # dumbbell mirror — flexing in mirror!
+        ("blue",   (7.15, -2.30, 0), 180, "sit",         {"head": (3, 0, -18), "spine.002": (4, 0, -10)}),  # leg extension — resting & looking right
+        ("green",  (3.75, -2.30, 0), 180, "sit_phone",   {"head": (6, 0, 11),  "spine.001": (4, 0, 5)}),    # dip machine — checking phone
     ):
         ex = W.add_extra(role, loc=loc, face_deg=face_deg)
         W.apply_pose(ex, pose)
+        _tweak_extra_bones(ex, tweaks)
 
-    # 2) Framed cameo portraits (samsung, altman, amodei) & AI logos (gpt, claude, gemini) on back wall above mirror
+    # 2) Framed cameo portraits (samsung, altman, amodei, musk, hassabis) & AI logos (gpt, claude, gemini) on back wall above mirror
     c = W.coll("CAMEO")
-    for who, x in (("samsung", 2.85), ("altman", 3.68), ("amodei", 4.52)):
+    for who, x in (("samsung", 1.77), ("altman", 2.55), ("amodei", 3.33), ("musk", 4.11), ("hassabis", 4.89)):
         wall_framed_portrait(who, (x, 4.97, 2.82), 0.44, c)
     for who, x in (("gpt", 8.15), ("claude", 9.05), ("gemini", 9.95)):
         wall_ai_logo(who, (x, 4.97, 2.82), 0.38, c)

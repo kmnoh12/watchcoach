@@ -9,8 +9,8 @@ COL = {"steel": (0.76, 0.79, 0.84, 1), "plate": (0.018, 0.019, 0.023, 1), "pad":
        "silver": (0.055, 0.060, 0.068, 1), "stack": (0.024, 0.027, 0.032, 1), "red": (0.72, 0.04, 0.05, 1),
        "wood": (0.45, 0.28, 0.14, 1)}
 PBR = {"steel": (0.16, 0.94), "plate": (0.48, 0.22), "pad": (0.44, 0.0),
-       "frame": (0.28, 0.38), "grip": (0.82, 0.0), "accent": (0.28, 0.12),
-       "silver": (0.32, 0.58), "stack": (0.42, 0.38), "red": (0.30, 0.28),
+       "frame": (0.33, 0.0), "grip": (0.82, 0.0), "accent": (0.28, 0.12),
+       "silver": (0.32, 0.58), "stack": (0.42, 0.38), "red": (0.32, 0.0),
        "wood": (0.50, 0.0)}
 
 
@@ -44,6 +44,23 @@ def mat(name):
             b.inputs["Base Color"].default_value = c
             b.inputs["Roughness"].default_value = rough
             b.inputs["Metallic"].default_value = metal
+            if name in ("frame", "red"):
+                b.inputs["Coat Weight"].default_value = 0.26
+                b.inputs["Coat Roughness"].default_value = 0.32
+            if name == "steel":
+                b.inputs["Anisotropic"].default_value = 0.32
+            if name in ("pad", "frame", "grip") and not b.inputs["Normal"].is_linked:
+                nodes, links = m.node_tree.nodes, m.node_tree.links
+                grain = nodes.new("ShaderNodeTexNoise")
+                grain.inputs["Scale"].default_value = 720 if name == "pad" else 1100
+                grain.inputs["Detail"].default_value = 1
+                coord = nodes.new("ShaderNodeTexCoord")
+                links.new(coord.outputs["Object"], grain.inputs["Vector"])
+                bump = nodes.new("ShaderNodeBump")
+                bump.inputs["Strength"].default_value = 0.16
+                bump.inputs["Distance"].default_value = 0.00032
+                links.new(grain.outputs["Fac"], bump.inputs["Height"])
+                links.new(bump.outputs["Normal"], b.inputs["Normal"])
     return m
 
 
@@ -80,15 +97,49 @@ def part(name):
     return e
 
 
+def _plate(p, radius, depth, loc, grips=False):
+    """Cast rim, recessed web and through-bore. Omit web sectors for hand holes."""
+    profile = [(0.115, .54), (.20, .54), (.24, .34), (.53, .34),
+               (.76, .34), (.80, .47), (.94, .50), (1, .40)]
+    bm = bmesh.new()
+    rings = []
+    for side in (-1, 1):
+        rings.append([[bm.verts.new((side * depth * z, radius * r * math.cos(i * math.tau / 36),
+                                     radius * r * math.sin(i * math.tau / 36))) for i in range(36)]
+                      for r, z in profile])
+    for row in rings:
+        for band in range(len(profile) - 1):
+            for i in range(36):
+                if grips and band == 3 and 2 <= i % 12 < 9:
+                    continue
+                j = (i + 1) % 36
+                bm.faces.new((row[band][i], row[band][j], row[band+1][j], row[band+1][i]))
+    opposite = {v: w for lower, upper in zip(*rings) for v, w in zip(lower, upper)}
+    edges = [e for e in bm.edges if e.is_boundary and e.verts[0] in opposite]
+    for edge in edges:
+        v,w = edge.verts
+        bm.faces.new((v,w,opposite[w],opposite[v]))
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    plate = _obj("cast_plate", bm, p, "plate", loc)
+    plate.data.materials.append(mat("steel"))
+    for face in plate.data.polygons:
+        if all(math.hypot(plate.data.vertices[i].co.y, plate.data.vertices[i].co.z)
+               <= radius*.201 for i in face.vertices):
+            face.material_index = 1
+    return plate
+
+
 def barbell(L=2.2, plate_r=0.225):
     p = part("barbell")
-    cyl("bar", p, 0.015, L, "X", "steel", sides=8)
+    cyl("bar", p, .015, max(.03,L-.10), "X", "steel", sides=16)
     for s in (-1, 1):
-        cyl("sleeve", p, 0.026, 0.42, "X", "steel", (s * (L / 2 - 0.21), 0, 0), 8)
-        cyl("endcap", p, 0.030, 0.03, "X", "accent", (s * (L / 2 - 0.015), 0, 0), 8)
-        for i, r in enumerate((plate_r, plate_r, plate_r * 0.78)):
-            cyl("plate", p, r, 0.032, "X", "plate", (s * (0.52 + i * 0.045), 0, 0), 12)
-        cyl("collar", p, 0.036, 0.04, "X", "accent", (s * 0.70, 0, 0), 6)
+        shoulder = L / 2 - .42
+        cyl("sleeve", p, .025, .42, "X", "steel", (s*(shoulder+.21),0,0))
+        cyl("flange", p, .041, .028, "X", "steel", (s*shoulder,0,0))
+        for i, r in enumerate((plate_r, plate_r, plate_r*.78)):
+            _plate(p, r, .032, (s*(shoulder+.034+i*.038),0,0))
+        cyl("lock_collar", p, .036, .032, "X", "silver", (s*(shoulder+.147),0,0))
+        cyl("end_badge", p, .017, .003, "X", "accent", (s*(L/2+.0008),0,0))
     return p
 
 
@@ -103,8 +154,9 @@ def dumbbell(head_r=0.082, head_len=0.085, handle_len=0.165):
     cyl("handle", p, 0.017, handle_len, "X", "steel", sides=20)
     offset = handle_len / 2 + head_len / 2 - 0.008
     for s in (-1, 1):
+        cyl("ferrule", p, 0.026, 0.015, "X", "steel", (s*(handle_len/2-0.013),0,0))
         cyl("head", p, head_r, head_len, "X", "plate", (s * offset, 0, 0), 24)
-        cyl("ring", p, head_r * 0.78, head_len + 0.006, "X", "accent", (s * offset, 0, 0), 24)
+        cyl("ring", p, head_r * 0.83, head_len + 0.006, "X", "silver", (s * offset, 0, 0), 24)
         cyl("cap", p, head_r * 0.54, head_len + 0.011, "X", "plate", (s * offset, 0, 0), 24)
     return p
 
