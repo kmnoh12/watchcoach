@@ -342,6 +342,7 @@ def solve_pose(arm, spec):
         pb.rotation_quaternion = (1, 0, 0, 0)
         pb.scale = (1, 1, 1)
     bpy.context.view_layer.update()
+    feet_rest = {n: arm.pose.bones[n].matrix.to_3x3().copy() for n in ("foot_l", "foot_r") if n in arm.pose.bones}
 
     # Root orientation
     root_pb = arm.pose.bones.get("pelvis") or arm.pose.bones[0]
@@ -366,15 +367,15 @@ def solve_pose(arm, spec):
             if pb:
                 aim_bone(pb, (twist_q @ wdir(s["aim"][bn])).normalized())
 
-    # Keep feet flat on ground
+    # Keep feet 100% flat on the floor using the V5 rig's exact rest foot orientation (matching bake_poses.py)
     if s.get("feet", "flat") == "flat":
-        for side in ("l", "r"):
-            fp = arm.pose.bones.get(f"foot_{side}")
+        twist_m = twist_q.to_matrix()
+        for fn, rest_m in feet_rest.items():
+            fp = arm.pose.bones.get(fn)
             if fp:
-                cur_y = fp.matrix.to_3x3().col[1]
-                horiz = Vector((cur_y.x, cur_y.y, 0))
-                if horiz.length > 1e-4:
-                    aim_bone(fp, horiz.normalized())
+                cur_m = fp.matrix.to_3x3()
+                tgt_m = twist_m @ rest_m
+                world_rot(fp, tgt_m @ cur_m.inverted())
 
     # Finger curls
     for side, style in s.get("fingers", {}).items():
