@@ -81,7 +81,8 @@ def molded(name, size, material, collection, xyz, parent, radius=.009):
 
 
 def printed_face(name, filename, width, height, xyz, root, collection, emissive=False):
-    path = Path(W.PARTS) / "gym_print" / filename
+    opt = Path(W.PARTS) / "gym_wall_opt" / (Path(filename).stem + ".jpg")
+    path = opt if opt.exists() else (Path(W.PARTS) / "gym_print" / filename)
     material = W.mat(name, (.6,.62,.6), rough=.59)
     shader = next(n for n in material.node_tree.nodes if n.type=="BSDF_PRINCIPLED")
     tex = next((n for n in material.node_tree.nodes if n.type=="TEX_IMAGE"),None) or material.node_tree.nodes.new("ShaderNodeTexImage")
@@ -1273,10 +1274,15 @@ def screen_switch(owner, display, labels, default):
 
 
 def wall_framed_portrait(who, loc, height, c):
-    """Mount a WatchCoach cameo portrait inside a sleek wall poster frame (facing -Y)."""
+    """Mount a WatchCoach cameo portrait inside a sleek wall poster frame (facing -Y).
+    Uses lightweight gym_wall_opt/<who>_wall.jpg when available while preserving high-res originals in W.CAMEOS."""
     import os
-    fn, _, _ = W.CAMEOS[who]
-    img_path = os.path.join(W.PARTS, fn)
+    opt_path = os.path.join(W.PARTS, "gym_wall_opt", f"{who}_wall.jpg")
+    if os.path.exists(opt_path):
+        img_path = opt_path
+    else:
+        fn, _, _ = W.CAMEOS[who]
+        img_path = os.path.join(W.PARTS, fn)
     im = bpy.data.images.load(img_path, check_existing=True)
     if not im.packed_file:
         im.pack()
