@@ -202,6 +202,7 @@ def reshape_female(arm_obj, body_obj):
                 + w.get("lowerarm_l", 0.0)
                 + w.get("lowerarm_r", 0.0)
             )
+            # Keep distal wrist/hand transition smooth: fade radial slimming near wrist
             if arm_limb_w > 0.05:
                 dom_b = max(
                     ("upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"),
@@ -212,9 +213,26 @@ def reshape_female(arm_obj, body_obj):
                 t_proj = max(0.0, min(1.0, (p - bh).dot(seg) / max(seg.length_squared, 1e-6)))
                 axis_pt = bh + seg * t_proj
                 axis_pt_shifted = Vector((axis_pt.x - side * shoulder_inward_x, axis_pt.y, axis_pt.z))
+                # Taper slimming from 15% on upper/mid arm down to 7% at wrist so hand join is seamless
+                slim = 0.15
+                if dom_b.startswith("lowerarm_"):
+                    slim = 0.15 - 0.08 * smoothstep(0.55, 0.95, t_proj)
                 cur = Vector((x, y, z))
                 radial = cur - axis_pt_shifted
-                cur = axis_pt_shifted + radial * (1.0 - 0.15 * min(1.0, arm_limb_w))
+                cur = axis_pt_shifted + radial * (1.0 - slim * min(1.0, arm_limb_w))
+                x, y, z = cur.x, cur.y, cur.z
+
+            # Gently slim female hand/fingers by 7% around wrist pivot to match slender wrist
+            hand_w = sum(
+                val for bn, val in w.items()
+                if bn.startswith(("hand_", "thumb_", "index_", "middle_", "ring_", "pinky_"))
+            )
+            if hand_w > 0.05:
+                hand_b = "hand_" + ("l" if side > 0 else "r")
+                wh = bone_segs[hand_b][0]
+                wrist_shifted = Vector((wh.x - side * shoulder_inward_x, wh.y, wh.z))
+                cur = Vector((x, y, z))
+                cur = wrist_shifted + (cur - wrist_shifted) * (1.0 - 0.07 * min(1.0, hand_w))
                 x, y, z = cur.x, cur.y, cur.z
 
         # 5. Lower body (fuller thighs, smooth hip-thigh transition, slimmer ankles)
@@ -269,8 +287,19 @@ def reshape_female(arm_obj, body_obj):
             else:
                 dx = -side * shoulder_inward_x
 
-        eb.head = Vector(((eb.head.x + dx) * scale_factor, eb.head.y * scale_factor, (eb.head.z - min_z) * scale_factor))
-        eb.tail = Vector(((eb.tail.x + dx) * scale_factor, eb.tail.y * scale_factor, (eb.tail.z - min_z) * scale_factor))
+        h_co = Vector((eb.head.x + dx, eb.head.y, eb.head.z))
+        t_co = Vector((eb.tail.x + dx, eb.tail.y, eb.tail.z))
+
+        # Match the 7% hand/finger slimming around the wrist pivot
+        if eb.name.startswith(("hand_", "thumb_", "index_", "middle_", "ring_", "pinky_")):
+            side = 1.0 if eb.name.endswith("_l") else -1.0
+            wh = bone_segs["hand_" + ("l" if side > 0 else "r")][0]
+            wrist_shifted = Vector((wh.x - side * shoulder_inward_x, wh.y, wh.z))
+            h_co = wrist_shifted + (h_co - wrist_shifted) * 0.93
+            t_co = wrist_shifted + (t_co - wrist_shifted) * 0.93
+
+        eb.head = Vector((h_co.x * scale_factor, h_co.y * scale_factor, (h_co.z - min_z) * scale_factor))
+        eb.tail = Vector((t_co.x * scale_factor, t_co.y * scale_factor, (t_co.z - min_z) * scale_factor))
 
         if eb.name == "head":
             eb.tail.z = TARGET_HEIGHT
@@ -487,6 +516,7 @@ def render_comparison(male_arm, female_bald_arm, female_hair_arm):
         ("three_quarter", (2.9, -4.1, 0.96), (0.12, 0.0, 0.86), False),
         ("side_female", (4.6, -0.06, 0.84), (0.95, -0.06, 0.82), True),
         ("back", (0.0, 4.9, 0.90), (0.0, 0.0, 0.86), False),
+        ("hands_closeup", (-0.45, -1.35, 0.88), (-0.46, -0.18, 0.82), False),
     ]
 
     for vname, loc, tgt, solo_hair in views:
