@@ -1615,7 +1615,10 @@ class WearWorkoutService : Service(), SensorEventListener {
                         sendLiveState("REST_COMPLETE", false, force = true)
                         broadcastState(force = true)
                     } else {
-                        handler.postDelayed(this, 1_000L)
+                        // Wake on the next whole second of the shared end time, not every 1 s from whenever rest began:
+                        // a free-running tick fired the 3·2·1 pulses up to a second after the phone's (100 ms) ones.
+                        val untilBoundary = ((restEndAtMs - System.currentTimeMillis()) % 1_000L).let { if (it <= 0L) 1_000L else it }
+                        handler.postDelayed(this, untilBoundary + REST_TICK_SLACK_MS)
                     }
                 } catch (error: Exception) { runtimeFailure("rest-timer", error) }
             }
@@ -2043,6 +2046,9 @@ class WearWorkoutService : Service(), SensorEventListener {
         if (cueDelayMs > 0L) handler.postDelayed({ if (atTarget) vibrateTargetReached(force = true) else vibrateShort(force = true) }, cueDelayMs)
         else if (atTarget) vibrateTargetReached() else vibrateShort()
         val vibratedNs = android.os.SystemClock.elapsedRealtimeNanos()
+        // The phone's rep number follows the buzz: a new rep skips the 1 s live-state throttle (one message per rep).
+        if (cueDelayMs > 0L) handler.postDelayed({ if (running) sendLiveState(currentWorkingPhase(), true, force = true) }, cueDelayMs)
+        else sendLiveState(currentWorkingPhase(), true, force = true)
         checkpoint()
         Log.i(TAG, "rep=$reps profile=${trackingProfile.id} eventNs=$endNs detectLagMs=${(callbackNs - endNs) / 1_000_000} " +
             "cueDelayMs=$cueDelayMs vibrateCallMs=${(vibratedNs - callbackNs) / 1_000_000} checkpointMs=${(android.os.SystemClock.elapsedRealtimeNanos() - vibratedNs) / 1_000_000}")
@@ -2734,6 +2740,8 @@ class WearWorkoutService : Service(), SensorEventListener {
         private const val NOTIFICATION_ID = 4102
         private const val REP_TICK_AMPLITUDE = 255
         private const val REP_TICK_MS = 100L
+        /** Lands the rest tick just past a whole second so the countdown has already changed. */
+        private const val REST_TICK_SLACK_MS = 5L
         private const val PHONE_HEARTBEAT_TIMEOUT_MS = 12_000L
         private const val PHONE_WATCHDOG_INTERVAL_MS = 3_000L
         private const val CAPTURE_PREFS = "capture-outbox"
