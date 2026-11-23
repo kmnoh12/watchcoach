@@ -25,7 +25,8 @@ internal class ExcursionRepDetector(
     private data class Point(val t: Long, val g: DoubleArray, val a: DoubleArray)
 
     private val isPress = profile.family == MotionFamily.PRESS_RETURN
-    private val isPressOrPull = isPress || profile.family == MotionFamily.PULL_RETURN
+    private val isPull = profile.family == MotionFamily.PULL_RETURN
+    private val isPressOrPull = isPress || isPull
     private val points = ArrayDeque<Point>()
     private val gBias = DoubleArray(3)
     private val gPos = DoubleArray(3)
@@ -259,6 +260,36 @@ internal class ExcursionRepDetector(
                 // A return that stopped short and then a full new pull: restart from that bottom. Kept on the old low, an
                 // unusually deep set-up motion or a few shallower reps merged every following rep into one over-long
                 // cycle that was then dropped (mag-grip lat pulldown, 2026-11-21 sets 2 and 3).
+                // Pull family only: the next pull proves the short one ended, so it is a rep when it came at least
+                // halfway back. Replayed on recorded sets (2026-11-23) it fixed two lat pulldown sets and broke none;
+                // on presses it added a false count, so they keep dropping cut-short returns.
+                val start = history[lowIndex].t
+                val rawTurn = history[highIndex].t
+                val end = history[troughIndex].t
+                val minSepNs = (max(minSepS, period * sepFrac) * 1e9).toLong()
+                if (isPull && high - trough >= SHORT_RETURN_FRACTION * (high - low) &&
+                    start < rawTurn && rawTurn < end && end > primeEndNs &&
+                    end - start >= profile.minimumRepMs * 1_000_000L &&
+                    end - start <= profile.maximumRepMs * 1_000_000L &&
+                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs)
+                ) {
+                    val turn = (rawTurn - 220_000_000L).coerceIn(start + 1_000_000L, (start + end) / 2L - 1_000_000L)
+                    val durMs = (end - start) / 1_000_000L
+                    val disp = 2.0 * (high - low)
+                    pending.addLast(
+                        ProfiledMotionRepEvent(
+                            startTimestampNs = start,
+                            turnaroundTimestampNs = turn,
+                            endTimestampNs = end,
+                            durationMs = durMs,
+                            peakMotionRate = disp / (durMs / 1000.0).coerceAtLeast(0.2),
+                            motionDisplacement = disp,
+                            trajectorySpread = profile.minimumTrajectorySpread.coerceAtLeast(0.05),
+                            confidence = 0.90,
+                        ),
+                    )
+                    deliveredNs = end
+                }
                 low = trough; lowIndex = troughIndex; high = value; highIndex = i; returning = false
                 continue
             }
@@ -299,6 +330,9 @@ internal class ExcursionRepDetector(
     private companion object {
         /** The principal motion axis must lie mostly along the forearm before its direction is trusted. */
         const val FOREARM_AXIS_MIN_X = 0.5
+
+        /** A cut-short return still counts when it covered this share of its pull before the next pull began. */
+        const val SHORT_RETURN_FRACTION = 0.5
     }
 }
 
