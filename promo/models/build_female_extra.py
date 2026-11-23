@@ -128,46 +128,18 @@ def reshape_female(arm_obj, body_obj):
         sx = 1.0 if x >= 0 else -1.0
         ax = abs(x)
 
-        # 1. Head: sculpt clean V6-like cranium, rounder occiput, soft dome crown,
-        #    and refined V-line jaw without ever touching the neck topology.
+        # 1. Head: smaller, slightly slimmer jaw/face
         if w_head > 0.0:
-            hc = Vector((0.0, -0.095, 1.628))
+            hc = Vector((0.0, -0.095, 1.625))
             rel = Vector((x, y, z)) - hc
-
-            # Smooth fade above neck so the neck junction stays 100% untouched
-            head_fade = smoothstep(1.520, 1.565, z) * w_head
-
-            # Base head proportion (+5% fuller than earlier small head)
-            sx_h = 0.92
-            sy_h = 0.94
-            sz_h = 0.94
-
-            # Soften boxy upper crown corners into a natural low-poly dome
-            crown_f = smoothstep(1.675, 1.745, z)
-            sx_h *= 1.0 - 0.10 * crown_f
-            sy_h *= 1.0 - 0.07 * crown_f
-
-            # Refine lower jaw into a clean feminine V-line taper
-            jaw_f = smoothstep(1.625, 1.535, z)
-            sx_h *= 1.0 - 0.14 * jaw_f
-
-            tx = hc.x + rel.x * sx_h
-            ty = hc.y + rel.y * sy_h
-            tz = hc.z + rel.z * sz_h - 0.006
-
-            # Add natural rounded occiput (back of skull, +Y) so profile isn't flat
-            back_mask = smoothstep(-0.085, -0.020, y)
-            g_occiput = gauss(z, 1.655, 0.052) * gauss(ax, 0.0, 0.075)
-            ty += 0.016 * g_occiput * back_mask
-
-            # Subtle forehead slope (-Y, high Z) & crisp chin point (-Y, low Z)
-            front_mask = smoothstep(-0.115, -0.175, y)
-            ty += 0.007 * smoothstep(1.665, 1.730, z) * front_mask  # gentle forehead slope back
-            ty -= 0.006 * gauss(z, 1.555, 0.028) * gauss(ax, 0.0, 0.032) * front_mask  # defined chin
-
-            x = x + (tx - x) * head_fade
-            y = y + (ty - y) * head_fade
-            z = z + (tz - z) * head_fade
+            # Extra slight taper on lower jaw (z < 1.61)
+            jaw_taper = 1.0 - 0.06 * smoothstep(1.63, 1.54, z)
+            tx = hc.x + rel.x * 0.86 * jaw_taper
+            ty = hc.y + rel.y * 0.88
+            tz = hc.z + rel.z * 0.89 - 0.010
+            x = x + (tx - x) * w_head
+            y = y + (ty - y) * w_head
+            z = z + (tz - z) * w_head
 
         # 2. Neck: slimmer
         if w_neck > 0.0:
