@@ -69,8 +69,15 @@ def step_cast():
     W.apply_pose(g, "triumph")
     roles = list(W.ROLES)
     poses = {"red": "carry_plate", "yellow": "mirror_flex", "gray": "phone_look", "blue": "sneak", "green": "shrug"}
-    heights = {"red": 1.0, "yellow": 1.03, "gray": 0.97, "blue": 0.95, "green": 1.05}
-    girth = {"red": 1.08, "yellow": 1.0, "gray": 0.95, "blue": 1.0, "green": 1.1}
+    # Uniform scale per extra (165 / 172 / 175 / 180 / 183 cm from 175cm base; no girth warp)
+    heights = {
+        "blue": 1.65 / 1.75,
+        "gray": 1.72 / 1.75,
+        "red": 1.75 / 1.75,
+        "yellow": 1.80 / 1.75,
+        "green": 1.83 / 1.75,
+    }
+    girth = dict(heights)
     xs = [-2.4, -1.45, 1.45, 2.4, 3.35]
     extras = []
     for x, r in zip(xs, roles):
