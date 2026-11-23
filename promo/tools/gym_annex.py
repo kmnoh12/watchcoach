@@ -850,7 +850,7 @@ def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
                     (ex + 0.015, 2.48, 1.14), rot=(0, 0, math.pi / 2), shaded=True)
 
     # Two standing X-banners crowding the right side near the elevator (exact Photo #1 cluttered sangga vibe!)
-    _standing_xbanner(c, ext, "Elev_XBanner_Golf", "sangga_elev/xbanner_golf.png",
+    _standing_xbanner(c, ext, "Elev_XBanner_Golf", "sangga_elev/xbanner_golf.jpg",
                       (ex + 0.42, 2.34, 0.0), rot_z_deg=68.0, width=0.54, height=1.48)
     _standing_xbanner(c, ext, "Elev_XBanner_Mart", "sangga_elev/xbanner_mart.png",
                       (ex + 1.18, 2.46, 0.0), rot_z_deg=38.0, width=0.56, height=1.52)
