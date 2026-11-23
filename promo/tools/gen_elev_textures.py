@@ -22,38 +22,115 @@ def save_img(img, name):
     print("saved", path)
 
 
-def make_hydrant():
-    """Korean indoor fire hydrant cabinet (옥내소화전)."""
-    img = Image.new("RGB", (512, 820), (218, 220, 224))
+def _rrect(d, box, r, fill=None, outline=None, width=1):
+    d.rounded_rectangle(box, radius=r, fill=fill, outline=outline, width=width)
+
+
+def _hydrant_icon(d, kind, box):
+    """Tiny flat cartoon panels for the 4-step hydrant instructions (person, hose coil, valve, nozzle spray)."""
+    x0, y0, x1, y1 = box
+    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+    skin, coat, helmet = (246, 214, 176), (232, 196, 58), (236, 206, 72)
+    dark, hose_c = (52, 56, 64), (150, 156, 166)
+    def person(px, py, s=1.0, arm_dx=40):
+        d.ellipse([px - 26 * s, py - 92 * s, px + 26 * s, py - 42 * s], fill=skin, outline=dark, width=3)
+        d.pieslice([px - 30 * s, py - 104 * s, px + 30 * s, py - 56 * s], 180, 360, fill=helmet, outline=dark, width=3)
+        _rrect(d, [px - 30 * s, py - 44 * s, px + 30 * s, py + 30 * s], int(10 * s), fill=coat, outline=dark, width=3)
+        d.line([px + 18 * s, py - 24 * s, px + arm_dx * s, py - 30 * s], fill=dark, width=int(12 * s))
+        d.rectangle([px - 24 * s, py + 30 * s, px - 6 * s, py + 62 * s], fill=dark)
+        d.rectangle([px + 6 * s, py + 30 * s, px + 24 * s, py + 62 * s], fill=dark)
+    def coil(px, py, r):
+        for k in range(4):
+            rr = r - k * 13
+            d.ellipse([px - rr, py - rr * 0.62, px + rr, py + rr * 0.62], outline=hose_c, width=9)
+        d.ellipse([px - 22, py - 14, px + 22, py + 14], fill=(90, 96, 106))
+    def hand(px, py):
+        _rrect(d, [px - 52, py - 34, px + 46, py + 34], 30, fill=skin, outline=(170, 130, 96), width=4)
+        for k in range(3):
+            d.line([px - 30 + k * 24, py - 30, px - 30 + k * 24, py - 6], fill=(190, 150, 112), width=4)
+    if kind == 1:
+        person(x0 + 78, cy + 22, 0.95, 62)
+        _rrect(d, [cx + 26, y0 + 26, x1 - 26, y1 - 26], 8, fill=(168, 172, 180), outline=dark, width=4)
+        for k in range(5):
+            d.line([cx + 40, y0 + 52 + k * 22, x1 - 40, y0 + 52 + k * 22], fill=(120, 124, 132), width=4)
+        d.ellipse([cx + 54, y0 + 36, cx + 82, y0 + 64], fill=(214, 34, 34), outline=dark, width=3)
+    elif kind in (2, 4):
+        coil(cx + 20, cy, 76)
+        hand(cx - 46, cy + (8 if kind == 2 else -6))
+    else:
+        flame = [(x0 + 40, cy + 60), (x0 + 26, cy), (x0 + 52, cy - 40), (x0 + 62, cy - 8), (x0 + 80, cy - 70),
+                 (x0 + 104, cy - 6), (x0 + 120, cy - 30), (x0 + 128, cy + 60)]
+        d.polygon(flame, fill=(236, 92, 28), outline=(180, 40, 20))
+        d.polygon([(x0 + 58, cy + 56), (x0 + 60, cy + 10), (x0 + 82, cy - 20), (x0 + 100, cy + 20), (x0 + 110, cy + 56)],
+                  fill=(252, 200, 60))
+        for k in range(5):
+            d.line([x0 + 150, cy - 4 + (k - 2) * 7, x0 + 138 - k * 3, cy - 4 + (k - 2) * 14], fill=(96, 170, 236), width=5)
+        d.line([x0 + 150, cy - 4, x1 - 90, cy - 10], fill=(70, 74, 82), width=12)
+        person(x1 - 64, cy + 22, 0.95, -44)
+
+
+def make_hydrant_sticker():
+    """'소화전 사용방법' 4-step white instruction sticker on the hydrant door (190 x 152 mm @ 8 px/mm)."""
+    W, H = 1520, 1216
+    img = Image.new("RGB", (W, H), (250, 250, 248))
     d = ImageDraw.Draw(img)
-    # Outer metallic bezel
-    d.rectangle([8, 8, 504, 812], fill=(205, 208, 212), outline=(120, 124, 130), width=6)
-    # Upper bell & indicator panel
-    d.rectangle([28, 28, 484, 210], fill=(230, 232, 236), outline=(150, 154, 160), width=3)
-    # Red fire bell circle (left) + red alarm lamp (right)
-    d.ellipse([72, 56, 200, 184], fill=(196, 26, 26), outline=(120, 14, 14), width=5)
-    d.ellipse([122, 106, 150, 134], fill=(230, 180, 180))
-    d.ellipse([320, 74, 396, 150], fill=(225, 36, 36), outline=(110, 18, 18), width=4)
-    d.text((314, 158), "발신기", fill=(40, 40, 44), font=font(26, 7))
-
-    # Red hydrant title band
-    d.rectangle([28, 230, 484, 340], fill=(195, 24, 28))
-    d.text((92, 250), "옥내소화전", fill=(255, 255, 255), font=font(68, 8))
-
-    # Lower door panel + instructions
-    d.rectangle([28, 358, 484, 788], fill=(226, 228, 232), outline=(145, 148, 154), width=3)
-    d.text((76, 405), "화재시 사용방법", fill=(185, 24, 28), font=font(42, 8))
-    lines = [
-        "1. 소화전 문을 열고 관창을 잡는다",
-        "2. 호스를 화재 지점까지 펼친다",
-        "3. 개폐밸브를 왼쪽으로 돌린다",
-        "4. 노즐을 불을 향해 분사한다",
+    d.rectangle([0, 0, W - 1, H - 1], outline=(196, 198, 202), width=6)
+    # Title block
+    _rrect(d, [48, 36, W - 48, 232], 26, fill=(255, 255, 255), outline=(150, 152, 158), width=5)
+    title = "소화전  사용방법"
+    tf = font(104, 14)
+    tw = d.textlength(title, font=tf)
+    d.text(((W - tw) / 2, 50), title, fill=(178, 28, 34), font=tf)
+    sub = "Operation of Starting System Fire Wall Cabinet"
+    sf = font(36, 6)
+    d.text(((W - d.textlength(sub, font=sf)) / 2, 160), sub, fill=(40, 42, 48), font=sf)
+    sub2 = "옥내소화전설비  ·  화재시 사용요령"
+    sf2 = font(28, 2)
+    d.text(((W - d.textlength(sub2, font=sf2)) / 2, 198), sub2, fill=(120, 122, 128), font=sf2)
+    steps = [
+        ("문을 열고 ", "발신기 누름버튼", "을 눌러 알린다",
+         "Open the cabinet door and push the alarm button.", "화재경보가 울리고 펌프가 자동으로 기동됩니다."),
+        ("소화전 ", "호스", "를 꺼내 불이 난 곳까지 펼친다",
+         "Pull the hose out toward the fire without kinks.", "호스가 꼬이지 않도록 길게 펼쳐 주세요."),
+        ("노즐을 잡고 ", "앵글밸브", "를 왼쪽으로 돌려 연다",
+         "Hold the nozzle and turn the valve counterclockwise.", "두 사람이 함께 조작하면 더욱 안전합니다."),
+        ("불을 향해 방수한 뒤 ", "소화전함 문", "을 닫는다",
+         "Spray at the base of the fire, then close the cabinet.", "사용 후에는 관리사무소에 꼭 알려 주세요."),
     ]
-    for i, ln in enumerate(lines):
-        d.text((54, 485 + i * 52), ln, fill=(45, 48, 52), font=font(28, 5))
-    # Chrome door handle on right
-    d.rectangle([420, 540, 456, 650], fill=(155, 160, 168), outline=(90, 94, 100), width=3)
-    save_img(img, "hydrant_front.png")
+    row_top, row_h, gap = 262, 222, 12
+    kf, kfb, ef, jf = font(42, 6), font(42, 14), font(31, 2), font(29, 2)
+    for i, (k1, kk, k2, en, k3) in enumerate(steps):
+        y0 = row_top + i * (row_h + gap)
+        y1 = y0 + row_h
+        d.rectangle([48, y0, 196, y1], fill=(166, 40, 38))
+        nf = font(176, 14)
+        n = str(i + 1)
+        d.text((122 - d.textlength(n, font=nf) / 2, y0 + 4), n, fill=(255, 255, 255), font=nf)
+        _rrect(d, [206, y0, 1146, y1], 18, fill=(255, 255, 255), outline=(150, 152, 158), width=4)
+        x = 230
+        d.text((x, y0 + 24), k1, fill=(28, 44, 96), font=kf)
+        x += d.textlength(k1, font=kf)
+        d.text((x, y0 + 24), kk, fill=(196, 28, 34), font=kfb)
+        x += d.textlength(kk, font=kfb)
+        d.text((x, y0 + 24), k2, fill=(28, 44, 96), font=kf)
+        d.text((230, y0 + 96), "• " + en, fill=(46, 48, 56), font=ef)
+        d.text((230, y0 + 150), "• " + k3, fill=(96, 98, 106), font=jf)
+        _rrect(d, [1160, y0, W - 48, y1], 18, fill=(255, 255, 255), outline=(150, 152, 158), width=4)
+        _hydrant_icon(d, i + 1, (1160, y0, W - 48, y1))
+    save_img(img, "hydrant_sticker.png")
+
+
+def make_hydrant_nameplate(label="소화전 3번   1계통 32"):
+    """Small red management-number plate in the top-right of the hydrant alarm panel (113 x 36 mm @ 12 px/mm)."""
+    W, H = 1356, 432
+    img = Image.new("RGB", (W, H), (226, 228, 230))
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, W - 1, H - 1], outline=(168, 170, 176), width=8)
+    d.rectangle([44, 52, W - 44, H - 52], fill=(232, 96, 102), outline=(176, 34, 44), width=10)
+    f = font(118, 6)
+    tw = d.textlength(label, font=f)
+    d.text(((W - tw) / 2, (H - 118) / 2 - 20), label, fill=(150, 18, 30), font=f)
+    save_img(img, "hydrant_nameplate.png")
 
 
 def make_floor_guide():
@@ -210,7 +287,8 @@ def make_elev_stickers():
 
 
 if __name__ == "__main__":
-    make_hydrant()
+    make_hydrant_sticker()
+    make_hydrant_nameplate()
     make_floor_guide()
     make_notice_orange()
     make_derma_panel()

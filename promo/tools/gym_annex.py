@@ -4,7 +4,7 @@ import math
 import os
 import bmesh
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 import wc_lib as W
 
 
@@ -831,13 +831,8 @@ def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
         W.cyl(f"ElevBtnGlow_{b_idx}", 0.011, 0.014, btn_glow_m, c, (ex + 0.035, 2.05, bz), (0, 90, 0), parent=ext, seg=12)
 
     # 6) LEFT SIDE (Y = 0.00 .. 0.72): Korean indoor fire hydrant (옥내소화전) + floor extinguisher + 3F sign
-    # 3D metal fire hydrant cabinet mounted on left gray granite flank
-    hyd_root = W.empty("Elev_FireHydrant", c, (ex + 0.03, 0.36, 1.24), parent=ext)
-    _molded("Hydrant_Box", (0.06, 0.56, 1.06), steel_m, c, (0, 0, 0), hyd_root, 0.004)
-    _textured_plane(c, hyd_root, "Hydrant_Face", "sangga_elev/hydrant_front.png", 0.53, 1.02,
-                    (0.032, 0, 0), rot=(0, 0, math.pi / 2), shaded=True)
-    # Recessed chrome cabinet handle on right edge of hydrant door
-    _molded("Hydrant_Handle", (0.015, 0.022, 0.09), chrome_m, c, (0.036, 0.22, -0.04), hyd_root, 0.003)
+    # High-detail 3D stainless fire hydrant cabinet (alarm panel + hose door) flush on the left gray granite flank
+    build_indoor_fire_hydrant(c, ext, (ex + 0.03, 0.36, 1.24))
     # Gold '3F' floor number above hydrant (Photo #1 style!)
     _text(c, ext, "Elev_3F_Label", "3F", (ex + 0.018, 0.36, 2.02), 0.16, gold_m, rot=(math.pi / 2, 0, math.pi / 2))
     # Red Korean 3.3kg fire extinguisher on floor right in front of hydrant
@@ -889,6 +884,446 @@ def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
     _molded("Elev_LeftBox", (0.34, 0.14, 0.44), wall_m, c, (-10.65, 0.08, 1.45), ext, 0.005)
     _molded("Elev_LeftBox_Trim", (0.30, 0.02, 0.04), steel_m, c, (-10.65, 0.15, 1.60), ext, 0.002)
 
+
+
+# ---------------------------------------------------------------------------
+# Korean indoor fire hydrant cabinet (옥내소화전 + 발신기 경보 패널), built part by part.
+# All parts live under a "face" empty whose local axes are: x = across the cabinet (viewer's right),
+# y = up, z = out of the wall (z = 0 is the wall surface). Sizes below are in metres.
+# ---------------------------------------------------------------------------
+
+def _hyd_brushed_mat(name, vertical=False):
+    """Brushed stainless with fine hairline grain (direction = along x, or along y when vertical)."""
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = bpy.data.materials.new(name)
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1400.0, 4.0, 4.0) if vertical else (4.0, 1400.0, 4.0)
+    fine = nt.nodes.new("ShaderNodeTexNoise")
+    fine.inputs["Scale"].default_value = 1.0
+    fine.inputs["Detail"].default_value = 4.0
+    broad = nt.nodes.new("ShaderNodeTexNoise")
+    broad.inputs["Scale"].default_value = 9.0
+    broad.inputs["Detail"].default_value = 1.0
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "FLOAT"
+    mix.inputs["Factor"].default_value = 0.45
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.30
+    ramp.color_ramp.elements[0].color = (0.57, 0.575, 0.58, 1.0)
+    ramp.color_ramp.elements[1].position = 0.72
+    ramp.color_ramp.elements[1].color = (0.68, 0.685, 0.69, 1.0)
+    rough = nt.nodes.new("ShaderNodeMapRange")
+    rough.inputs["From Min"].default_value = 0.3
+    rough.inputs["From Max"].default_value = 0.7
+    rough.inputs["To Min"].default_value = 0.34
+    rough.inputs["To Max"].default_value = 0.46
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.02
+    bump.inputs["Distance"].default_value = 0.0003
+    L = nt.links.new
+    L(tc.outputs["Object"], mp.inputs["Vector"])
+    L(mp.outputs["Vector"], fine.inputs["Vector"])
+    L(tc.outputs["Object"], broad.inputs["Vector"])
+    L(fine.outputs["Fac"], mix.inputs["A"])
+    L(broad.outputs["Fac"], mix.inputs["B"])
+    L(mix.outputs["Result"], ramp.inputs["Fac"])
+    L(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    L(fine.outputs["Fac"], rough.inputs["Value"])
+    L(rough.outputs["Result"], bsdf.inputs["Roughness"])
+    L(fine.outputs["Fac"], bump.inputs["Height"])
+    L(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    bsdf.inputs["Metallic"].default_value = 1.0
+    m.diffuse_color = (0.6, 0.6, 0.61, 1)
+    return m
+
+
+def _hyd_glass_mat(name="Hyd_ClearCover"):
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = bpy.data.materials.new(name)
+    b = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    b.inputs["Base Color"].default_value = (0.92, 0.94, 0.96, 1)
+    b.inputs["Roughness"].default_value = 0.04
+    b.inputs["Alpha"].default_value = 0.16
+    try:
+        m.surface_render_method = "BLENDED"
+    except (AttributeError, TypeError):
+        pass
+    return m
+
+
+def _hyd_lamp_mat(name="Hyd_LampDomeRed"):
+    """Glowing red alarm-lamp dome: small pinkish-white hot core fading to saturated red, deep red at the rim."""
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = bpy.data.materials.new(name)
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    b.inputs["Base Color"].default_value = (0.55, 0.02, 0.02, 1)
+    b.inputs["Roughness"].default_value = 0.12
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1 / 0.030, 1 / 0.030, 0.0)
+    grad = nt.nodes.new("ShaderNodeTexGradient")
+    grad.gradient_type = "SPHERICAL"
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    els = ramp.color_ramp.elements
+    els[0].position, els[0].color = 0.0, (0.30, 0.0, 0.0, 1)
+    els[1].position, els[1].color = 1.0, (1.0, 0.80, 0.74, 1)
+    for pos, col in ((0.25, (0.80, 0.02, 0.015, 1)), (0.62, (1.0, 0.08, 0.04, 1)), (0.82, (1.0, 0.42, 0.34, 1))):
+        e = els.new(pos)
+        e.color = col
+    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], grad.inputs["Vector"])
+    nt.links.new(grad.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], b.inputs["Emission Color"])
+    b.inputs["Emission Strength"].default_value = 3.0
+    m.diffuse_color = (1.0, 0.1, 0.05, 1)
+    return m
+
+
+def _hyd_smooth(ob, angle=38.0):
+    me = ob.data
+    try:
+        me.shade_smooth()
+        me.set_sharp_from_angle(angle=math.radians(angle))
+    except (AttributeError, TypeError):
+        for p in me.polygons:
+            p.use_smooth = True
+    return ob
+
+
+def _hyd_bevel(ob, width, segments=3, angle=40.0):
+    bv = ob.modifiers.new("Bevel", "BEVEL")
+    bv.width = width
+    bv.segments = segments
+    bv.limit_method = "ANGLE"
+    bv.angle_limit = math.radians(angle)
+    return bv
+
+
+def _hyd_stadium(w, h, n=14):
+    """Outline of a vertical pill (stadium) shape centred on the origin, counter-clockwise."""
+    r = w / 2
+    s = max(h / 2 - r, 0.0)
+    pts = [(r * math.cos(math.pi * i / n), s + r * math.sin(math.pi * i / n)) for i in range(n + 1)]
+    pts += [(r * math.cos(math.pi + math.pi * i / n), -s + r * math.sin(math.pi + math.pi * i / n)) for i in range(n + 1)]
+    return pts
+
+
+def _hyd_prism(name, pts, z0, z1, material, c, parent, loc=(0, 0, 0)):
+    """Extrude a convex 2D outline (x, y) between z0 and z1."""
+    bm = bmesh.new()
+    lo = [bm.verts.new((x, y, z0)) for x, y in pts]
+    hi = [bm.verts.new((x, y, z1)) for x, y in pts]
+    bm.faces.new(hi)
+    bm.faces.new(list(reversed(lo)))
+    n = len(pts)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return W.mesh_obj(name, bm, material, c, loc, (0, 0, 0), parent)
+
+
+def _hyd_disc(name, r, z0, z1, material, c, parent, xy, seg=48):
+    ob = W.cyl(name, r, z1 - z0, material, c, (xy[0], xy[1], (z0 + z1) / 2), parent=parent, seg=seg)
+    return _hyd_smooth(ob)
+
+
+def _hyd_dome(name, r, height, z_base, material, c, parent, xy, seg=40):
+    """Half UV-sphere squashed to `height`, sitting on z_base and bulging toward +z."""
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=seg // 2, radius=r)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -1e-6], context="VERTS")
+    bmesh.ops.scale(bm, vec=(1.0, 1.0, height / r), verts=bm.verts)
+    ob = W.mesh_obj(name, bm, material, c, (xy[0], xy[1], z_base), (0, 0, 0), parent)
+    for p in ob.data.polygons:
+        p.use_smooth = True
+    return ob
+
+
+def _hyd_apply_cuts(ob, cutters):
+    """Bake the object's modifier stack plus boolean DIFFERENCE cuts into its mesh, then drop the cutters."""
+    for k, cu in enumerate(cutters):
+        md = ob.modifiers.new(f"Cut{k}", "BOOLEAN")
+        md.operation = "DIFFERENCE"
+        md.object = cu
+        md.solver = "EXACT"
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
+    old = ob.data
+    ob.modifiers.clear()
+    ob.data = me
+    me.name = ob.name
+    bpy.data.meshes.remove(old)
+    for cu in cutters:
+        cm = cu.data
+        bpy.data.objects.remove(cu, do_unlink=True)
+        bpy.data.meshes.remove(cm)
+    return ob
+
+
+def _hyd_pocket_handle(name, w, h, z_face, c, parent, xy, plastic_m, cavity_m, depth=0.0095, rim=0.0045):
+    """Recessed grey plastic pull pocket: pill-shaped 2 mm flange on the panel and a hollow tray behind it.
+    Returns the cutter outline (w, h) that has to be cut through the panel."""
+    t, lip, n = 0.0014, 0.0018, 16
+    outer = _hyd_stadium(w, h, n)
+    inner = _hyd_stadium(w - 2 * rim, h - 2 * rim, n)
+    mid = _hyd_stadium(w - 2 * rim + 2 * t, h - 2 * rim + 2 * t, n)
+    loops = [(outer, z_face + lip), (outer, z_face), (mid, z_face), (mid, z_face - depth - t),
+             (inner, z_face - depth), (inner, z_face + lip)]
+    bm = bmesh.new()
+    rings = [[bm.verts.new((x, y, z)) for x, y in pts] for pts, z in loops]
+    m = len(outer)
+    for a, b_ in ((0, 1), (1, 2), (2, 3), (4, 5), (5, 0)):
+        ra, rb = rings[a], rings[b_]
+        for i in range(m):
+            j = (i + 1) % m
+            bm.faces.new((ra[i], ra[j], rb[j], rb[i]))
+    bm.faces.new(rings[3])
+    bm.faces.new(list(reversed(rings[4])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    tray = W.mesh_obj(name, bm, plastic_m, c, (xy[0], xy[1], 0), (0, 0, 0), parent)
+    tray.data.materials.append(cavity_m)
+    for p in tray.data.polygons:  # darker, slightly sooty inner floor of the pocket
+        if p.normal.z > 0.9 and p.center.z < z_face - depth * 0.5:
+            p.material_index = 1
+    _hyd_smooth(tray, 50.0)
+    return (w - 2 * rim + 2 * t + 0.0008, h - 2 * rim + 2 * t + 0.0008)
+
+
+def _hyd_letter(name, body, size, xy, z_back, material, c, parent, extrude=0.0024, bevel=0.0012, embolden=0.0):
+    """Real 3D bevelled letter mesh whose back face floats ~1.5 mm in front of z_back (soft contact shadow)."""
+    cu = bpy.data.curves.new(name, "FONT")
+    cu.body = body
+    cu.font = W.load_font(W.KFONT)
+    cu.size = size
+    cu.align_x = "CENTER"
+    cu.align_y = "CENTER"
+    cu.extrude = extrude
+    cu.bevel_depth = bevel
+    cu.bevel_resolution = 3
+    cu.offset = embolden
+    tmp = bpy.data.objects.new(name + "_tmp", cu)
+    c.objects.link(tmp)
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(dg))
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    bpy.data.curves.remove(cu)
+    xs = [v.co.x for v in me.vertices]
+    ys = [v.co.y for v in me.vertices]
+    zs = [v.co.z for v in me.vertices]
+    off = Vector(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2, min(zs)))
+    for v in me.vertices:
+        v.co -= off
+    me.materials.clear()
+    me.materials.append(material)
+    ob = bpy.data.objects.new(name, me)
+    c.objects.link(ob)
+    ob.parent = parent
+    ob.location = (xy[0], xy[1], z_back + 0.0015)
+    return _hyd_smooth(ob, 32.0)
+
+
+def _hyd_decal(name, img_name, w, h, xy, z, c, parent, rough=0.38):
+    """UV-mapped image plane facing +z (sticker / printed plate) with a shaded semi-gloss material."""
+    im = bpy.data.images.load(os.path.join(W.PARTS, img_name), check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    m = bpy.data.materials.new(f"Mat_{name}")
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    b.inputs["Roughness"].default_value = rough
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = im
+    tex.interpolation = "Cubic"
+    nt.links.new(tex.outputs["Color"], b.inputs["Base Color"])
+    hw, hh = w / 2, h / 2
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([(-hw, -hh, 0), (hw, -hh, 0), (hw, hh, 0), (-hw, hh, 0)], [], [(0, 1, 2, 3)])
+    uv = me.uv_layers.new()
+    for loop, co in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+        loop.uv = co
+    me.materials.append(m)
+    ob = bpy.data.objects.new(name, me)
+    ob.location = (xy[0], xy[1], z)
+    ob.parent = parent
+    c.objects.link(ob)
+    return ob
+
+
+def build_indoor_fire_hydrant(c, parent, loc, name="Elev_FireHydrant"):
+    """High-detail Korean flush-mounted indoor fire hydrant cabinet (옥내소화전) matching the reference photo:
+    mitered brushed-stainless outer frame, upper alarm panel (pull pocket, red round 발신기 with blue plate and
+    clear push-button window, glowing red 표시등 + chrome pilot lamp, red pump switch box with clear cover,
+    perforated speaker grille, red 관리번호 plate) split by a stainless bar from the lower door (사용방법 sticker,
+    pull pocket, raised bevelled gold 소/화/전 and 방수구 letters). 0.60 m x 1.06 m, 22 mm proud of the wall.
+    `loc` is the cabinet centre in `parent` space, 30 mm in front of a wall facing parent +X."""
+    root = W.empty(name, c, loc, parent=parent)
+    face = W.empty("Hydrant_FaceFrame", c, (-0.03, 0.0, 0.0), parent=root, size=0.05)
+    face.rotation_euler = (math.pi / 2, 0.0, math.pi / 2)
+
+    W2, H2, F = 0.300, 0.530, 0.035          # half width, half height, frame band
+    IW, IH = W2 - F, H2 - F                   # inner opening half sizes (0.265, 0.495)
+    Z_FRAME, Z_PANEL, Z_DOOR, Z_BACK = 0.022, 0.016, 0.0172, 0.0062
+
+    steel_h = _hyd_brushed_mat("Hyd_BrushedSteel_H")
+    steel_v = _hyd_brushed_mat("Hyd_BrushedSteel_V", vertical=True)
+    seam_m = W.mat("Hyd_DarkSeam", (0.012, 0.012, 0.014), rough=0.7, metal=0.1)
+    plastic_m = W.mat("Hyd_GreyPlastic", (0.30, 0.32, 0.34), rough=0.42, metal=0.0)
+    cavity_m = W.mat("Hyd_PocketShadow", (0.17, 0.18, 0.19), rough=0.6, metal=0.0)
+    red_m = W.mat("Hyd_RedPlastic", (0.62, 0.035, 0.03), rough=0.30, metal=0.0)
+    red_dark_m = W.mat("Hyd_RedPlasticDark", (0.46, 0.025, 0.022), rough=0.36, metal=0.0)
+    blue_m = W.mat("Hyd_BluePlate", (0.04, 0.16, 0.55), rough=0.32, metal=0.0)
+    white_m = W.mat("Hyd_WhitePlastic", (0.86, 0.86, 0.84), rough=0.26, metal=0.0)
+    lightgrey_m = W.mat("Hyd_WindowBack", (0.70, 0.71, 0.72), rough=0.45, metal=0.0)
+    knob_m = W.mat("Hyd_DarkKnob", (0.05, 0.05, 0.055), rough=0.35, metal=0.2)
+    chrome_m = W.mat("Hyd_Chrome", (0.86, 0.87, 0.89), rough=0.10, metal=1.0)
+    pilot_m = W.mat("Hyd_PilotLensDark", (0.22, 0.008, 0.01), rough=0.08, metal=0.0)
+    gold_m = W.mat("Hyd_GoldBrass", (1.0, 0.76, 0.32), rough=0.32, metal=1.0)
+    glass_m = _hyd_glass_mat()
+    lamp_m = _hyd_lamp_mat()
+
+    # 1) Dark back pan: shows as the thin black gap lines around the panels and through the speaker holes
+    W.box("Hydrant_BackPan", (2 * IW + 0.012, 2 * IH + 0.012, Z_BACK - 0.0006), seam_m, c,
+          (0, 0, (Z_BACK + 0.0006) / 2), parent=face)
+
+    # 2) Mitered (45 deg) brushed stainless outer frame; bevels make the fine V-groove at each miter
+    bands = {
+        "Top": ([(-W2, H2), (W2, H2), (W2 - F, H2 - F), (-W2 + F, H2 - F)], steel_h),
+        "Bottom": ([(-W2, -H2), (-W2 + F, -H2 + F), (W2 - F, -H2 + F), (W2, -H2)], steel_h),
+        "Left": ([(-W2, -H2), (-W2, H2), (-W2 + F, H2 - F), (-W2 + F, -H2 + F)], steel_v),
+        "Right": ([(W2, -H2), (W2 - F, -H2 + F), (W2 - F, H2 - F), (W2, H2)], steel_v),
+    }
+    for side, (pts, m) in bands.items():
+        fr = _hyd_prism(f"Hydrant_Frame_{side}", pts, 0.0006, Z_FRAME, m, c, face)
+        _hyd_bevel(fr, 0.0011, 2, 30.0)
+
+    # 3) Horizontal stainless divider bar between the alarm panel and the door
+    SEP_LO, SEP_HI = 0.2550, 0.2840
+    sep = W.box("Hydrant_DividerBar", (2 * IW - 0.0004, SEP_HI - SEP_LO, 0.020), steel_h, c,
+                (0, (SEP_LO + SEP_HI) / 2, 0.0106), parent=face)
+    _hyd_bevel(sep, 0.0012, 2, 30.0)
+
+    # 4) Upper alarm panel (recessed 6 mm behind the frame face), speaker holes + pocket cut through it
+    P_LO, P_HI = SEP_HI + 0.0025, IH - 0.0025
+    panel = W.box("Hydrant_AlarmPanel", (2 * IW - 0.005, P_HI - P_LO, Z_PANEL - Z_BACK), steel_h, c,
+                  (0, (P_LO + P_HI) / 2, (Z_PANEL + Z_BACK) / 2), parent=face)
+    _hyd_bevel(panel, 0.0008, 1, 30.0)
+    cutters = []
+    # radial speaker perforation (centre + 4 staggered rings)
+    spk = (0.208, 0.388)
+    bm = bmesh.new()
+    holes = [(0.0, 0.0)]
+    for ring, (rad, cnt) in enumerate(((0.0105, 6), (0.0210, 10), (0.0315, 14), (0.0415, 16))):
+        for k in range(cnt):
+            a = 2 * math.pi * k / cnt + ring * 0.21
+            holes.append((rad * math.cos(a), rad * math.sin(a)))
+    for hx, hy in holes:
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=14, radius1=0.0021, radius2=0.0021, depth=0.04,
+                              matrix=Matrix.Translation((spk[0] + hx, spk[1] + hy, Z_PANEL)))
+    cutters.append(W.mesh_obj("Hydrant_SpeakerCutter", bm, None, c, (0, 0, 0), (0, 0, 0), face))
+    # pull pocket (upper)
+    cut_w, cut_h = _hyd_pocket_handle("Hydrant_PocketHandle_Top", 0.037, 0.140, Z_PANEL, c, face,
+                                      (-0.200, 0.391), plastic_m, cavity_m)
+    cutters.append(_hyd_prism("Hydrant_PocketCutter_Top", _hyd_stadium(cut_w, cut_h, 16), -0.01, 0.05, None, c, face,
+                              (-0.200, 0.391, 0)))
+    _hyd_apply_cuts(panel, cutters)
+
+    # 4a) Round red 발신기 (P-type manual call point)
+    hx, hy = -0.105, 0.393
+    housing = _hyd_disc("Hydrant_CallPoint_Housing", 0.068, Z_PANEL - 0.001, Z_PANEL + 0.024, red_m, c, face, (hx, hy), 64)
+    _hyd_bevel(housing, 0.006, 4, 30.0)
+    zf = Z_PANEL + 0.024
+    plate = W.box("Hydrant_CallPoint_BluePlate", (0.044, 0.018, 0.0012), blue_m, c, (hx, hy + 0.045, zf + 0.0005), parent=face)
+    _hyd_bevel(plate, 0.0004, 1, 30.0)
+    _hyd_letter("Hydrant_CallPoint_Label", "발 신 기", 0.0095, (hx, hy + 0.0475), zf + 0.0011 - 0.0015, white_m, c, face,
+                extrude=0.00012, bevel=0.0)
+    _hyd_letter("Hydrant_CallPoint_SubLabel", "P형1급 발신기  누름스위치", 0.0026, (hx, hy + 0.0393), zf + 0.0011 - 0.0015,
+                white_m, c, face, extrude=0.00006, bevel=0.0)
+    boss = _hyd_disc("Hydrant_CallPoint_Boss", 0.0075, zf - 0.001, zf + 0.0022, red_dark_m, c, face, (hx, hy + 0.016), 32)
+    _hyd_bevel(boss, 0.0012, 3, 30.0)
+    wy = hy - 0.033
+    ring = _hyd_disc("Hydrant_CallPoint_WindowRing", 0.0195, zf - 0.001, zf + 0.0026, red_dark_m, c, face, (hx, wy), 48)
+    _hyd_bevel(ring, 0.0011, 3, 30.0)
+    _hyd_disc("Hydrant_CallPoint_WindowBack", 0.0158, zf + 0.0026, zf + 0.0030, lightgrey_m, c, face, (hx, wy), 48)
+    btn = _hyd_disc("Hydrant_CallPoint_PushButton", 0.0062, zf + 0.0030, zf + 0.0072, knob_m, c, face, (hx, wy), 32)
+    _hyd_bevel(btn, 0.0012, 3, 30.0)
+    _hyd_dome("Hydrant_CallPoint_ClearCover", 0.0165, 0.0075, zf + 0.0026, glass_m, c, face, (hx, wy))
+    _hyd_disc("Hydrant_CallPoint_Screw", 0.0034, zf - 0.0005, zf + 0.0008, chrome_m, c, face, (hx, hy - 0.060), 20)
+
+    # 4b) Glowing red 표시등 (white bezel) + dark red pilot lamp in a chrome bezel just below
+    lx, ly = 0.004, 0.425
+    bez = _hyd_disc("Hydrant_IndicatorLamp_Bezel", 0.038, Z_PANEL - 0.001, Z_PANEL + 0.012, white_m, c, face, (lx, ly), 64)
+    _hyd_bevel(bez, 0.004, 4, 30.0)
+    _hyd_disc("Hydrant_IndicatorLamp_Seat", 0.0315, Z_PANEL + 0.0105, Z_PANEL + 0.0125, red_dark_m, c, face, (lx, ly), 64)
+    _hyd_dome("Hydrant_IndicatorLamp_Dome", 0.0300, 0.0150, Z_PANEL + 0.0118, lamp_m, c, face, (lx, ly), 48)
+    ld = bpy.data.lights.new("Hydrant_IndicatorLamp_Glow", "POINT")
+    ld.energy = 0.10
+    ld.color = (1.0, 0.10, 0.05)
+    ld.shadow_soft_size = 0.02
+    ld.use_shadow = False
+    lo = bpy.data.objects.new(ld.name, ld)
+    lo.location = (lx, ly, Z_PANEL + 0.045)
+    lo.parent = face
+    c.objects.link(lo)
+    px, py = 0.002, 0.348
+    pb = _hyd_disc("Hydrant_PilotLamp_Bezel", 0.013, Z_PANEL - 0.001, Z_PANEL + 0.005, chrome_m, c, face, (px, py), 40)
+    _hyd_bevel(pb, 0.0015, 3, 30.0)
+    _hyd_dome("Hydrant_PilotLamp_Lens", 0.0088, 0.0048, Z_PANEL + 0.0045, pilot_m, c, face, (px, py), 32)
+
+    # 4c) Red pump-start switch box: recessed housing, white toggle switch, clear flip cover, two dark screws
+    sx, sy, sw, sh = 0.105, 0.3845, 0.072, 0.101
+    box = W.box("Hydrant_PumpSwitch_Housing", (sw, sh, 0.027), red_m, c, (sx, sy, Z_PANEL + 0.0125), parent=face)
+    _hyd_bevel(box, 0.003, 3, 30.0)
+    rcut = W.box("Hydrant_PumpSwitch_RecessCutter", (0.054, 0.079, 0.02), None, c, (sx, sy, Z_PANEL + 0.024), parent=face)
+    _hyd_apply_cuts(box, [rcut])
+    zr = Z_PANEL + 0.014                     # recess floor (12 mm deep)
+    W.box("Hydrant_PumpSwitch_Base", (0.050, 0.075, 0.004), white_m, c, (sx, sy, zr + 0.002), parent=face)
+    lev = W.box("Hydrant_PumpSwitch_Lever", (0.016, 0.044, 0.0036), white_m, c, (sx, sy + 0.004, zr + 0.0058), parent=face)
+    _hyd_bevel(lev, 0.0012, 3, 30.0)
+    for k, dy in enumerate((-0.026, 0.030)):
+        W.box(f"Hydrant_PumpSwitch_Tab{k}", (0.020, 0.008, 0.002), lightgrey_m, c, (sx, sy + dy, zr + 0.0050), parent=face)
+    cov = W.box("Hydrant_PumpSwitch_ClearCover", (0.0525, 0.0775, 0.0016), glass_m, c, (sx, sy, Z_PANEL + 0.0235), parent=face)
+    _hyd_bevel(cov, 0.0005, 1, 30.0)
+    for k, dy in enumerate((-0.0455, 0.0455)):
+        _hyd_disc(f"Hydrant_PumpSwitch_Screw{k}", 0.0024, Z_PANEL + 0.0255, Z_PANEL + 0.0275, knob_m, c, face, (sx, sy + dy), 16)
+
+    # 4d) Red management-number plate (top right)
+    np_ = W.box("Hydrant_NumberPlate", (0.113, 0.036, 0.0012), white_m, c, (0.199, 0.469, Z_PANEL + 0.0006), parent=face)
+    _hyd_bevel(np_, 0.0004, 1, 30.0)
+    _hyd_decal("Hydrant_NumberPlate_Print", "sangga_elev/hydrant_nameplate.png", 0.1126, 0.0356, (0.199, 0.469),
+               Z_PANEL + 0.00123, c, face, rough=0.32)
+
+    # 5) Lower hose-cabinet door (vertical hairline), with its own pull pocket cut through
+    D_LO, D_HI = -IH + 0.0025, SEP_LO - 0.0025
+    door = W.box("Hydrant_Door", (2 * IW - 0.005, D_HI - D_LO, Z_DOOR - Z_BACK), steel_v, c,
+                 (0, (D_LO + D_HI) / 2, (Z_DOOR + Z_BACK) / 2), parent=face)
+    _hyd_bevel(door, 0.0009, 1, 30.0)
+    cut_w, cut_h = _hyd_pocket_handle("Hydrant_PocketHandle_Door", 0.038, 0.113, Z_DOOR, c, face,
+                                      (-0.201, -0.1355), plastic_m, cavity_m)
+    dcut = _hyd_prism("Hydrant_PocketCutter_Door", _hyd_stadium(cut_w, cut_h, 16), -0.01, 0.05, None, c, face,
+                      (-0.201, -0.1355, 0))
+    _hyd_apply_cuts(door, [dcut])
+
+    # 5a) '소화전 사용방법' instruction sticker (top-left of the door)
+    _hyd_decal("Hydrant_UsageSticker", "sangga_elev/hydrant_sticker.png", 0.190, 0.152, (-0.162, 0.171),
+               Z_DOOR + 0.0003, c, face, rough=0.42)
+
+    # 5b) Raised bevelled brass letters: 소 / 화 / 전 down the centre, 방 수 구 across the bottom
+    for ch, y in (("소", 0.030), ("화", -0.138), ("전", -0.306)):
+        _hyd_letter(f"Hydrant_GoldLetter_{ch}", ch, 0.068, (0.0, y), Z_DOOR, gold_m, c, face, embolden=0.0012)
+    for ch, x in (("방", -0.115), ("수", 0.0), ("구", 0.115)):
+        _hyd_letter(f"Hydrant_GoldLetter_{ch}", ch, 0.055, (x, -0.382), Z_DOOR, gold_m, c, face, embolden=0.0010)
+    return root
 
 
 def korean_fire_extinguisher(c, root):
