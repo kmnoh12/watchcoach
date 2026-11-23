@@ -52,99 +52,226 @@ def cut_wall_opening(target_names, center, size, cutter_coll):
             pass
 
 
+def _beechwood_mat(name, base_col=(0.66, 0.41, 0.21), dark_col=(0.48, 0.27, 0.12), rough=0.46, scale=14.0):
+    """Procedural warm beechwood grain shader with subtle bump for realistic wooden craft props."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Roughness"].default_value = rough
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1.8, 12.0, 12.0)
+    wave = nt.nodes.new("ShaderNodeTexWave")
+    wave.wave_type = "BANDS"
+    wave.bands_direction = "Z"
+    wave.inputs["Scale"].default_value = scale
+    wave.inputs["Distortion"].default_value = 4.2
+    wave.inputs["Detail"].default_value = 6.0
+    wave.inputs["Detail Scale"].default_value = 2.0
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 90.0
+    noise.inputs["Detail"].default_value = 8.0
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.inputs["A"].default_value = (*base_col, 1.0)
+    mix.inputs["B"].default_value = (*dark_col, 1.0)
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.06
+    bump.inputs["Distance"].default_value = 0.001
+    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], wave.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], noise.inputs["Vector"])
+    nt.links.new(wave.outputs["Fac"], mix.inputs["Factor"])
+    nt.links.new(mix.outputs["Result"], bsdf.inputs["Base Color"])
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
+
+
+def _cotton_rope_mat(name):
+    """Soft twisted ivory cotton rope shader with fine fiber bump."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (0.91, 0.87, 0.79, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.92
+    if "Sheen Weight" in bsdf.inputs:
+        bsdf.inputs["Sheen Weight"].default_value = 0.45
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 180.0
+    noise.inputs["Detail"].default_value = 10.0
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.14
+    bump.inputs["Distance"].default_value = 0.0015
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
+
+
+def _brushed_brass_mat(name):
+    """Warm satin brushed brass shader matching the photoreal dome bell."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (0.83, 0.65, 0.28, 1.0)
+    bsdf.inputs["Metallic"].default_value = 0.96
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1.5, 1.5, 45.0)
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 12.0
+    noise.inputs["Detail"].default_value = 6.0
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs["To Min"].default_value = 0.18
+    mr.inputs["To Max"].default_value = 0.30
+    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], noise.inputs["Vector"])
+    nt.links.new(noise.outputs["Fac"], mr.inputs["Value"])
+    nt.links.new(mr.outputs["Result"], bsdf.inputs["Roughness"])
+    return m
+
+
+def _set_smooth(obj):
+    if obj.type == "MESH":
+        for p in obj.data.polygons:
+            p.use_smooth = True
+
+
+def _link_under(obj, c, parent):
+    for col in list(obj.users_collection):
+        col.objects.unlink(obj)
+    c.objects.link(obj)
+    obj.parent = parent
+    return obj
+
+
+def _make_curve_tube(name, pts, radius, mat, c, parent, bev_res=6, res_u=12, cyclic=False):
+    curve = bpy.data.curves.new(name, "CURVE")
+    curve.dimensions = "3D"
+    curve.bevel_depth = radius
+    curve.bevel_resolution = bev_res
+    curve.resolution_u = res_u
+    curve.use_fill_caps = not cyclic
+    sp = curve.splines.new("BEZIER")
+    sp.bezier_points.add(len(pts) - 1)
+    sp.use_cyclic_u = cyclic
+    for kp, pt in zip(sp.bezier_points, pts):
+        kp.co = pt
+        kp.handle_left_type = kp.handle_right_type = "AUTO"
+    curve.materials.append(mat)
+    obj = bpy.data.objects.new(name, curve)
+    c.objects.link(obj)
+    obj.parent = parent
+    return obj
+
+
 def build_shop_doorbell(c, parent, loc=(0.24, -0.028, 2.08)):
-    """Korean Aekmagi Myeongtae (액막이 명태) wooden fish & brass bell doorbell!
-    Mounted on the interior top glass rail with silver magnetic hook, gold ring,
-    twisted ivory cotton rope wrapping a sculpted beechwood pollock fish, black cord,
-    wooden bead, and rounded brass bell. Swing empty allows '띠링~' animation."""
+    """High-detail photoreal Korean Aekmagi Myeongtae (액막이 명태) doorbell:
+    silver magnetic J-hook, brass carabiner ring, 2-strand twisted cotton rope + waist knot,
+    beechwood pollock fish with wood grain, curved gill, 3 tail grooves, and drilled eye,
+    thin black V-cord, light wooden bead, and seamless lathe-turned brushed brass dome bell."""
+    import bmesh
+
     bell_root = W.empty("Entrance_Doorbell", c, loc, parent=parent)
-    chrome_m = W.mat("Myeongtae_HookSilver", (0.72, 0.74, 0.78), rough=0.18, metal=0.95)
-    brass_m = W.mat("Myeongtae_Brass", (0.82, 0.62, 0.24), rough=0.20, metal=0.94)
-    rope_m = W.mat("Myeongtae_IvoryRope", (0.91, 0.87, 0.78), rough=0.88)
-    wood_m = W.mat("Myeongtae_BeechWood", (0.68, 0.44, 0.24), rough=0.52)
-    bead_m = W.mat("Myeongtae_LightBead", (0.86, 0.76, 0.60), rough=0.50)
-    dark_m = W.mat("Myeongtae_BlackCord", (0.04, 0.04, 0.05), rough=0.75)
+    chrome_m = W.mat("Myeongtae_HookSilver", (0.76, 0.78, 0.80), rough=0.16, metal=0.96)
+    brass_m = _brushed_brass_mat("Myeongtae_BrushedBrass")
+    rope_m = _cotton_rope_mat("Myeongtae_CottonRope")
+    # Reuse the real info-desk wood image texture rotated horizontally along the fish body!
+    wood_m = _walnut_wood_mat("Myeongtae_InfoDeskWood", value_mult=1.35, sat_mult=0.95, scale=(2.6, 2.6, 2.6), rough=0.44, bump_str=0.05)
+    # Rotate texture mapping 90 deg so wood grain runs horizontally along fish length (X axis)
+    for n_node in wood_m.node_tree.nodes:
+        if n_node.type == "MAPPING":
+            n_node.inputs["Rotation"].default_value = (0.0, math.radians(90), 0.0)
+            n_node.inputs["Scale"].default_value = (3.5, 3.5, 1.4)
+    bead_m = _beechwood_mat("Myeongtae_LightBead", (0.88, 0.80, 0.66), (0.78, 0.68, 0.52), rough=0.46, scale=10.0)
+    engrave_m = W.mat("Myeongtae_Engrave", (0.24, 0.13, 0.06), rough=0.72)
+    dark_m = W.mat("Myeongtae_BlackCord", (0.03, 0.03, 0.04), rough=0.70)
 
-    # 1. Silver magnetic hook on the door top rail
-    W.cyl("Doorbell mag base", 0.013, 0.010, chrome_m, c, (0, -0.005, 0.0), (90, 0, 0), parent=bell_root, seg=14)
-    W.cyl("Doorbell hook stem", 0.0035, 0.024, chrome_m, c, (0, -0.020, -0.002), (90, 0, 0), parent=bell_root, seg=10)
-    W.cyl("Doorbell hook tip", 0.0035, 0.014, chrome_m, c, (0, -0.030, 0.005), parent=bell_root, seg=10)
-
-    # Swing pivot hanging from the hook
-    swing = W.empty("Doorbell_Swing", c, (0, -0.028, -0.004), parent=bell_root)
-
-    # 2. Gold carabiner ring
-    bpy.ops.mesh.primitive_torus_add(
-        major_radius=0.017, minor_radius=0.0032, major_segments=20, minor_segments=8,
-        location=(0, 0, -0.016), rotation=(math.radians(90), 0, 0)
+    # 1. Silver magnetic cup base + curved J-hook
+    bpy.ops.mesh.primitive_cone_add(vertices=28, radius1=0.013, radius2=0.0085, depth=0.011, location=(0, -0.0055, 0.0), rotation=(math.radians(90), 0, 0))
+    mag = _link_under(bpy.context.active_object, c, bell_root)
+    mag.name = "Myeongtae mag base"
+    mag.data.materials.append(chrome_m)
+    _set_smooth(mag)
+    _make_curve_tube(
+        "Myeongtae J-hook",
+        [(0, -0.009, 0.0), (0, -0.022, -0.001), (0, -0.028, -0.008), (0, -0.031, -0.002), (0, -0.031, 0.008)],
+        0.0028, chrome_m, c, bell_root, bev_res=6, res_u=12,
     )
-    ring = bpy.context.active_object
+
+    # Swing pivot hanging from the J-hook saddle
+    swing = W.empty("Doorbell_Swing", c, (0, -0.028, -0.005), parent=bell_root)
+
+    # 2. Smooth gold carabiner ring + subtle clasp sleeve on right side
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=0.018, minor_radius=0.0030, major_segments=36, minor_segments=14,
+        location=(0, 0, -0.016), rotation=(math.radians(90), 0, 0),
+    )
+    ring = _link_under(bpy.context.active_object, c, swing)
     ring.name = "Myeongtae gold ring"
     ring.data.materials.append(brass_m)
-    for col in list(ring.users_collection):
-        col.objects.unlink(ring)
-    c.objects.link(ring)
-    ring.parent = swing
+    _set_smooth(ring)
+    # Carabiner hinge collar on +X side of ring
+    bpy.ops.mesh.primitive_cylinder_add(vertices=18, radius=0.0038, depth=0.009, location=(0.0175, 0, -0.012), rotation=(0, math.radians(-18), 0))
+    clasp = _link_under(bpy.context.active_object, c, swing)
+    clasp.name = "Myeongtae ring clasp"
+    clasp.data.materials.append(brass_m)
+    _set_smooth(clasp)
 
-    # 3. Twisted ivory cotton rope (2-strand helix hanging from gold ring to fish belly)
+    # 3. Realistic 2-strand twisted cotton rope from ring down through fish waist
     for strand in (0, 1):
         phase = strand * math.pi
         pts = []
-        for k in range(15):
-            t = k / 14.0
-            z = -0.028 - t * 0.115
-            ang = phase + t * math.pi * 5.0
-            pts.append((math.cos(ang) * 0.0055, math.sin(ang) * 0.0055, z))
-        curve = bpy.data.curves.new(f"Myeongtae_Rope_{strand}", "CURVE")
-        curve.dimensions = "3D"
-        curve.bevel_depth = 0.0058
-        curve.bevel_resolution = 3
-        curve.use_fill_caps = True
-        sp = curve.splines.new("POLY")
-        sp.points.add(len(pts) - 1)
-        for p_obj, pt in zip(sp.points, pts):
-            p_obj.co = (pt[0], pt[1], pt[2], 1.0)
-        curve.materials.append(rope_m)
-        robj = bpy.data.objects.new(f"Myeongtae_Rope_{strand}", curve)
-        c.objects.link(robj)
-        robj.parent = swing
+        for k in range(22):
+            t = k / 21.0
+            z = -0.029 - t * 0.118
+            ang = phase + t * math.pi * 6.5
+            r_h = 0.0048 * (1.0 - 0.15 * math.sin(t * math.pi))
+            pts.append((math.cos(ang) * r_h, math.sin(ang) * r_h, z))
+        _make_curve_tube(f"Myeongtae_Rope_{strand}", pts, 0.0056, rope_m, c, swing, bev_res=6, res_u=8)
 
-    # Rope knot collar wrapping around the wooden fish waist
+    # Horizontal knot collar right above fish back + vertical rope loop hugging fish belly
     bpy.ops.mesh.primitive_torus_add(
-        major_radius=0.016, minor_radius=0.0068, major_segments=16, minor_segments=8,
-        location=(0, 0, -0.118), rotation=(0, math.radians(90), 0)
+        major_radius=0.0115, minor_radius=0.0052, major_segments=28, minor_segments=12,
+        location=(0, 0, -0.104), rotation=(math.radians(6), math.radians(-8), 0),
     )
-    wrap = bpy.context.active_object
-    wrap.name = "Myeongtae rope wrap"
-    wrap.scale = (1.6, 0.9, 1.3)
-    wrap.data.materials.append(rope_m)
-    for col in list(wrap.users_collection):
-        col.objects.unlink(wrap)
-    c.objects.link(wrap)
-    wrap.parent = swing
+    knot = _link_under(bpy.context.active_object, c, swing)
+    knot.name = "Myeongtae waist knot"
+    knot.data.materials.append(rope_m)
+    _set_smooth(knot)
 
-    # 4. Sculpted Beechwood Pollock Fish (액막이 명태, horizontal X silhouette, extruded in Y)
-    # Profile points in (X, Z) relative to fish center (0, 0, -0.130): head on -X, tail on +X
+    for s_off in (-0.0032, 0.0032):
+        _make_curve_tube(
+            f"Myeongtae_WaistWrap_{s_off:+.4f}",
+            [
+                (s_off, -0.009, -0.106),
+                (s_off, -0.012, -0.129),
+                (s_off, -0.006, -0.152),
+                (s_off, 0.006, -0.152),
+                (s_off, 0.012, -0.129),
+                (s_off, 0.009, -0.106),
+            ],
+            0.0050, rope_m, c, swing, bev_res=6, res_u=10, cyclic=True,
+        )
+
+    # 4. Sculpted Beechwood Pollock Fish (smooth multi-point silhouette + beveled edges)
     fish_xz = [
-        (-0.088, 0.006),   # upper jaw tip
-        (-0.072, 0.014),   # snout
-        (-0.040, 0.021),   # head crown
-        (-0.012, 0.022),   # upper back
-        (0.025, 0.015),    # mid back
-        (0.062, 0.009),    # tail peduncle top
-        (0.092, 0.016),    # tail fin upper tip
-        (0.084, 0.000),    # tail fin notch
-        (0.094, -0.015),   # tail fin lower tip
-        (0.062, -0.007),   # tail peduncle bottom
-        (0.020, -0.012),   # lower body
-        (-0.018, -0.018),  # belly
-        (-0.056, -0.014),  # throat
-        (-0.086, -0.004),  # lower jaw tip
-        (-0.074, 0.002),   # open mouth inner corner
+        (-0.088, 0.005), (-0.076, 0.011), (-0.060, 0.016), (-0.042, 0.020),
+        (-0.022, 0.022), (-0.004, 0.020), (0.018, 0.016), (0.042, 0.011),
+        (0.064, 0.008), (0.080, 0.012), (0.094, 0.017), (0.089, 0.007),
+        (0.084, 0.000), (0.089, -0.007), (0.095, -0.016), (0.080, -0.011),
+        (0.063, -0.007), (0.040, -0.010), (0.016, -0.013), (-0.008, -0.017),
+        (-0.024, -0.020), (-0.042, -0.017), (-0.060, -0.013), (-0.078, -0.007),
+        (-0.089, -0.003), (-0.078, 0.001), (-0.074, 0.003),
     ]
     n = len(fish_xz)
-    half_t = 0.0065
-    fz0 = -0.130
+    half_t = 0.0058
+    fz0 = -0.129
     verts = [(x, -half_t, fz0 + z) for x, z in fish_xz] + [(x, half_t, fz0 + z) for x, z in fish_xz]
     faces = [tuple(range(n)), tuple(reversed(range(n, 2 * n)))]
     for i in range(n):
@@ -158,37 +285,92 @@ def build_shop_doorbell(c, parent, loc=(0.24, -0.028, 2.08)):
     fobj.parent = swing
     bev = fobj.modifiers.new("Bevel", "BEVEL")
     bev.width = 0.0022
-    bev.segments = 2
+    bev.segments = 3
 
-    # Engraved eye dot & gill arc on both faces of the wooden fish
-    for y_s in (-half_t - 0.0008, half_t + 0.0008):
-        W.cyl("Myeongtae eye", 0.0036, 0.0018, dark_m, c, (-0.064, y_s, fz0 + 0.005), (90, 0, 0), parent=swing, seg=12)
-        W.box("Myeongtae gill", (0.0022, 0.0016, 0.020), dark_m, c, (-0.044, y_s, fz0 + 0.001), (0, 12, 0), parent=swing)
+    # Drilled eye (dark recessed dot + subtle rim), curved gill arc, and 3 engraved tail-fin lines
+    for y_s in (-half_t - 0.0004, half_t + 0.0004):
+        W.cyl("Myeongtae eye", 0.0032, 0.0014, engrave_m, c, (-0.065, y_s, fz0 + 0.005), (90, 0, 0), parent=swing, seg=18)
+        # Curved gill arc (3-point bezier)
+        _make_curve_tube(
+            f"Myeongtae_Gill_{y_s:+.4f}",
+            [(-0.046, y_s, fz0 + 0.011), (-0.042, y_s, fz0 + 0.000), (-0.048, y_s, fz0 - 0.010)],
+            0.0011, engrave_m, c, swing, bev_res=4, res_u=8,
+        )
+        # 3 laser-engraved tail fin rays
+        for idx_r, (z0, z1) in enumerate(((0.005, 0.010), (0.000, 0.000), (-0.005, -0.010))):
+            _make_curve_tube(
+                f"Myeongtae_TailRay_{y_s:+.4f}_{idx_r}",
+                [(0.072, y_s, fz0 + z0), (0.085, y_s, fz0 + z1)],
+                0.0009, engrave_m, c, swing, bev_res=3, res_u=4,
+            )
 
-    # 5. Thin black cord hanging beneath fish -> light wood bead -> rounded brass bell
-    W.cyl("Myeongtae cord L", 0.0012, 0.072, dark_m, c, (-0.004, 0, -0.184), (0, -4, 0), parent=swing, seg=8)
-    W.cyl("Myeongtae cord R", 0.0012, 0.072, dark_m, c, (0.004, 0, -0.184), (0, 4, 0), parent=swing, seg=8)
+    # 5. Thin black V-cord hanging from rope bottom to wooden bead
+    _make_curve_tube(
+        "Myeongtae black cord",
+        [(-0.007, 0, -0.150), (-0.004, 0, -0.184), (-0.001, 0, -0.214)],
+        0.0010, dark_m, c, swing, bev_res=4, res_u=6,
+    )
+    _make_curve_tube(
+        "Myeongtae black cord R",
+        [(0.007, 0, -0.150), (0.004, 0, -0.184), (0.001, 0, -0.214)],
+        0.0010, dark_m, c, swing, bev_res=4, res_u=6,
+    )
 
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10, radius=0.011, location=(0, 0, -0.222))
-    bead = bpy.context.active_object
+    # 6. Smooth light beechwood bead
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=28, ring_count=18, radius=0.0115, location=(0, 0, -0.222))
+    bead = _link_under(bpy.context.active_object, c, swing)
     bead.name = "Myeongtae wood bead"
     bead.data.materials.append(bead_m)
-    for col in list(bead.users_collection):
-        col.objects.unlink(bead)
-    c.objects.link(bead)
-    bead.parent = swing
+    _set_smooth(bead)
 
-    # Rounded dome brass bell right under the wooden bead
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=18, ring_count=12, radius=0.020, location=(0, 0, -0.246))
-    dome = bpy.context.active_object
-    dome.name = "Myeongtae bell dome"
-    dome.scale = (1.0, 1.0, 0.85)
-    dome.data.materials.append(brass_m)
-    for col in list(dome.users_collection):
-        col.objects.unlink(dome)
-    c.objects.link(dome)
-    dome.parent = swing
-    W.cyl("Myeongtae bell skirt", 0.020, 0.022, brass_m, c, (0, 0, -0.258), parent=swing, seg=18)
+    # 7. Seamless lathe-turned brushed brass dome bell (single smooth revolved mesh!)
+    bm = bmesh.new()
+    bell_profile = [
+        (0.000, -0.233),
+        (0.006, -0.234),
+        (0.012, -0.236),
+        (0.017, -0.241),
+        (0.020, -0.248),
+        (0.021, -0.256),
+        (0.021, -0.266),
+        (0.0205, -0.271),
+        (0.0185, -0.2725),
+        (0.0175, -0.270),
+        (0.0185, -0.252),
+        (0.000, -0.237),
+    ]
+    segs = 36
+    rings = []
+    for r_val, z_val in bell_profile:
+        if r_val < 1e-5:
+            rings.append([bm.verts.new((0.0, 0.0, z_val))])
+        else:
+            rings.append([
+                bm.verts.new((r_val * math.cos(2 * math.pi * s / segs), r_val * math.sin(2 * math.pi * s / segs), z_val))
+                for s in range(segs)
+            ])
+    for r_i in range(len(rings) - 1):
+        a, b = rings[r_i], rings[r_i + 1]
+        if len(a) == 1 and len(b) > 1:
+            for s in range(segs):
+                bm.faces.new((a[0], b[(s + 1) % segs], b[s]))
+        elif len(a) > 1 and len(b) == 1:
+            for s in range(segs):
+                bm.faces.new((a[s], a[(s + 1) % segs], b[0]))
+        else:
+            for s in range(segs):
+                sn = (s + 1) % segs
+                bm.faces.new((a[s], a[sn], b[sn], b[s]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh_data = bpy.data.meshes.new("Myeongtae_BrassBell_Mesh")
+    bm.to_mesh(bmesh_data)
+    bm.free()
+    bmesh_data.materials.append(brass_m)
+    bell_obj = bpy.data.objects.new("Myeongtae brass bell", bmesh_data)
+    c.objects.link(bell_obj)
+    bell_obj.parent = swing
+    _set_smooth(bell_obj)
+
     return bell_root
 
 
