@@ -550,11 +550,10 @@ def build_sangga_hallway(c, entrance_root):
     # Exposed silver electrical conduit pipe running along ceiling/opposite wall corner (Photo 1 detail!)
     W.cyl("Hallway conduit pipe", 0.014, 9.0, steel_m, c, (0, 2.74, 2.69), (0, 90, 0), parent=hall, seg=12)
 
-    # Far corridor end walls (with distant exit glow)
-    for side in (-1, 1):
-        W.box("Hallway far end", (0.08, 2.9, 2.80), end_m, c, (side * 4.65, 1.50, 1.40), parent=hall)
-        W.box("Hallway far exit dot", (0.02, 0.22, 0.16), W.shadeless("HallFarExit", (0.08, 0.88, 0.36), strength=3.2),
-              c, (side * 4.59, 1.50, 2.38), parent=hall)
+    # Far corridor end wall on +X side only (-X side extends to the elevator hall!)
+    W.box("Hallway far end", (0.08, 2.9, 2.80), end_m, c, (4.65, 1.50, 1.40), parent=hall)
+    W.box("Hallway far exit dot", (0.02, 0.22, 0.16), W.shadeless("HallFarExit", (0.08, 0.88, 0.36), strength=3.2),
+          c, (4.59, 1.50, 2.38), parent=hall)
 
     # Opposite storefront wall backing (split around the glass double door opening x = -0.82 .. +0.72)
     W.box("Opposite wall left", (3.8, 0.08, 2.80), wall_m, c, (-2.72, 2.92, 1.40), parent=hall)
@@ -651,6 +650,245 @@ def build_sangga_hallway(c, entrance_root):
         lo.location = (lx, 1.55, 2.66)
         lo.parent = hall
         c.objects.link(lo)
+
+    build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m)
+
+
+def _standing_xbanner(c, parent, name, img_rel, loc, rot_z_deg=0.0, width=0.56, height=1.52):
+    """Korean commercial standing X-banner with weighted water-tank base and rear support pole."""
+    dark_m = bpy.data.materials.get("Hallway_DarkSteel") or W.mat("Hallway_DarkSteel", (0.03, 0.032, 0.036), rough=0.45, metal=0.50)
+    tank_m = bpy.data.materials.get("XBanner_TankGray") or W.mat("XBanner_TankGray", (0.28, 0.30, 0.32), rough=0.55, metal=0.05)
+    root = W.empty(name, c, loc, parent=parent)
+    root.rotation_euler.z = math.radians(rot_z_deg)
+    # Gray plastic water-tank base
+    _molded(f"{name}_tank", (0.36, 0.30, 0.12), tank_m, c, (0, 0.09, 0.06), root, 0.012)
+    # Support pole cleanly behind the reclined canvas (tilted to match so it never pokes through!)
+    pole = W.cyl(f"{name}_pole", 0.008, height, dark_m, c, (0, 0.13, height / 2 + 0.08), parent=root, seg=8)
+    pole.rotation_euler.x = math.radians(-6.5)
+    # Banner canvas slightly reclined backward (6.5 deg)
+    plane = _textured_plane(c, root, f"{name}_canvas", img_rel, width, height, (0, 0.0, height / 2 + 0.10), shaded=True)
+    plane.rotation_euler.x = math.radians(-6.5)
+    return root
+
+
+def _speckled_granite_mat(name="Elev_GrayGranite"):
+    """Procedural Korean commercial building speckled gray granite stone (화강석) shader."""
+    m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Roughness"].default_value = 0.34
+    bsdf.inputs["Specular IOR Level"].default_value = 0.50
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    # Fine salt-and-pepper granite mineral grains
+    vor = nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.inputs["Scale"].default_value = 140.0
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = 55.0
+    noise.inputs["Detail"].default_value = 8.0
+    mix_f = nt.nodes.new("ShaderNodeMix")
+    mix_f.data_type = "FLOAT"
+    mix_f.inputs["Factor"].default_value = 0.45
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].position = 0.18
+    ramp.color_ramp.elements[0].color = (0.14, 0.14, 0.135, 1.0)
+    e1 = ramp.color_ramp.elements.new(0.45)
+    e1.color = (0.44, 0.43, 0.41, 1.0)
+    ramp.color_ramp.elements[-1].position = 0.82
+    ramp.color_ramp.elements[-1].color = (0.64, 0.63, 0.60, 1.0)
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.06
+    bump.inputs["Distance"].default_value = 0.002
+    nt.links.new(tc.outputs["Object"], vor.inputs["Vector"])
+    nt.links.new(tc.outputs["Object"], noise.inputs["Vector"])
+    nt.links.new(vor.outputs["Distance"], mix_f.inputs["A"])
+    nt.links.new(noise.outputs["Fac"], mix_f.inputs["B"])
+    nt.links.new(mix_f.outputs["Result"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+    return m
+
+
+def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
+    """Extend Sangga_Hallway along -X (x = -11.55 .. -4.65) for a ~10-second protagonist walk,
+    terminating at a Korean commercial sangga elevator lobby exterior (Photos #1 & #2):
+    - Center: polished black granite surround, recessed brushed stainless portal, 1호기 + red LED '3' header,
+      separable Elev_Door_L / Elev_Door_R sliding doors with safety stickers, call button plate, twin round wall lamps.
+    - Left: Korean indoor fire hydrant cabinet (옥내소화전) + red floor fire extinguisher + 3F marker.
+    - Right: cluttered commercial ad panels (dermatology, dental), floor guide + orange notice,
+      standing X-banners (screen golf, B1 mart), and a vacant storefront (임대문의) along the corridor."""
+    ext = W.empty("Sangga_Hallway_Ext", c, (0, 0, 0), parent=hall)
+
+    gray_granite_m = _speckled_granite_mat("Elev_GrayGranite")
+    wall_m = bpy.data.materials.get("Hallway_WallBeige") or W.mat("Hallway_WallBeige", (0.58, 0.57, 0.54), rough=0.72, metal=0.0)
+    grid_m = bpy.data.materials.get("Hallway_TexGrid") or W.mat("Hallway_TexGrid", (0.45, 0.46, 0.45), rough=0.80, metal=0.0)
+    troffer_m = bpy.data.materials.get("Hallway_TrofferHousing") or W.mat("Hallway_TrofferHousing", (0.48, 0.50, 0.52), rough=0.38, metal=0.70)
+    led_m = bpy.data.materials.get("Hallway_DownlightLED") or W.shadeless("Hallway_DownlightLED", (0.94, 0.96, 1.0), strength=5.0)
+    dark_m = bpy.data.materials.get("Hallway_DarkSteel") or W.mat("Hallway_DarkSteel", (0.03, 0.032, 0.036), rough=0.45, metal=0.50)
+    chrome_m = W.mat("Elev_Chrome", (0.82, 0.84, 0.86), rough=0.14, metal=0.96)
+    door_steel_m = W.mat("Elev_DoorStainless", (0.68, 0.70, 0.72), rough=0.22, metal=0.92)
+    seam_m = W.mat("Elev_DarkSeam", (0.015, 0.015, 0.018), rough=0.60, metal=0.20)
+    lamp_glow_m = W.shadeless("Elev_WallLampGlow", (1.0, 0.96, 0.88), strength=3.6)
+    gold_m = W.mat("Elev_GoldLetter", (0.82, 0.65, 0.22), rough=0.24, metal=0.92)
+    red_led_m = W.shadeless("Elev_RedIndicator", (1.0, 0.12, 0.06), strength=5.0)
+    btn_glow_m = W.shadeless("Elev_BtnGlow", (0.95, 0.78, 0.35), strength=2.6)
+    frosted_m = W.mat("Vacant_FrostedGlass", (0.68, 0.72, 0.75), rough=0.28, metal=0.05)
+
+    # 1) Corridor extension shell: X = -11.55 .. -4.65 (length = 6.90m, center X = -8.10)
+    W.box("HallExt floor", (6.94, 2.92, 0.04), floor_m, c, (-8.10, 1.46, -0.02), parent=ext)
+    W.box("HallExt ceiling", (6.94, 2.92, 0.06), ceil_m, c, (-8.10, 1.46, 2.78), parent=ext)
+    # Acoustic Tex ceiling grid lines continuing seamlessly
+    for gx in [round(-4.55 - i * 0.65, 3) for i in range(1, 11)]:
+        W.box("HallExt grid X", (0.012, 2.86, 0.006), grid_m, c, (gx, 1.46, 2.748), parent=ext)
+    for gy in (0.65, 1.30, 1.95, 2.60):
+        W.box("HallExt grid Y", (6.90, 0.012, 0.006), grid_m, c, (-8.10, gy, 2.748), parent=ext)
+    # Ceiling electrical conduit pipe continuing along right ceiling corner
+    W.cyl("HallExt conduit", 0.014, 6.90, steel_m, c, (-8.10, 2.74, 2.69), (0, 90, 0), parent=ext, seg=10)
+
+    # 2) Side walls: Left (Y = 0.0, gym side) & Right (Y = 2.86, opposite commercial side)
+    # Left wall (gray granite wainscot + beige plaster upper + black granite plinth)
+    W.box("HallExt wall L upper", (6.94, 0.08, 1.65), wall_m, c, (-8.10, -0.02, 1.95), parent=ext)
+    W.box("HallExt wall L lower", (6.94, 0.09, 1.12), gray_granite_m, c, (-8.10, -0.01, 0.56), parent=ext)
+    W.box("HallExt plinth L", (6.94, 0.11, 0.10), granite_m, c, (-8.10, 0.01, 0.05), parent=ext)
+    # Right wall (gray granite near elevator lobby + opposite wall)
+    W.box("HallExt wall R", (6.94, 0.08, 2.80), gray_granite_m, c, (-8.10, 2.90, 1.40), parent=ext)
+    W.box("HallExt plinth R", (6.94, 0.14, 0.10), granite_m, c, (-8.10, 2.85, 0.05), parent=ext)
+
+    # 3) Black granite square floor border inlay right in front of elevator (Photo #1 detail!)
+    inlay_z = 0.003
+    W.box("ElevInlay_N", (0.14, 2.08, 0.004), granite_m, c, (-11.35, 1.42, inlay_z), parent=ext)
+    W.box("ElevInlay_S", (0.14, 2.08, 0.004), granite_m, c, (-9.65, 1.42, inlay_z), parent=ext)
+    W.box("ElevInlay_L", (1.84, 0.14, 0.004), granite_m, c, (-10.50, 0.45, inlay_z), parent=ext)
+    W.box("ElevInlay_R", (1.84, 0.14, 0.004), granite_m, c, (-10.50, 2.39, inlay_z), parent=ext)
+
+    # 4) Fluorescent ceiling troffers + practical AREA lights along extended corridor
+    for tx in (-6.4, -9.8):
+        _molded(f"HallExt_Troffer_{tx}", (1.18, 0.34, 0.04), troffer_m, c, (tx, 1.44, 2.74), ext, 0.005)
+        W.box(f"HallExt_LED_{tx}", (1.10, 0.26, 0.01), led_m, c, (tx, 1.44, 2.718), parent=ext)
+        ld = bpy.data.lights.new(f"HallExtLight_{tx}", "AREA")
+        ld.shape = "RECTANGLE"
+        ld.size, ld.size_y = 2.4, 1.0
+        ld.energy = 145
+        ld.color = (0.94, 0.96, 1.0)
+        ld.use_shadow = False
+        lo = bpy.data.objects.new(ld.name, ld)
+        lo.location = (tx, 1.44, 2.66)
+        lo.parent = ext
+        c.objects.link(lo)
+
+    # 5) ELEVATOR END WALL at X = -11.50 (facing +X, viewer's LEFT = smaller Y, RIGHT = larger Y)
+    ex = -11.50
+    # Left gray granite flank (Y = 0.00 .. 0.72) & Right gray granite flank (Y = 2.12 .. 2.86)
+    W.box("ElevWall_Left", (0.10, 0.74, 2.80), gray_granite_m, c, (ex - 0.05, 0.36, 1.40), parent=ext)
+    W.box("ElevWall_Right", (0.10, 0.78, 2.80), gray_granite_m, c, (ex - 0.05, 2.50, 1.40), parent=ext)
+    # Center polished black granite surround (Y = 0.72 .. 2.12, flush slightly proud of gray granite)
+    W.box("ElevGranite_L", (0.12, 0.16, 2.80), granite_m, c, (ex - 0.04, 0.80, 1.40), parent=ext)
+    W.box("ElevGranite_R", (0.12, 0.16, 2.80), granite_m, c, (ex - 0.04, 2.04, 1.40), parent=ext)
+    W.box("ElevGranite_Top", (0.12, 1.40, 0.42), granite_m, c, (ex - 0.04, 1.42, 2.58), parent=ext)
+
+    # Recessed brushed stainless steel elevator portal (opening Y = 0.88 .. 1.96, width = 1.08m, height = 2.38m)
+    # Outer stainless trim frame
+    _molded("ElevFrame_L", (0.04, 0.035, 2.40), steel_m, c, (ex + 0.01, 0.88, 1.20), ext, 0.003)
+    _molded("ElevFrame_R", (0.04, 0.035, 2.40), steel_m, c, (ex + 0.01, 1.96, 1.20), ext, 0.003)
+    _molded("ElevFrame_Top", (0.04, 1.12, 0.04), steel_m, c, (ex + 0.01, 1.42, 2.39), ext, 0.003)
+    # Deep recessed side jambs & soffit (X = -11.50 back to -11.74)
+    W.box("ElevJamb_L", (0.26, 0.025, 2.38), steel_m, c, (ex - 0.12, 0.88, 1.19), parent=ext)
+    W.box("ElevJamb_R", (0.26, 0.025, 2.38), steel_m, c, (ex - 0.12, 1.96, 1.19), parent=ext)
+    W.box("ElevSoffit", (0.26, 1.08, 0.03), steel_m, c, (ex - 0.12, 1.42, 2.07), parent=ext)
+    # Stainless transom header fascia (Z = 2.07 .. 2.38) + '1호기' & red LED '3' texture
+    W.box("ElevHeader_Back", (0.06, 1.08, 0.31), steel_m, c, (ex - 0.02, 1.42, 2.225), parent=ext)
+    _textured_plane(c, ext, "ElevHeader_Display", "sangga_elev/elev_header_3f.png", 1.06, 0.29,
+                    (ex + 0.015, 1.42, 2.225), rot=(0, 0, math.pi / 2), strength=1.15, shaded=False)
+    # Dark interior backing behind doors (exterior-only for now; doors slide cleanly in front of it)
+    W.box("ElevShaft_Backing", (0.04, 1.12, 2.10), seam_m, c, (ex - 0.28, 1.42, 1.04), parent=ext)
+    # Floor threshold sill (brushed metal track)
+    _molded("Elev_Sill", (0.24, 1.08, 0.012), chrome_m, c, (ex - 0.12, 1.42, 0.006), ext, 0.002)
+
+    # Separable twin sliding doors (Elev_Door_L & Elev_Door_R — ready to animate open/close along Y!)
+    door_x = ex - 0.23
+    door_l = _molded("Elev_Door_L", (0.032, 0.534, 2.05), door_steel_m, c, (door_x, 1.150, 1.032), ext, 0.002)
+    door_r = _molded("Elev_Door_R", (0.032, 0.534, 2.05), door_steel_m, c, (door_x, 1.690, 1.032), ext, 0.002)
+    # Safety stickers near top-center of each door leaf (parented to each door so they move with it!)
+    _textured_plane(c, door_l, "ElevSticker_L", "sangga_elev/elev_sticker.png", 0.09, 0.11,
+                    (0.019, 0.18, 0.66), rot=(0, 0, math.pi / 2), shaded=True)
+    _textured_plane(c, door_r, "ElevSticker_R", "sangga_elev/elev_sticker.png", 0.09, 0.11,
+                    (0.019, -0.18, 0.66), rot=(0, 0, math.pi / 2), shaded=True)
+
+    # Twin round white wall lamps flanking the elevator (Photo #1 & #2 signature detail!)
+    for side_tag, ly in (("L", 0.78), ("R", 2.05)):
+        for idx, lz in enumerate((2.04, 2.24)):
+            W.cyl(f"ElevLampBase_{side_tag}{idx}", 0.042, 0.025, chrome_m, c, (ex + 0.025, ly, lz), (0, 90, 0), parent=ext, seg=14)
+            W.cyl(f"ElevLampBulb_{side_tag}{idx}", 0.034, 0.038, lamp_glow_m, c, (ex + 0.042, ly, lz), (0, 90, 0), parent=ext, seg=14)
+
+    # Elevator call button panel on right black granite strip (Y = 2.05, Z = 1.08)
+    _molded("ElevCallPlate", (0.018, 0.085, 0.24), steel_m, c, (ex + 0.022, 2.05, 1.08), ext, 0.003)
+    for b_idx, bz in enumerate((1.13, 1.05)):
+        W.cyl(f"ElevBtnRing_{b_idx}", 0.016, 0.012, chrome_m, c, (ex + 0.033, 2.05, bz), (0, 90, 0), parent=ext, seg=12)
+        W.cyl(f"ElevBtnGlow_{b_idx}", 0.011, 0.014, btn_glow_m, c, (ex + 0.035, 2.05, bz), (0, 90, 0), parent=ext, seg=12)
+
+    # 6) LEFT SIDE (Y = 0.00 .. 0.72): Korean indoor fire hydrant (옥내소화전) + floor extinguisher + 3F sign
+    # 3D metal fire hydrant cabinet mounted on left gray granite flank
+    hyd_root = W.empty("Elev_FireHydrant", c, (ex + 0.03, 0.36, 1.24), parent=ext)
+    _molded("Hydrant_Box", (0.06, 0.56, 1.06), steel_m, c, (0, 0, 0), hyd_root, 0.004)
+    _textured_plane(c, hyd_root, "Hydrant_Face", "sangga_elev/hydrant_front.png", 0.53, 1.02,
+                    (0.032, 0, 0), rot=(0, 0, math.pi / 2), shaded=True)
+    # Recessed chrome cabinet handle on right edge of hydrant door
+    _molded("Hydrant_Handle", (0.015, 0.022, 0.09), chrome_m, c, (0.036, 0.22, -0.04), hyd_root, 0.003)
+    # Gold '3F' floor number above hydrant (Photo #1 style!)
+    _text(c, ext, "Elev_3F_Label", "3F", (ex + 0.018, 0.36, 2.02), 0.16, gold_m, rot=(math.pi / 2, 0, math.pi / 2))
+    # Red Korean 3.3kg fire extinguisher on floor right in front of hydrant
+    ext_left = W.empty("Elev_Extinguisher", c, (ex + 0.24, 0.32, 0.0), parent=ext)
+    ext_left.rotation_euler.z = math.radians(78)
+    korean_fire_extinguisher(c, ext_left)
+
+    # 7) RIGHT SIDE (Y = 2.12 .. 2.86 & right corridor wall): Floor guide, orange notice, X-banners, cluttered clinic ads
+    # Floor directory (층별안내) & orange notice on right gray granite flank
+    _molded("ElevFloorGuide_Frame", (0.022, 0.64, 0.44), steel_m, c, (ex + 0.015, 2.48, 1.66), ext, 0.003)
+    _textured_plane(c, ext, "ElevFloorGuide_Face", "sangga_elev/floor_guide.png", 0.61, 0.41,
+                    (ex + 0.028, 2.48, 1.66), rot=(0, 0, math.pi / 2), shaded=True)
+    _textured_plane(c, ext, "ElevOrangeNotice_Face", "sangga_elev/notice_orange.png", 0.60, 0.38,
+                    (ex + 0.015, 2.48, 1.14), rot=(0, 0, math.pi / 2), shaded=True)
+
+    # Two standing X-banners crowding the right side near the elevator (exact Photo #1 cluttered sangga vibe!)
+    _standing_xbanner(c, ext, "Elev_XBanner_Golf", "sangga_elev/xbanner_golf.png",
+                      (ex + 0.42, 2.34, 0.0), rot_z_deg=68.0, width=0.54, height=1.48)
+    _standing_xbanner(c, ext, "Elev_XBanner_Mart", "sangga_elev/xbanner_mart.png",
+                      (ex + 1.18, 2.46, 0.0), rot_z_deg=38.0, width=0.56, height=1.52)
+
+    # Cluttered commercial clinic & shop ad panels along the right corridor wall (Y = 2.85, facing -Y)
+    ad_y = 2.845
+    # Dermatology clinic panel (피부과)
+    _molded("AdPanel_Derma_Frame", (1.18, 0.03, 0.84), steel_m, c, (-9.85, ad_y, 1.62), ext, 0.004)
+    _textured_plane(c, ext, "AdPanel_Derma", "sangga_elev/ad_derma.png", 1.14, 0.80,
+                    (-9.85, ad_y - 0.018, 1.62), shaded=True)
+    # Dental clinic panel (치과)
+    _molded("AdPanel_Dental_Frame", (1.18, 0.03, 0.84), steel_m, c, (-8.45, ad_y, 1.62), ext, 0.004)
+    _textured_plane(c, ext, "AdPanel_Dental", "sangga_elev/ad_dental.png", 1.14, 0.80,
+                    (-8.45, ad_y - 0.018, 1.62), shaded=True)
+    # Extra lower notice board below dermatology/dental panels for authentic sangga clutter
+    _molded("AdPanel_Notice_Frame", (0.76, 0.025, 0.48), dark_m, c, (-9.15, ad_y, 0.86), ext, 0.003)
+    _textured_plane(c, ext, "AdPanel_Notice", "sangga_elev/notice_orange.png", 0.72, 0.44,
+                    (-9.15, ad_y - 0.016, 0.86), shaded=True)
+
+    # Vacant commercial storefront with stainless mullions + big red '임대문의' banner cleanly inside left bay (X = -7.50 .. -4.85)
+    for mx in (-7.50, -6.18, -4.85):
+        _molded("Vacant_MullionV", (0.055, 0.075, 2.64), steel_m, c, (mx, 2.84, 1.42), ext, 0.004)
+    for mz, mh in ((0.11, 0.045), (2.18, 0.075), (2.71, 0.055)):
+        _molded("Vacant_MullionH", (2.70, 0.078, mh), steel_m, c, (-6.175, 2.84, mz), ext, 0.004)
+    W.box("Vacant_Glass", (2.60, 0.02, 2.55), frosted_m, c, (-6.175, 2.85, 1.40), parent=ext)
+    _textured_plane(c, ext, "Vacant_ForLease", "sangga_elev/for_lease.png", 1.12, 0.84,
+                    (-6.84, 2.825, 1.44), shaded=True)
+    # Clean stainless vertical trim pillar at the gym-wall junction (X = -4.65, Y = 0.02)
+    _molded("HallExt_GymJunctionTrim", (0.06, 0.08, 2.75), steel_m, c, (-4.65, 0.02, 1.375), ext, 0.004)
+
+    # Small wall-mounted beige suggestion box / electrical panel on left wall near elevator (Photo #2 detail!)
+    _molded("Elev_LeftBox", (0.34, 0.14, 0.44), wall_m, c, (-10.65, 0.08, 1.45), ext, 0.005)
+    _molded("Elev_LeftBox_Trim", (0.30, 0.02, 0.04), steel_m, c, (-10.65, 0.15, 1.60), ext, 0.002)
+
 
 
 def korean_fire_extinguisher(c, root):
