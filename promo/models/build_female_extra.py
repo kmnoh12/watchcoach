@@ -272,11 +272,17 @@ def reshape_female(arm_obj, body_obj):
     mesh.update()
     set_flat_shading(mesh)
 
-    # Sync armature bones
+    # Sync armature bones while preserving exact bone rolls for 100% V6 animation compatibility
     bpy.context.view_layer.objects.active = arm_obj
     arm_obj.select_set(True)
     bpy.ops.object.mode_set(mode="EDIT")
     ebones = arm_obj.data.edit_bones
+    orig_rolls = {eb.name: eb.roll for eb in ebones}
+    orig_hand_dirs = {
+        bn: (ebones[bn].tail - ebones[bn].head).copy()
+        for bn in ("hand_l", "hand_r")
+        if bn in ebones
+    }
 
     for eb in ebones:
         dx = 0.0
@@ -301,8 +307,16 @@ def reshape_female(arm_obj, body_obj):
         eb.head = Vector((h_co.x * scale_factor, h_co.y * scale_factor, (h_co.z - min_z) * scale_factor))
         eb.tail = Vector((t_co.x * scale_factor, t_co.y * scale_factor, (t_co.z - min_z) * scale_factor))
 
+        if eb.name in orig_hand_dirs:
+            # Preserve exact short V6 hand bone direction so its local frame never flips 180°
+            eb.tail = eb.head + orig_hand_dirs[eb.name] * (scale_factor * 0.93)
+
         if eb.name == "head":
             eb.tail.z = TARGET_HEIGHT
+
+    # Restore exact original bone rolls after all head/tail edits
+    for eb in ebones:
+        eb.roll = orig_rolls[eb.name]
 
     bpy.ops.object.mode_set(mode="OBJECT")
     arm_obj.select_set(False)
