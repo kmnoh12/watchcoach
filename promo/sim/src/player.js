@@ -30,18 +30,27 @@ export class PlayerController {
       this.actions[clip.name] = act;
     }
 
-    // Locate head bone for 1st-person POV attachment
+    // Locate key bones for 1st-person POV and dynamic incline posture adjustment
     this.headBone = null;
+    this.bones = {};
     rootGroup.traverse((obj) => {
       if (obj.isMesh) {
         obj.castShadow = true;
         obj.receiveShadow = true;
         obj.frustumCulled = false; // prevents skinned mesh popping in mirrors
       }
-      if (obj.isBone && obj.name === 'head') {
-        this.headBone = obj;
+      if (obj.isBone) {
+        this.bones[obj.name] = obj;
+        if (obj.name === 'head') this.headBone = obj;
       }
     });
+
+    this.treadmillMode = false;
+    this._treadmillPhase = 0;
+    this._treadmillInclineDeg = 0;
+    this._treadmillSpeedKmh = 0;
+    this._tmpQuat = new THREE.Quaternion();
+    this._axisX = new THREE.Vector3(1, 0, 0);
 
     if (this.actions.stand) {
       this.actions.stand.play();
@@ -116,8 +125,129 @@ export class PlayerController {
     this.playClip(clipName, { once: false, fade: 0.2 });
   }
 
+  enterTreadmill(standPos, yaw) {
+    this.lockedAction = true;
+    this.treadmillMode = true;
+    this._treadmillPhase = 0;
+    this._treadmillInclineDeg = 0;
+    this._treadmillSpeedKmh = 0;
+    this.speed = 0;
+    this.pos.set(standPos[0], standPos[1], standPos[2]);
+    this.yaw = yaw;
+    this.root.position.copy(this.pos);
+    this.root.rotation.y = this.yaw + Math.PI;
+
+    // Activate stand, walk, and run simultaneously for seamless phase-synced blending
+    for (const [name, act] of Object.entries(this.actions)) {
+      if (name === 'stand' || name === 'walk' || name === 'run') {
+        act.enabled = true;
+        act.setLoop(THREE.LoopRepeat, Infinity);
+        act.play();
+        act.setEffectiveWeight(name === 'stand' ? 1 : 0);
+        act.setEffectiveTimeScale(name === 'stand' ? 1 : 0);
+      } else {
+        act.stop();
+      }
+    }
+    this.currentClip = 'walk';
+  }
+
+  updateTreadmillLocomotion(speedKmh, inclineDeg, worldPos, dt) {
+    this._treadmillSpeedKmh = speedKmh;
+    this._treadmillInclineDeg = inclineDeg;
+    this.pos.copy(worldPos);
+    this.root.position.copy(worldPos);
+
+    const standAct = this.actions.stand;
+    const walkAct = this.actions.walk;
+    const runAct = this.actions.run;
+    if (!standAct || !walkAct || !runAct) return;
+
+    const smoothstep = (e0, e1, x) => {
+      const t = THREE.MathUtils.clamp((x - e0) / (e1 - e0), 0, 1);
+      return t * t * (3 - 2 * t);
+    };
+
+    // Pure speed-driven weights: incline NEVER forces running!
+    const moveW = smoothstep(0.15, 1.1, speedKmh);
+    const runRatio = smoothstep(5.4, 8.2, speedKmh);
+    const walkW = (1 - runRatio) * moveW;
+    const runW = runRatio * moveW;
+    const standW = 1 - moveW;
+
+    standAct.setEffectiveWeight(standW);
+    walkAct.setEffectiveWeight(walkW);
+    runAct.setEffectiveWeight(runW);
+
+    // Advance shared gait phase so walk <-> run speed transitions stay 100% foot-synced
+    const walkDur = walkAct.getClip().duration || 1.33;
+    const runDur = runAct.getClip().duration || 0.92;
+    const walkCadence = (0.45 + 0.55 * (speedKmh / 4.5)) / walkDur;
+    const runCadence = (0.68 + 0.32 * (speedKmh / 10.5)) / runDur;
+    const cadence = THREE.MathUtils.lerp(walkCadence, runCadence, runRatio);
+
+    if (moveW > 0.001) {
+      this._treadmillPhase = (this._treadmillPhase + cadence * dt) % 1;
+    }
+
+    // Drive walk & run directly from shared phase, while stand breathes normally
+    standAct.setEffectiveTimeScale(1);
+    walkAct.setEffectiveTimeScale(0);
+    runAct.setEffectiveTimeScale(0);
+    walkAct.time = this._treadmillPhase * walkDur;
+    runAct.time = this._treadmillPhase * runDur;
+  }
+
+  _applyInclinePosture() {
+    if (!this.treadmillMode || this._treadmillInclineDeg <= 0.05) return;
+
+    const k = THREE.MathUtils.clamp(this._treadmillInclineDeg / 30, 0, 1);
+    const rad = THREE.MathUtils.degToRad(this._treadmillInclineDeg);
+    const moveFactor = THREE.MathUtils.clamp(this._treadmillSpeedKmh / 4.5, 0, 1);
+
+    const pitchBone = (name, angleRad) => {
+      const b = this.bones[name];
+      if (!b || Math.abs(angleRad) < 1e-5) return;
+      this._tmpQuat.setFromAxisAngle(this._axisX, angleRad);
+      b.quaternion.multiply(this._tmpQuat);
+    };
+
+    // Natural uphill forward torso lean (+X leans forward), counter-pitched head (-X looks ahead)
+    const leanScale = 0.65 + 0.35 * moveFactor;
+    pitchBone('spine_01', 0.10 * k * leanScale);
+    pitchBone('spine_02', 0.11 * k * leanScale);
+    pitchBone('spine_03', 0.09 * k * leanScale);
+    pitchBone('neck_01', -0.10 * k * leanScale);
+    pitchBone('head', -0.12 * k * leanScale);
+
+    // Uphill lower-body drive: deeper knee/hip flexion + ankle dorsiflexion matching deck slope
+    const kneeFlex = (0.10 + 0.14 * moveFactor) * k;
+    pitchBone('thigh_l', -kneeFlex * 0.85);
+    pitchBone('thigh_r', -kneeFlex * 0.85);
+    pitchBone('calf_l', kneeFlex * 1.05);
+    pitchBone('calf_r', kneeFlex * 1.05);
+
+    // Dorsiflex ankles to align soles smoothly with the inclined deck surface
+    const anklePitch = -rad * 0.48;
+    pitchBone('foot_l', anklePitch);
+    pitchBone('foot_r', anklePitch);
+  }
+
   exitStation() {
     this.lockedAction = false;
+    if (this.treadmillMode) {
+      this.treadmillMode = false;
+      this._treadmillInclineDeg = 0;
+      this._treadmillSpeedKmh = 0;
+      for (const name of ['stand', 'walk', 'run']) {
+        const act = this.actions[name];
+        if (!act) continue;
+        act.setEffectiveTimeScale(1);
+        act.setEffectiveWeight(name === 'stand' ? 1 : 0);
+        if (name !== 'stand') act.stop();
+      }
+      this.currentClip = 'stand';
+    }
     this.playClip('stand', { fade: 0.2 });
   }
 
@@ -211,6 +341,7 @@ export class PlayerController {
     }
 
     this.mixer.update(dt);
+    this._applyInclinePosture();
     this.root.updateMatrixWorld(true);
 
     // Camera placement

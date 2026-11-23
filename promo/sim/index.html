@@ -23,6 +23,25 @@
   <!-- Compact posing bar (only inside posing room) -->
   <div id="posing-bar" class="posing-bar hidden"></div>
 
+  <!-- Incline Treadmill live telemetry HUD (only while on a treadmill) -->
+  <div id="treadmill-hud" class="treadmill-hud hidden">
+    <div class="tm-metric">
+      <div class="tm-row">
+        <span class="tm-label">속도 <span id="tm-speed-mode" class="tm-badge">걷기</span></span>
+        <span id="tm-speed-val" class="tm-val">4.5 km/h</span>
+      </div>
+      <div class="tm-track"><div id="tm-speed-fill" class="tm-fill speed"></div></div>
+    </div>
+    <div class="tm-divider"></div>
+    <div class="tm-metric">
+      <div class="tm-row">
+        <span class="tm-label">경사 (인클라인)</span>
+        <span id="tm-incline-val" class="tm-val">0.0°</span>
+      </div>
+      <div class="tm-track"><div id="tm-incline-fill" class="tm-fill incline"></div></div>
+    </div>
+  </div>
+
   <!-- Optional FPS counter (F3 toggle, hidden by default) -->
   <div id="fps-badge" class="fps-badge hidden">0 FPS</div>
 
@@ -34,8 +53,8 @@
         <span class="help-close"><kbd>H</kbd> 닫기</span>
       </div>
       <div class="help-grid">
-        <div><kbd>W A S D / 방향키</kbd></div><div>이동</div>
-        <div><kbd>Shift</kbd></div><div>달리기 · 러닝머신에서 조깅</div>
+        <div><kbd>W A S D / 방향키</kbd></div><div>이동 · 러닝머신 속도(W/S) 및 각도(A/D)</div>
+        <div><kbd>Shift</kbd></div><div>달리기</div>
         <div><kbd>마우스</kbd></div><div>시점 회전</div>
         <div><kbd>V</kbd></div><div>1인칭 / 3인칭 전환</div>
         <div><kbd>Q</kbd></div><div>워치 화면 확인</div>

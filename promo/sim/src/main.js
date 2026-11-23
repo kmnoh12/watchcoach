@@ -8,11 +8,24 @@ import stationClips from '../scripts/exercise_stations.json';
 import locomotion from '../../poses/v6_locomotion.json';
 import { loadExercise } from './exercises.js';
 import { ShowerFX } from './particles.js';
+import {
+  setupInclineTreadmill,
+  updateTreadmillSession,
+  getTreadmillRunnerWorldPos,
+  resetTreadmillOnEnter,
+  getSpeedModeLabel
+} from './treadmill.js';
 
 const canvas = document.getElementById('app');
 const lockHint = document.getElementById('lock-hint');
 const promptPill = document.getElementById('prompt-pill');
 const posingBar = document.getElementById('posing-bar');
+const treadmillHud = document.getElementById('treadmill-hud');
+const tmSpeedVal = document.getElementById('tm-speed-val');
+const tmSpeedMode = document.getElementById('tm-speed-mode');
+const tmSpeedFill = document.getElementById('tm-speed-fill');
+const tmInclineVal = document.getElementById('tm-incline-val');
+const tmInclineFill = document.getElementById('tm-incline-fill');
 const fpsBadge = document.getElementById('fps-badge');
 const helpOverlay = document.getElementById('help-overlay');
 
@@ -205,6 +218,7 @@ async function init() {
     const node = byOriginalName.get(eq.id);
     if (!node) continue;
     if (eq.id.startsWith('P_treadmill')) {
+      eq.treadmill = setupInclineTreadmill(node, protectedObjs);
       eq.standPos = node.localToWorld(new THREE.Vector3(0, 0.171, -0.12)).toArray();
       eq.yaw -= Math.PI;
       eq.clip = 'walk';
@@ -526,6 +540,11 @@ window.addEventListener('keydown', async (e) => {
           if (activeStation === target) exitActiveStation(true);
           console.error(eq.label, err);
         }
+      } else if (eq.treadmill) {
+        target.elapsed = 0;
+        resetTreadmillOnEnter(eq.treadmill);
+        const startPos = getTreadmillRunnerWorldPos(eq.treadmill, new THREE.Vector3());
+        player.enterTreadmill(startPos.toArray(), eq.yaw);
       } else {
         target.elapsed = 0;
         player.enterStation(eq.standPos, eq.yaw, eq.clip);
@@ -560,6 +579,7 @@ window.addEventListener('keyup', (e) => {
 
 let prevTime = performance.now();
 const _toPlayer = new THREE.Vector3();
+const _tmRunnerPos = new THREE.Vector3();
 
 function animate(now) {
   requestAnimationFrame(animate);
@@ -618,8 +638,11 @@ function animate(now) {
   if (activeStation?.exercise) {
     activeStation.elapsed += dt;
     if (activeStation.exercise.update(activeStation.elapsed)) exitActiveStation(true);
-  } else if (activeStation?.item.id.startsWith('P_treadmill')) {
-    player.playClip(keys.has('ShiftLeft') || keys.has('ShiftRight') ? 'run' : 'walk');
+  } else if (activeStation?.item.treadmill) {
+    const tm = activeStation.item.treadmill;
+    updateTreadmillSession(tm, keys, dt);
+    getTreadmillRunnerWorldPos(tm, _tmRunnerPos);
+    player.updateTreadmillLocomotion(tm.currentSpeedKmh, tm.currentInclineDeg, _tmRunnerPos, dt);
   }
   player.update(dt, keys, camera, doors);
   if (activeStation?.item.carriers) {
@@ -639,7 +662,21 @@ function animate(now) {
   const showPosingBar = inPosing && !activeStation;
   posingBar.classList.toggle('hidden', !showPosingBar);
 
-  if (activeStation) {
+  const onTreadmill = Boolean(activeStation?.item.treadmill);
+  treadmillHud.classList.toggle('hidden', !onTreadmill);
+  if (onTreadmill) {
+    const tm = activeStation.item.treadmill;
+    tmSpeedVal.textContent = `${tm.currentSpeedKmh.toFixed(1)} km/h`;
+    tmSpeedMode.textContent = getSpeedModeLabel(tm.currentSpeedKmh);
+    tmSpeedFill.style.width = `${(tm.currentSpeedKmh / 16) * 100}%`;
+    tmInclineVal.textContent = `${tm.currentInclineDeg.toFixed(1)}°`;
+    tmInclineFill.style.width = `${(tm.currentInclineDeg / 30) * 100}%`;
+  }
+
+  if (onTreadmill) {
+    promptPill.innerHTML = `<kbd>W/S</kbd> 속도 · <kbd>A/D</kbd> 각도(0~30°) · <kbd>E</kbd>/<kbd>ESC</kbd> 종료`;
+    promptPill.classList.remove('hidden');
+  } else if (activeStation) {
     promptPill.innerHTML = `<kbd>E</kbd> / <kbd>ESC</kbd> 종료`;
     promptPill.classList.remove('hidden');
   } else {
