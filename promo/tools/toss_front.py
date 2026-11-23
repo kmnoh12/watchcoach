@@ -1,4 +1,4 @@
-"""Toss Front (1st gen) customer payment terminal, modelled from product photos.
+"""Toss Front 2 customer payment terminal, modelled from product photos and the official size (120 x 145.5 x 192.5 mm).
 
 Build the standalone model file (run from the repo root):
     Blender -b --python promo/tools/toss_front.py -- --build promo/models/toss_front.blend
@@ -9,7 +9,7 @@ or from Python: set_toss_front_screen("TossFront", "/path/anim.mp4").
 The display is portrait 800 x 1280 px (7", 94.2 x 150.7 mm). By default it is a black, switched-off panel.
 
 Device frame: screen faces -Y, X = right, Z = up, origin at the floor under the front edge.
-Size: 118 W x 146 D x 195 H mm, head leaning back 20 degrees on a wedge base.
+Size: 120 W (head 113 + side card reader) x 146 D x 192.5 H mm, head leaning back 30 degrees on a wedge base.
 """
 import math
 import os
@@ -26,15 +26,15 @@ MM = 0.001
 SCREEN_PX = (800, 1280)
 
 # Head slab (head-local: x across, y up along the slab from its bottom edge, z out of the screen; back face z = 0)
-HEAD_W, HEAD_L, HEAD_R = 118.0, 198.0, 12.0
-SHELL_T, COVER_T = 11.0, 6.0
+HEAD_W, HEAD_L, HEAD_R = 113.0, 208.4, 10.0
+SHELL_T, COVER_T = 10.0, 6.0
 HEAD_T = SHELL_T + COVER_T
-TILT = 20.0                                  # degrees the head leans back from vertical
-FEET_H = 3.0
-DISP_W, DISP_H, DISP_R = 94.2, 150.7, 4.0
-DISP_TOP_GAP = 13.0                          # bezel above the display
-SLOT_Y = 20.5                                # IC card slot centre height on the head
-BASE_W, BASE_D = 104.0, 145.5                # wedge base width, overall device depth
+TILT = 30.0                                  # degrees the head leans back from vertical
+FEET_H = 4.0
+DISP_W, DISP_H, DISP_R = 94.2, 150.7, 3.5
+DISP_TOP_GAP = 15.0                          # bezel above the display (camera bar lives here)
+SLOT_Y = 22.0                                # IC card slot centre height on the head
+BASE_W, BASE_D = 102.0, 146.5                # wedge base width, overall device depth
 
 
 def _m(v):
@@ -199,9 +199,10 @@ def set_toss_front_screen(root_name="TossFront", source=None, strength=1.0, fram
 
 
 def build_toss_front(c, parent=None, loc=(0, 0, 0), rot_z_deg=0.0, name="TossFront"):
-    """Toss Front (1st gen): white tilted 7" display head with a single top camera and an IC card slot under the
-    screen, light grey back shell (grey band + round badge on the back), wedge base with rounded back end,
-    cable tunnel underneath, green status LED + round power button on its left flank, four grey rubber feet."""
+    """Toss Front 2: white 7" display head leaning back 30 deg, dark pill camera bar with two lenses, raised grey
+    IC-slot bezel under the screen, side card-swipe (MSR) reader clipped on the right edge, two-tone shell with a
+    grey band + round badge on the back; wedge base with a slide-latch pocket on its right flank, cable tunnel and
+    pill button on the back end, four grey rubber feet."""
     root = W.empty(name, c, loc, parent=parent, size=0.05)
     root.rotation_euler.z = math.radians(rot_z_deg)
 
@@ -209,39 +210,48 @@ def build_toss_front(c, parent=None, loc=(0, 0, 0), rot_z_deg=0.0, name="TossFro
     shell_m = _mat("TossFront_GreyShell", (0.80, 0.805, 0.80), rough=0.42)
     band_m = _mat("TossFront_BackBand", (0.58, 0.59, 0.60), rough=0.5)
     rubber_m = _mat("TossFront_RubberFoot", (0.52, 0.53, 0.54), rough=0.85)
-    slot_rim_m = _mat("TossFront_SlotRim", (0.60, 0.61, 0.62), rough=0.45)
-    slot_m = _mat("TossFront_SlotDark", (0.015, 0.015, 0.017), rough=0.6)
-    lens_m = _mat("TossFront_CameraLens", (0.01, 0.01, 0.012), rough=0.05, coat=1.0)
-    ring_m = _mat("TossFront_CameraRing", (0.06, 0.06, 0.065), rough=0.3)
-    led_m = _mat("TossFront_StatusLED", (0.2, 0.9, 0.3), rough=0.2, emit=(0.25, 1.0, 0.35), strength=6.0)
+    bezel_m = _mat("TossFront_SlotBezel", (0.50, 0.51, 0.52), rough=0.30, coat=0.3)
+    slot_in_m = _mat("TossFront_SlotInner", (0.10, 0.10, 0.105), rough=0.45)
+    slot_m = _mat("TossFront_SlotDark", (0.012, 0.012, 0.014), rough=0.6)
+    glass_black_m = _mat("TossFront_BlackGlass", (0.008, 0.008, 0.01), rough=0.05, coat=1.0)
+    lens_m = _mat("TossFront_CameraLens", (0.05, 0.055, 0.07), rough=0.08, metal=0.3, coat=1.0)
     gap_m = _mat("TossFront_Seam", (0.45, 0.46, 0.46), rough=0.6)
     screen_m = _screen_material(f"{name}_Screen")
 
     # ---- head: rotate about X so local +y runs up the slab and local +z faces out of the screen -----------------
     s, co_ = math.sin(math.radians(TILT)), math.cos(math.radians(TILT))
-    front_bottom_z = FEET_H + HEAD_T * s                      # back-bottom edge rests at feet height
-    head = W.empty(f"{name}_Head", c, (0, _m(HEAD_T * co_), _m(front_bottom_z - HEAD_T * s)), parent=root, size=0.03)
-    head.rotation_euler.x = math.radians(90 - TILT)
+    head = W.empty(f"{name}_Head", c, (0, _m(HEAD_T * co_), _m(FEET_H)), parent=root, size=0.03)
+    head.rotation_euler.x = math.radians(90 - TILT)      # back-bottom edge rests at feet height
     plan = [(x, y + HEAD_L / 2) for x, y in _rrect(HEAD_W, HEAD_L, HEAD_R, 12)]
 
     shell = _prism(f"{name}_BackShell", plan, 0.0, SHELL_T - 0.15, shell_m, c, head)
-    _bevel(shell, 2.6, 4)
-    band = _prism(f"{name}_BandCutter", [(x, y + HEAD_L - 10 - 15) for x, y in _rrect(96, 30, 7, 8)],
+    _bevel(shell, 2.4, 4)
+    band = _prism(f"{name}_BandCutter", [(x, y + HEAD_L - 9 - 16) for x, y in _rrect(92, 32, 7, 8)],
                   -2.0, 0.7, band_m, c, head)
-    badge = _disc(f"{name}_BadgeCutter", 7.5, -1.0, 0.35, gap_m, c, head, (0, HEAD_L * 0.55), 48)
+    badge = _disc(f"{name}_BadgeCutter", 7.5, -1.0, 0.35, gap_m, c, head, (0, HEAD_L * 0.56), 48)
     _bake(shell, [band, badge])
-    _disc(f"{name}_BackBadge", 6.2, 0.20, 1.0, shell_m, c, head, (0, HEAD_L * 0.55), 48)
+    _disc(f"{name}_BackBadge", 6.2, 0.20, 1.0, shell_m, c, head, (0, HEAD_L * 0.56), 48)
 
     cover = _prism(f"{name}_FrontCover", plan, SHELL_T, HEAD_T, white_m, c, head)
-    _bevel(cover, 2.4, 4)
+    _bevel(cover, 2.6, 4)
     disp_cy = HEAD_L - DISP_TOP_GAP - DISP_H / 2
     disp_cut = _prism(f"{name}_DisplayCutter", [(x, y + disp_cy) for x, y in _rrect(DISP_W + 0.6, DISP_H + 0.6, DISP_R, 8)],
                       HEAD_T - 0.6, HEAD_T + 2, gap_m, c, head)
-    slot_recess = _prism(f"{name}_SlotRecessCutter", [(y, x + SLOT_Y) for x, y in _rrect(7.0, 64.0, 3.5, 10)],
-                         HEAD_T - 1.3, HEAD_T + 2, slot_rim_m, c, head)
-    slot_deep = _prism(f"{name}_SlotCutter", [(y, x + SLOT_Y) for x, y in _rrect(1.8, 58.0, 0.9, 6)],
-                       HEAD_T - 14, HEAD_T + 2, slot_m, c, head)
-    _bake(cover, [disp_cut, slot_recess, slot_deep])
+    cam_y = HEAD_L - 7.4
+    cam_cut = _prism(f"{name}_CameraBarCutter", [(y, x + cam_y) for x, y in _rrect(7.0, 35.0, 3.5, 10)],
+                     HEAD_T - 0.5, HEAD_T + 2, slot_m, c, head)
+    pocket = _prism(f"{name}_SlotPocketCutter", [(y, x + SLOT_Y) for x, y in _rrect(8.2, 61.0, 4.1, 10)],
+                    HEAD_T - 2.6, HEAD_T + 3, slot_in_m, c, head)
+    slot_deep = _prism(f"{name}_SlotCutter", [(y, x + SLOT_Y) for x, y in _rrect(2.6, 56.0, 1.3, 6)],
+                       HEAD_T - 14, HEAD_T + 3, slot_m, c, head)
+    _bake(cover, [disp_cut, cam_cut, pocket, slot_deep])
+
+    # raised grey pill bezel around the IC slot (Front 2's signature chunky slot)
+    rim = _prism(f"{name}_SlotBezel", [(y, x + SLOT_Y) for x, y in _rrect(12.4, 65.5, 6.2, 12)],
+                 HEAD_T - 0.4, HEAD_T + 2.0, bezel_m, c, head)
+    _bevel(rim, 1.1, 5)
+    _bake(rim, [_prism(f"{name}_SlotBezelCutter", [(y, x + SLOT_Y) for x, y in _rrect(8.2, 61.0, 4.1, 10)],
+                       HEAD_T - 3, HEAD_T + 3, slot_in_m, c, head)])
 
     # display glass: thin black border ring + inner face carrying the screen material and full 0..1 UVs
     bm = bmesh.new()
@@ -265,54 +275,75 @@ def build_toss_front(c, parent=None, loc=(0, 0, 0), rot_z_deg=0.0, name="TossFro
         f.material_index = 1 if is_screen else 0
         for lp in f.loops:
             lp[uv].uv = ((lp.vert.co.x / MM - x0) / (x1 - x0), (lp.vert.co.y / MM - y0) / (y1 - y0))
-    disp = W.mesh_obj(f"{name}_Display", bm, lens_m, c, (0, 0, 0), (0, 0, 0), head)
+    disp = W.mesh_obj(f"{name}_Display", bm, glass_black_m, c, (0, 0, 0), (0, 0, 0), head)
     disp.data.materials.append(screen_m)
 
-    # top camera (single round lens) + tiny ambient-light sensor dot under it
-    cam_y = HEAD_L - 6.5
-    _disc(f"{name}_CameraRing", 2.4, HEAD_T - 0.4, HEAD_T + 0.12, ring_m, c, head, (0, cam_y), 32)
-    _disc(f"{name}_CameraLens", 1.55, HEAD_T, HEAD_T + 0.28, lens_m, c, head, (0, cam_y), 32)
-    _disc(f"{name}_LightSensor", 0.45, HEAD_T - 0.2, HEAD_T + 0.06, ring_m, c, head, (0, cam_y - 3.6), 16)
+    # dark glossy camera bar with a lens at each end
+    bar = _prism(f"{name}_CameraBar", [(y, x + cam_y) for x, y in _rrect(6.6, 34.6, 3.3, 10)],
+                 HEAD_T - 0.5, HEAD_T - 0.08, glass_black_m, c, head)
+    _smooth(bar)
+    for k, cx in enumerate((-14.2, 14.2)):
+        _disc(f"{name}_CameraLens{k}", 1.35, HEAD_T - 0.2, HEAD_T + 0.02, lens_m, c, head, (cx, cam_y), 32)
+
+    # side card-swipe (MSR) reader on the right edge: plate parallel to the head side, 1.8 mm swipe gap,
+    # bridged to the head behind its back face
+    msr_top, msr_len = HEAD_L - 30.0, 86.0
+    msr_cy = msr_top - msr_len / 2
+    x_in = HEAD_W / 2 + 1.8
+    plate = _prism(f"{name}_CardReader", [(y + msr_cy, z) for y, z in _rrect(msr_len, 18.5, 6.0, 10)],
+                   x_in, x_in + 5.2, white_m, c, head, loc=(0, 0, _m(3.6)), axis="X")
+    _bevel(plate, 1.6, 4)
+    bridge = _prism(f"{name}_CardReaderBridge", [(y + msr_cy, z) for y, z in _rrect(msr_len - 16, 6.5, 2.0, 6)],
+                    HEAD_W / 2 - 6, x_in + 1.0, shell_m, c, head, loc=(0, 0, _m(-2.25)), axis="X")
+    _bevel(bridge, 0.8, 3)
 
     # ---- wedge base (side profile in (y, z), extruded across x) -------------------------------------------------
     back_bottom = Vector((HEAD_T * co_, FEET_H))          # head back-bottom edge in (y, z)
     up = Vector((s, co_))                                  # along the head
     into_head = Vector((-co_, s))                          # from the head back face toward the screen
-    joint = back_bottom + up * ((96.0 - FEET_H) / co_)     # slope meets the head back at z = 96 mm
-    corner = Vector((BASE_D, 52.0))
+    joint = back_bottom + up * ((84.0 - FEET_H) / co_)     # slope meets the head back at z = 84 mm
+    corner = Vector((BASE_D, 31.0))
     u1, u2 = Vector((0, 1)), (joint - corner).normalized()
     alpha = math.acos(max(-1.0, min(1.0, (-u1).dot(u2))))
-    R = 17.0
+    R = 9.0
     t = R / math.tan(alpha / 2)
     t1, t2 = corner - u1 * t, corner + u2 * t
     ctr = t1 + Vector((-1, 0)) * R
     a1, a2 = math.atan2(t1.y - ctr.y, t1.x - ctr.x), math.atan2(t2.y - ctr.y, t2.x - ctr.x)
-    arc = [ctr + R * Vector((math.cos(a1 + (a2 - a1) * k / 10), math.sin(a1 + (a2 - a1) * k / 10))) for k in range(11)]
+    arc = [ctr + R * Vector((math.cos(a1 + (a2 - a1) * k / 8), math.sin(a1 + (a2 - a1) * k / 8))) for k in range(9)]
     inner_top = joint + into_head * 7.0
-    inner_bot = back_bottom + into_head * 7.0 + up * 1.5
-    profile = [(inner_bot.x, FEET_H), (BASE_D, FEET_H)] + [(p.x, p.y) for p in arc] + \
-              [(joint.x, joint.y), (inner_top.x, inner_top.y), (inner_bot.x, inner_bot.y)]
+    inner_bot = back_bottom + into_head * 7.0
+    profile = [(inner_bot.x, FEET_H), (BASE_D - 1.5, FEET_H)] + [(p.x, p.y) for p in arc] + \
+              [(joint.x, joint.y), (inner_top.x, inner_top.y), (inner_bot.x, inner_bot.y + 0.5)]
     base = _prism(f"{name}_Base", profile, -BASE_W / 2, BASE_W / 2, white_m, c, root, axis="X")
-    _bevel(base, 6.5, 5, 30.0)
-    tunnel = _prism(f"{name}_CableTunnelCutter",
-                    _rrect(46.0, 26.0, 6.0, 8),
-                    BASE_D - 58, BASE_D + 5, gap_m, c, root)
+    _bevel(base, 5.0, 5, 30.0)
+    tunnel = _prism(f"{name}_CableTunnelCutter", _rrect(40.0, 20.0, 5.0, 8), BASE_D - 55, BASE_D + 5, gap_m, c, root)
     tunnel.rotation_euler.x = math.radians(-90)
     tunnel.location = (0, 0, _m(FEET_H))
-    _bake(base, [tunnel])
+    # slide-latch pocket on the right flank (local z of `flank` points out of the +X side)
+    flank = W.empty(f"{name}_RightFlank", c, (_m(BASE_W / 2), 0, 0), parent=root, size=0.02)
+    flank.rotation_euler = (math.radians(90), 0, math.radians(90))      # local x -> +Y, y -> +Z, z -> +X
+    lat_y, lat_z = 64.5, 34.0
+    latch_cut = _prism(f"{name}_LatchPocketCutter", [(x + lat_y, y + lat_z) for x, y in _rrect(37.0, 22.5, 4.5, 8)],
+                       -1.6, 2.0, gap_m, c, flank)
+    _bake(base, [tunnel, latch_cut])
+    slider = _prism(f"{name}_LatchSlider", [(x + lat_y + 4.5, y + lat_z) for x, y in _rrect(10.5, 21.5, 5.0, 10)],
+                    -1.6, 0.35, white_m, c, flank)
+    _bevel(slider, 0.8, 3)
+    for k, sgn in enumerate((1, -1)):    # tiny engraved '<' arrow left of the slider
+        W.box(f"{name}_LatchArrow{k}", (_m(2.4), _m(0.35), _m(0.2)), slot_in_m, c,
+              (_m(lat_y - 9.5), _m(lat_z + sgn * 0.8), _m(-1.5)), (0, 0, sgn * 35), parent=flank)
+    # small pill power button above the cable tunnel on the back end
+    back = W.empty(f"{name}_BackEnd", c, (0, _m(BASE_D), 0), parent=root, size=0.02)
+    back.rotation_euler = (math.radians(-90), math.radians(180), 0)    # local z -> +Y (out of the back end)
+    btn = _prism(f"{name}_PowerButton", [(x, y + 20.5) for x, y in _rrect(9.0, 3.6, 1.8, 8)],
+                 -0.5, 0.45, white_m, c, back)
+    _bevel(btn, 0.3, 2)
+    W.box(f"{name}_PowerButtonSeam", (_m(10.4), _m(5.0), _m(0.2)), gap_m, c, (0, _m(20.5), _m(-0.05)), parent=back)
 
-    # status LED + round power button on the left flank near the back end
-    side = W.empty(f"{name}_LeftFlank", c, (_m(-BASE_W / 2), 0, 0), parent=root, size=0.02)
-    side.rotation_euler = (math.radians(90), 0, math.radians(-90))   # local z -> -X (out of the flank)
-    btn_y, btn_z, led_z = BASE_D - 19.0, 22.0, 35.0
-    _bake(base, [_disc(f"{name}_ButtonRingCutter", 6.0, -1.0, 0.55, gap_m, c, side, (-btn_y, btn_z), 40)])
-    btn = _disc(f"{name}_PowerButton", 5.1, -0.4, 0.45, white_m, c, side, (-btn_y, btn_z), 40)
-    _bevel(btn, 0.4, 3)
-    _disc(f"{name}_StatusLED", 0.85, -0.3, 0.25, led_m, c, side, (-btn_y, led_z), 20)
-
-    # rubber feet: two under the head's back-bottom edge, two under the base's back end
-    for k, (fx, fy) in enumerate(((-42, 13), (42, 13), (-36, BASE_D - 14), (36, BASE_D - 14))):
-        foot = W.cyl(f"{name}_Foot{k}", _m(6.0), _m(FEET_H + 0.6), rubber_m, c,
+    # rubber feet: two near the front, two near the back end
+    for k, (fx, fy) in enumerate(((-40, 25.5), (40, 25.5), (-38, 125.0), (38, 125.0))):
+        foot = W.cyl(f"{name}_Foot{k}", _m(7.0), _m(FEET_H + 0.6), rubber_m, c,
                      (_m(fx), _m(fy), _m((FEET_H + 0.6) / 2)), parent=root, seg=28)
         _bevel(foot, 0.8, 2)
     return root
