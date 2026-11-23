@@ -15,10 +15,10 @@ import java.io.ByteArrayOutputStream
 class CaptureStorageTest {
     private val app get() = RuntimeEnvironment.getApplication()
     private val prefs get() = app.getSharedPreferences("wear-sync", Context.MODE_PRIVATE)
-    private fun receive(id: String): ReceivedCapture {
+    private fun receive(id: String, session: String = "storage"): ReceivedCapture {
         val records = (0 until 500).map { SensorCaptureRecord(SensorSample(1_000L + it * 20_000_000L, 0f, 0f, 9.8f, 0f, 0f, 0f)) }
         val bytes = ByteArrayOutputStream().also { SensorCaptureFormat.write(it, records, 50.0) }.toByteArray()
-        val manifest = WireMessages.captureManifest("storage", "external_rotation", "set", id,
+        val manifest = WireMessages.captureManifest(session, "external_rotation", "set", id,
             SensorCaptureFormat.FORMAT_VERSION, "NONE", records.size, 50.0, 50.0, records.first().sample.timestampNs,
             records.last().sample.timestampNs, SensorCaptureFormat.sha256(bytes), bytes.size.toLong())
         return CaptureInbox(app, prefs).receive(manifest, bytes).getOrThrow()
@@ -56,6 +56,19 @@ class CaptureStorageTest {
         assertEquals(500, pending.validated.document.sampleCount)
         assertEquals(raw.manifest, pending.manifest)
         assertEquals("saved", prefs.getString("analysis:again", null))
+    }
+    @Test fun sessionExportZipsOnlyThatWorkoutsCaptures() {
+        val inbox = CaptureInbox(app, prefs)
+        receive("mine-1", "workout-a"); receive("other", "workout-b"); receive("mine-2", "workout-a")
+        assertEquals(listOf("mine-1", "mine-2"), inbox.captureIds("workout-a"))
+        assertTrue(inbox.captureIds("missing").isEmpty())
+        val out = ByteArrayOutputStream()
+        assertEquals(2, inbox.exportAll(out, "workout-a"))
+        val manifests = java.util.zip.ZipInputStream(out.toByteArray().inputStream()).use { zip ->
+            generateSequence { zip.nextEntry }.filter { it.name.endsWith("manifest.json") }.map { String(zip.readBytes()) }.toList()
+        }
+        assertEquals(2, manifests.size)
+        assertTrue(manifests.all { it.contains("\"sessionId\": \"workout-a\"") })
     }
     @Test fun exportAllZipsEveryCaptureByDateIncludingCompressedAndFailedOnes() {
         val inbox = CaptureInbox(app, prefs)

@@ -174,10 +174,8 @@ class CaptureInbox(
      * One-touch export of every stored raw capture, grouped by date. Raw bytes are copied as stored (decompressed, never
      * re-encoded or validated away), so a capture whose analysis failed is still exported. Returns how many were written.
      */
-    fun exportAll(output: java.io.OutputStream): Int = synchronized(lock) {
-        val ids = prefs.all.keys.filter { it.startsWith("capture:") && it.endsWith(":path") }
-            .map { it.removePrefix("capture:").removeSuffix(":path") }
-            .sortedBy { prefs.getLong(receivedAtKey(it), 0L) }
+    fun exportAll(output: java.io.OutputStream, sessionId: String? = null): Int = synchronized(lock) {
+        val ids = captureIds(sessionId)
         val zone = java.time.ZoneId.systemDefault()
         // The user's saved result is the reference answer: repSource MANUAL means the engine count was corrected by hand.
         val sessions = runCatching { FinishedWorkoutStore(context).allEvidence().associateBy { it.snapshot.sessionId } }.getOrDefault(emptyMap())
@@ -217,6 +215,16 @@ class CaptureInbox(
             zip.closeEntry()
         }
         written
+    }
+
+    /** Stored capture ids in arrival order; with [sessionId], only that workout's captures. */
+    fun captureIds(sessionId: String? = null): List<String> = synchronized(lock) {
+        prefs.all.keys.filter { it.startsWith("capture:") && it.endsWith(":path") }
+            .map { it.removePrefix("capture:").removeSuffix(":path") }
+            .filter { id -> sessionId == null || runCatching {
+                WireCodec.decode(prefs.getString(manifestKey(id), null) ?: error("missing manifest")).sessionId == sessionId
+            }.getOrDefault(false) }
+            .sortedBy { prefs.getLong(receivedAtKey(it), 0L) }
     }
 
     fun storageReport(): JSONObject = synchronized(lock) {

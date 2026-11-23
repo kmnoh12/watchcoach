@@ -1,6 +1,11 @@
 package dev.kyungmin.watchcoach.phone
 
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -168,6 +173,22 @@ class MainActivity : ComponentActivity() {
     private enum class Screen { ROOT, ROUTINE, FREE, LIBRARY, EXERCISE_INFO, EXERCISE_RECORD, ACTIVE, REST }
 
     private var visibleWorkoutResultSessionId: String? = null
+    private var sensorExportSessionId: String? = null
+    private val saveSessionSensorLogs = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val sessionId = sensorExportSessionId
+        sensorExportSessionId = null
+        if (uri != null && sessionId != null) lifecycleScope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching {
+                    val output = contentResolver.openOutputStream(uri, "wt") ?: error("Cannot open selected document")
+                    output.use { CaptureInbox(applicationContext, getSharedPreferences("wear-sync", MODE_PRIVATE)).exportAll(it, sessionId) }
+                }
+            }
+            Toast.makeText(this@MainActivity,
+                saved.getOrNull()?.let { "이 운동 센서 기록 ${it}개 저장 완료. 저장한 ZIP 파일을 채팅에 첨부해 주세요." }
+                    ?: "센서 기록 저장 실패. 저장 위치를 바꿔 다시 시도해 주세요.", Toast.LENGTH_LONG).show()
+        }
+    }
     private val handledResultRequests = mutableSetOf<String>()
 
     private data class WorkoutResultUi(
@@ -1081,6 +1102,18 @@ class MainActivity : ComponentActivity() {
             ?: candidates.singleOrNull()
     }
 
+    /** Saves only this workout's raw watch sensor captures as one ZIP, same layout as the full export. */
+    private fun exportSessionSensorLogs(sessionId: String?, title: String) {
+        val count = sessionId?.let { CaptureInbox(applicationContext, getSharedPreferences("wear-sync", MODE_PRIVATE)).captureIds(it).size } ?: 0
+        if (sessionId == null || count == 0) {
+            Toast.makeText(this, "이 운동에 저장된 센서 기록이 없습니다", Toast.LENGTH_SHORT).show()
+            return
+        }
+        sensorExportSessionId = sessionId
+        val name = title.replace(Regex("[^0-9A-Za-z가-힣._-]+"), "_").trim('_').ifBlank { "workout" }
+        saveSessionSensorLogs.launch("watchcoach-sensor-${name}-${System.currentTimeMillis()}.zip")
+    }
+
     /** A record row opens the same result screen as the newest workout. */
     private fun loadRecordResult(record: WorkoutRecord): WorkoutResultUi? {
         val evidence = recordEvidence(record) ?: return null
@@ -1092,12 +1125,13 @@ class MainActivity : ComponentActivity() {
         showSheet { dismiss ->
             RecordMenuSheet(
                 "${record.title} · ${record.date.replace("-", ".")}",
-                listOf(RecordMenuItem("이 기록으로 운동 시작"), RecordMenuItem("운동 기록 수정"), RecordMenuItem("운동 기록 삭제", destructive = true)),
+                listOf(RecordMenuItem("이 기록으로 운동 시작"), RecordMenuItem("운동 기록 수정"), RecordMenuItem("센서 기록 ZIP 저장"), RecordMenuItem("운동 기록 삭제", destructive = true)),
             ) { index ->
                 dismiss()
                 when (index) {
                     0 -> startWorkoutFromRecord(record)
                     1 -> showRecordEditor(record, afterChange)
+                    2 -> exportSessionSensorLogs(recordEvidence(record)?.snapshot?.sessionId, record.title)
                     else -> confirmDeleteRecord(record, afterChange)
                 }
             }
@@ -1302,9 +1336,10 @@ class MainActivity : ComponentActivity() {
                         val record = workoutRecords().firstOrNull { it.sessionId == result.sessionId }
                             ?: WorkoutRecord(LocalDate.now().toString(), result.title, result.durationMinutes, result.completedSets, 0, result.sessionId)
                         showSheet { dismiss ->
-                            RecordMenuSheet(result.title, listOf(RecordMenuItem("수정하기"))) {
+                            RecordMenuSheet(result.title, listOf(RecordMenuItem("수정하기"), RecordMenuItem("센서 기록 ZIP 저장"))) { index ->
                                 dismiss()
-                                showRecordEditor(record) {
+                                if (index == 1) exportSessionSensorLogs(result.sessionId, result.title)
+                                else showRecordEditor(record) {
                                     showWorkoutResult(loadFinishedWorkoutResult(result.sessionId))
                                 }
                             }
