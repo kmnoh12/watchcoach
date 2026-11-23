@@ -328,83 +328,34 @@ def reshape_female(arm_obj, body_obj):
 
 
 def build_lowpoly_ponytail(arm_obj, body_obj):
-    """Create a clean faceted low-poly ponytail (cap + tie + tail) parented to `head` bone."""
-    # Measure actual scaled head vertices so the hair cap hugs the head perfectly
+    """Create a minimalist low-poly ponytail tail sprouting directly from the back of the
+    clean head, sharing the exact same body material for unified monochrome figure style."""
     vweights = vertex_group_weights(body_obj)
     head_pts = [
         v.co.copy()
         for i, v in enumerate(body_obj.data.vertices)
         if vweights[i].get("head", 0.0) > 0.5
     ]
-    hx_min = min(p.x for p in head_pts)
-    hx_max = max(p.x for p in head_pts)
     hy_min = min(p.y for p in head_pts)
     hy_max = max(p.y for p in head_pts)
     hz_min = min(p.z for p in head_pts)
     hz_max = max(p.z for p in head_pts)
 
-    hc = Vector(((hx_min + hx_max) * 0.5, (hy_min + hy_max) * 0.5, (hz_min + hz_max) * 0.5))
-    rx = (hx_max - hx_min) * 0.5
-    ry = (hy_max - hy_min) * 0.5
+    hc = Vector((0.0, (hy_min + hy_max) * 0.5, (hz_min + hz_max) * 0.5))
     rz = (hz_max - hz_min) * 0.5
-    print(f"[hair] head center=({hc.x:.3f},{hc.y:.3f},{hc.z:.3f}) radii=({rx:.3f},{ry:.3f},{rz:.3f})")
 
     bm = bmesh.new()
 
-    # 1. Low-poly hair cap covering crown, temples, and back of head
-    # Built as a faceted dome slightly larger than head, trimmed cleanly across forehead/face
-    rings = 5
-    segs = 10
-    ring_verts = []
-    # Latitude from top pole (phi=0) down to hairline (phi_max varies by angle: higher on forehead, lower at back)
-    top_v = bm.verts.new((hc.x, hc.y + 0.004, hz_max + 0.017))
-
-    for r in range(1, rings + 1):
-        frac = r / rings
-        row = []
-        for s in range(segs):
-            # theta=0 is front (-Y), pi is back (+Y)
-            theta = 2.0 * math.pi * s / segs
-            # Hairline dips much lower in back (+Y, cos(theta) = -1) than forehead (-Y, cos(theta) = +1)
-            frontness = math.cos(theta)  # +1 front, -1 back
-            # Smooth interpolation of max_phi around head
-            max_phi = math.radians(86.0 - 32.0 * frontness + 6.0 * (1.0 - frontness * frontness))
-            phi = frac * max_phi
-
-            # Generous hair thickness offset so faceted head corners never poke through
-            pad = 0.015 + 0.005 * (1.0 - frontness) * 0.5
-            px = hc.x + (rx + pad) * math.sin(phi) * math.sin(theta)
-            py = hc.y - (ry + pad) * math.sin(phi) * math.cos(theta) + 0.004 * (1.0 - frontness) * 0.5
-            pz = hc.z + (rz + 0.016) * math.cos(phi) + 0.005
-            row.append(bm.verts.new((px, py, pz)))
-        ring_verts.append(row)
-
-    # Cap top fan
-    for s in range(segs):
-        s_next = (s + 1) % segs
-        bm.faces.new((top_v, ring_verts[0][s_next], ring_verts[0][s]))
-    # Cap side quads
-    for r in range(rings - 1):
-        for s in range(segs):
-            s_next = (s + 1) % segs
-            bm.faces.new((ring_verts[r][s], ring_verts[r][s_next], ring_verts[r + 1][s_next], ring_verts[r + 1][s]))
-    # Close underside rim of cap toward head interior so there's no hollow gap
-    inner_center = bm.verts.new((hc.x, hc.y + 0.015, hc.z - 0.015))
-    for s in range(segs):
-        s_next = (s + 1) % segs
-        bm.faces.new((ring_verts[-1][s], ring_verts[-1][s_next], inner_center))
-
-    # 2. Ponytail tie + sweeping faceted tail at upper-back of head
-    tie_origin = Vector((hc.x, hy_max + 0.006, hc.z + rz * 0.34))
-    # Spine points of ponytail (in world/rest coords, sweeping back +Y and down -Z)
+    # Ponytail rooted cleanly inside the upper-back skull so there is zero seam gap
+    tie_origin = Vector((0.0, hy_max - 0.004, hc.z + rz * 0.28))
     tail_spine = [
-        (tie_origin + Vector((0.0, -0.006, 0.004)), 0.020, 0.020),  # inside tie
-        (tie_origin + Vector((0.0, 0.014, 0.008)), 0.025, 0.024),   # tie knot
-        (tie_origin + Vector((0.0, 0.046, 0.002)), 0.036, 0.032),   # upper puff
-        (tie_origin + Vector((0.0, 0.072, -0.036)), 0.042, 0.034),  # mid full volume
-        (tie_origin + Vector((0.0, 0.080, -0.095)), 0.036, 0.028),  # lower mid
-        (tie_origin + Vector((0.0, 0.074, -0.155)), 0.022, 0.018),  # taper
-        (tie_origin + Vector((0.0, 0.064, -0.198)), 0.005, 0.005),  # tip
+        (tie_origin + Vector((0.0, -0.014, -0.002)), 0.022, 0.022),  # anchored inside back of head
+        (tie_origin + Vector((0.0, 0.008, 0.004)), 0.017, 0.017),    # pinched tie base
+        (tie_origin + Vector((0.0, 0.042, 0.002)), 0.036, 0.032),    # upper volume flare
+        (tie_origin + Vector((0.0, 0.070, -0.036)), 0.042, 0.035),   # mid full volume
+        (tie_origin + Vector((0.0, 0.078, -0.098)), 0.035, 0.028),   # lower mid
+        (tie_origin + Vector((0.0, 0.070, -0.158)), 0.020, 0.016),   # taper
+        (tie_origin + Vector((0.0, 0.058, -0.200)), 0.005, 0.005),   # crisp low-poly tip
     ]
 
     tail_segs = 7
@@ -427,11 +378,15 @@ def build_lowpoly_ponytail(arm_obj, body_obj):
             ring.append(bm.verts.new(vpos))
         tail_rings.append(ring)
 
+    # Close base inside skull + side quads + crisp pointed tip
+    base_v = bm.verts.new(tail_spine[0][0] + Vector((0.0, -0.006, 0.0)))
+    for s in range(tail_segs):
+        s_next = (s + 1) % tail_segs
+        bm.faces.new((base_v, tail_rings[0][s_next], tail_rings[0][s]))
     for r in range(len(tail_rings) - 1):
         for s in range(tail_segs):
             s_next = (s + 1) % tail_segs
             bm.faces.new((tail_rings[r][s], tail_rings[r][s_next], tail_rings[r + 1][s_next], tail_rings[r + 1][s]))
-    # Cap tip
     tip_v = bm.verts.new(tail_spine[-1][0] + Vector((0.0, -0.004, -0.014)))
     for s in range(tail_segs):
         s_next = (s + 1) % tail_segs
@@ -447,20 +402,19 @@ def build_lowpoly_ponytail(arm_obj, body_obj):
     hair_obj = bpy.data.objects.new("Extra_female_Hair", hair_mesh)
     bpy.context.scene.collection.objects.link(hair_obj)
 
-    # Deep warm charcoal-brown low-poly hair material
-    hair_mat = make_flat_material("Extra_female_Hair_Mat", (0.14, 0.11, 0.10, 1.0), roughness=0.65)
-    hair_mesh.materials.append(hair_mat)
+    # Share the exact body material so color changes stay 100% unified
+    if body_obj.data.materials:
+        hair_mesh.materials.append(body_obj.data.materials[0])
 
     # Bone-parent to `head` so it follows every head pose cleanly
     hair_obj.parent = arm_obj
     hair_obj.parent_type = "BONE"
     hair_obj.parent_bone = "head"
-    # Compensate Blender's bone-parent tail offset so mesh stays at exact world coords
     head_bone = arm_obj.data.bones["head"]
     bone_mat = arm_obj.matrix_world @ Matrix.Translation(head_bone.tail_local) @ head_bone.matrix_local.to_3x3().to_4x4()
     hair_obj.matrix_parent_inverse = bone_mat.inverted()
 
-    print(f"[hair] built ponytail: verts={len(hair_mesh.vertices)}, polys={len(hair_mesh.polygons)}")
+    print(f"[hair] built monochrome ponytail tail: verts={len(hair_mesh.vertices)}, polys={len(hair_mesh.polygons)}")
     return hair_obj
 
 
