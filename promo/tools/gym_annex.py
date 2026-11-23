@@ -118,7 +118,7 @@ def _brushed_brass_mat(name):
     m.use_nodes = True
     nt = m.node_tree
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-    bsdf.inputs["Base Color"].default_value = (0.83, 0.65, 0.28, 1.0)
+    bsdf.inputs["Base Color"].default_value = (0.76, 0.55, 0.19, 1.0)
     bsdf.inputs["Metallic"].default_value = 0.96
     tc = nt.nodes.new("ShaderNodeTexCoord")
     mp = nt.nodes.new("ShaderNodeMapping")
@@ -182,14 +182,14 @@ def build_shop_doorbell(c, parent, loc=(0.24, -0.028, 2.08)):
     brass_m = _brushed_brass_mat("Myeongtae_BrushedBrass")
     rope_m = _cotton_rope_mat("Myeongtae_CottonRope")
     # Reuse the real info-desk wood image texture rotated horizontally along the fish body!
-    wood_m = _walnut_wood_mat("Myeongtae_InfoDeskWood", value_mult=1.35, sat_mult=0.95, scale=(2.6, 2.6, 2.6), rough=0.44, bump_str=0.05)
+    wood_m = _walnut_wood_mat("Myeongtae_InfoDeskWood", value_mult=0.90, sat_mult=1.24, scale=(2.6, 2.6, 2.6), rough=0.44, bump_str=0.06)
     # Rotate texture mapping 90 deg so wood grain runs horizontally along fish length (X axis)
     for n_node in wood_m.node_tree.nodes:
         if n_node.type == "MAPPING":
             n_node.inputs["Rotation"].default_value = (0.0, math.radians(90), 0.0)
             n_node.inputs["Scale"].default_value = (3.5, 3.5, 1.4)
-    bead_m = _beechwood_mat("Myeongtae_LightBead", (0.88, 0.80, 0.66), (0.78, 0.68, 0.52), rough=0.46, scale=10.0)
-    engrave_m = W.mat("Myeongtae_Engrave", (0.24, 0.13, 0.06), rough=0.72)
+    bead_m = _beechwood_mat("Myeongtae_LightBead", (0.84, 0.74, 0.58), (0.72, 0.60, 0.44), rough=0.46, scale=10.0)
+    engrave_m = W.mat("Myeongtae_Engrave", (0.12, 0.055, 0.02), rough=0.78)
     dark_m = W.mat("Myeongtae_BlackCord", (0.03, 0.03, 0.04), rough=0.70)
 
     # 1. Silver magnetic cup base + curved J-hook
