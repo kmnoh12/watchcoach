@@ -59,7 +59,6 @@ class MainActivity : Activity() {
     private var restPaused = false
     /** A touch or bezel turn lights the whole rest screen until then; otherwise only the time stays bright. */
     private var restWakeUntilMs = 0L
-    private var swallowingWakeTouch = false
     private var pausedRestRemainingMs = 0L
     private var paused = false
     private var screenDimmed = false
@@ -573,17 +572,8 @@ class MainActivity : Activity() {
     }
 
     override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
-        // The first touch on a dimmed rest screen only lights it, so it can never press "건너뛰기" by accident.
-        if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN && face.restDim) {
-            swallowingWakeTouch = true
-            wakeRestScreen()
-            return true
-        }
-        if (swallowingWakeTouch) {
-            if (event.actionMasked == android.view.MotionEvent.ACTION_UP || event.actionMasked == android.view.MotionEvent.ACTION_CANCEL) swallowingWakeTouch = false
-            return true
-        }
-        if (resting) restWakeUntilMs = System.currentTimeMillis() + REST_WAKE_MS
+        // Any touch lights the whole rest screen and still does what it touched (pause, resume, skip work first time).
+        if (resting) wakeRestScreen()
         return super.dispatchTouchEvent(event)
     }
 
