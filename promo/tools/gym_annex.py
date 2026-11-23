@@ -6,6 +6,7 @@ import bmesh
 import bpy
 from mathutils import Matrix, Vector
 import wc_lib as W
+from toss_front import build_toss_front
 
 
 def _molded(name, size, material, c, xyz, parent=None, radius=0.006):
@@ -1702,6 +1703,8 @@ def build_info_desk(c):
     _molded("Promo POP stand", (0.16, 0.018, 0.24), pop_m, c, (-0.82, 0.56, 1.16), root, 0.003)
     # White file organizer box on consultation desk
     _molded("Desk file box", (0.12, 0.24, 0.28), white_chair, c, (0.56, 0.42, 0.905), root, 0.004)
+    # Toss Front 2 customer payment terminal on the high check-in counter, screen turned toward the customer (+Y)
+    build_toss_front(c, root, (-1.00, 0.66, 1.041), rot_z_deg=172.0, name="TossFront")
 
     # 8) Two Sleek White Modern Consultation Chairs in front (+Y) of the lower desk!
     for cx, cz_rot in ((0.44, -14), (1.06, -22)):
