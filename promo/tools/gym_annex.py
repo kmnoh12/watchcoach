@@ -52,38 +52,143 @@ def cut_wall_opening(target_names, center, size, cutter_coll):
             pass
 
 
-def build_shop_doorbell(c, parent, loc=(0.24, -0.032, 2.08)):
-    """Korean storefront/gym magnetic brass doorbell (상점 풍경 도어벨) mounted on interior top glass rail.
-    Parented under `Entrance_Doorbell` empty so reels can rock it when the glass door opens ('띠링~')."""
+def build_shop_doorbell(c, parent, loc=(0.24, -0.028, 2.08)):
+    """Korean Aekmagi Myeongtae (액막이 명태) wooden fish & brass bell doorbell!
+    Mounted on the interior top glass rail with silver magnetic hook, gold ring,
+    twisted ivory cotton rope wrapping a sculpted beechwood pollock fish, black cord,
+    wooden bead, and rounded brass bell. Swing empty allows '띠링~' animation."""
     bell_root = W.empty("Entrance_Doorbell", c, loc, parent=parent)
-    wood_m = W.mat("Doorbell_Walnut", (0.20, 0.11, 0.06), rough=0.42)
-    brass_m = W.mat("Doorbell_Brass", (0.78, 0.58, 0.22), rough=0.22, metal=0.92)
-    cord_m = W.mat("Doorbell_Cord", (0.08, 0.06, 0.05), rough=0.75)
+    chrome_m = W.mat("Myeongtae_HookSilver", (0.72, 0.74, 0.78), rough=0.18, metal=0.95)
+    brass_m = W.mat("Myeongtae_Brass", (0.82, 0.62, 0.24), rough=0.20, metal=0.94)
+    rope_m = W.mat("Myeongtae_IvoryRope", (0.91, 0.87, 0.78), rough=0.88)
+    wood_m = W.mat("Myeongtae_BeechWood", (0.68, 0.44, 0.24), rough=0.52)
+    bead_m = W.mat("Myeongtae_LightBead", (0.86, 0.76, 0.60), rough=0.50)
+    dark_m = W.mat("Myeongtae_BlackCord", (0.04, 0.04, 0.05), rough=0.75)
 
-    # Rounded walnut magnetic mounting block stuck to the top door rail
-    _molded("Doorbell base", (0.046, 0.022, 0.072), wood_m, c, (0, -0.011, 0.0), bell_root, 0.005)
-    # Brass C-hook arm jutting inward (-Y)
-    W.cyl("Doorbell arm", 0.0035, 0.048, brass_m, c, (0, -0.042, 0.016), (90, 0, 0), parent=bell_root, seg=10)
-    W.cyl("Doorbell hanger", 0.0025, 0.026, brass_m, c, (0, -0.062, 0.002), parent=bell_root, seg=10)
+    # 1. Silver magnetic hook on the door top rail
+    W.cyl("Doorbell mag base", 0.013, 0.010, chrome_m, c, (0, -0.005, 0.0), (90, 0, 0), parent=bell_root, seg=14)
+    W.cyl("Doorbell hook stem", 0.0035, 0.024, chrome_m, c, (0, -0.020, -0.002), (90, 0, 0), parent=bell_root, seg=10)
+    W.cyl("Doorbell hook tip", 0.0035, 0.014, chrome_m, c, (0, -0.030, 0.005), parent=bell_root, seg=10)
 
-    # Hanging brass bell cup (tapered cone + rim) + clapper ball + lower striker pendulum
-    swing = W.empty("Doorbell_Swing", c, (0, -0.062, -0.010), parent=bell_root)
-    # Bell dome (2 stacked cylinders + flared lip for crisp low-poly brass silhouette)
-    W.cyl("Doorbell crown", 0.014, 0.016, brass_m, c, (0, 0, -0.012), parent=swing, seg=16)
-    W.cyl("Doorbell body", 0.022, 0.028, brass_m, c, (0, 0, -0.030), parent=swing, seg=16)
-    W.cyl("Doorbell lip", 0.027, 0.007, brass_m, c, (0, 0, -0.045), parent=swing, seg=16)
-    # Cord + brass clapper bead hanging beneath bell
-    W.cyl("Doorbell cord", 0.0018, 0.055, cord_m, c, (0, 0, -0.068), parent=swing, seg=8)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.009, location=(0, 0, -0.054))
-    clapper = bpy.context.active_object
-    clapper.name = "Doorbell clapper"
-    clapper.data.materials.append(brass_m)
-    for col in list(clapper.users_collection):
-        col.objects.unlink(clapper)
-    c.objects.link(clapper)
-    clapper.parent = swing
-    # Small walnut wind-catcher tag at bottom of cord
-    _molded("Doorbell tag", (0.018, 0.004, 0.034), wood_m, c, (0, 0, -0.105), swing, 0.001)
+    # Swing pivot hanging from the hook
+    swing = W.empty("Doorbell_Swing", c, (0, -0.028, -0.004), parent=bell_root)
+
+    # 2. Gold carabiner ring
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=0.017, minor_radius=0.0032, major_segments=20, minor_segments=8,
+        location=(0, 0, -0.016), rotation=(math.radians(90), 0, 0)
+    )
+    ring = bpy.context.active_object
+    ring.name = "Myeongtae gold ring"
+    ring.data.materials.append(brass_m)
+    for col in list(ring.users_collection):
+        col.objects.unlink(ring)
+    c.objects.link(ring)
+    ring.parent = swing
+
+    # 3. Twisted ivory cotton rope (2-strand helix hanging from gold ring to fish belly)
+    for strand in (0, 1):
+        phase = strand * math.pi
+        pts = []
+        for k in range(15):
+            t = k / 14.0
+            z = -0.028 - t * 0.115
+            ang = phase + t * math.pi * 5.0
+            pts.append((math.cos(ang) * 0.0055, math.sin(ang) * 0.0055, z))
+        curve = bpy.data.curves.new(f"Myeongtae_Rope_{strand}", "CURVE")
+        curve.dimensions = "3D"
+        curve.bevel_depth = 0.0058
+        curve.bevel_resolution = 3
+        curve.use_fill_caps = True
+        sp = curve.splines.new("POLY")
+        sp.points.add(len(pts) - 1)
+        for p_obj, pt in zip(sp.points, pts):
+            p_obj.co = (pt[0], pt[1], pt[2], 1.0)
+        curve.materials.append(rope_m)
+        robj = bpy.data.objects.new(f"Myeongtae_Rope_{strand}", curve)
+        c.objects.link(robj)
+        robj.parent = swing
+
+    # Rope knot collar wrapping around the wooden fish waist
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=0.016, minor_radius=0.0068, major_segments=16, minor_segments=8,
+        location=(0, 0, -0.118), rotation=(0, math.radians(90), 0)
+    )
+    wrap = bpy.context.active_object
+    wrap.name = "Myeongtae rope wrap"
+    wrap.scale = (1.6, 0.9, 1.3)
+    wrap.data.materials.append(rope_m)
+    for col in list(wrap.users_collection):
+        col.objects.unlink(wrap)
+    c.objects.link(wrap)
+    wrap.parent = swing
+
+    # 4. Sculpted Beechwood Pollock Fish (액막이 명태, horizontal X silhouette, extruded in Y)
+    # Profile points in (X, Z) relative to fish center (0, 0, -0.130): head on -X, tail on +X
+    fish_xz = [
+        (-0.088, 0.006),   # upper jaw tip
+        (-0.072, 0.014),   # snout
+        (-0.040, 0.021),   # head crown
+        (-0.012, 0.022),   # upper back
+        (0.025, 0.015),    # mid back
+        (0.062, 0.009),    # tail peduncle top
+        (0.092, 0.016),    # tail fin upper tip
+        (0.084, 0.000),    # tail fin notch
+        (0.094, -0.015),   # tail fin lower tip
+        (0.062, -0.007),   # tail peduncle bottom
+        (0.020, -0.012),   # lower body
+        (-0.018, -0.018),  # belly
+        (-0.056, -0.014),  # throat
+        (-0.086, -0.004),  # lower jaw tip
+        (-0.074, 0.002),   # open mouth inner corner
+    ]
+    n = len(fish_xz)
+    half_t = 0.0065
+    fz0 = -0.130
+    verts = [(x, -half_t, fz0 + z) for x, z in fish_xz] + [(x, half_t, fz0 + z) for x, z in fish_xz]
+    faces = [tuple(range(n)), tuple(reversed(range(n, 2 * n)))]
+    for i in range(n):
+        j = (i + 1) % n
+        faces.append((i, j, j + n, i + n))
+    fmesh = bpy.data.meshes.new("Myeongtae_Fish_Mesh")
+    fmesh.from_pydata(verts, [], faces)
+    fmesh.materials.append(wood_m)
+    fobj = bpy.data.objects.new("Myeongtae fish", fmesh)
+    c.objects.link(fobj)
+    fobj.parent = swing
+    bev = fobj.modifiers.new("Bevel", "BEVEL")
+    bev.width = 0.0022
+    bev.segments = 2
+
+    # Engraved eye dot & gill arc on both faces of the wooden fish
+    for y_s in (-half_t - 0.0008, half_t + 0.0008):
+        W.cyl("Myeongtae eye", 0.0036, 0.0018, dark_m, c, (-0.064, y_s, fz0 + 0.005), (90, 0, 0), parent=swing, seg=12)
+        W.box("Myeongtae gill", (0.0022, 0.0016, 0.020), dark_m, c, (-0.044, y_s, fz0 + 0.001), (0, 12, 0), parent=swing)
+
+    # 5. Thin black cord hanging beneath fish -> light wood bead -> rounded brass bell
+    W.cyl("Myeongtae cord L", 0.0012, 0.072, dark_m, c, (-0.004, 0, -0.184), (0, -4, 0), parent=swing, seg=8)
+    W.cyl("Myeongtae cord R", 0.0012, 0.072, dark_m, c, (0.004, 0, -0.184), (0, 4, 0), parent=swing, seg=8)
+
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10, radius=0.011, location=(0, 0, -0.222))
+    bead = bpy.context.active_object
+    bead.name = "Myeongtae wood bead"
+    bead.data.materials.append(bead_m)
+    for col in list(bead.users_collection):
+        col.objects.unlink(bead)
+    c.objects.link(bead)
+    bead.parent = swing
+
+    # Rounded dome brass bell right under the wooden bead
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=18, ring_count=12, radius=0.020, location=(0, 0, -0.246))
+    dome = bpy.context.active_object
+    dome.name = "Myeongtae bell dome"
+    dome.scale = (1.0, 1.0, 0.85)
+    dome.data.materials.append(brass_m)
+    for col in list(dome.users_collection):
+        col.objects.unlink(dome)
+    c.objects.link(dome)
+    dome.parent = swing
+    W.cyl("Myeongtae bell skirt", 0.020, 0.022, brass_m, c, (0, 0, -0.258), parent=swing, seg=18)
     return bell_root
 
 
