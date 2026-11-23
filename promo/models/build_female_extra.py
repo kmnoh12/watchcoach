@@ -14,20 +14,12 @@ Outputs:
 
 import math
 import os
-import sys
 import bpy
 import bmesh
 from mathutils import Vector, Matrix
 
-THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(THIS_DIR, "..", ".."))
-if THIS_DIR not in sys.path:
-    sys.path.insert(0, THIS_DIR)
-
-import fix_v5_hands
-
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SRC_FIG = os.path.join(REPO_ROOT, "promo", "cast", "src_figure_copy.blend")
-V6_BLEND = os.path.join(REPO_ROOT, "promo", "models", "v6.blend")
 OUT_BLEND = os.path.join(REPO_ROOT, "promo", "models", "extra_female.blend")
 RENDER_DIR = os.path.join(REPO_ROOT, "promo", "models", "renders_female_extra")
 
@@ -100,162 +92,6 @@ def set_flat_shading(mesh):
         p.use_smooth = False
 
 
-def _ordered_boundary_loop(seam_verts):
-    """Order a closed boundary loop of BMVerts around the neck cut."""
-    remaining = set(seam_verts)
-    start = min(remaining, key=lambda v: (v.co.x, v.co.y))
-    loop = [start]
-    while len(loop) < len(seam_verts):
-        cur = loop[-1]
-        choices = [
-            e.other_vert(cur)
-            for e in cur.link_edges
-            if e.is_boundary and e.other_vert(cur) in remaining and e.other_vert(cur) not in loop
-        ]
-        if not choices:
-            break
-        loop.append(choices[0])
-    # Fallback: sort by angle around centroid if topology has multiple fragments
-    if len(loop) != len(seam_verts):
-        cx = sum(v.co.x for v in seam_verts) / len(seam_verts)
-        cy = sum(v.co.y for v in seam_verts) / len(seam_verts)
-        loop = sorted(seam_verts, key=lambda v: math.atan2(v.co.y - cy, v.co.x - cx))
-    return loop
-
-
-def transplant_v6_head(body_obj):
-    """Replace the old boxy extra head with the sculpted V6 head with a clean,
-    twist-free tapered neck using Blender's native bridge_loops."""
-    cut_z_dst = 1.458   # natural base of neck above trapezius/clavicle
-    cut_z_v6 = 1.505    # clean upper neck just below V6 jawline
-
-    with bpy.data.libraries.load(V6_BLEND, link=False) as (df, dt):
-        dt.objects = ["V5_Body"]
-    v6_body = dt.objects[0]
-    v6_idx_to_name = {vg.index: vg.name for vg in v6_body.vertex_groups}
-
-    # 1. Extract V6 head+upper-neck patch above cut_z_v6
-    bm_v6 = bmesh.new()
-    bm_v6.from_mesh(v6_body.data)
-    bmesh.ops.remove_doubles(bm_v6, verts=list(bm_v6.verts), dist=1e-4)
-    bm_v6.verts.ensure_lookup_table()
-    v6_layer = bm_v6.verts.layers.deform.active
-
-    bmesh.ops.bisect_plane(
-        bm_v6,
-        geom=list(bm_v6.faces) + list(bm_v6.edges) + list(bm_v6.verts),
-        dist=1e-5,
-        plane_co=(0.0, 0.0, cut_z_v6),
-        plane_no=(0.0, 0.0, 1.0),
-    )
-    bmesh.ops.delete(
-        bm_v6,
-        geom=[v for v in bm_v6.verts if v.is_valid and v.co.z < cut_z_v6 - 1e-4],
-        context="VERTS",
-    )
-    v6_seam = {v for v in bm_v6.verts if v.is_valid and any(e.is_boundary for e in v.link_edges)}
-
-    v6_verts_list = list(bm_v6.verts)
-    v6_v_idx = {v: i for i, v in enumerate(v6_verts_list)}
-    v6_coords = [v.co.copy() for v in v6_verts_list]
-    v6_weights = [
-        {v6_idx_to_name[gid]: w for gid, w in v[v6_layer].items() if gid in v6_idx_to_name and w > 1e-4}
-        for v in v6_verts_list
-    ]
-    v6_faces = [[v6_v_idx[v] for v in f.verts] for f in bm_v6.faces]
-    v6_seam_set = {v6_v_idx[v] for v in v6_seam}
-    bm_v6.free()
-    bpy.data.objects.remove(v6_body, do_unlink=True)
-
-    # 2. Cut off old head+neck on body_obj at cut_z_dst
-    if body_obj.data.shape_keys is not None:
-        body_obj.shape_key_clear()
-
-    bm = bmesh.new()
-    bm.from_mesh(body_obj.data)
-    bmesh.ops.remove_doubles(bm, verts=list(bm.verts), dist=1e-4)
-    bm.verts.ensure_lookup_table()
-    layer = bm.verts.layers.deform.active
-    dst_group = {vg.name: vg.index for vg in body_obj.vertex_groups}
-
-    upper_verts = {v for v in bm.verts if v.co.z > 1.40}
-    upper_faces = {f for v in upper_verts for f in v.link_faces}
-    upper_edges = {e for f in upper_faces for e in f.edges}
-    bmesh.ops.bisect_plane(
-        bm,
-        geom=list(upper_faces | upper_edges | upper_verts),
-        dist=1e-5,
-        plane_co=(0.0, 0.0, cut_z_dst),
-        plane_no=(0.0, 0.0, 1.0),
-    )
-    bmesh.ops.delete(
-        bm,
-        geom=[v for v in bm.verts if v.is_valid and v.co.z > cut_z_dst + 1e-4],
-        context="VERTS",
-    )
-    dst_seam_edges = [e for e in bm.edges if e.is_boundary and e.verts[0].co.z > 1.42]
-    dst_seam_verts = list({v for e in dst_seam_edges for v in e.verts})
-
-    # Align V6 head X/Y neck center to dst_seam center so neck sits squarely over torso
-    dst_cx = sum(v.co.x for v in dst_seam_verts) / len(dst_seam_verts)
-    dst_cy = sum(v.co.y for v in dst_seam_verts) / len(dst_seam_verts)
-    v6_cx = sum(v6_coords[i].x for i in v6_seam_set) / len(v6_seam_set)
-    v6_cy = sum(v6_coords[i].y for i in v6_seam_set) / len(v6_seam_set)
-    # Center V6 head squarely over spine/shoulders so front and back neck lines are flush
-    shift = Vector((dst_cx - v6_cx, dst_cy - v6_cy + 0.008, 0.0))
-
-    # 3. Insert V6 head patch into bm
-    new_verts = []
-    for co, wdict in zip(v6_coords, v6_weights):
-        nv = bm.verts.new(co + shift)
-        for gname, val in wdict.items():
-            gid = dst_group.get(gname)
-            if gid is not None:
-                nv[layer][gid] = val
-        new_verts.append(nv)
-
-    for fverts in v6_faces:
-        bm.faces.new([new_verts[i] for i in fverts])
-
-    bm.edges.ensure_lookup_table()
-    v6_seam_verts_set = {new_verts[i] for i in v6_seam_set}
-    v6_seam_edges = [e for e in bm.edges if e.is_boundary and e.verts[0] in v6_seam_verts_set and e.verts[1] in v6_seam_verts_set]
-
-    # Native twist-free bridge connecting lower neck base cleanly to V6 upper neck
-    res = bmesh.ops.bridge_loops(
-        bm,
-        edges=dst_seam_edges + v6_seam_edges,
-        use_pairs=False,
-        use_cyclic=True,
-        use_merge=False,
-        twist_offset=0,
-    )
-
-    # Assign clean neck_01 / spine_03 blend weights to the newly created mid-neck ring
-    neck_gid = dst_group.get("neck_01")
-    spine3_gid = dst_group.get("spine_03")
-    head_gid = dst_group.get("head")
-    bridged_verts = {v for f in res.get("faces", []) for v in f.verts}
-    for v in bridged_verts:
-        if v not in v6_seam_verts_set and v not in dst_seam_verts:
-            # Mid-neck ring: 75% neck_01, 25% spine_03
-            v[layer].clear()
-            if neck_gid is not None:
-                v[layer][neck_gid] = 0.75
-            if spine3_gid is not None:
-                v[layer][spine3_gid] = 0.25
-
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    for f in bm.faces:
-        f.smooth = False
-
-    non_manifold = [e for e in bm.edges if not e.is_manifold]
-    print(f"[head_transplant] V6 head grafted (bridge_loops): verts={len(bm.verts)}, faces={len(bm.faces)}, non_manifold={len(non_manifold)}")
-    bm.to_mesh(body_obj.data)
-    bm.free()
-    body_obj.data.update()
-
-
 def reshape_female(arm_obj, body_obj):
     """Reshape mesh + armature in-place to 161cm Korean-standard female proportions."""
     # Clear any inherited shape keys so vertex edits are the true evaluated geometry
@@ -292,24 +128,24 @@ def reshape_female(arm_obj, body_obj):
         sx = 1.0 if x >= 0 else -1.0
         ax = abs(x)
 
-        # 1. Head (sculpted V6 head): balanced +5% larger than before for natural 161cm proportion
+        # 1. Head: smaller, slightly slimmer jaw/face
         if w_head > 0.0:
-            hc = Vector((0.0, -0.105, 1.615))
+            hc = Vector((0.0, -0.095, 1.625))
             rel = Vector((x, y, z)) - hc
-            jaw_taper = 1.0 - 0.05 * smoothstep(1.61, 1.52, z)
-            tx = hc.x + rel.x * 0.95 * jaw_taper
-            ty = hc.y + rel.y * 0.96
-            tz = hc.z + rel.z * 0.97 - 0.002
+            # Extra slight taper on lower jaw (z < 1.61)
+            jaw_taper = 1.0 - 0.06 * smoothstep(1.63, 1.54, z)
+            tx = hc.x + rel.x * 0.86 * jaw_taper
+            ty = hc.y + rel.y * 0.88
+            tz = hc.z + rel.z * 0.89 - 0.010
             x = x + (tx - x) * w_head
             y = y + (ty - y) * w_head
             z = z + (tz - z) * w_head
 
-        # 2. Neck: keep clean straight taper without pinching the seam
+        # 2. Neck: slimmer
         if w_neck > 0.0:
-            neck_fade = smoothstep(1.455, 1.495, z) * w_neck
-            nc_y = -0.068
-            x *= 1.0 - 0.08 * neck_fade
-            y = nc_y + (y - nc_y) * (1.0 - 0.06 * neck_fade)
+            nc_y = -0.085
+            x *= 1.0 - 0.19 * w_neck
+            y = nc_y + (y - nc_y) * (1.0 - 0.16 * w_neck)
 
         # 3. Torso (excludes arms)
         body_mask = max(0.0, 1.0 - w_arm * 0.96) * (w_torso + w_leg * smoothstep(0.76, 0.96, z))
@@ -713,7 +549,6 @@ def main():
     female_body.data.materials.clear()
     female_body.data.materials.append(f_mat)
 
-    transplant_v6_head(female_body)
     reshape_female(female_arm, female_body)
     hair_obj = build_lowpoly_ponytail(female_arm, female_body)
 
