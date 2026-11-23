@@ -1,0 +1,23 @@
+{
+  "P_power_rack": "barbell_squat",
+  "P_smith_machine": "smith_squat",
+  "P_cable_crossover": "cable_crossover~h=mid~g=d~p=fly_mid",
+  "P_functional_trainer": "cable_tower~h=high~g=rope~p=down",
+  "P_lat_pulldown": "lat_pulldown~g=lat",
+  "P_seated_cable_row": "seated_cable_row~m=fix3",
+  "P_chest_press_machine": "chest_press_variants~m=pin",
+  "P_shoulder_press_machine": "shoulder_press_machine",
+  "P_pec_deck": "pec_deck~m=fly",
+  "P_lateral_raise_machine": "lateral_raise_machine",
+  "P_assisted_pullup": "assisted_pullup",
+  "P_dip_machine": "dip_machine",
+  "P_preacher_machine": "preacher_machine",
+  "P_plate_row": "plate_row",
+  "P_tbar_row_machine": "tbar_row_machine",
+  "P_leg_press_45": "leg_press_45",
+  "P_leg_extension": "leg_extension",
+  "P_seated_leg_curl": "seated_leg_curl",
+  "P_hip_abductor": "hip_abductor",
+  "P_adjustable_bench": "incline_dumbbell_bench_press",
+  "P_flat_bench": "flat_bench_press"
+}

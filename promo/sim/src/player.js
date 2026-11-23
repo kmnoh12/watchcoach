@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 const PLAYER_RADIUS = 0.18;
-const WALK_SPEED = 2.6;
-const RUN_SPEED = 5.0;
+const WALK_SPEED = 1.25;
+const RUN_SPEED = 4.3;
 
 export class PlayerController {
   constructor(rootGroup, animations, colliders, raycastMeshes = []) {
@@ -14,6 +14,7 @@ export class PlayerController {
     this.pos = new THREE.Vector3(0, 0, 2.5);
     this.yaw = 0; // radians, 0 faces -Z (toward main mirror at y=+5 in Blender -> z=-5 in Three)
     this.pitch = 0;
+    this.speed = 0;
     this.firstPerson = false;
     this.lockedAction = false; // true while on equipment / shower / toilet / posing
     this.currentClip = 'stand';
@@ -71,7 +72,7 @@ export class PlayerController {
     next.enabled = true;
     next.play();
     if (prev && prev !== next) {
-      prev.crossFadeTo(next, fade, true);
+      prev.crossFadeTo(next, fade, false);
     }
     this.currentClip = name;
 
@@ -107,6 +108,7 @@ export class PlayerController {
 
   enterStation(standPos, yaw, clipName) {
     this.lockedAction = true;
+    this.speed = 0;
     this.pos.set(standPos[0], standPos[1], standPos[2]);
     this.yaw = yaw;
     this.root.position.copy(this.pos);
@@ -166,41 +168,46 @@ export class PlayerController {
     if (!this.lockedAction) {
       let fwd = 0;
       let strafe = 0;
-      if (keys.has('KeyW')) fwd += 1;
-      if (keys.has('KeyS')) fwd -= 1;
-      if (keys.has('KeyA')) strafe -= 1;
-      if (keys.has('KeyD')) strafe += 1;
+      if (keys.has('KeyW') || keys.has('ArrowUp')) fwd += 1;
+      if (keys.has('KeyS') || keys.has('ArrowDown')) fwd -= 1;
+      if (keys.has('KeyA') || keys.has('ArrowLeft')) strafe -= 1;
+      if (keys.has('KeyD') || keys.has('ArrowRight')) strafe += 1;
 
       const moving = fwd !== 0 || strafe !== 0;
       const running = moving && (keys.has('ShiftLeft') || keys.has('ShiftRight'));
 
+      let alignment = 1;
       if (moving) {
-        const len = Math.hypot(fwd, strafe);
-        fwd /= len;
-        strafe /= len;
-        const speed = running ? RUN_SPEED : WALK_SPEED;
-
-        // Forward vector in Three.js when facing yaw: (-sin(yaw), 0, -cos(yaw))
-        const sinY = Math.sin(this.yaw);
-        const cosY = Math.cos(this.yaw);
-        const vx = (-sinY * fwd + cosY * strafe) * speed * dt;
-        const vz = (-cosY * fwd - sinY * strafe) * speed * dt;
-
-        const wasInside = this._collidesAt(this.pos.x, this.pos.z, activeDoors);
-        if (wasInside || !this._collidesAt(this.pos.x + vx, this.pos.z, activeDoors)) {
-          this.pos.x += vx;
-        }
-        if (wasInside || !this._collidesAt(this.pos.x, this.pos.z + vz, activeDoors)) {
-          this.pos.z += vz;
-        }
-
-        this.playClip(running ? 'run' : 'walk', { fade: 0.15 });
+        // Heading is relative to the camera. The model's forward axis is local +Z.
+        const heading = this.yaw + Math.atan2(strafe, -fwd);
+        const delta = Math.atan2(
+          Math.sin(heading - this.root.rotation.y),
+          Math.cos(heading - this.root.rotation.y)
+        );
+        const turn = THREE.MathUtils.clamp(delta, -dt * 8, dt * 8);
+        this.root.rotation.y += turn;
+        alignment = Math.max(0, Math.cos(delta - turn));
+      }
+      const targetSpeed = moving ? (running ? RUN_SPEED : WALK_SPEED) * alignment : 0;
+      this.speed += THREE.MathUtils.clamp(targetSpeed - this.speed, -18 * dt, 12 * dt);
+      const stride = this.speed * dt * alignment;
+      const dx = Math.sin(this.root.rotation.y) * stride,
+        dz = Math.cos(this.root.rotation.y) * stride;
+      const oldX = this.pos.x,
+        oldZ = this.pos.z;
+      if (stride > 0) {
+        const wasInside = this._collidesAt(oldX, oldZ, activeDoors);
+        if (wasInside || !this._collidesAt(oldX + dx, oldZ, activeDoors)) this.pos.x += dx;
+        if (wasInside || !this._collidesAt(this.pos.x, oldZ + dz, activeDoors)) this.pos.z += dz;
+      }
+      if (Math.hypot(this.pos.x - oldX, this.pos.z - oldZ) > 0.00001 || (moving && alignment < 0.97)) {
+        this.playClip(this.speed > 2.1 ? 'run' : 'walk', { fade: 0.15 });
       } else {
+        if (this.firstPerson && !moving) this.root.rotation.y = this.yaw + Math.PI;
         this.playClip('stand', { fade: 0.18 });
       }
 
       this.root.position.copy(this.pos);
-      this.root.rotation.y = this.yaw + Math.PI;
     }
 
     this.mixer.update(dt);
@@ -208,7 +215,9 @@ export class PlayerController {
 
     // Camera placement
     if (this.firstPerson) {
-      if (this.headBone) {
+      if (this.exerciseHead) {
+        this._tmpHead.copy(this.exerciseHead);
+      } else if (this.headBone) {
         this.headBone.getWorldPosition(this._tmpHead);
       } else {
         this._tmpHead.set(this.pos.x, this.pos.y + 1.63, this.pos.z);
@@ -232,6 +241,8 @@ export class PlayerController {
       const shoulderHeight = this.inSmallRoom ? 1.48 : 1.52;
       this._camTarget.set(this.pos.x, this.pos.y + shoulderHeight, this.pos.z);
 
+      if (this.exerciseHead) this._camTarget.copy(this.exerciseHead).y -= 0.2;
+
       const cosP = Math.cos(this.pitch);
       const dirX = Math.sin(this.yaw) * cosP;
       const dirY = -Math.sin(this.pitch);
@@ -244,8 +255,9 @@ export class PlayerController {
         this._raycaster.near = 0.1;
         this._raycaster.far = this.camDist;
         const hits = this._raycaster.intersectObjects(this.raycastMeshes, false);
-        if (hits.length > 0) {
-          bestDist = Math.max(0.35, hits[0].distance - 0.16);
+        const obstacle = hits.find((hit) => hit.object.visible);
+        if (obstacle) {
+          bestDist = Math.max(0.35, obstacle.distance - 0.16);
         }
       }
 

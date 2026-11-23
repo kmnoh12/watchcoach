@@ -4,6 +4,9 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PlayerController } from './player.js';
+import stationClips from '../scripts/exercise_stations.json';
+import locomotion from '../../poses/v6_locomotion.json';
+import { loadExercise } from './exercises.js';
 import { ShowerFX } from './particles.js';
 
 const canvas = document.getElementById('app');
@@ -175,6 +178,43 @@ async function init() {
     }
   }
 
+  const stationForMesh = new Map();
+  const byOriginalName = new Map();
+  worldRoot.traverse((o) => byOriginalName.set(o.userData.name || o.name, o));
+  const climber = byOriginalName.get('Rotating stair climber');
+  if (climber) {
+    const origin = climber.getWorldPosition(new THREE.Vector3());
+    const stand = climber.localToWorld(new THREE.Vector3(0, 0.68, -0.11));
+    const carriers = climber.children.filter((o) => (o.userData.name || o.name).startsWith('Step carrier'));
+    carriers.sort((a, b) => (a.userData.name || a.name).localeCompare(b.userData.name || b.name));
+    if (carriers.length !== 7) throw new Error('계단 발판 7개가 필요해');
+    carriers.forEach((o) => o.traverse((c) => protectedObjs.add(c)));
+    manifest.equipment.push({
+      id: 'stairs',
+      label: '천국의계단',
+      clip: 'stair_ascent',
+      pos: origin.toArray(),
+      standPos: stand.toArray(),
+      yaw: climber.rotation.y - Math.PI,
+      radius: 1.5,
+      carriers,
+      path: carriers.map((o) => o.position.clone())
+    });
+  }
+  for (const eq of manifest.equipment) {
+    const node = byOriginalName.get(eq.id);
+    if (!node) continue;
+    if (eq.id.startsWith('P_treadmill')) {
+      eq.standPos = node.localToWorld(new THREE.Vector3(0, 0.171, -0.12)).toArray();
+      eq.yaw -= Math.PI;
+      eq.clip = 'walk';
+    }
+    if (!stationClips[eq.id]) continue;
+    eq.original = [];
+    eq.stationMatrix = node.matrixWorld.clone().multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+    node.traverse((o) => stationForMesh.set(o, eq));
+  }
+
   // Suite lookup
   const suiteNameByObj = new Map();
   for (const sname of ['men', 'women']) {
@@ -196,8 +236,9 @@ async function init() {
     }
     const stag = suiteNameByObj.get(obj.name) || 'world';
     const mat = obj.material;
-    const key = `${stag}::${mat.uuid}`;
-    if (!mergeGroups.has(key)) mergeGroups.set(key, { stag, mat, geos: [] });
+    const station = stationForMesh.get(obj);
+    const key = `${stag}::${station?.id || ''}::${mat.uuid}`;
+    if (!mergeGroups.has(key)) mergeGroups.set(key, { stag, station, mat, geos: [] });
     const g = obj.geometry.index ? obj.geometry.toNonIndexed() : obj.geometry.clone();
     g.applyMatrix4(obj.matrixWorld);
     // Keep only position, normal, uv for clean merging
@@ -219,7 +260,7 @@ async function init() {
   }
 
   const mergedGroup = new THREE.Group();
-  for (const { stag, mat, geos } of mergeGroups.values()) {
+  for (const { stag, station, mat, geos } of mergeGroups.values()) {
     if (!geos.length) continue;
     const mergedGeo = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
     if (!mergedGeo) continue;
@@ -227,6 +268,7 @@ async function init() {
     mesh.receiveShadow = true;
     if (!mat.transparent) mesh.castShadow = true;
     mergedGroup.add(mesh);
+    if (station) station.original.push(mesh);
     if (stag === 'men' || stag === 'women') {
       suiteMeshes[stag].push(mesh);
     }
@@ -279,11 +321,7 @@ async function init() {
     reflector.position.set(mm.pos[0], mm.pos[1], mm.pos[2]);
     // Offset cleanly in front of mirror glass & frame backing to prevent z-fighting
     reflector.position.addScaledVector(n, (mm.halfThickness || 0.015) + 0.024);
-    reflector.lookAt(
-      reflector.position.x + n.x,
-      reflector.position.y + n.y,
-      reflector.position.z + n.z
-    );
+    reflector.lookAt(reflector.position.x + n.x, reflector.position.y + n.y, reflector.position.z + n.z);
     if (orig) orig.visible = false;
     scene.add(reflector);
     mirrors.push({
@@ -308,8 +346,19 @@ async function init() {
     if (m.isMesh && !m.material?.transparent) raycastMeshes.push(m);
   });
   const playerRoot = playerGltf.scene;
+  // The unassigned body primitive uses glTF's plain white fallback.
+  playerRoot.traverse((obj) => {
+    if (obj.isSkinnedMesh && !obj.material.name) {
+      obj.material.color.setHex(0x63d6de);
+      obj.material.metalness = 0;
+      obj.material.roughness = 0.72;
+    }
+  });
   scene.add(playerRoot);
-  player = new PlayerController(playerRoot, playerGltf.animations, manifest.colliders, raycastMeshes);
+  const movement = locomotion.clips.map((data) => THREE.AnimationClip.parse(data));
+  const replaced = new Set(movement.map((clip) => clip.name));
+  const clips = playerGltf.animations.filter((clip) => !replaced.has(clip.name)).concat(movement);
+  player = new PlayerController(playerRoot, clips, manifest.colliders, raycastMeshes);
   player.setSpawn(manifest.spawn.pos, manifest.spawn.yaw);
 
   // Pre-compile shaders & warm up all high-res mirrors once at load
@@ -378,17 +427,36 @@ function findNearestInteractable() {
   return best;
 }
 
-function exitActiveStation() {
+function exitActiveStation(finish = false) {
   if (!activeStation || !player) return;
   if (activeStation.type === 'shower') {
     showerFX.stop();
   }
+  if (activeStation.exercise) {
+    if (!finish) {
+      if (!activeStation.leaving) {
+        activeStation.leaving = true;
+        activeStation.elapsed = 0;
+        activeStation.exercise.leave();
+      }
+      return;
+    }
+    scene.remove(activeStation.exercise.root);
+    activeStation.item.original.forEach((o) => (o.visible = true));
+    player.root.visible = true;
+    player.exerciseHead = null;
+  }
+  if (activeStation.item.carriers)
+    activeStation.item.carriers.forEach((o, i) => o.position.copy(activeStation.item.path[i]));
+  if (activeStation.entry) player.pos.copy(activeStation.entry);
   activeStation = null;
   player.exitStation();
 }
 
-window.addEventListener('keydown', (e) => {
+window.addEventListener('keydown', async (e) => {
   keys.add(e.code);
+  if (started && e.code.startsWith('Arrow')) e.preventDefault();
+  if (e.repeat) return;
 
   if (e.code === 'KeyH') {
     helpOpen = !helpOpen;
@@ -434,7 +502,34 @@ window.addEventListener('keydown', (e) => {
       target.item.isOpen = !target.item.isOpen;
     } else if (target.type === 'equipment') {
       activeStation = target;
-      player.enterStation(target.item.standPos, target.item.yaw, target.item.clip);
+      target.entry = player.pos.clone();
+      const eq = target.item,
+        id = stationClips[eq.id];
+      if (id) {
+        player.lockedAction = true;
+        player.playClip('stand');
+        try {
+          const exercise = await loadExercise(id, player.root);
+          if (activeStation !== target) return;
+          target.exercise = exercise;
+          target.elapsed = 0;
+          exercise.root.matrix.copy(eq.stationMatrix);
+          exercise.root.matrixAutoUpdate = false;
+          scene.add(exercise.root);
+          exercise.root.updateMatrixWorld(true);
+          exercise.enter();
+          exercise.update(0);
+          eq.original.forEach((o) => (o.visible = false));
+          player.root.visible = false;
+          player.exerciseHead = exercise.head;
+        } catch (err) {
+          if (activeStation === target) exitActiveStation(true);
+          console.error(eq.label, err);
+        }
+      } else {
+        target.elapsed = 0;
+        player.enterStation(eq.standPos, eq.yaw, eq.clip);
+      }
     } else if (target.type === 'shower') {
       activeStation = target;
       player.enterStation(target.item.standPos, target.item.yaw, 'shower_wash');
@@ -520,7 +615,24 @@ function animate(now) {
     }
   }
 
+  if (activeStation?.exercise) {
+    activeStation.elapsed += dt;
+    if (activeStation.exercise.update(activeStation.elapsed)) exitActiveStation(true);
+  } else if (activeStation?.item.id.startsWith('P_treadmill')) {
+    player.playClip(keys.has('ShiftLeft') || keys.has('ShiftRight') ? 'run' : 'walk');
+  }
   player.update(dt, keys, camera, doors);
+  if (activeStation?.item.carriers) {
+    const { carriers, path } = activeStation.item;
+    const clip = player.actions.stair_ascent;
+    activeStation.elapsed += dt;
+    const cycles = (2 * activeStation.elapsed) / clip.getClip().duration;
+    carriers.forEach((o, i) => {
+      const f = THREE.MathUtils.euclideanModulo(i - cycles, path.length);
+      const j = Math.floor(f);
+      o.position.lerpVectors(path[j], path[(j + 1) % path.length], f - j);
+    });
+  }
   showerFX.update(dt);
 
   // Minimal HUD prompts
