@@ -70,9 +70,44 @@ def copy_hand_bones_into_rig(rig, bones_info):
     return updated
 
 
+def trim_forearm_fins(body, rig):
+    """Tame the old figure.blend pointed elbow/forearm fin vertices (up to 7.7cm radius)
+    so forearm pronation during walking/standing looks sleek like V6."""
+    idx_to_name = {vg.index: vg.name for vg in body.vertex_groups}
+    adjusted = 0
+    for side in ("l", "r"):
+        b = rig.data.bones["lowerarm_" + side]
+        bh, bt = b.head_local, b.tail_local
+        seg = bt - bh
+        seg_len_sq = seg.length_squared
+        if seg_len_sq < 1e-6:
+            continue
+        for v in body.data.vertices:
+            w_low = 0.0
+            for g in v.groups:
+                if idx_to_name.get(g.group) == "lowerarm_" + side:
+                    w_low = g.weight
+                    break
+            if w_low < 0.35:
+                continue
+            t = (v.co - bh).dot(seg) / seg_len_sq
+            if -0.08 <= t <= 0.72:
+                axis_pt = bh + seg * max(0.0, min(1.0, t))
+                radial = v.co - axis_pt
+                r = radial.length
+                # Natural low-poly forearm radius tapers from ~4.8cm near elbow to ~3.4cm mid-distal
+                max_r = 0.048 - 0.014 * max(0.0, min(1.0, t / 0.72))
+                if r > max_r:
+                    v.co = axis_pt + radial * (max_r / r)
+                    adjusted += 1
+    body.data.update()
+    return adjusted
+
+
 def apply_v6_hands_to_mesh(body, rig):
     if body.data.get("hand_patch") == PATCH_VERSION:
-        print(f"[v6_hands] {body.name} already patched ({PATCH_VERSION})")
+        n_trim = trim_forearm_fins(body, rig)
+        print(f"[v6_hands] {body.name} already patched ({PATCH_VERSION}), trimmed {n_trim} forearm fin verts")
         return False
 
     if body.data.shape_keys is not None:
@@ -111,8 +146,9 @@ def apply_v6_hands_to_mesh(body, rig):
     bm.to_mesh(body.data)
     bm.free()
     body.data.update()
+    n_trim = trim_forearm_fins(body, rig)
     body.data["hand_patch"] = PATCH_VERSION
-    print(f"[v6_hands] patched {body.name}: verts={len(body.data.vertices)}, polys={len(body.data.polygons)}")
+    print(f"[v6_hands] patched {body.name}: verts={len(body.data.vertices)}, polys={len(body.data.polygons)}, trimmed={n_trim}")
     return True
 
 
