@@ -246,12 +246,21 @@ internal class ExcursionRepDetector(
         val scanStart = if (primeEndNs == Long.MIN_VALUE || history.first().t > primeEndNs) 0 else primeAnchor + 1
         if (scanStart >= n) return
         var low = raw[scanStart]; var high = low; var lowIndex = scanStart; var highIndex = scanStart; var returning = false
+        var trough = low; var troughIndex = scanStart
         for (i in scanStart + 1 until n) {
             val value = raw[i]
             if (!returning) {
                 if (value < low) { low = value; lowIndex = i; high = value; highIndex = i }
                 if (value > high) { high = value; highIndex = i }
-                if (high - low >= threshold && high - value >= 0.2 * (high - low)) returning = true
+                if (high - low >= threshold && high - value >= 0.2 * (high - low)) { returning = true; trough = value; troughIndex = i }
+            } else if (value < trough) {
+                trough = value; troughIndex = i
+            } else if (value - trough >= threshold && high - value < max(threshold, retFrac * (high - low))) {
+                // A return that stopped short and then a full new pull: restart from that bottom. Kept on the old low, an
+                // unusually deep set-up motion or a few shallower reps merged every following rep into one over-long
+                // cycle that was then dropped (mag-grip lat pulldown, 2026-11-21 sets 2 and 3).
+                low = trough; lowIndex = troughIndex; high = value; highIndex = i; returning = false
+                continue
             }
             if (returning && high - value >= max(threshold, retFrac * (high - low))) {
                 val start = history[lowIndex].t
