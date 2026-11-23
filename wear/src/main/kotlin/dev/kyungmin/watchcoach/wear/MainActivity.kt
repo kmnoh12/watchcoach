@@ -57,6 +57,9 @@ class MainActivity : Activity() {
     private var resting = false
     /** A rest the phone paused: the rest screen stays, with its time frozen at [pausedRestRemainingMs]. */
     private var restPaused = false
+    /** A touch or bezel turn lights the whole rest screen until then; otherwise only the time stays bright. */
+    private var restWakeUntilMs = 0L
+    private var swallowingWakeTouch = false
     private var pausedRestRemainingMs = 0L
     private var paused = false
     private var screenDimmed = false
@@ -559,8 +562,34 @@ class MainActivity : Activity() {
         updateUi()
     }
 
+    private fun setRestDim(dim: Boolean) {
+        face.restDim = dim
+        restRing.alpha = if (dim) WatchWorkoutFace.REST_DIM_ALPHA else 1f
+    }
+
+    private fun wakeRestScreen() {
+        restWakeUntilMs = System.currentTimeMillis() + REST_WAKE_MS
+        setRestDim(false)
+    }
+
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        // The first touch on a dimmed rest screen only lights it, so it can never press "건너뛰기" by accident.
+        if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN && face.restDim) {
+            swallowingWakeTouch = true
+            wakeRestScreen()
+            return true
+        }
+        if (swallowingWakeTouch) {
+            if (event.actionMasked == android.view.MotionEvent.ACTION_UP || event.actionMasked == android.view.MotionEvent.ACTION_CANCEL) swallowingWakeTouch = false
+            return true
+        }
+        if (resting) restWakeUntilMs = System.currentTimeMillis() + REST_WAKE_MS
+        return super.dispatchTouchEvent(event)
+    }
+
     override fun onGenericMotionEvent(event: android.view.MotionEvent): Boolean {
         if (event.action == android.view.MotionEvent.ACTION_SCROLL && event.isFromSource(android.view.InputDevice.SOURCE_ROTARY_ENCODER)) {
+            if (resting) wakeRestScreen()
             // Clockwise reports a negative scroll; one detent is one ten-second step on the rest screen, nothing elsewhere.
             rotaryRemainder += -event.getAxisValue(android.view.MotionEvent.AXIS_SCROLL)
             val steps = rotaryRemainder.toInt()
@@ -739,7 +768,7 @@ class MainActivity : Activity() {
         val awaitingSide = active && !resting && !paused && runtimePhase == SIDE_PHASE
         // The rest buttons need the phone to apply them, also while the rest is paused.
         val restControls = resting && workoutControls.supportsControls() && setId.isNotBlank() && attemptId.isNotBlank()
-        if (!resting) { restMorphTarget = 0f; restMorphAnimator?.cancel(); restRing.fade = 0f }
+        if (!resting) { restMorphTarget = 0f; restMorphAnimator?.cancel(); restRing.fade = 0f; setRestDim(false) }
         if (active) {
             face.title.text = exerciseName
             if (paused) face.setSubtitle("일시정지", WatchWorkoutFace.MUTED)
@@ -780,6 +809,8 @@ class MainActivity : Activity() {
                 listOf(face.restPause, face.restSkip).forEach { it.isEnabled = restControls; it.alpha = if (restControls) 1f else .4f }
                 morphRest(restPaused)
                 face.applyRestMorph()
+                // Full light again for the last seconds so 3·2·1 and the next set are readable at a glance.
+                setRestDim(!restPaused && pager.page == 0 && left > REST_BRIGHT_LAST_SECONDS && now >= restWakeUntilMs)
             }
             if (awaitingSide) {
                 // Recovery of legacy AWAITING snapshots only; new sessions follow the phone's global preference.
@@ -1291,6 +1322,10 @@ class MainActivity : Activity() {
 }
 
 private const val WORKING_BRIGHTNESS = 0.02f
+/** How long a touch keeps the whole rest screen lit. */
+private const val REST_WAKE_MS = 5_000L
+/** The rest screen is fully lit for its last seconds. */
+private const val REST_BRIGHT_LAST_SECONDS = 5
 
 private const val SIDE_PHASE = "AWAITING_OTHER_SIDE"
 private const val SIDE_DECISION_MS = 120_000L

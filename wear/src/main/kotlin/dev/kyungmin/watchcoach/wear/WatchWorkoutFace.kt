@@ -170,6 +170,19 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
     override fun onDetachedFromWindow() { clearSetRestMorph(); super.onDetachedFromWindow() }
 
     /**
+     * Rest power saver: on the OLED panel only the big remaining time keeps full light; every other element is drawn
+     * at [REST_DIM_ALPHA]. A layer per child leaves their own alpha animations (rest morph, pills) untouched.
+     */
+    var restDim = false
+        set(value) { if (field != value) { field = value; invalidate() } }
+
+    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+        if (!restDim || child === value || child === valueGhost || child.visibility != VISIBLE) return super.drawChild(canvas, child, drawingTime)
+        val saved = canvas.saveLayerAlpha(child.left.toFloat(), child.top.toFloat(), child.right.toFloat(), child.bottom.toFloat(), (255 * REST_DIM_ALPHA).toInt())
+        try { return super.drawChild(canvas, child, drawingTime) } finally { canvas.restoreToCount(saved) }
+    }
+
+    /**
      * 0 while the rest runs, 1 once it is paused (design 4-1). The time shrinks to 85 % and turns white, the
      * "정지" button becomes the yellow "계속", the label fades in, the ten-second bar dims and the heart arrow goes.
      */
@@ -365,6 +378,8 @@ internal class WatchWorkoutFace(context: Context) : FrameLayout(context) {
         }
     }
     companion object {
+        /** Light left on everything except the remaining time while a rest runs untouched. */
+        const val REST_DIM_ALPHA = .18f
         val BONE = Color.rgb(237, 232, 220)
         val SAGE = Color.rgb(99, 214, 222)
         /** Rest: a soft yellow. */
