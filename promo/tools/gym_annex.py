@@ -52,6 +52,41 @@ def cut_wall_opening(target_names, center, size, cutter_coll):
             pass
 
 
+def build_shop_doorbell(c, parent, loc=(0.24, -0.032, 2.08)):
+    """Korean storefront/gym magnetic brass doorbell (상점 풍경 도어벨) mounted on interior top glass rail.
+    Parented under `Entrance_Doorbell` empty so reels can rock it when the glass door opens ('띠링~')."""
+    bell_root = W.empty("Entrance_Doorbell", c, loc, parent=parent)
+    wood_m = W.mat("Doorbell_Walnut", (0.20, 0.11, 0.06), rough=0.42)
+    brass_m = W.mat("Doorbell_Brass", (0.78, 0.58, 0.22), rough=0.22, metal=0.92)
+    cord_m = W.mat("Doorbell_Cord", (0.08, 0.06, 0.05), rough=0.75)
+
+    # Rounded walnut magnetic mounting block stuck to the top door rail
+    _molded("Doorbell base", (0.046, 0.022, 0.072), wood_m, c, (0, -0.011, 0.0), bell_root, 0.005)
+    # Brass C-hook arm jutting inward (-Y)
+    W.cyl("Doorbell arm", 0.0035, 0.048, brass_m, c, (0, -0.042, 0.016), (90, 0, 0), parent=bell_root, seg=10)
+    W.cyl("Doorbell hanger", 0.0025, 0.026, brass_m, c, (0, -0.062, 0.002), parent=bell_root, seg=10)
+
+    # Hanging brass bell cup (tapered cone + rim) + clapper ball + lower striker pendulum
+    swing = W.empty("Doorbell_Swing", c, (0, -0.062, -0.010), parent=bell_root)
+    # Bell dome (2 stacked cylinders + flared lip for crisp low-poly brass silhouette)
+    W.cyl("Doorbell crown", 0.014, 0.016, brass_m, c, (0, 0, -0.012), parent=swing, seg=16)
+    W.cyl("Doorbell body", 0.022, 0.028, brass_m, c, (0, 0, -0.030), parent=swing, seg=16)
+    W.cyl("Doorbell lip", 0.027, 0.007, brass_m, c, (0, 0, -0.045), parent=swing, seg=16)
+    # Cord + brass clapper bead hanging beneath bell
+    W.cyl("Doorbell cord", 0.0018, 0.055, cord_m, c, (0, 0, -0.068), parent=swing, seg=8)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.009, location=(0, 0, -0.054))
+    clapper = bpy.context.active_object
+    clapper.name = "Doorbell clapper"
+    clapper.data.materials.append(brass_m)
+    for col in list(clapper.users_collection):
+        col.objects.unlink(clapper)
+    c.objects.link(clapper)
+    clapper.parent = swing
+    # Small walnut wind-catcher tag at bottom of cord
+    _molded("Doorbell tag", (0.018, 0.004, 0.034), wood_m, c, (0, 0, -0.105), swing, 0.001)
+    return bell_root
+
+
 def build_entrance_door(c, loc, rot_deg=90):
     """Commercial Korean gym double tempered-glass entrance door (1.65 x 2.25 m) + RFID reader + Korean EXIT sign above."""
     from reel_gym import korean_exit_sign
@@ -124,6 +159,9 @@ def build_entrance_door(c, loc, rot_deg=90):
     # Korean standard medium EXIT sign (피난구유도등) mounted directly above the main entrance!
     ex = W.empty("Emergency exit sign entrance", c, (0, -0.105, h + 0.22), parent=root)
     korean_exit_sign(c, ex)
+
+    # Storefront magnetic brass doorbell ('띠링~') on interior top rail of the right glass door
+    build_shop_doorbell(c, root, loc=(0.24, -0.028, h - 0.13))
     return root
 
 
