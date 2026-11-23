@@ -124,9 +124,10 @@ def _ordered_boundary_loop(seam_verts):
 
 
 def transplant_v6_head(body_obj):
-    """Replace the old boxy extra head with the sculpted V6 head above neck."""
-    cut_z_dst = 1.475   # clean lower-mid neck on extra body
-    cut_z_v6 = 1.498    # clean upper-mid neck on V6 (leaves a 2.3cm natural taper bridge)
+    """Replace the old boxy extra head with the sculpted V6 head with a clean,
+    twist-free tapered neck using Blender's native bridge_loops."""
+    cut_z_dst = 1.458   # natural base of neck above trapezius/clavicle
+    cut_z_v6 = 1.505    # clean upper neck just below V6 jawline
 
     with bpy.data.libraries.load(V6_BLEND, link=False) as (df, dt):
         dt.objects = ["V5_Body"]
@@ -140,7 +141,7 @@ def transplant_v6_head(body_obj):
     bm_v6.verts.ensure_lookup_table()
     v6_layer = bm_v6.verts.layers.deform.active
 
-    cut_v6 = bmesh.ops.bisect_plane(
+    bmesh.ops.bisect_plane(
         bm_v6,
         geom=list(bm_v6.faces) + list(bm_v6.edges) + list(bm_v6.verts),
         dist=1e-5,
@@ -162,11 +163,11 @@ def transplant_v6_head(body_obj):
         for v in v6_verts_list
     ]
     v6_faces = [[v6_v_idx[v] for v in f.verts] for f in bm_v6.faces]
-    v6_seam_indices = [v6_v_idx[v] for v in _ordered_boundary_loop(v6_seam)]
+    v6_seam_set = {v6_v_idx[v] for v in v6_seam}
     bm_v6.free()
     bpy.data.objects.remove(v6_body, do_unlink=True)
 
-    # 2. Cut off old head on body_obj at cut_z_dst
+    # 2. Cut off old head+neck on body_obj at cut_z_dst
     if body_obj.data.shape_keys is not None:
         body_obj.shape_key_clear()
 
@@ -177,7 +178,7 @@ def transplant_v6_head(body_obj):
     layer = bm.verts.layers.deform.active
     dst_group = {vg.name: vg.index for vg in body_obj.vertex_groups}
 
-    upper_verts = {v for v in bm.verts if v.co.z > 1.42}
+    upper_verts = {v for v in bm.verts if v.co.z > 1.40}
     upper_faces = {f for v in upper_verts for f in v.link_faces}
     upper_edges = {e for f in upper_faces for e in f.edges}
     bmesh.ops.bisect_plane(
@@ -192,37 +193,18 @@ def transplant_v6_head(body_obj):
         geom=[v for v in bm.verts if v.is_valid and v.co.z > cut_z_dst + 1e-4],
         context="VERTS",
     )
-    dst_seam = {v for v in bm.verts if v.is_valid and v.co.z > 1.43 and any(e.is_boundary for e in v.link_edges)}
-    dst_loop = _ordered_boundary_loop(dst_seam)
+    dst_seam_edges = [e for e in bm.edges if e.is_boundary and e.verts[0].co.z > 1.42]
+    dst_seam_verts = list({v for e in dst_seam_edges for v in e.verts})
 
-    # Align V6 head X/Y neck center to dst_loop center
-    dst_cx = sum(v.co.x for v in dst_loop) / len(dst_loop)
-    dst_cy = sum(v.co.y for v in dst_loop) / len(dst_loop)
-    v6_cx = sum(v6_coords[i].x for i in v6_seam_indices) / len(v6_seam_indices)
-    v6_cy = sum(v6_coords[i].y for i in v6_seam_indices) / len(v6_seam_indices)
-    shift = Vector((dst_cx - v6_cx, dst_cy - v6_cy, 0.0))
+    # Align V6 head X/Y neck center to dst_seam center so neck sits squarely over torso
+    dst_cx = sum(v.co.x for v in dst_seam_verts) / len(dst_seam_verts)
+    dst_cy = sum(v.co.y for v in dst_seam_verts) / len(dst_seam_verts)
+    v6_cx = sum(v6_coords[i].x for i in v6_seam_set) / len(v6_seam_set)
+    v6_cy = sum(v6_coords[i].y for i in v6_seam_set) / len(v6_seam_set)
+    # Center V6 head squarely over spine/shoulders so front and back neck lines are flush
+    shift = Vector((dst_cx - v6_cx, dst_cy - v6_cy + 0.008, 0.0))
 
-    # Gently pull dst_loop inward toward neck radius so there is no collar shelf
-    v6_rx = max(abs(v6_coords[i].x - v6_cx) for i in v6_seam_indices)
-    v6_ry = max(abs(v6_coords[i].y - v6_cy) for i in v6_seam_indices)
-    dst_rx = max(abs(v.co.x - dst_cx) for v in dst_loop)
-    dst_ry = max(abs(v.co.y - dst_cy) for v in dst_loop)
-    if dst_rx > v6_rx * 1.15:
-        sx = (v6_rx * 1.12) / dst_rx
-        for v in dst_loop:
-            v.co.x = dst_cx + (v.co.x - dst_cx) * sx
-    if dst_ry > v6_ry * 1.15:
-        sy = (v6_ry * 1.12) / dst_ry
-        for v in dst_loop:
-            v.co.y = dst_cy + (v.co.y - dst_cy) * sy
-
-    # Ensure neck seam has clean neck_01 weight
-    neck_gid = dst_group.get("neck_01")
-    if neck_gid is not None:
-        for v in dst_loop:
-            v[layer][neck_gid] = max(v[layer].get(neck_gid, 0.0), 0.7)
-
-    # 3. Insert V6 head patch into bm and bridge the 2.3cm tapered neck cleanly
+    # 3. Insert V6 head patch into bm
     new_verts = []
     for co, wdict in zip(v6_coords, v6_weights):
         nv = bm.verts.new(co + shift)
@@ -235,33 +217,40 @@ def transplant_v6_head(body_obj):
     for fverts in v6_faces:
         bm.faces.new([new_verts[i] for i in fverts])
 
-    v6_loop = [new_verts[i] for i in v6_seam_indices]
-    fix_v5_hands.bridge(bm, fix_v5_hands.align(dst_loop, v6_loop), v6_loop)
+    bm.edges.ensure_lookup_table()
+    v6_seam_verts_set = {new_verts[i] for i in v6_seam_set}
+    v6_seam_edges = [e for e in bm.edges if e.is_boundary and e.verts[0] in v6_seam_verts_set and e.verts[1] in v6_seam_verts_set]
 
-    # Smooth the neck junction loops so there is zero collar step or twist
-    bmesh.ops.smooth_vert(
+    # Native twist-free bridge connecting lower neck base cleanly to V6 upper neck
+    res = bmesh.ops.bridge_loops(
         bm,
-        verts=list(set(dst_loop) | set(v6_loop)),
-        factor=0.5,
-        use_axis_x=True,
-        use_axis_y=True,
-        use_axis_z=False,
+        edges=dst_seam_edges + v6_seam_edges,
+        use_pairs=False,
+        use_cyclic=True,
+        use_merge=False,
+        twist_offset=0,
     )
-    bmesh.ops.smooth_vert(
-        bm,
-        verts=list(set(dst_loop) | set(v6_loop)),
-        factor=0.5,
-        use_axis_x=True,
-        use_axis_y=True,
-        use_axis_z=False,
-    )
+
+    # Assign clean neck_01 / spine_03 blend weights to the newly created mid-neck ring
+    neck_gid = dst_group.get("neck_01")
+    spine3_gid = dst_group.get("spine_03")
+    head_gid = dst_group.get("head")
+    bridged_verts = {v for f in res.get("faces", []) for v in f.verts}
+    for v in bridged_verts:
+        if v not in v6_seam_verts_set and v not in dst_seam_verts:
+            # Mid-neck ring: 75% neck_01, 25% spine_03
+            v[layer].clear()
+            if neck_gid is not None:
+                v[layer][neck_gid] = 0.75
+            if spine3_gid is not None:
+                v[layer][spine3_gid] = 0.25
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     for f in bm.faces:
         f.smooth = False
 
     non_manifold = [e for e in bm.edges if not e.is_manifold]
-    print(f"[head_transplant] V6 head grafted: verts={len(bm.verts)}, faces={len(bm.faces)}, non_manifold={len(non_manifold)}")
+    print(f"[head_transplant] V6 head grafted (bridge_loops): verts={len(bm.verts)}, faces={len(bm.faces)}, non_manifold={len(non_manifold)}")
     bm.to_mesh(body_obj.data)
     bm.free()
     body_obj.data.update()
@@ -315,11 +304,12 @@ def reshape_female(arm_obj, body_obj):
             y = y + (ty - y) * w_head
             z = z + (tz - z) * w_head
 
-        # 2. Neck: slimmer
+        # 2. Neck: keep clean straight taper without pinching the seam
         if w_neck > 0.0:
-            nc_y = -0.085
-            x *= 1.0 - 0.19 * w_neck
-            y = nc_y + (y - nc_y) * (1.0 - 0.16 * w_neck)
+            neck_fade = smoothstep(1.455, 1.495, z) * w_neck
+            nc_y = -0.068
+            x *= 1.0 - 0.08 * neck_fade
+            y = nc_y + (y - nc_y) * (1.0 - 0.06 * neck_fade)
 
         # 3. Torso (excludes arms)
         body_mask = max(0.0, 1.0 - w_arm * 0.96) * (w_torso + w_leg * smoothstep(0.76, 0.96, z))
