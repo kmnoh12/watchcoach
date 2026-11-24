@@ -926,20 +926,20 @@ def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
     _standing_xbanner(c, ext, "Elev_XBanner_Mart", "sangga_elev/xbanner_mart.png",
                       (ex + 1.18, 2.46, 0.0), rot_z_deg=38.0, width=0.56, height=1.52)
 
-    # Cluttered commercial clinic & shop ad panels along the right corridor wall (Y = 2.85, facing -Y)
+    # Full-width Korean clinic facade cladding with horizontal panel reveal seams + sleek gray vinyl sheet band (no glass/interior!)
     ad_y = 2.845
-    # Dermatology clinic panel (피부과)
-    _molded("AdPanel_Derma_Frame", (1.18, 0.03, 0.84), steel_m, c, (-9.85, ad_y, 1.62), ext, 0.004)
-    _textured_plane(c, ext, "AdPanel_Derma", "sangga_elev/ad_derma.png", 1.14, 0.80,
-                    (-9.85, ad_y - 0.018, 1.62), shaded=True)
-    # Dental clinic panel (치과)
-    _molded("AdPanel_Dental_Frame", (1.18, 0.03, 0.84), steel_m, c, (-8.45, ad_y, 1.62), ext, 0.004)
-    _textured_plane(c, ext, "AdPanel_Dental", "sangga_elev/ad_dental.png", 1.14, 0.80,
-                    (-8.45, ad_y - 0.018, 1.62), shaded=True)
-    # Extra lower notice board below dermatology/dental panels for authentic sangga clutter
-    _molded("AdPanel_Notice_Frame", (0.76, 0.025, 0.48), dark_m, c, (-9.15, ad_y, 0.86), ext, 0.003)
-    _textured_plane(c, ext, "AdPanel_Notice", "sangga_elev/notice_orange.png", 0.72, 0.44,
-                    (-9.15, ad_y - 0.016, 0.86), shaded=True)
+    clinic_panel_m = W.mat("Clinic_WallCladding", (0.84, 0.83, 0.80), rough=0.58, metal=0.02)
+    clinic_seam_m = W.mat("Clinic_PanelSeam", (0.42, 0.42, 0.41), rough=0.75, metal=0.05)
+    # Full-height matte off-white architectural cladding spanning X = -10.78 .. -7.52 (width 3.26m)
+    W.box("ClinicFacade_Backing", (3.26, 0.036, 2.68), clinic_panel_m, c, (-9.15, ad_y + 0.01, 1.40), parent=ext)
+    # Crisp horizontal architectural panel reveal grooves (exact reference photo left wall!)
+    for gz in (0.48, 0.90, 2.06, 2.48):
+        W.box(f"ClinicFacade_Seam_{gz}", (3.26, 0.008, 0.008), clinic_seam_m, c, (-9.15, ad_y - 0.010, gz), parent=ext)
+    # Vertical matte taupe-gray corner pilaster framing the clinic wall at elevator edge
+    _molded("ClinicFacade_Pilaster", (0.14, 0.08, 2.75), gray_granite_m, c, (-10.80, ad_y - 0.01, 1.375), ext, 0.005)
+    # Full-width sleek metallic-gray clinic hours & specialty vinyl sheet band (시트지, Z = 0.92 .. 2.04)
+    _textured_plane(c, ext, "ClinicFacade_VinylSheet", "sangga_elev/clinic_facade_sheet.jpg", 3.22, 1.14,
+                    (-9.15, ad_y - 0.012, 1.48), shaded=True)
 
     # Vacant commercial storefront with stainless mullions + big red '임대문의' banner cleanly inside left bay (X = -7.50 .. -4.85)
     for mx in (-7.50, -6.18, -4.85):
@@ -1092,6 +1092,22 @@ def build_hallway_ext_details(c, ext, steel_m, granite_m):
     _molded("GymDir_Frame", (0.58, 0.025, 0.84), dark_m, c, (-5.22, 0.042, 1.48), det, 0.004)
     _textured_plane(c, det, "GymDir_Face", "sangga_elev/gym_dir_poster.jpg", 0.54, 0.80,
                     (-5.22, 0.058, 1.48), rot=(0, 0, math.pi), shaded=True)
+
+    # Architectural horizontal reveal grooves on Y = 0.0 wall upper plaster (eliminates flat CG white wall!)
+    seam_m = W.mat("HallExt_WallSeam", (0.48, 0.48, 0.47), rough=0.78, metal=0.02)
+    for gz in (1.125, 1.98, 2.50):
+        W.box(f"HallExt_LWallSeam_{gz}", (6.80, 0.008, 0.007), seam_m, c, (-8.10, 0.024, gz), parent=det)
+
+    # Hanging dark-green ceiling No-Smoking placard in center of corridor (exact reference photo detail!)
+    hns = W.empty("HallExt_HangingNoSmoke", c, (-8.45, 1.46, 2.50), parent=det)
+    green_frame_m = W.mat("HangNoSmoke_Frame", (0.06, 0.14, 0.12), rough=0.42, metal=0.25)
+    _molded("HNS_Board", (0.024, 0.76, 0.28), green_frame_m, c, (0, 0, 0), hns, 0.003)
+    for ry in (-0.28, 0.28):
+        W.cyl(f"HNS_Rod_{ry}", 0.005, 0.14, chrome_m, c, (0, ry, 0.19), parent=hns, seg=8)
+    _textured_plane(c, hns, "HNS_FaceL", "sangga_elev/ceil_nosmoke_hanging.jpg", 0.74, 0.26,
+                    (-0.014, 0, 0), rot=(0, 0, -math.pi / 2), shaded=True)
+    _textured_plane(c, hns, "HNS_FaceR", "sangga_elev/ceil_nosmoke_hanging.jpg", 0.74, 0.26,
+                    (0.014, 0, 0), rot=(0, 0, math.pi / 2), shaded=True)
 
     # 5) 3 Projecting Illuminated Lightbox Signs in varied shapes (square, rect, round)
     for s_name, style, img_rel, x_pos, z_pos in (
