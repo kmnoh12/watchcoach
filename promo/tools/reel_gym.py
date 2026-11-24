@@ -1022,6 +1022,64 @@ def smooth_mesh(obj):
     return obj
 
 
+def _cap_varsity_w(collection, head, crown_obj, height=.034, zc=1.713):
+    """Collegiate slab-serif W (Rockwell Bold outline, promo/parts/cap_logo_w.json) as a layered twill patch on
+    the cap front: cream backing, cap-tone outline ring, cream letter. Projected onto the crown along +Y, so it
+    follows the curve instead of floating."""
+    import json
+    from mathutils.bvhtree import BVHTree
+    contours = json.load(open(Path(W.PARTS) / "cap_logo_w.json"))["contours"]
+    cream = W.mat("Varsity patch cream", (.80, .76, .66), rough=.86)
+    ring = W.mat("Varsity patch outline", (.030, .032, .031), rough=.9)
+    bvh = BVHTree.FromPolygons([v.co for v in crown_obj.data.vertices], [p.vertices for p in crown_obj.data.polygons])
+    dg = bpy.context.evaluated_depsgraph_get()
+    # name, outline offset, material, lift off the cap, thickness
+    for name, off, mat, lift, thick in (("Varsity W backing", .0021, cream, .0002, .0006),
+                                        ("Varsity W outline", .0011, ring, .0007, .0005),
+                                        ("Varsity W letter", 0.0, cream, .0011, .0006)):
+        cu = bpy.data.curves.new(name, "CURVE")
+        cu.dimensions, cu.fill_mode, cu.offset, cu.extrude = "2D", "BOTH", off / height, thick / 2
+        for c in contours:
+            sp = cu.splines.new("POLY")
+            sp.points.add(len(c) - 1)
+            for pt, (x, y) in zip(sp.points, c):
+                pt.co = (x, y, 0, 1)
+            sp.use_cyclic_u = True
+        tmp = bpy.data.objects.new(name + " tmp", cu)
+        collection.objects.link(tmp)
+        dg.update()
+        me = bpy.data.meshes.new_from_object(tmp.evaluated_get(dg))
+        bpy.data.objects.remove(tmp)
+        bpy.data.curves.remove(cu)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bmesh.ops.scale(bm, vec=(height, height, 1), verts=bm.verts)
+        step = .0018   # dense grid so the patch bends with the crown instead of cutting through it
+        for k in range(-16, 17):
+            g = bm.verts[:] + bm.edges[:] + bm.faces[:]
+            bmesh.ops.bisect_plane(bm, geom=g, plane_co=(k * step, 0, 0), plane_no=(1, 0, 0))
+        for k in range(-10, 11):
+            g = bm.verts[:] + bm.edges[:] + bm.faces[:]
+            bmesh.ops.bisect_plane(bm, geom=g, plane_co=(0, k * step, 0), plane_no=(0, 1, 0))
+        for v in bm.verts:
+            u, w, z = v.co
+            hit = bvh.ray_cast(Vector((u, -.6, zc + w)), Vector((0, 1, 0)))
+            n = hit[1] if hit[1].y < 0 else -hit[1]
+            v.co = hit[0] + n * (lift + z + thick / 2)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:])
+        bm.to_mesh(me)
+        bm.free()
+        ob = bpy.data.objects.new(name, me)
+        collection.objects.link(ob)
+        ob.parent = head
+        me.materials.clear()
+        me.materials.append(mat)
+        for p in me.polygons:
+            p.use_smooth = True
+        me.set_sharp_from_angle(angle=math.radians(40))
+
+
+
 def cap(collection, head):
     twill = W.mat("Washed charcoal twill", (.029,.031,.030), rough=.9)
     thread = W.mat("Charcoal topstitch", (.048,.049,.046), rough=.9)
@@ -1125,10 +1183,7 @@ def cap(collection, head):
     for v in (.81,.91):
         piping("Visor stitch",[bill(i/40,v)+Vector((0,0,.00014)) for i in range(-38,39)],
                .00037,thread,collection,head)
-    # Centred on the front panel, symmetric: equal outer tips, lower middle peak, level bottoms.
-    coords=[crown(-math.pi/2+x,e) for x,e in
-            ((-.12,.52),(-.06,.36),(0,.47),(.06,.36),(.12,.52))]
-    piping("Tonal embroidered W",coords,.00135,thread,collection,head)
+    _cap_varsity_w(collection, head, crown_obj)
 
     airpods_max(collection, head, crown_obj)
 
