@@ -952,10 +952,6 @@ def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
     # Clean stainless vertical trim pillar at the gym-wall junction (X = -4.65, Y = 0.02)
     _molded("HallExt_GymJunctionTrim", (0.06, 0.08, 2.75), steel_m, c, (-4.65, 0.02, 1.375), ext, 0.004)
 
-    # Small wall-mounted beige suggestion box / electrical panel on left wall near elevator (Photo #2 detail!)
-    _molded("Elev_LeftBox", (0.34, 0.14, 0.44), wall_m, c, (-10.65, 0.08, 1.45), ext, 0.005)
-    _molded("Elev_LeftBox_Trim", (0.30, 0.02, 0.04), steel_m, c, (-10.65, 0.15, 1.60), ext, 0.002)
-
     build_hallway_ext_details(c, ext, steel_m, granite_m)
 
 
@@ -1010,20 +1006,92 @@ def build_hallway_ext_details(c, ext, steel_m, granite_m):
     W.box("FD_ExitGlow", (0.29, 0.012, 0.11), exit_green_m, c, (0.0, 0.062, 2.34), parent=fd)
     _text(c, fd, "FD_ExitText", "비상구", (0.0, 0.070, 2.34), 0.062, white_plast_m, rot=(math.pi / 2, 0, math.pi))
 
-    # 2) Aluminum Sangga Notice Bulletin Board on Y = 0.0 wall at X = -6.70
-    _molded("Bulletin_Frame", (1.14, 0.035, 0.78), steel_m, c, (-6.70, 0.045, 1.48), det, 0.004)
-    _textured_plane(c, det, "Bulletin_Face", "sangga_elev/sangga_bulletin.jpg", 1.08, 0.72,
-                    (-6.70, 0.066, 1.48), rot=(0, 0, math.pi), shaded=True)
+    # 2) Large Glossy Floor Directory ('INFORMATION 워치코치 플라자 상가', Photo 1 style!) at X = -10.32
+    _molded("FloorDir_Frame", (1.44, 0.028, 0.90), steel_m, c, (-10.32, 0.042, 1.50), det, 0.004)
+    fd_face = _textured_plane(c, det, "FloorDir_Face", "sangga_elev/floor_directory_big.jpg", 1.38, 0.85,
+                              (-10.32, 0.059, 1.50), rot=(0, 0, math.pi), shaded=True)
+    # Give floor directory glossy acrylic reflection matching Photo 1!
+    for n in fd_face.data.materials[0].node_tree.nodes:
+        if n.type == "BSDF_PRINCIPLED":
+            n.inputs["Roughness"].default_value = 0.14
+            if "Coat Weight" in n.inputs:
+                n.inputs["Coat Weight"].default_value = 0.65
 
-    # 3) WatchCoach Gym Directional Poster ('← 워치코치 짐 302호', pointing toward +X gym entrance!) at X = -5.35
-    _molded("GymDir_Frame", (0.60, 0.025, 0.86), dark_m, c, (-5.35, 0.042, 1.48), det, 0.004)
-    _textured_plane(c, det, "GymDir_Face", "sangga_elev/gym_dir_poster.jpg", 0.56, 0.82,
-                    (-5.35, 0.058, 1.48), rot=(0, 0, math.pi), shaded=True)
+    # 3) 8-Pocket Acrylic Poster Bulletin Board ('WATCHCOACH PLAZA', Photo 2 style!) at X = -6.72
+    # Reuses existing packed student_discount.jpg & training.jpg datablocks in scene_gym.blend (0 extra bytes!)
+    pb = W.empty("HallExt_PosterBoard", c, (-6.72, 0.042, 1.44), parent=det)
+    burgundy_m = W.mat("Board_Burgundy", (0.20, 0.08, 0.11), rough=0.38, metal=0.12)
+    pocket_rim_m = W.mat("Board_PocketSilver", (0.64, 0.66, 0.68), rough=0.30, metal=0.72)
+    empty_dark_m = W.mat("Board_EmptyDark", (0.04, 0.04, 0.045), rough=0.45, metal=0.05)
+    # Outer silver trim + burgundy backing + bottom silver channel bar
+    _molded("PB_OuterFrame", (1.46, 0.026, 0.98), pocket_rim_m, c, (0, 0, 0), pb, 0.004)
+    _molded("PB_Backing", (1.40, 0.022, 0.92), burgundy_m, c, (0, 0.006, 0), pb, 0.003)
+    _molded("PB_BottomBar", (1.38, 0.018, 0.055), pocket_rim_m, c, (0, 0.016, -0.425), pb, 0.003)
+    # Arched burgundy top crest with white 'WATCHCOACH PLAZA' title
+    _molded("PB_CrestOuter", (0.56, 0.026, 0.13), pocket_rim_m, c, (0, 0, 0.54), pb, 0.012)
+    _molded("PB_CrestInner", (0.52, 0.028, 0.11), burgundy_m, c, (0, 0.004, 0.535), pb, 0.010)
+    _text(c, pb, "PB_CrestText", "WATCHCOACH PLAZA", (0, 0.022, 0.535), 0.042, white_plast_m, rot=(math.pi / 2, 0, math.pi))
 
-    # 4) CCTV / No-Smoking Sign on Y = 0.0 wall at X = -9.95
-    _molded("CCTVSign_Back", (0.27, 0.014, 0.35), white_plast_m, c, (-9.95, 0.040, 1.56), det, 0.002)
-    _textured_plane(c, det, "CCTVSign_Face", "sangga_elev/cctv_nosmoke.jpg", 0.25, 0.33,
-                    (-9.95, 0.050, 1.56), rot=(0, 0, math.pi), shaded=True)
+    def _reused_pocket_plane(pname, img_key, loc_xyz):
+        im = bpy.data.images.get(img_key)
+        if not im:
+            return
+        m = bpy.data.materials.new(f"Mat_{pname}")
+        m.use_nodes = True
+        nt = m.node_tree
+        bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+        bsdf.inputs["Roughness"].default_value = 0.25
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = im
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        hw, hh = 0.265 / 2, 0.355 / 2
+        me = bpy.data.meshes.new(pname)
+        me.from_pydata([(-hw, 0, -hh), (hw, 0, -hh), (hw, 0, hh), (-hw, 0, hh)], [], [(0, 1, 2, 3)])
+        uv = me.uv_layers.new()
+        for loop, coord in zip(uv.data, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            loop.uv = coord
+        me.materials.append(m)
+        ob = bpy.data.objects.new(pname, me)
+        ob.location = loc_xyz
+        ob.rotation_euler = (0, 0, math.pi)
+        ob.parent = pb
+        c.objects.link(ob)
+
+    # 8 individual 3D silver acrylic pockets (2 rows x 4 cols; on Y=0 wall facing +Y, viewer's left->right is +X->-X!)
+    col_xs = (0.48, 0.16, -0.16, -0.48)
+    row_zs = (0.24, -0.18)
+    top_imgs = ("sangga_elev/notice_a4_1.jpg", "sangga_elev/notice_a4_2.jpg",
+                "sangga_elev/notice_a4_3.jpg", "sangga_elev/notice_a4_4.jpg")
+    for r_i, pz in enumerate(row_zs):
+        for c_i, px in enumerate(col_xs):
+            tag = f"PB_P{r_i}_{c_i}"
+            _molded(f"{tag}_frame", (0.295, 0.016, 0.385), pocket_rim_m, c, (px, 0.018, pz), pb, 0.002)
+            # Iconic semicircular thumb-cutout notch at top center of each acrylic pocket
+            W.cyl(f"{tag}_notch", 0.018, 0.018, burgundy_m, c, (px, 0.022, pz + 0.184), (90, 0, 0), parent=pb, seg=12)
+            if r_i == 0:
+                _textured_plane(c, pb, f"{tag}_doc", top_imgs[c_i], 0.265, 0.355,
+                                (px, 0.028, pz), rot=(0, 0, math.pi), shaded=True)
+            else:
+                if c_i == 0:
+                    # Empty dark acrylic pocket (exact Photo 2 lived-in realism!)
+                    W.box(f"{tag}_empty", (0.265, 0.004, 0.355), empty_dark_m, c, (px, 0.026, pz), parent=pb)
+                elif c_i == 1:
+                    _reused_pocket_plane(f"{tag}_student", "student_discount.jpg", (px, 0.028, pz))
+                elif c_i == 2:
+                    _reused_pocket_plane(f"{tag}_training", "training.jpg", (px, 0.028, pz))
+                else:
+                    _textured_plane(c, pb, f"{tag}_flyer", "sangga_elev/flyer_english_yellow.jpg", 0.265, 0.355,
+                                    (px, 0.028, pz), rot=(0, 0, math.pi), shaded=True)
+
+    # Yellow '금연 No Smoking Area' sticker right beside the bulletin board (Photo 2 detail!)
+    _molded("PB_NoSmokeBack", (0.23, 0.012, 0.30), white_plast_m, c, (-5.84, 0.040, 1.56), det, 0.002)
+    _textured_plane(c, det, "PB_NoSmokeFace", "sangga_elev/nosmoke_yellow.jpg", 0.215, 0.285,
+                    (-5.84, 0.049, 1.56), rot=(0, 0, math.pi), shaded=True)
+
+    # 4) WatchCoach Gym Directional Poster ('← 워치코치 짐 302호', pointing toward +X gym entrance!) at X = -5.22
+    _molded("GymDir_Frame", (0.58, 0.025, 0.84), dark_m, c, (-5.22, 0.042, 1.48), det, 0.004)
+    _textured_plane(c, det, "GymDir_Face", "sangga_elev/gym_dir_poster.jpg", 0.54, 0.80,
+                    (-5.22, 0.058, 1.48), rot=(0, 0, math.pi), shaded=True)
 
     # 5) 3 Projecting Illuminated Lightbox Signs in varied shapes (square, rect, round)
     for s_name, style, img_rel, x_pos, z_pos in (
