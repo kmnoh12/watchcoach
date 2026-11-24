@@ -485,6 +485,81 @@ def _textured_plane(c, parent, name, img_name, width, height, loc, rot=(0, 0, 0)
     return ob
 
 
+def _textured_disc(c, parent, name, img_name, radius, loc, rot=(0, 0, 0), strength=1.55, seg=32):
+    """Create a UV-mapped circular emissive acrylic sign face in the same XZ local plane as _textured_plane."""
+    img_path = os.path.join(W.PARTS, img_name)
+    im = bpy.data.images.load(img_path, check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    m = W.shadeless(f"Mat_{name}", image=img_path, strength=strength)
+    me = bpy.data.meshes.new(name)
+    verts = [(0.0, 0.0, 0.0)]
+    for i in range(seg):
+        a = 2.0 * math.pi * i / seg
+        verts.append((radius * math.cos(a), 0.0, radius * math.sin(a)))
+    faces = [(0, i + 1, (i + 1) % seg + 1) for i in range(seg)]
+    me.from_pydata(verts, [], faces)
+    # Ensure normal faces -Y (matching _textured_plane!)
+    for poly in me.polygons:
+        if poly.normal.y > 0:
+            me.flip_normals()
+            break
+    uv = me.uv_layers.new()
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            v = me.vertices[me.loops[li].vertex_index].co
+            uv.data[li].uv = (0.5 + v.x / (2.0 * radius), 0.5 + v.z / (2.0 * radius))
+    me.materials.append(m)
+    ob = bpy.data.objects.new(name, me)
+    ob.location = loc
+    ob.rotation_euler = rot
+    ob.parent = parent
+    c.objects.link(ob)
+    return ob
+
+
+def _projecting_sign(c, parent, name, style, img_rel, x_pos, y_wall=2.84, z_pos=2.36):
+    """Build 3 authentic Korean commercial projecting lightbox sign styles:
+    - 'rect': deep matte-black rectangular acrylic box (Photo 1 '준 인테리어')
+    - 'square': sleek glowing square cube lightbox (Photo 2 'GLOW')
+    - 'round': double-sided white molded circular acrylic sign with dark mid-seam & twin brackets (Photo 3 '나빈피아노')"""
+    frame_m = bpy.data.materials.get("Hallway_SignFrame") or W.mat("Hallway_SignFrame", (0.04, 0.045, 0.05), rough=0.40, metal=0.55)
+    white_rim_m = bpy.data.materials.get("Sign_WhiteAcrylicRim") or W.mat("Sign_WhiteAcrylicRim", (0.90, 0.91, 0.92), rough=0.22, metal=0.04)
+    seam_m = bpy.data.materials.get("Sign_DarkMidSeam") or W.mat("Sign_DarkMidSeam", (0.04, 0.04, 0.045), rough=0.55, metal=0.35)
+
+    if style == "rect":
+        w, h, t = 0.56, 0.30, 0.14
+        s_root = W.empty(name, c, (x_pos, y_wall - w / 2 - 0.06, z_pos), parent=parent)
+        _molded(f"{name}_box", (t, w, h), frame_m, c, (0, 0, 0), s_root, 0.008)
+        _molded(f"{name}_bracket", (0.05, 0.12, h * 0.72), frame_m, c, (0, w / 2 + 0.03, 0), s_root, 0.003)
+        _textured_plane(c, s_root, f"{name}_faceL", img_rel, w - 0.036, h - 0.036, (-t / 2 - 0.002, 0, 0), rot=(0, 0, -math.pi / 2), strength=1.65)
+        _textured_plane(c, s_root, f"{name}_faceR", img_rel, w - 0.036, h - 0.036, (t / 2 + 0.002, 0, 0), rot=(0, 0, math.pi / 2), strength=1.65)
+        return s_root
+    elif style == "square":
+        w, h, t = 0.36, 0.36, 0.13
+        s_root = W.empty(name, c, (x_pos, y_wall - w / 2 - 0.04, z_pos), parent=parent)
+        _molded(f"{name}_box", (t, w, h), frame_m, c, (0, 0, 0), s_root, 0.005)
+        _molded(f"{name}_bracket", (0.06, 0.08, h * 0.80), frame_m, c, (0, w / 2 + 0.02, 0), s_root, 0.003)
+        _textured_plane(c, s_root, f"{name}_faceL", img_rel, w - 0.024, h - 0.024, (-t / 2 - 0.002, 0, 0), rot=(0, 0, -math.pi / 2), strength=1.70)
+        _textured_plane(c, s_root, f"{name}_faceR", img_rel, w - 0.024, h - 0.024, (t / 2 + 0.002, 0, 0), rot=(0, 0, math.pi / 2), strength=1.70)
+        return s_root
+    else:  # 'round'
+        r, t = 0.23, 0.12
+        s_root = W.empty(name, c, (x_pos, y_wall - r - 0.11, z_pos - 0.02), parent=parent)
+        # Double-sided white molded acrylic shells + recessed dark center seam groove (exact Photo 3!)
+        W.cyl(f"{name}_shellL", r, t * 0.42, white_rim_m, c, (-t * 0.29, 0, 0), (0, 90, 0), parent=s_root, seg=28)
+        W.cyl(f"{name}_shellR", r, t * 0.42, white_rim_m, c, (t * 0.29, 0, 0), (0, 90, 0), parent=s_root, seg=28)
+        W.cyl(f"{name}_midSeam", r * 0.90, t * 0.24, seam_m, c, (0, 0, 0), (0, 90, 0), parent=s_root, seg=28)
+        # Twin black steel wall brackets
+        for bz in (-0.09, 0.09):
+            _molded(f"{name}_arm_{bz}", (0.032, 0.15, 0.032), frame_m, c, (0, r + 0.045, bz), s_root, 0.003)
+        _molded(f"{name}_wallPlate", (0.055, 0.018, 0.25), frame_m, c, (0, r + 0.115, 0), s_root, 0.003)
+        # Circular UV-mapped emissive faces
+        _textured_disc(c, s_root, f"{name}_faceL", img_rel, r - 0.018, (-t * 0.505, 0, 0), rot=(0, 0, -math.pi / 2), strength=1.55)
+        _textured_disc(c, s_root, f"{name}_faceR", img_rel, r - 0.018, (t * 0.505, 0, 0), rot=(0, 0, math.pi / 2), strength=1.55)
+        return s_root
+
+
 def build_sangga_hallway(c, entrance_root):
     """Realistic 3D Korean commercial sangga hallway right outside the transparent entrance door:
     speckled terrazzo marble floor, black granite plinth, 3D brushed stainless storefront mullions,
@@ -616,17 +691,13 @@ def build_sangga_hallway(c, entrance_root):
         for x_pos in (-3.6, -2.4, -1.2, 0.0, 1.2, 2.4, 3.6):
             W.cyl("Hallway LED lens", 0.050, 0.008, led_m, c, (x_pos, y_row, 2.746), parent=hall, seg=16)
 
-    # 3 real 3D projecting Korean Sangga lightbox signs sticking out from the opposite wall
-    for s_name, img, x_pos, z_pos in (
-        ("Sign_Math", "hallway_sign_math.png", -0.82, 2.38),
-        ("Sign_Pilates", "hallway_sign_pilates.png", 0.72, 2.38),
-        ("Sign_Art", "hallway_sign_art.png", 1.82, 2.38),
+    # 3 real 3D projecting Korean Sangga lightbox signs in varied shapes (rect, square, round)
+    for s_name, style, img, x_pos, z_pos in (
+        ("Sign_Math", "rect", "sangga_elev/sign_eroom.jpg", -0.82, 2.38),
+        ("Sign_Pilates", "square", "sangga_elev/sign_pilates.jpg", 0.72, 2.36),
+        ("Sign_Art", "round", "sangga_elev/sign_piano.jpg", 1.82, 2.34),
     ):
-        s_root = W.empty(s_name, c, (x_pos, 2.48, z_pos), parent=hall)
-        _molded(f"{s_name}_box", (0.08, 0.58, 0.26), frame_m, c, (0, 0, 0), s_root, 0.005)
-        _molded(f"{s_name}_bracket", (0.04, 0.12, 0.20), frame_m, c, (0, 0.32, 0), s_root, 0.003)
-        _textured_plane(c, s_root, f"{s_name}_faceL", img, 0.54, 0.22, (-0.044, 0, 0), rot=(0, 0, -math.pi / 2), strength=1.55)
-        _textured_plane(c, s_root, f"{s_name}_faceR", img, 0.54, 0.22, (0.044, 0, 0), rot=(0, 0, math.pi / 2), strength=1.55)
+        _projecting_sign(c, hall, s_name, style, img, x_pos, y_wall=2.84, z_pos=z_pos)
 
     # Standing yellow Korean X-Banner + red fire extinguisher on the right side of the opposite storefront
     ban = W.empty("Hallway_XBanner", c, (0.98, 2.32, 0), parent=hall)
@@ -954,17 +1025,13 @@ def build_hallway_ext_details(c, ext, steel_m, granite_m):
     _textured_plane(c, det, "CCTVSign_Face", "sangga_elev/cctv_nosmoke.jpg", 0.25, 0.33,
                     (-9.95, 0.050, 1.56), rot=(0, 0, math.pi), shaded=True)
 
-    # 5) 3 Projecting Illuminated Lightbox Signs along Y = 2.48, Z = 2.38 (matching existing academy signs!)
-    for s_name, img_rel, x_pos in (
-        ("Sign_Derma", "sangga_elev/sign_derma.jpg", -9.70),
-        ("Sign_Dental", "sangga_elev/sign_dental.jpg", -8.25),
-        ("Sign_WatchCoach", "sangga_elev/sign_watchcoach.jpg", -5.65),
+    # 5) 3 Projecting Illuminated Lightbox Signs in varied shapes (square, rect, round)
+    for s_name, style, img_rel, x_pos, z_pos in (
+        ("Sign_Derma", "square", "sangga_elev/sign_derma.jpg", -9.70, 2.36),
+        ("Sign_Dental", "rect", "sangga_elev/sign_dental.jpg", -8.25, 2.38),
+        ("Sign_WatchCoach", "round", "sangga_elev/sign_watchcoach.jpg", -5.65, 2.34),
     ):
-        s_root = W.empty(s_name, c, (x_pos, 2.48, 2.38), parent=det)
-        _molded(f"{s_name}_box", (0.08, 0.58, 0.26), frame_m, c, (0, 0, 0), s_root, 0.005)
-        _molded(f"{s_name}_bracket", (0.04, 0.14, 0.20), frame_m, c, (0, 0.32, 0), s_root, 0.003)
-        _textured_plane(c, s_root, f"{s_name}_faceL", img_rel, 0.54, 0.22, (-0.044, 0, 0), rot=(0, 0, -math.pi / 2), strength=1.45)
-        _textured_plane(c, s_root, f"{s_name}_faceR", img_rel, 0.54, 0.22, (0.044, 0, 0), rot=(0, 0, math.pi / 2), strength=1.45)
+        _projecting_sign(c, det, s_name, style, img_rel, x_pos, y_wall=2.84, z_pos=z_pos)
 
     # 6) Ceiling Hardware: 2 Dome CCTV Cameras, 3 Smoke Detectors, 2 Recessed PA Speakers
     for idx, (cx, cy) in enumerate(((-10.40, 0.38), (-5.90, 2.52))):
