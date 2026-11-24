@@ -885,6 +885,136 @@ def build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m):
     _molded("Elev_LeftBox", (0.34, 0.14, 0.44), wall_m, c, (-10.65, 0.08, 1.45), ext, 0.005)
     _molded("Elev_LeftBox_Trim", (0.30, 0.02, 0.04), steel_m, c, (-10.65, 0.15, 1.60), ext, 0.002)
 
+    build_hallway_ext_details(c, ext, steel_m, granite_m)
+
+
+def build_hallway_ext_details(c, ext, steel_m, granite_m):
+    """Lived-in Korean commercial 3rd-floor sangga hallway details along the 7m extended corridor:
+    - Gym-side wall (Y = 0.0, facing +Y): steel fire stair door + green EXIT sign + door closer + lever handle,
+      aluminum sangga notice bulletin board, WatchCoach Gym directional poster, CCTV/No-Smoking sign.
+    - Ceiling (Z = 2.75): 3 projecting illuminated lightbox signs (Derma, Dental, WatchCoach Gym),
+      2 dome CCTV cameras, 3 smoke detectors with red LED dots, 2 recessed PA speakers.
+    - Floor corners (clear of walkway): stainless hallway trash bin, yellow Wet Floor A-frame sign,
+      2 stacked kraft cardboard delivery boxes."""
+    det = W.empty("Sangga_Hallway_Ext_Details", c, (0, 0, 0), parent=ext)
+
+    frame_m = bpy.data.materials.get("Hallway_SignFrame") or W.mat("Hallway_SignFrame", (0.04, 0.045, 0.05), rough=0.40, metal=0.55)
+    dark_m = bpy.data.materials.get("Hallway_DarkSteel") or W.mat("Hallway_DarkSteel", (0.03, 0.032, 0.036), rough=0.45, metal=0.50)
+    chrome_m = bpy.data.materials.get("Elev_Chrome") or W.mat("Elev_Chrome", (0.82, 0.84, 0.86), rough=0.14, metal=0.96)
+    door_gray_m = W.mat("FireDoor_SteelGray", (0.34, 0.36, 0.38), rough=0.44, metal=0.35)
+    door_frame_m = W.mat("FireDoor_FrameDark", (0.14, 0.15, 0.16), rough=0.42, metal=0.45)
+    wire_glass_m = W.mat("FireDoor_WireGlass", (0.16, 0.20, 0.22), rough=0.18, metal=0.10)
+    exit_green_m = W.shadeless("HallExt_ExitGreen", (0.06, 0.92, 0.34), strength=3.4)
+    white_plast_m = W.mat("Ceil_WhitePlastic", (0.86, 0.87, 0.86), rough=0.42, metal=0.02)
+    dome_glass_m = W.mat("CCTV_SmokedDome", (0.02, 0.022, 0.028), rough=0.06, metal=0.12)
+    red_dot_m = W.shadeless("SmokeDet_RedLED", (1.0, 0.08, 0.05), strength=4.5)
+    yellow_m = W.mat("WetFloor_Yellow", (0.88, 0.68, 0.03), rough=0.35, metal=0.04)
+    kraft_m = W.mat("Cardboard_Kraft", (0.48, 0.34, 0.20), rough=0.84, metal=0.0)
+    tape_m = W.mat("Cardboard_Tape", (0.64, 0.52, 0.34), rough=0.35, metal=0.0)
+    label_m = W.mat("Cardboard_Label", (0.90, 0.90, 0.88), rough=0.65, metal=0.0)
+
+    # 1) Steel Fire Stair Door on Y = 0.0 wall at X = -8.65 (facing +Y)
+    fd = W.empty("HallExt_FireDoor", c, (-8.65, 0.04, 0.0), parent=det)
+    # Outer dark steel doorframe
+    _molded("FD_Frame_L", (0.06, 0.08, 2.14), door_frame_m, c, (0.49, 0.01, 1.07), fd, 0.004)
+    _molded("FD_Frame_R", (0.06, 0.08, 2.14), door_frame_m, c, (-0.49, 0.01, 1.07), fd, 0.004)
+    _molded("FD_Frame_T", (1.04, 0.08, 0.06), door_frame_m, c, (0.0, 0.01, 2.12), fd, 0.004)
+    # Recessed painted steel door slab
+    _molded("FD_Slab", (0.92, 0.045, 2.07), door_gray_m, c, (0.0, 0.005, 1.045), fd, 0.004)
+    # Narrow wired-glass vision panel on the handle side
+    _molded("FD_GlassFrame", (0.18, 0.055, 0.72), door_frame_m, c, (0.24, 0.012, 1.48), fd, 0.003)
+    W.box("FD_GlassPane", (0.13, 0.060, 0.67), wire_glass_m, c, (0.24, 0.014, 1.48), parent=fd)
+    # Chrome lever handle + escutcheon plate
+    _molded("FD_Plate", (0.05, 0.012, 0.22), chrome_m, c, (0.37, 0.032, 0.98), fd, 0.003)
+    W.cyl("FD_HandleStem", 0.011, 0.05, chrome_m, c, (0.37, 0.055, 1.00), (90, 0, 0), parent=fd, seg=10)
+    _molded("FD_Lever", (0.12, 0.018, 0.022), chrome_m, c, (0.32, 0.082, 1.00), fd, 0.004)
+    # Hydraulic door closer box + arm at top
+    _molded("FD_CloserBox", (0.20, 0.05, 0.055), chrome_m, c, (-0.24, 0.05, 2.02), fd, 0.004)
+    _molded("FD_CloserArm", (0.22, 0.016, 0.016), dark_m, c, (-0.12, 0.065, 2.06), fd, 0.002)
+    # '방화문 항상 닫아두세요' sticker on door face (+Y normal -> rot Z = pi)
+    _textured_plane(c, fd, "FD_Sticker", "sangga_elev/fire_door_sticker.jpg", 0.26, 0.18,
+                    (-0.14, 0.031, 1.48), rot=(0, 0, math.pi), shaded=True)
+    # Glowing green EXIT sign above the fire door
+    _molded("FD_ExitBox", (0.34, 0.06, 0.15), white_plast_m, c, (0.0, 0.03, 2.34), fd, 0.004)
+    W.box("FD_ExitGlow", (0.29, 0.012, 0.11), exit_green_m, c, (0.0, 0.062, 2.34), parent=fd)
+    _text(c, fd, "FD_ExitText", "비상구", (0.0, 0.070, 2.34), 0.062, white_plast_m, rot=(math.pi / 2, 0, math.pi))
+
+    # 2) Aluminum Sangga Notice Bulletin Board on Y = 0.0 wall at X = -6.70
+    _molded("Bulletin_Frame", (1.14, 0.035, 0.78), steel_m, c, (-6.70, 0.045, 1.48), det, 0.004)
+    _textured_plane(c, det, "Bulletin_Face", "sangga_elev/sangga_bulletin.jpg", 1.08, 0.72,
+                    (-6.70, 0.066, 1.48), rot=(0, 0, math.pi), shaded=True)
+
+    # 3) WatchCoach Gym Directional Poster ('← 워치코치 짐 302호', pointing toward +X gym entrance!) at X = -5.35
+    _molded("GymDir_Frame", (0.60, 0.025, 0.86), dark_m, c, (-5.35, 0.042, 1.48), det, 0.004)
+    _textured_plane(c, det, "GymDir_Face", "sangga_elev/gym_dir_poster.jpg", 0.56, 0.82,
+                    (-5.35, 0.058, 1.48), rot=(0, 0, math.pi), shaded=True)
+
+    # 4) CCTV / No-Smoking Sign on Y = 0.0 wall at X = -9.95
+    _molded("CCTVSign_Back", (0.27, 0.014, 0.35), white_plast_m, c, (-9.95, 0.040, 1.56), det, 0.002)
+    _textured_plane(c, det, "CCTVSign_Face", "sangga_elev/cctv_nosmoke.jpg", 0.25, 0.33,
+                    (-9.95, 0.050, 1.56), rot=(0, 0, math.pi), shaded=True)
+
+    # 5) 3 Projecting Illuminated Lightbox Signs along Y = 2.48, Z = 2.38 (matching existing academy signs!)
+    for s_name, img_rel, x_pos in (
+        ("Sign_Derma", "sangga_elev/sign_derma.jpg", -9.70),
+        ("Sign_Dental", "sangga_elev/sign_dental.jpg", -8.25),
+        ("Sign_WatchCoach", "sangga_elev/sign_watchcoach.jpg", -5.65),
+    ):
+        s_root = W.empty(s_name, c, (x_pos, 2.48, 2.38), parent=det)
+        _molded(f"{s_name}_box", (0.08, 0.58, 0.26), frame_m, c, (0, 0, 0), s_root, 0.005)
+        _molded(f"{s_name}_bracket", (0.04, 0.14, 0.20), frame_m, c, (0, 0.32, 0), s_root, 0.003)
+        _textured_plane(c, s_root, f"{s_name}_faceL", img_rel, 0.54, 0.22, (-0.044, 0, 0), rot=(0, 0, -math.pi / 2), strength=1.45)
+        _textured_plane(c, s_root, f"{s_name}_faceR", img_rel, 0.54, 0.22, (0.044, 0, 0), rot=(0, 0, math.pi / 2), strength=1.45)
+
+    # 6) Ceiling Hardware: 2 Dome CCTV Cameras, 3 Smoke Detectors, 2 Recessed PA Speakers
+    for idx, (cx, cy) in enumerate(((-10.40, 0.38), (-5.90, 2.52))):
+        W.cyl(f"CCTV_Base_{idx}", 0.068, 0.032, white_plast_m, c, (cx, cy, 2.73), parent=det, seg=16)
+        bm_d = bmesh.new()
+        bmesh.ops.create_uvsphere(bm_d, u_segments=14, v_segments=8, radius=0.052)
+        me_d = bpy.data.meshes.new(f"CCTV_Dome_{idx}")
+        bm_d.to_mesh(me_d)
+        bm_d.free()
+        me_d.materials.append(dome_glass_m)
+        ob_d = bpy.data.objects.new(f"CCTV_Dome_{idx}", me_d)
+        ob_d.location = (cx, cy, 2.708)
+        ob_d.parent = det
+        c.objects.link(ob_d)
+    for idx, sx in enumerate((-9.10, -7.20, -5.20)):
+        W.cyl(f"SmokeDet_Body_{idx}", 0.055, 0.024, white_plast_m, c, (sx, 1.46, 2.735), parent=det, seg=14)
+        W.cyl(f"SmokeDet_LED_{idx}", 0.008, 0.010, red_dot_m, c, (sx + 0.028, 1.46, 2.722), parent=det, seg=8)
+    for idx, px in enumerate((-10.50, -6.50)):
+        W.cyl(f"CeilSpeaker_Rim_{idx}", 0.095, 0.012, white_plast_m, c, (px, 1.46, 2.742), parent=det, seg=18)
+        W.cyl(f"CeilSpeaker_Mesh_{idx}", 0.072, 0.014, door_gray_m, c, (px, 1.46, 2.740), parent=det, seg=16)
+
+    # 7) Stainless Hallway Trash Bin tucked beside the fire door (X = -7.80, Y = 0.24)
+    tb = W.empty("HallExt_TrashBin", c, (-7.80, 0.24, 0.0), parent=det)
+    _molded("TrashBin_Body", (0.34, 0.28, 0.68), steel_m, c, (0, 0, 0.34), tb, 0.010)
+    _molded("TrashBin_Rim", (0.36, 0.30, 0.04), dark_m, c, (0, 0, 0.69), tb, 0.006)
+    _molded("TrashBin_Slot", (0.24, 0.16, 0.02), granite_m, c, (0, 0.02, 0.705), tb, 0.004)
+
+    # 8) Yellow '미끄럼 주의 (CAUTION WET FLOOR)' A-Frame Sign near vacant storefront corner (X = -7.05, Y = 2.48)
+    wf = W.empty("HallExt_WetFloorSign", c, (-7.05, 2.48, 0.0), parent=det)
+    wf.rotation_euler.z = math.radians(-16.0)
+    for side, ang in ((-1, -13.0), (1, 13.0)):
+        board = _molded(f"WetFloor_Board_{side}", (0.30, 0.014, 0.60), yellow_m, c, (0, side * 0.07, 0.295), wf, 0.003)
+        board.rotation_euler.x = math.radians(ang)
+        _textured_plane(c, board, f"WetFloor_Face_{side}", "sangga_elev/wet_floor.jpg", 0.26, 0.42,
+                        (0, side * 0.009, 0.01), rot=(0, 0, 0 if side < 0 else math.pi), shaded=True)
+    # Top hinge / carrying handle bar where both boards meet
+    _molded("WetFloor_Top", (0.30, 0.032, 0.03), yellow_m, c, (0, 0, 0.585), wf, 0.006)
+
+    # 9) Stacked Cardboard Delivery Boxes tucked against right clinic wall (X = -8.95, Y = 2.58)
+    bx = W.empty("HallExt_DeliveryBoxes", c, (-8.95, 2.58, 0.0), parent=det)
+    b1 = _molded("DeliveryBox_Bottom", (0.44, 0.34, 0.30), kraft_m, c, (0, 0, 0.15), bx, 0.005)
+    b1.rotation_euler.z = math.radians(6.0)
+    W.box("DeliveryBox_Tape1", (0.445, 0.05, 0.004), tape_m, c, (0, 0, 0.152), parent=b1)
+    W.box("DeliveryBox_Label1", (0.11, 0.004, 0.08), label_m, c, (0.08, -0.171, 0.03), parent=b1)
+    b2 = _molded("DeliveryBox_Top", (0.34, 0.26, 0.22), kraft_m, c, (-0.03, 0.02, 0.41), bx, 0.005)
+    b2.rotation_euler.z = math.radians(-11.0)
+    W.box("DeliveryBox_Tape2", (0.345, 0.045, 0.004), tape_m, c, (0, 0, 0.112), parent=b2)
+    W.box("DeliveryBox_Label2", (0.09, 0.004, 0.07), label_m, c, (-0.04, -0.131, 0.02), parent=b2)
+
+
 
 
 # ---------------------------------------------------------------------------
