@@ -655,25 +655,8 @@ def build_sangga_hallway(c, entrance_root):
     # Adjacent warm mustard-yellow Piano Academy storefront on the right (Photo 1 vibe!)
     _textured_plane(c, hall, "Sangga_PianoPanel", "sangga_piano_panel.png", 1.22, 2.02, (2.46, sf_y - 0.02, 1.14), shaded=True)
 
-    # --- Center Opposite Academy Glass Double Doors + Lit Classroom Interior Behind Them! ---
-    # Classroom mini-box behind the opposite glass doors (y = 2.86 .. 4.45)
-    W.box("OppClass back wall", (2.4, 0.06, 2.75), class_wall_m, c, (-0.05, 4.40, 1.38), parent=hall)
-    W.box("OppClass floor", (2.4, 1.65, 0.04), class_floor_m, c, (-0.05, 3.62, -0.02), parent=hall)
-    W.box("OppClass baseboard", (2.4, 0.04, 0.10), wb_frame_m, c, (-0.05, 4.35, 0.05), parent=hall)
-    # Framed whiteboard on the classroom back wall (exact Photo 2 detail!)
-    _molded("OppClass WB frame", (1.18, 0.04, 0.82), wb_frame_m, c, (-0.32, 4.35, 1.48), hall, 0.005)
-    W.box("OppClass WB surface", (1.10, 0.02, 0.74), wb_face_m, c, (-0.32, 4.32, 1.48), parent=hall)
-    # Classroom bright interior light
-    cl_ld = bpy.data.lights.new("OppClassLight", "AREA")
-    cl_ld.shape = "RECTANGLE"
-    cl_ld.size, cl_ld.size_y = 1.4, 0.8
-    cl_ld.energy = 110
-    cl_ld.color = (0.96, 0.98, 1.0)
-    cl_ld.use_shadow = False
-    cl_ob = bpy.data.objects.new(cl_ld.name, cl_ld)
-    cl_ob.location = (-0.05, 3.65, 2.55)
-    cl_ob.parent = hall
-    c.objects.link(cl_ob)
+    # --- Center Opposite Academy Glass Double Doors + 5-Face Spider-Man Interior Box! ---
+    build_academy_5face_box(c, hall)
 
     # Opposite glass door blue logo band + 3D stainless/wood handles + silver digital keypad doorlock!
     W.box("OppDoor blue tape", (1.46, 0.012, 0.13), blue_band_m, c, (-0.05, sf_y - 0.02, 1.04), parent=hall)
@@ -887,6 +870,29 @@ def _squished_freshbag(c, parent, name, img_rel, size, loc, rot_z_deg=0.0, squis
 
     # 4) Clear vinyl invoice pocket strip on top front-right
     W.box(f"{name}_sleeve", (0.14, 0.09, 0.003), sleeve_m, c, (0.09, 0.06, sz + 0.001), parent=root)
+    return root
+
+
+def build_academy_5face_box(c, hall):
+    """5-face 'Spider-Man interior mapping' self-lit classroom box behind the opposite English academy glass doors
+    (10 triangles total, zero extra lights, real 3D parallax through the glass!)."""
+    root = W.empty("Academy_InteriorBox_5Face", c, (-0.05, 3.62, 0.0), parent=hall)
+    w, d, h = 2.30, 1.54, 2.74  # spans x=-1.20..+1.10, y=2.85..4.39, z=0..2.74
+    # 1) Back wall (at +d/2, facing -Y into hallway)
+    _textured_plane(c, root, "AcadBox_Back", "sangga_elev/academy_back.jpg", w, h,
+                    (0, d / 2, h / 2), rot=(0, 0, 0), strength=0.95, shaded=False)
+    # 2) Left wall (at -w/2, facing +X into room)
+    _textured_plane(c, root, "AcadBox_Left", "sangga_elev/academy_side.jpg", d, h,
+                    (-w / 2, 0, h / 2), rot=(0, 0, math.pi / 2), strength=0.88, shaded=False)
+    # 3) Right wall (at +w/2, facing -X into room)
+    _textured_plane(c, root, "AcadBox_Right", "sangga_elev/academy_side.jpg", d, h,
+                    (w / 2, 0, h / 2), rot=(0, 0, -math.pi / 2), strength=0.88, shaded=False)
+    # 4) Floor (at z=0.002, facing +Z up)
+    _textured_plane(c, root, "AcadBox_Floor", "sangga_elev/academy_floor.jpg", w, d,
+                    (0, 0, 0.002), rot=(math.pi / 2, 0, 0), strength=0.86, shaded=False)
+    # 5) Ceiling (at z=h, facing -Z down)
+    _textured_plane(c, root, "AcadBox_Ceil", "sangga_elev/academy_ceil.jpg", w, d,
+                    (0, 0, h), rot=(-math.pi / 2, 0, 0), strength=1.08, shaded=False)
     return root
 
 
