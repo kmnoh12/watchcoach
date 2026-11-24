@@ -181,6 +181,8 @@ def set_toss_front_screen(root_name="TossFront", source=None, strength=1.0, fram
         return None
     path = os.path.abspath(source)
     im = bpy.data.images.load(path, check_existing=True)
+    if bpy.data.filepath:  # relative to the .blend, so the file still finds it on the other PC
+        im.filepath = bpy.path.relpath(path)
     frames = 1
     if os.path.splitext(path)[1].lower() in (".mp4", ".mov", ".webm", ".mkv", ".avi"):
         im.source = "MOVIE"

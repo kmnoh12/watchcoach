@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Toss Front 2 screen: idle, payment, face pay, done</title>
+<style>
+  /* 800x1280 portrait panel, the terminal's native resolution. Everything is driven by seek(t), so frame capture is deterministic. */
+  :root {
+    --blue: #3182f6; --blue-press: #1b64da; --teal: #20a8c0;
+    --ink: #191f28; --ink2: #4e5968; --grey: #8b95a1; --line: #e5e8eb;
+    --bg: #f2f4f6; --card: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 800px; height: 1280px; overflow: hidden; background: #000; }
+  body { font-family: "Apple SD Gothic Neo", "AppleSDGothicNeo", -apple-system, "Noto Sans KR", sans-serif; color: var(--ink);
+         -webkit-font-smoothing: antialiased; letter-spacing: -0.02em; }
+  .screen { position: absolute; inset: 0; overflow: hidden; will-change: transform, opacity; }
+
+  /* ---------- 1. store idle ---------- */
+  #idle { background: #fff; display: flex; flex-direction: column; align-items: center; }
+  #idle .badge { margin-top: 330px; width: 196px; height: 220px; border-radius: 34px; background: #24262b; position: relative;
+                 box-shadow: 0 18px 40px rgba(0,0,0,.12); }
+  #idle .badge i { position: absolute; inset: 18px; border-radius: 22px; background: linear-gradient(160deg, #f0cf7a, #c79a35); }
+  #idle .badge b { position: absolute; inset: 52px 44px; border-radius: 12px; background: #24262b; color: #e9c56c; font: 800 92px/116px "Apple SD Gothic Neo", sans-serif;
+                   text-align: center; letter-spacing: 0; }
+  #idle .word { margin-top: 46px; font-weight: 800; font-size: 54px; letter-spacing: .14em; color: #24262b; }
+  #idle .sub { margin-top: 14px; font-size: 30px; font-weight: 500; color: var(--grey); letter-spacing: .02em; }
+  #idle .cta { position: absolute; bottom: 150px; font-size: 40px; font-weight: 700; color: var(--ink2); }
+  #idle .cta::after { content: ""; display: block; width: 60px; height: 4px; border-radius: 2px; background: var(--line); margin: 22px auto 0; }
+
+  /* ---------- 2. payment ---------- */
+  #pay { background: var(--bg); }
+  .back { position: absolute; left: 44px; top: 44px; width: 44px; height: 44px; }
+  #pay .amount { position: absolute; top: 150px; width: 100%; text-align: center; color: var(--teal); font-size: 36px; font-weight: 700; }
+  #pay h1 { position: absolute; top: 204px; width: 100%; text-align: center; font-size: 54px; font-weight: 800; }
+  .card { position: absolute; background: var(--card); border-radius: 30px; box-shadow: 0 2px 10px rgba(0,30,80,.04); }
+  #nfc { left: 48px; right: 48px; top: 330px; height: 196px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #nfc .lbl { margin-top: 14px; font-size: 28px; color: var(--grey); font-weight: 600; }
+  .tile { height: 120px; width: 342px; display: flex; align-items: center; padding-left: 34px; gap: 20px; font-size: 34px; font-weight: 700; color: var(--ink); }
+  .tile svg { width: 52px; height: 52px; flex: none; }
+  #t-face { left: 48px; top: 548px; } #t-qr { left: 410px; top: 548px; }
+  #t-cash { left: 48px; top: 690px; } #t-bank { left: 410px; top: 690px; }
+  #gift { left: 50%; top: 838px; width: 400px; margin-left: -200px; height: 74px; border-radius: 37px; background: #e5e8eb; box-shadow: none;
+          font-size: 28px; font-weight: 600; color: var(--ink2); display: flex; align-items: center; justify-content: center; }
+  #slot-hint { position: absolute; bottom: 150px; width: 100%; text-align: center; font-size: 40px; font-weight: 700; color: #b0b8c1; }
+  #slot-tab { position: absolute; bottom: 0; left: 50%; width: 330px; margin-left: -165px; height: 128px; border-radius: 40px 40px 0 0; background: var(--blue); }
+  #slot-tab svg { position: absolute; left: 50%; top: 34px; width: 64px; margin-left: -32px; }
+  .press { position: absolute; border-radius: 50%; background: rgba(49,130,246,.22); pointer-events: none; }
+  #finger { position: absolute; width: 74px; height: 74px; border-radius: 50%; background: rgba(25,31,40,.10); border: 3px solid rgba(25,31,40,.12); }
+
+  /* ---------- 3. face pay ---------- */
+  #face { background: var(--bg); }
+  #face h1 { position: absolute; top: 150px; width: 100%; text-align: center; font-size: 50px; font-weight: 800; }
+  #face .hint { position: absolute; top: 224px; width: 100%; text-align: center; font-size: 30px; color: var(--grey); font-weight: 600; }
+  #ring { position: absolute; left: 140px; top: 330px; width: 520px; height: 520px; }
+  #portrait { position: absolute; left: 170px; top: 360px; width: 460px; height: 460px; border-radius: 50%; overflow: hidden; background: #0d1014; }
+  #portrait img { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  #scan { position: absolute; left: 0; width: 100%; height: 120px; background: linear-gradient(180deg, rgba(49,130,246,0), rgba(120,190,255,.35), rgba(49,130,246,0)); }
+  #okbadge { position: absolute; left: 540px; top: 724px; width: 104px; height: 104px; border-radius: 50%; background: var(--blue); border: 8px solid var(--bg); }
+  #face .status { position: absolute; top: 900px; width: 100%; text-align: center; font-size: 38px; font-weight: 700; color: var(--ink2); }
+  #face .brand { position: absolute; bottom: 120px; width: 100%; text-align: center; font-size: 28px; color: #b0b8c1; font-weight: 600; }
+
+  /* ---------- 4. done ---------- */
+  #done { background: #fff; }
+  #done .disc { position: absolute; left: 290px; top: 330px; width: 220px; height: 220px; border-radius: 50%; background: var(--blue); }
+  #done svg.chk { position: absolute; left: 290px; top: 330px; width: 220px; height: 220px; }
+  #done .won { position: absolute; top: 620px; width: 100%; text-align: center; font-size: 64px; font-weight: 800; }
+  #done .ttl { position: absolute; top: 712px; width: 100%; text-align: center; font-size: 46px; font-weight: 700; color: var(--ink2); }
+  #done .meta { position: absolute; left: 110px; right: 110px; top: 850px; border-top: 2px solid var(--line); padding-top: 34px;
+                font-size: 30px; color: var(--grey); font-weight: 600; line-height: 58px; }
+  #done .meta div { display: flex; justify-content: space-between; } #done .meta span:last-child { color: var(--ink2); }
+</style>
+</head>
+<body>
+<!-- 1. store idle -->
+<div class="screen" id="idle">
+  <div class="badge"><i></i><b>W</b></div>
+  <div class="word">WATCH COACH</div>
+  <div class="sub">워치코치 짐 302호</div>
+  <div class="cta">결제하기</div>
+</div>
+
+<!-- 2. payment -->
+<div class="screen" id="pay">
+  <svg class="back" viewBox="0 0 24 24" fill="none" stroke="#191f28" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+  <div class="amount" id="pay-amount">결제할 금액 15,000원</div>
+  <h1 id="pay-title">카드를 넣거나 선택하세요</h1>
+  <div class="card" id="nfc">
+    <svg id="nfc-ico" width="110" height="76" viewBox="0 0 110 76" fill="none" stroke="#4e5968" stroke-width="4" stroke-linecap="round">
+      <rect x="30" y="14" width="32" height="50" rx="7" transform="rotate(-18 46 39)"/>
+      <path class="w w1" d="M70 26q8 12 0 24"/><path class="w w2" d="M80 18q14 20 0 40"/><path class="w w3" d="M90 10q20 28 0 56"/>
+    </svg>
+    <div class="lbl">삼성·애플·NFC ›</div>
+  </div>
+  <div class="card tile" id="t-face">
+    <svg viewBox="0 0 52 52" fill="none" stroke="#3182f6" stroke-width="3.4" stroke-linecap="round">
+      <path d="M6 17V11a5 5 0 0 1 5-5h6M35 6h6a5 5 0 0 1 5 5v6M46 35v6a5 5 0 0 1-5 5h-6M17 46h-6a5 5 0 0 1-5-5v-6"/>
+      <path d="M19 21v3M33 21v3M26 22v7h-2M20 34q6 5 12 0"/></svg>토스 얼굴결제</div>
+  <div class="card tile" id="t-qr">
+    <svg viewBox="0 0 52 52" fill="#3182f6"><rect x="7" y="7" width="15" height="15" rx="3" fill="none" stroke="#3182f6" stroke-width="3.4"/><rect x="30" y="7" width="15" height="15" rx="3" fill="none" stroke="#3182f6" stroke-width="3.4"/><rect x="7" y="30" width="15" height="15" rx="3" fill="none" stroke="#3182f6" stroke-width="3.4"/><rect x="12" y="12" width="5" height="5"/><rect x="35" y="12" width="5" height="5"/><rect x="12" y="35" width="5" height="5"/><rect x="30" y="30" width="6" height="6"/><rect x="39" y="39" width="6" height="6"/><rect x="39" y="30" width="6" height="4"/><rect x="30" y="40" width="5" height="5"/></svg>QR 간편결제</div>
+  <div class="card tile" id="t-cash">
+    <svg viewBox="0 0 52 52"><path d="M19 8h14l-4 7h-6z" fill="#2c6fe0"/><path d="M14 22q3-7 12-7t12 7l4 14q1 9-8 9H18q-9 0-8-9z" fill="#3182f6"/><path d="M19 27l3 10 4-7 4 7 3-10M18 31h16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>현금</div>
+  <div class="card tile" id="t-bank">
+    <svg viewBox="0 0 52 52"><path d="M26 5l21 21-21 21L5 26z" fill="#3182f6"/><path d="M17 22l3 10 4-7 4 7 3-10M16 26h20" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>계좌이체</div>
+  <div class="card" id="gift">선물권·포인트·쿠폰 사용</div>
+  <div id="slot-hint">카드는 여기에</div>
+  <div id="slot-tab"><svg viewBox="0 0 64 30" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path id="chev" d="M8 24L32 8l24 16"/></svg></div>
+  <div class="press" id="ripple"></div>
+  <div id="finger"></div>
+</div>
+
+<!-- 3. face pay -->
+<div class="screen" id="face">
+  <svg class="back" viewBox="0 0 24 24" fill="none" stroke="#191f28" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+  <h1 id="face-title">원 안에 얼굴을 맞춰주세요</h1>
+  <div class="hint" id="face-hint">마스크·모자는 벗지 않아도 돼요</div>
+  <div id="portrait"><img src="face_cam.jpg" alt=""><div id="scan"></div></div>
+  <svg id="ring" viewBox="0 0 520 520">
+    <circle cx="260" cy="260" r="250" fill="none" stroke="#dfe3e8" stroke-width="12"/>
+    <circle id="arc" cx="260" cy="260" r="250" fill="none" stroke="#3182f6" stroke-width="12" stroke-linecap="round"
+            transform="rotate(-90 260 260)" stroke-dasharray="1570.8" stroke-dashoffset="1570.8"/>
+  </svg>
+  <div id="okbadge"><svg viewBox="0 0 88 88" width="88" height="88"><path id="okchk" d="M25 45l13 13 26-28" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="70" stroke-dashoffset="70"/></svg></div>
+  <div class="status" id="face-status">얼굴 확인 중</div>
+  <div class="brand">toss 얼굴결제</div>
+</div>
+
+<!-- 4. done -->
+<div class="screen" id="done">
+  <div class="disc" id="disc"></div>
+  <svg class="chk" viewBox="0 0 220 220"><path id="chk" d="M64 113l32 32 62-66" fill="none" stroke="#fff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="170" stroke-dashoffset="170"/></svg>
+  <div class="won" id="done-won">15,000원</div>
+  <div class="ttl" id="done-ttl">결제 완료</div>
+  <div class="meta" id="done-meta">
+    <div><span>상품</span><span>헬스 일일권</span></div>
+    <div><span>결제수단</span><span>토스 얼굴결제</span></div>
+    <div><span>할부</span><span>일시불</span></div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------------------------------------------
+// Timeline (seconds). 15 s loop: ends on the idle screen exactly as it starts, so the video can play cyclic.
+//  0.0  idle            2.6  payment slides up      5.5  tap "토스 얼굴결제"      6.0  face screen pushes in
+//  7.0  scan progress   8.8  face confirmed           9.9  payment done             13.9 back to idle
+// ---------------------------------------------------------------------------------------------------------------
+const DURATION = 15.0, FPS = 30;
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lin = (t, a, b) => clamp((t - a) / (b - a));
+const outCubic = x => 1 - Math.pow(1 - x, 3);
+const inOutCubic = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const outBack = (x, s = 1.7) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const tossEase = x => outCubic(x);            // Toss UI transitions: fast start, soft landing (~350 ms)
+function set(el, { x = 0, y = 0, s = 1, o = 1 } = {}) {
+  el.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+  el.style.opacity = o;
+}
+function rise(el, t, t0, dur = .38, dy = 26) {   // standard Toss content entrance: fade + rise
+  const k = tossEase(lin(t, t0, t0 + dur));
+  set(el, { y: (1 - k) * dy, o: k });
+}
+
+function seek(t) {
+  t = ((t % DURATION) + DURATION) % DURATION;
+
+  // ----- screen visibility / transitions -----
+  const upK = tossEase(lin(t, 2.6, 3.0));                // idle -> pay (slide up)
+  const pushK = inOutCubic(lin(t, 6.0, 6.42));           // pay -> face (push left)
+  const doneK = tossEase(lin(t, 9.9, 10.25));            // face -> done (fade + scale)
+  const backK = inOutCubic(lin(t, 13.9, 14.4));          // done -> idle (fade)
+
+  // Lower screens stay opaque under the incoming one, so no transition ever shows the black page behind.
+  // done -> idle passes through white: done fades out first, then the idle content fades in.
+  const outK = lin(t, 13.9, 14.12), inK = tossEase(lin(t, 14.12, 14.4));
+  set($("idle"), { o: t < 3.0 ? 1 : (t >= 13.9 ? inK : 0) });
+  $("idle").style.zIndex = t >= 13.9 ? 5 : 0;
+  $("idle").style.background = "#fff";
+  set($("pay"), { y: (1 - upK) * 1280 * 0.18, o: t < 6.0 ? upK : 1, x: -pushK * 240 });
+  $("pay").style.visibility = (t >= 2.6 && t < 6.42) ? "visible" : "hidden";
+  set($("face"), { x: (1 - pushK) * 800, o: 1 });
+  $("face").style.visibility = (t >= 6.0 && t < 10.25) ? "visible" : "hidden";
+  set($("done"), { s: t < 13.9 ? 0.97 + 0.03 * doneK : 1, o: t < 13.9 ? doneK : 1 - outK });
+  $("done").style.visibility = (t >= 9.9 && t < 14.12) ? "visible" : "hidden";
+  document.body.style.background = t >= 13.9 ? "#fff" : "#000";
+
+  // ----- 1. idle: badge breathes gently -----
+  const br = 1 + 0.012 * Math.sin(t * 2.2);
+  set(document.querySelector("#idle .badge"), { s: br });
+  document.querySelector("#idle .cta").style.opacity = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 3.0));
+
+  // ----- 2. payment content -----
+  rise($("pay-amount"), t, 2.85); rise($("pay-title"), t, 2.92);
+  ["nfc", "t-face", "t-qr", "t-cash", "t-bank", "gift"].forEach((id, i) => {
+    const k = tossEase(lin(t, 3.0 + i * 0.045, 3.4 + i * 0.045));
+    let s = 0.96 + 0.04 * k;
+    if (id === "t-face") {                                  // press feedback on tap
+      const p = lin(t, 5.5, 5.6) - lin(t, 5.72, 5.85);
+      s *= 1 - 0.05 * p;
+      $("t-face").style.background = p > 0 ? `rgb(${255 - 18 * p},${255 - 12 * p},${255 - 4 * p})` : "#fff";
+    }
+    set($(id), { y: (1 - k) * 30, s, o: k });
+  });
+  document.querySelectorAll("#nfc-ico .w").forEach((w, i) => {   // contactless waves pulse outward
+    const ph = ((t * 1.25 - i * 0.22) % 1 + 1) % 1;
+    w.style.opacity = 0.25 + 0.75 * Math.max(0, Math.sin(ph * Math.PI));
+  });
+  rise($("slot-hint"), t, 3.2);
+  const tabK = tossEase(lin(t, 3.1, 3.5));
+  set($("slot-tab"), { y: (1 - tabK) * 128 });
+  $("chev").setAttribute("transform", `translate(0 ${-5 * Math.max(0, Math.sin(t * 4.2))})`);
+  // finger approaches the face-pay tile and taps
+  const fIn = tossEase(lin(t, 4.9, 5.45)), fOut = lin(t, 5.85, 6.0);
+  const fx = 238 - 37 + (1 - fIn) * 90, fy = 608 - 37 + (1 - fIn) * 260;
+  set($("finger"), { x: fx, y: fy, s: 1 - 0.12 * (lin(t, 5.5, 5.58) - lin(t, 5.72, 5.8)), o: fIn * (1 - fOut) * 0.9 });
+  const rp = lin(t, 5.55, 5.95);
+  const rr = 40 + 230 * outCubic(rp);
+  Object.assign($("ripple").style, { left: 238 - rr + "px", top: 608 - rr + "px", width: rr * 2 + "px", height: rr * 2 + "px",
+                                    opacity: rp > 0 && rp < 1 ? 1 - rp : 0 });
+
+  // ----- 3. face pay -----
+  rise($("face-title"), t, 6.3); rise($("face-hint"), t, 6.36);
+  const pk = tossEase(lin(t, 6.35, 6.8));
+  set($("portrait"), { s: 0.86 + 0.14 * pk, o: pk });
+  set($("ring"), { s: 0.9 + 0.1 * pk, o: pk });
+  const prog = inOutCubic(lin(t, 7.0, 8.8));
+  $("arc").setAttribute("stroke-dashoffset", 1570.8 * (1 - prog));
+  const scanOn = t > 6.9 && t < 8.85;
+  const sy = ((t - 6.9) * 1.15 % 1);
+  $("scan").style.top = (-120 + sy * 580) + "px";
+  $("scan").style.opacity = scanOn ? 1 : 0;
+  const okK = lin(t, 8.85, 9.2);
+  set($("okbadge"), { s: okK > 0 ? outBack(okK, 2.2) : 0, o: okK > 0 ? 1 : 0 });
+  $("okchk").setAttribute("stroke-dashoffset", 70 * (1 - outCubic(lin(t, 9.05, 9.35))));
+  const st = $("face-status");
+  if (t < 8.85) {
+    const dots = Math.floor((t * 2.5) % 4);
+    st.textContent = "얼굴 확인 중" + ".".repeat(dots);
+    st.style.color = "#4e5968";
+  } else { st.textContent = "본인 확인됐어요"; st.style.color = "#3182f6"; }
+  rise(st, t, t < 8.85 ? 6.5 : 8.85, .3, 14);
+
+  // ----- 4. done -----
+  const dk = lin(t, 10.0, 10.45);
+  set($("disc"), { s: dk > 0 ? outBack(dk, 2.0) : 0, o: dk > 0 ? 1 : 0 });
+  $("chk").setAttribute("stroke-dashoffset", 170 * (1 - outCubic(lin(t, 10.3, 10.68))));
+  rise($("done-won"), t, 10.5); rise($("done-ttl"), t, 10.58); rise($("done-meta"), t, 10.75, .45);
+}
+
+window.seek = seek;
+window.TIMELINE = { duration: DURATION, fps: FPS };
+// Live playback in a browser; ?t=7.5 freezes on that time; ?capture leaves control to the frame grabber.
+const q = new URLSearchParams(location.search);
+if (q.has("t")) seek(parseFloat(q.get("t")));
+else if (!q.has("capture")) { const t0 = performance.now(); (function loop() { seek((performance.now() - t0) / 1000); requestAnimationFrame(loop); })(); }
+else seek(0);
+</script>
+</body>
+</html>
