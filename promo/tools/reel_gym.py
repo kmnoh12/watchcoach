@@ -1125,8 +1125,9 @@ def cap(collection, head):
     for v in (.81,.91):
         piping("Visor stitch",[bill(i/40,v)+Vector((0,0,.00014)) for i in range(-38,39)],
                .00037,thread,collection,head)
+    # Centred on the front panel, symmetric: equal outer tips, lower middle peak, level bottoms.
     coords=[crown(-math.pi/2+x,e) for x,e in
-            ((.07,.43),(.13,.33),(.18,.42),(.23,.33),(.29,.45))]
+            ((-.12,.52),(-.06,.36),(0,.47),(.06,.36),(.12,.52))]
     piping("Tonal embroidered W",coords,.00135,thread,collection,head)
 
     airpods_max(collection, head, crown_obj)
