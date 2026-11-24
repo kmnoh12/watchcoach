@@ -1026,9 +1026,6 @@ def cap(collection, head):
     twill = W.mat("Washed charcoal twill", (.029,.031,.030), rough=.9)
     thread = W.mat("Charcoal topstitch", (.048,.049,.046), rough=.9)
     under = W.mat("Charcoal underbill", (.021,.022,.021), rough=.94)
-    rubber = W.mat("Graphite headset cushion", (.014,.015,.016), rough=.65)
-    shell = W.mat("Satin graphite earcup", (.048,.049,.052), rough=.34, metal=.32)
-    inset = W.mat("Dark anodized inset", (.028,.029,.031), rough=.36, metal=.48)
 
     nodes=twill.node_tree.nodes
     if not nodes.get("Woven grain"):
@@ -1051,15 +1048,19 @@ def cap(collection, head):
         links.new(grain.outputs["Fac"],dye.inputs["Fac"])
         links.new(dye.outputs["Color"],surface.inputs["Base Color"])
 
+    # Sized to the V6 head (fitted to its vertices with ~3 mm clearance): the crown hugs the skull instead of
+    # standing 3 cm off it. A superellipse profile (p=2.8) gives the fuller, structured crown of a real cap.
+    CAP_RX, CAP_RY, CAP_CY, CAP_ZB, CAP_DROP, CAP_ZT, CAP_P = .088, .100, -.106, 1.680, .016, 1.752, 2.8
+
     def crown(angle, elevation):
-        r = math.cos(elevation)
+        r = math.cos(elevation)**(2/CAP_P)
         side = math.cos(angle)
-        base = 1.683 - .018*side**2
-        z = base + (1.768-base)*math.sin(elevation)
+        base = CAP_ZB - CAP_DROP*side**2
+        z = base + (CAP_ZT-base)*math.sin(elevation)**(2/CAP_P)
         # Shallow compressions where the sewn panels meet the sweatband.
         folds=math.sin(6*angle+.55*math.sin(3*angle))**8
         r*=1-.022*folds*math.exp(-((elevation-.24)/.24)**2)
-        return Vector((.105*r*side, -.091 + .120*r*math.sin(angle), z))
+        return Vector((CAP_RX*r*side, CAP_CY + CAP_RY*r*math.sin(angle), z))
 
     def loft(name, rings, materials, bottom_index=0):
         bm = bmesh.new()
@@ -1079,7 +1080,7 @@ def cap(collection, head):
 
     angles = [i*math.tau/96 for i in range(96)]
     elevations = [i*1.558/24 for i in range(25)]
-    loft("Soft six panel cap", [[crown(a,e) for a in angles] for e in elevations],[twill])
+    crown_obj = loft("Soft six panel cap", [[crown(a,e) for a in angles] for e in elevations],[twill])
     for i in range(6):
         a = math.pi/6 + i*math.pi/3
         piping("Felled panel seam",[crown(a,e) for e in elevations],.00048,thread,collection,head)
@@ -1088,7 +1089,7 @@ def cap(collection, head):
     # The inner edge follows the crown itself. Both ends taper into the temples.
     def bill(u,v):
         angle = -math.pi/2 + u*1.19
-        p = crown(angle,.094)
+        p = crown(angle,.036)
         extent = max(.012, math.cos(u*math.pi/2))**.67
         p.y += .005 - v*.081*extent
         p.x += u*.006*v*extent
@@ -1128,36 +1129,274 @@ def cap(collection, head):
             ((.07,.43),(.13,.33),(.18,.42),(.23,.33),(.29,.45))]
     piping("Tonal embroidered W",coords,.00135,thread,collection,head)
 
-    # The padded band's inner surface shares the meridian of the cap.
-    path=[]
-    for i in range(81):
-        a=math.pi*i/80
-        path.append((.108*math.cos(a),-.091,1.665+.106*math.sin(a)))
-    holder=band("Padded over-ear headband",path,.024,.0085,rubber,collection,head)
-    mod=holder.modifiers.new("Rounded pad edges","BEVEL")
-    mod.width=.003;mod.segments=4
-    smooth_mesh(holder)
-    for sign in (-1,1):
-        y,z=-.081,1.627
-        def ear_part(name,profile,material):
-            rings=[]
-            for x,ry,rz in profile:
-                row=[]
-                for i in range(64):
-                    a=math.tau*i/64
-                    dy,dz=ry*math.cos(a),rz*math.sin(a)
-                    row.append((sign*x,y+dy+.14*dz,z+dz))
-                rings.append(row)
-            return loft(name,rings,[material])
-        ear_part("Memory foam earpad",[(.077,.031,.046),(.080,.042,.058),(.087,.047,.064),
-                                      (.096,.047,.064),(.102,.043,.060)],rubber)
-        ear_part("Enclosed earcup",[(.099,.042,.057),(.102,.046,.061),(.110,.046,.061),
-                                    (.117,.043,.058),(.121,.036,.051),(.122,.020,.031)],shell)
-        ear_part("Earcup face inset",[(.1216,.022,.033),(.1224,.021,.032),(.123,.015,.025)],inset)
-        for side in (-1,1):
-            coords=[(sign*.106,-.091,1.68),(sign*.110,y+side*.016,1.679),
-                    (sign*.113,y+side*.032,1.665),(sign*.113,y+side*.042,1.641)]
-            piping("Headphone swivel fork",coords,.0028,inset,collection,head)
+    airpods_max(collection, head, crown_obj)
+
+
+# ---------------------------------------------------------------- AirPods Max (silver), worn over the cap
+# Built in the cap's space (head-bone empty, face toward -Y, wearer's right = -X). Fitted to the V6 head:
+# the cushions follow the side of the skull (tilted 11 deg, bottom in) and the canopy rests on the cap crown.
+APM_YE, APM_ZE = -.095, 1.607         # ear centre
+APM_XIN, APM_TILT = .0655, .20        # cushion face offset from the mid-plane, tan(tilt)
+APM_SQ = 3.2                          # superellipse exponent of the rounded-square cups and cushions
+
+
+def _apm_knit(name, color, groove=.62, cell=.0011):
+    """AirPods Max knit mesh: a fine lattice of raised knit beads (~1.1 mm), darker in the grooves.
+    Three sine lattices along body diagonals, so the beads read on every face orientation without UVs."""
+    m = W.mat(name, color, rough=.9)
+    nt = m.node_tree
+    nodes, links = nt.nodes, nt.links
+    if nodes.get("Knit lattice"):
+        return m
+    shader = next(n for n in nodes if n.type == "BSDF_PRINCIPLED")
+    co = nodes.new("ShaderNodeTexCoord")
+    k = math.tau / (2 * cell)
+    waves = []
+    for d in ((1, 1, 1), (1, -1, 1), (1, 1, -1)):
+        dot = nodes.new("ShaderNodeVectorMath"); dot.operation = "DOT_PRODUCT"
+        dot.inputs[1].default_value = Vector(d).normalized()
+        links.new(co.outputs["Object"], dot.inputs[0])
+        mul = nodes.new("ShaderNodeMath"); mul.operation = "MULTIPLY"; mul.inputs[1].default_value = k
+        links.new(dot.outputs["Value"], mul.inputs[0])
+        sin = nodes.new("ShaderNodeMath"); sin.operation = "SINE"
+        links.new(mul.outputs[0], sin.inputs[0])
+        waves.append(sin)
+    acc = None
+    for i, j in ((0, 1), (0, 2), (1, 2)):
+        pr = nodes.new("ShaderNodeMath"); pr.operation = "MULTIPLY"
+        links.new(waves[i].outputs[0], pr.inputs[0]); links.new(waves[j].outputs[0], pr.inputs[1])
+        ab = nodes.new("ShaderNodeMath"); ab.operation = "ABSOLUTE"
+        links.new(pr.outputs[0], ab.inputs[0])
+        if acc is None:
+            acc = ab
+        else:
+            ad = nodes.new("ShaderNodeMath"); ad.operation = "ADD"
+            links.new(acc.outputs[0], ad.inputs[0]); links.new(ab.outputs[0], ad.inputs[1])
+            acc = ad
+    h = nodes.new("ShaderNodeMath"); h.operation = "MULTIPLY"; h.inputs[1].default_value = .5
+    h.name = "Knit lattice"
+    h.use_clamp = True
+    links.new(acc.outputs[0], h.inputs[0])
+    # yarn fuzz on top of the lattice
+    fuzz = nodes.new("ShaderNodeTexNoise")
+    fuzz.inputs["Scale"].default_value = 5200
+    links.new(co.outputs["Object"], fuzz.inputs["Vector"])
+    mix = nodes.new("ShaderNodeMath"); mix.operation = "MULTIPLY_ADD"
+    mix.inputs[1].default_value = .85
+    links.new(h.outputs[0], mix.inputs[0])
+    fz = nodes.new("ShaderNodeMath"); fz.operation = "MULTIPLY"; fz.inputs[1].default_value = .15
+    links.new(fuzz.outputs["Fac"], fz.inputs[0])
+    links.new(fz.outputs[0], mix.inputs[2])
+    bump = nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = .55
+    bump.inputs["Distance"].default_value = .00035
+    links.new(mix.outputs[0], bump.inputs["Height"])
+    links.new(bump.outputs["Normal"], shader.inputs["Normal"])
+    ramp = nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (*[c * groove for c in color], 1)
+    ramp.color_ramp.elements[1].color = (*color, 1)
+    ramp.color_ramp.elements[1].position = .75
+    links.new(mix.outputs[0], ramp.inputs["Fac"])
+    links.new(ramp.outputs["Color"], shader.inputs["Base Color"])
+    if "Sheen Weight" in shader.inputs:
+        shader.inputs["Sheen Weight"].default_value = .4
+    return m
+
+
+def _apm_ring(a, b, n=72, e=APM_SQ):
+    out = []
+    for i in range(n):
+        t = math.tau * i / n
+        c, s = math.cos(t), math.sin(t)
+        out.append((math.copysign(a * abs(c) ** (2 / e), c), math.copysign(b * abs(s) ** (2 / e), s)))
+    return out
+
+
+def _apm_loft(name, rings, mats, collection, parent, close_first=True, close_last=True, first_mat=0, apex=None):
+    """rings: list of lists of Vectors (same count). Quads between, ngon caps or a fan to `apex`."""
+    bm = bmesh.new()
+    loops = [[bm.verts.new(p) for p in r] for r in rings]
+    n = len(loops[0])
+    for a, b in zip(loops, loops[1:]):
+        for i in range(n):
+            j = (i + 1) % n
+            bm.faces.new((a[i], a[j], b[j], b[i]))
+    if close_first:
+        bm.faces.new(loops[0]).material_index = first_mat
+    if apex is not None:
+        tip = bm.verts.new(apex)
+        for i in range(n):
+            bm.faces.new((loops[-1][i], loops[-1][(i + 1) % n], tip))
+    elif close_last:
+        bm.faces.new(loops[-1])
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    ob = W.mesh_obj(name, bm, mats[0], collection, parent=parent)
+    for m in mats[1:]:
+        ob.data.materials.append(m)
+    return smooth_mesh(ob)
+
+
+def _apm_solid(name, bm, mat, collection, parent, bevel=None):
+    bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+    ob = W.mesh_obj(name, bm, mat, collection, parent=parent)
+    if bevel:
+        mod = ob.modifiers.new("Soft edge", "BEVEL")
+        mod.width, mod.segments, mod.limit_method = bevel, 3, "ANGLE"
+    return smooth_mesh(ob)
+
+
+def _apm_cylinder(name, start, end, radius, mat, collection, parent, seg=40, bevel=None):
+    a, b = Vector(start), Vector(end)
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=seg, radius1=radius, radius2=radius, depth=(b - a).length)
+    rot = (b - a).to_track_quat("Z", "Y").to_matrix().to_4x4()
+    bmesh.ops.transform(bm, matrix=Matrix.Translation((a + b) / 2) @ rot, verts=bm.verts)
+    ob = _apm_solid(name, bm, mat, collection, parent, bevel)
+    for p in ob.data.polygons:   # flat caps, smooth wall
+        p.use_smooth = abs(p.normal.dot((b - a).normalized())) < .5
+    return ob
+
+
+def airpods_max(collection, head, crown_obj):
+    from mathutils.bvhtree import BVHTree
+    alu = W.mat("AirPods Max silver aluminum", (.90, .905, .91), rough=.42, metal=1.0)
+    frame = W.mat("AirPods Max silver frame", (.66, .67, .68), rough=.36, metal=.65)
+    steel = W.mat("AirPods Max polished steel", (.93, .93, .93), rough=.09, metal=1.0)
+    knit = _apm_knit("AirPods Max white knit", (.72, .73, .73))
+    scrim = _apm_knit("AirPods Max inner scrim", (.24, .25, .26), groove=.45, cell=.0007)
+    slot = W.mat("AirPods Max mic slot", (.012, .012, .014), rough=.6)
+
+    c, s = 1 / math.hypot(1, APM_TILT), APM_TILT / math.hypot(1, APM_TILT)
+
+    def to_side(sign, u, y, w):   # cup space (u out of the ear, y back, w up) -> cap space
+        return Vector((sign * (APM_XIN + u * c + w * s), APM_YE + y, APM_ZE - u * s + w * c))
+
+    def side_rings(sign, profile):
+        return [[to_side(sign, u, y, w) for y, w in _apm_ring(a, b)] for u, a, b in profile]
+
+    # (u, half width, half height). Cushion: ear opening -> rounded face -> wall into the cup.
+    cushion = [(.0150, .0170, .0270), (.0050, .0188, .0288), (.0012, .0210, .0312), (0, .0245, .0350),
+               (.0004, .0295, .0398), (.0025, .0335, .0438), (.0070, .0362, .0465), (.0140, .0374, .0477),
+               (.0230, .0372, .0475)]
+    # Cup: rim tucked behind the cushion -> full wall -> large radius onto the flat outer face.
+    cup = [(.0200, .0372, .0472), (.0215, .0398, .0498), (.0245, .0409, .0509), (.0330, .0412, .0512),
+           (.0405, .0404, .0504), (.0455, .0384, .0484), (.0488, .0350, .0450), (.0505, .0300, .0400),
+           (.0513, .0220, .0320), (.0516, .0120, .0180)]
+
+    def w_top(y, a=.0405, b=.0505):   # cup top surface height at the stem/crown section
+        return b * max(0.0, 1 - (abs(y) / a) ** APM_SQ) ** (1 / APM_SQ)
+
+    stems = {}
+    for sign, tag in ((1, "L"), (-1, "R")):
+        _apm_loft(f"AirPodsMax_Cushion_{tag}", side_rings(sign, cushion), [knit, scrim], collection, head,
+                  first_mat=1)
+        _apm_loft(f"AirPodsMax_Cup_{tag}", side_rings(sign, cup), [alu], collection, head,
+                  apex=to_side(sign, .0518, 0, 0))
+        # Polished swivel post on top of the cup, then the telescoping steel stem.
+        j0, j1 = to_side(sign, .040, 0, w_top(0) - .0015), to_side(sign, .040, 0, w_top(0) + .0062)
+        _apm_cylinder(f"AirPodsMax_Swivel_{tag}", j0, j1, .0047, steel, collection, head, bevel=.0006)
+        stems[sign] = j1
+        # Mic slot on the upper front edge of the cup, a short slit along the rim.
+        ring = _apm_ring(.0393, .0493, 400)
+        k = int(.63 * 400 / 2)
+        (y0, w0), (y1, w1) = ring[k - 1], ring[k + 1]
+        tan = Vector((0, y1 - y0, w1 - w0)).normalized()
+        nrm = Vector((0, -tan.z, tan.y)) if (ring[k][0] * -tan.z + ring[k][1] * tan.y) > 0 else Vector((0, tan.z, -tan.y))
+        ctr = Vector((.044, ring[k][0], ring[k][1]))
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=1)
+        for v in bm.verts:
+            q = ctr + Vector((v.co.x * .0014, 0, 0)) + nrm * (v.co.y * .0010) + tan * (v.co.z * .0036)
+            v.co = to_side(sign, q.x, q.y, q.z)
+        _apm_solid(f"AirPodsMax_MicSlot_{tag}", bm, slot, collection, head)
+
+    # Digital Crown (rear) and noise-control button (front) on top of the wearer's right cup.
+    r0, r1 = to_side(-1, .040, .019, w_top(.019) - .0015), to_side(-1, .040, .019, w_top(.019) + .0058)
+    _apm_cylinder("AirPodsMax_DigitalCrown", r0, r1, .0059, alu, collection, head, seg=48, bevel=.0007)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=10, radius=1)
+    bmesh.ops.scale(bm, vec=(.0024, .0064, .0016), verts=bm.verts)
+    for v in bm.verts:
+        v.co = to_side(-1, .040 + v.co.x, -.018 + v.co.y, w_top(-.018) + .0002 + v.co.z)
+    _apm_solid("AirPodsMax_NoiseButton", bm, alu, collection, head)
+
+    # ---- headband: arch through the stem tops; a single arm near each end forks into two rails with the
+    # knit canopy slung between them. Superellipse arch, vertical where it meets the stems.
+    xr = abs(stems[1].x)
+    zs = stems[1].z + .016
+    ztop = max(v.co.z for v in crown_obj.data.vertices) + .020   # rails ride 2 cm over the crown
+    hn, hy, sep, nexp = .0050, .0040, .019, 2.4
+    nst = 161
+    st = []
+    for i in range(nst):
+        ph = math.pi * i / (nst - 1)
+        cp, sp = math.cos(ph), math.sin(ph)
+        st.append(Vector((math.copysign(xr * abs(cp) ** (2 / nexp), cp), APM_YE, zs + (ztop - zs) * sp ** (2 / nexp))))
+    frames = []
+    for i, p in enumerate(st):
+        t = (st[min(i + 1, nst - 1)] - st[max(i - 1, 0)]).normalized()
+        frames.append((p, Vector((t.z, 0, -t.x)).normalized()))   # (point, outward normal)
+    hf = [(p.z - zs) / (ztop - zs) for p in st]
+
+    def smoothstep(e0, e1, x):
+        x = min(1, max(0, (x - e0) / (e1 - e0)))
+        return x * x * (3 - 2 * x)
+
+    sv = [sep * smoothstep(.30, .95, h) for h in hf]
+    Y = Vector((0, 1, 0))
+
+    def section(i, yc, half_y):
+        p, nrm = frames[i]
+        return [p + Y * yc + nrm * (hn * u) + Y * (half_y * v) for u, v in _apm_ring(1, 1, 40, 4.0)]
+
+    fork = .55
+    fa = next(i for i in range(nst) if hf[i] >= fork)
+    fb = nst - 1 - fa
+    _apm_loft("AirPodsMax_Arm_L", [section(i, 0, hy + sv[i]) for i in range(0, fa + 1)], [frame], collection, head)
+    _apm_loft("AirPodsMax_Arm_R", [section(i, 0, hy + sv[i]) for i in range(fb, nst)], [frame], collection, head)
+    for side, tag in ((-1, "Front"), (1, "Back")):
+        _apm_loft(f"AirPodsMax_Rail_{tag}", [section(i, side * sv[i], hy) for i in range(fa - 1, fb + 2)],
+                  [frame], collection, head)
+    for sign in (1, -1):
+        top = stems[sign]
+        _apm_cylinder(f"AirPodsMax_Stem_{'L' if sign > 0 else 'R'}", top, Vector((top.x, top.y, zs + .003)),
+                      .0022, steel, collection, head, seg=24)
+        _apm_cylinder(f"AirPodsMax_Collar_{'L' if sign > 0 else 'R'}", Vector((top.x, top.y, zs - .005)),
+                      Vector((top.x, top.y, zs + .002)), .0062, steel, collection, head, bevel=.0005)
+
+    # Canopy: hangs from the forks and settles onto the cap crown (ray cast down onto the crown).
+    bvh = BVHTree.FromPolygons([v.co for v in crown_obj.data.vertices], [p.vertices for p in crown_obj.data.polygons])
+    idx = list(range(fa, fb + 1))
+    acc = [0.0]
+    for i0, i1 in zip(idx, idx[1:]):
+        acc.append(acc[-1] + (st[i1] - st[i0]).length)
+    total = acc[-1]
+    d = []
+    for k, i in enumerate(idx):
+        p, nrm = frames[i]
+        hit = bvh.ray_cast(p, -nrm)
+        req = (hit[3] - .0018) if hit[0] is not None else 1.0
+        d.append([min(req, .45 * min(acc[k], total - acc[k])), req])
+    for _ in range(6):   # smooth the sling, never into the cap
+        d = [[min(req, (d[max(k - 1, 0)][0] + 2 * v + d[min(k + 1, len(d) - 1)][0]) / 4), req]
+             for k, (v, req) in enumerate(d)]
+    rows = []
+    across = 11
+    for k, i in enumerate(idx):
+        p, nrm = frames[i]
+        wc = max(.001, sv[i] - hy * .45)
+        rows.append([p + Y * ((j / (across - 1) - .5) * 2 * wc)
+                     - nrm * (d[k][0] + .0012 * (1 - (2 * j / (across - 1) - 1) ** 2) * min(1, d[k][0] / .004))
+                     for j in range(across)])
+    bm = bmesh.new()
+    grid = [[bm.verts.new(v) for v in r] for r in rows]
+    for a, b in zip(grid, grid[1:]):
+        for j in range(across - 1):
+            bm.faces.new((a[j], a[j + 1], b[j + 1], b[j]))
+    canopy = W.mesh_obj("AirPodsMax_Canopy", bm, knit, collection, parent=head)
+    sol = canopy.modifiers.new("Knit thickness", "SOLIDIFY")
+    sol.thickness, sol.offset = .0026, 0
+    smooth_mesh(canopy)
 
 
 def tripod(collection, stand):
