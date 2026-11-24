@@ -62,14 +62,92 @@ def tile_render(path, cam_loc, tgt, lens=50, pct=40):
 
 # ------------------------------------------------------------------ steps
 
+def _morph_extra_body(arm_obj, mode):
+    """Apply clean head-safe body-type morph ('skinny' = 멸치, 'chubby' = 돼지) to an extra mesh in rest space."""
+    mesh_objs = [o for o in arm_obj.children if o.type == "MESH"]
+    if not mesh_objs:
+        return
+    me = mesh_objs[0].data
+    # Find rest-space vertical bounds (typically Z = 0.0 .. 1.75)
+    zs = [v.co.z for v in me.vertices]
+    zmin, zmax = min(zs), max(zs)
+    h = max(0.01, zmax - zmin)
+
+    def smoothstep(edge0, edge1, x):
+        t = max(0.0, min(1.0, (x - edge0) / max(1e-5, edge1 - edge0)))
+        return t * t * (3.0 - 2.0 * t)
+
+    # Precompute bone segments in mesh rest space so limbs scale radially around their OWN bone axis (never shifting off-bone!)
+    arm_bone_names = ("upperarm_l", "lowerarm_l", "upperarm_r", "lowerarm_r")
+    hand_bone_names = ("hand_l", "hand_r")
+    vg_idx_to_name = {vg.index: vg.name for vg in mesh_objs[0].vertex_groups}
+    arm_segs = {}
+    for bn in arm_bone_names:
+        b = arm_obj.data.bones.get(bn)
+        if b:
+            arm_segs[bn] = (b.head_local.copy(), b.tail_local.copy())
+
+    for v in me.vertices:
+        nz = (v.co.z - zmin) / h  # 0.0 = feet, ~0.50 = hips, ~0.62 = waist, ~0.82 = shoulders, ~0.86..1.0 = head
+        body_mask = smoothstep(0.05, 0.14, nz) * (1.0 - smoothstep(0.83, 0.88, nz))
+        if body_mask <= 0.0:
+            continue
+        # Check dominant vertex group to handle arms/hands cleanly along their bone axis
+        dom_name, dom_w = "", 0.0
+        for g in v.groups:
+            if g.weight > dom_w:
+                dom_w = g.weight
+                dom_name = vg_idx_to_name.get(g.group, "")
+        if dom_name in hand_bone_names or any(dom_name.startswith(p) for p in ("thumb", "index", "middle", "ring", "pinky")):
+            continue  # Keep hands/fingers 100% undistorted!
+        if dom_name in arm_segs:
+            p0, p1 = arm_segs[dom_name]
+            ab = p1 - p0
+            ab_len2 = max(1e-8, ab.length_squared)
+            t = max(0.0, min(1.0, (v.co - p0).dot(ab) / ab_len2))
+            closest = p0 + ab * t
+            radial = v.co - closest
+            # Smoothly taper morph toward the wrist so arm->hand transition is seamless
+            wrist_fade = (1.0 - smoothstep(0.55, 1.0, t)) if "lowerarm" in dom_name else 1.0
+            rad_scale = (1.0 - 0.24 * wrist_fade) if mode == "skinny" else (1.0 + 0.16 * wrist_fade)
+            v.co = closest + radial * rad_scale
+            continue
+
+        x, y, z = v.co.x, v.co.y, v.co.z
+        if mode == "skinny":
+            # 멸치 체형: slim torso & legs (arms already slimmed radially around bone axis!)
+            torso_band = smoothstep(0.45, 0.58, nz) * (1.0 - smoothstep(0.80, 0.86, nz))
+            sx = 1.0 - body_mask * (0.18 + 0.05 * torso_band)
+            sy = 1.0 - body_mask * (0.20 + 0.05 * torso_band)
+            v.co.x = x * sx
+            v.co.y = y * sy
+        elif mode == "chubby":
+            # 돼지 체형: smooth core belly/hip/chest fullness + thicker thighs
+            belly_z = math.exp(-((nz - 0.60) / 0.13) ** 2)
+            hip_z = math.exp(-((nz - 0.47) / 0.14) ** 2)
+            chest_z = math.exp(-((nz - 0.72) / 0.11) ** 2)
+            sx = 1.0 + body_mask * (0.12 + 0.22 * belly_z + 0.16 * hip_z + 0.10 * chest_z)
+            sy = 1.0 + body_mask * (0.12 + 0.32 * belly_z + 0.18 * hip_z + 0.14 * chest_z)
+            front_mask = smoothstep(0.06, -0.04, y)
+            belly_fwd = -0.085 * belly_z * front_mask
+            v.co.x = x * sx
+            v.co.y = y * sy + belly_fwd
+    me.update()
+
+
 def step_cast():
     """Hero + the five role extras in one library file; lineup render with a different pose each."""
     W.new_scene("flat", bg="mint")
     g = W.add_hero("Guy", (0, 0, 0))
     W.apply_pose(g, "triumph")
     roles = list(W.ROLES)
-    poses = {"red": "carry_plate", "yellow": "mirror_flex", "gray": "phone_look", "blue": "sneak", "green": "shrug"}
-    # Uniform scale per extra (165 / 172 / 175 / 180 / 183 cm from 175cm base; no girth warp)
+    poses = {"red": "mirror_flex", "yellow": "carry_plate", "gray": "phone_look", "blue": "sneak", "green": "shrug"}
+    # Distinct silhouette lineup (2026-11-24):
+    # - blue: 165cm 난쟁이(단신) 속성
+    # - gray: 172cm 돼지 체형 (chubby)
+    # - red:  175cm 멸치 체형 (skinny)
+    # - yellow: 180cm 일반 체형
+    # - green: 183cm 키 큰 캐릭터
     heights = {
         "blue": 1.65 / 1.75,
         "gray": 1.72 / 1.75,
@@ -78,10 +156,13 @@ def step_cast():
         "green": 1.83 / 1.75,
     }
     girth = dict(heights)
+    morphs = {"red": "skinny", "gray": "chubby"}
     xs = [-2.4, -1.45, 1.45, 2.4, 3.35]
     extras = []
     for x, r in zip(xs, roles):
         a = W.add_extra(r, None, (x, 0.3, 0), 0, heights[r], girth[r])
+        if r in morphs:
+            _morph_extra_body(a, morphs[r])
         W.apply_pose(a, poses[r])
         extras.append(a)
     phone = W.prop("phone", (0.0, -0.06, 0.03), (90, 0, 0), parent=bpy.data.objects["Extra_gray"], bone="hand_r")
