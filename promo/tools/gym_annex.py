@@ -724,6 +724,183 @@ def build_sangga_hallway(c, entrance_root):
         c.objects.link(lo)
 
     build_hallway_extension(c, hall, floor_m, ceil_m, granite_m, steel_m)
+    build_rocket_fresh_stack(c, hall)
+
+
+def _freshbag_mat(name, img_rel):
+    """Woven polypropylene tarp shader with crinkle + micro-weave bump and satin sheen."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Roughness"].default_value = 0.36
+    bsdf.inputs["Specular IOR Level"].default_value = 0.55
+    if "Coat Weight" in bsdf.inputs:
+        bsdf.inputs["Coat Weight"].default_value = 0.25
+        bsdf.inputs["Coat Roughness"].default_value = 0.32
+
+    img_path = os.path.join(W.PARTS, img_rel)
+    im = bpy.data.images.load(img_path, check_existing=True)
+    if not im.packed_file:
+        im.pack()
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = im
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    # Medium crinkle folds + fine tarp weave
+    crinkle = nt.nodes.new("ShaderNodeTexNoise")
+    crinkle.inputs["Scale"].default_value = 14.0
+    crinkle.inputs["Detail"].default_value = 6.0
+    crinkle.inputs["Distortion"].default_value = 0.8
+    weave = nt.nodes.new("ShaderNodeTexWave")
+    weave.wave_type = "BANDS"
+    weave.inputs["Scale"].default_value = 110.0
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "FLOAT"
+    mix.inputs["Factor"].default_value = 0.22
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.24
+    bump.inputs["Distance"].default_value = 0.004
+    nt.links.new(tc.outputs["Object"], crinkle.inputs["Vector"])
+    nt.links.new(tc.outputs["Object"], weave.inputs["Vector"])
+    nt.links.new(crinkle.outputs["Fac"], mix.inputs["A"])
+    nt.links.new(weave.outputs["Fac"], mix.inputs["B"])
+    nt.links.new(mix.outputs["Result"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return m
+
+
+def _squished_freshbag(c, parent, name, img_rel, size, loc, rot_z_deg=0.0, squish=0.022, strap_col=(0.18, 0.26, 0.68), seed=1):
+    """Build a realistic slightly squished, crinkly Coupang Rocket Fresh insulated cooler bag
+    with overhanging lid flap, top woven carrying handle, and clear invoice sleeve."""
+    root = W.empty(name, c, loc, parent=parent)
+    root.rotation_euler.z = math.radians(rot_z_deg)
+    mat = _freshbag_mat(f"Mat_{name}", img_rel)
+    strap_m = W.mat(f"Strap_{name}", strap_col, rough=0.72, metal=0.0)
+    sleeve_m = W.mat(f"Sleeve_{name}", (0.94, 0.96, 1.0), rough=0.06, metal=0.05)
+    for n in sleeve_m.node_tree.nodes:
+        if n.type == "BSDF_PRINCIPLED":
+            n.inputs["Alpha"].default_value = 0.22
+
+    sx, sy, sz = size
+    hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+
+    # 1) Subdivided squished bag body (center at z = hz)
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.subdivide_edges(bm, edges=list(bm.edges), cuts=4, use_grid_fill=True)
+    for v in bm.verts:
+        nx, ny, nz = v.co.x * 2.0, v.co.y * 2.0, v.co.z * 2.0  # -1 .. +1
+        # Gravity belly bulge near bottom, slight waist pinch in middle, organic crinkle
+        bulge = math.sin((nz + 1.0) * math.pi * 0.5) * 0.016 - (1.0 - abs(nz)) * squish
+        crink = 0.008 * math.sin(nx * 4.7 + seed * 1.9) * math.cos(ny * 5.3 + nz * 3.1)
+        sag_top = -0.014 * (1.0 - min(1.0, (nx * nx + ny * ny) * 0.45)) if nz > 0.6 else 0.0
+        # Slight uneven corner dent
+        dent = -0.012 * max(0.0, nx * ny) * (1.0 - abs(nz)) if seed % 2 == 0 else -0.010 * max(0.0, -nx * ny) * (1.0 - abs(nz))
+        vx = v.co.x * sx + math.copysign(bulge + dent, nx) * (abs(nx) > 0.2) + crink * 0.6
+        vy = v.co.y * sy + math.copysign(bulge * 0.9, ny) * (abs(ny) > 0.2) + crink
+        vz = (v.co.z + 0.5) * sz + sag_top + crink * 0.5
+        if vz < 0.002:
+            vz = 0.0
+        v.co = Vector((vx, vy, vz))
+
+    me = bpy.data.meshes.new(f"{name}_body")
+    bm.to_mesh(me)
+    bm.free()
+    # Clean box-projected UVs tuned so +Y front shows '로켓프레시' and +Z top shows 'coupang' + art!
+    uv = me.uv_layers.new()
+    for poly in me.polygons:
+        n = poly.normal
+        ax, ay, az = abs(n.x), abs(n.y), abs(n.z)
+        for li in poly.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            if az >= ax and az >= ay:  # Top/Bottom face -> upper half of texture (coupang + pitcher + olive + barcode)
+                u = (co.x + hx) / sx
+                v_coord = 0.42 + ((co.y + hy) / sy) * 0.56
+            elif ay >= ax:  # Front (+Y) / Back (-Y) -> lower band ('🚀 로켓프레시')
+                u = 1.0 - (co.x + hx) / sx if n.y > 0 else (co.x + hx) / sx
+                v_coord = 0.06 + (co.z / sz) * 0.44
+            else:  # Left (-X) / Right (+X) sides -> colorful wrap + coupang upright & non-mirrored
+                u = 1.0 - (co.y + hy) / sy if n.x < 0 else (co.y + hy) / sy
+                v_coord = 0.50 + (co.z / sz) * 0.48
+            uv.data[li].uv = (max(0.01, min(0.99, u)), max(0.01, min(0.99, v_coord)))
+    for p in me.polygons:
+        p.use_smooth = True
+    me.materials.append(mat)
+    ob = bpy.data.objects.new(f"{name}_body", me)
+    ob.parent = root
+    c.objects.link(ob)
+
+    # 2) Slightly overhanging crinkly Velcro top lid flap (signature Rocket Fresh silhouette!)
+    bm_f = bmesh.new()
+    bmesh.ops.create_cube(bm_f, size=1.0)
+    bmesh.ops.subdivide_edges(bm_f, edges=list(bm_f.edges), cuts=3, use_grid_fill=True)
+    fl_h = 0.045
+    for v in bm_f.verts:
+        nx, ny, nz = v.co.x * 2.0, v.co.y * 2.0, v.co.z * 2.0
+        wave_z = 0.006 * math.sin(nx * 4.2 + seed) * math.cos(ny * 3.5)
+        flare = 0.014 if nz < 0 else 0.006
+        vx = v.co.x * (sx + flare * 2.0)
+        vy = v.co.y * (sy + flare * 2.2) + (0.012 if ny > 0.3 and nz < 0 else 0.0)
+        vz = sz - fl_h * 0.55 + v.co.z * fl_h + wave_z
+        v.co = Vector((vx, vy, vz))
+    me_f = bpy.data.meshes.new(f"{name}_flap")
+    bm_f.to_mesh(me_f)
+    bm_f.free()
+    uv_f = me_f.uv_layers.new()
+    for poly in me_f.polygons:
+        for li in poly.loop_indices:
+            co = me_f.vertices[me_f.loops[li].vertex_index].co
+            uv_f.data[li].uv = (max(0.02, min(0.98, (co.x + hx) / sx)), max(0.45, min(0.98, 0.48 + (co.y + hy) / sy * 0.48)))
+    for p in me_f.polygons:
+        p.use_smooth = True
+    me_f.materials.append(mat)
+    ob_f = bpy.data.objects.new(f"{name}_flap", me_f)
+    ob_f.parent = root
+    c.objects.link(ob_f)
+
+    # 3) Arched woven carrying strap handle across top center
+    bm_s = bmesh.new()
+    segs = 10
+    sw = 0.016
+    for i in range(segs + 1):
+        t = i / segs
+        x = -0.11 + t * 0.22
+        arch = math.sin(t * math.pi) * 0.038
+        z = sz - 0.005 + arch
+        bm_s.verts.new((x, -sw, z))
+        bm_s.verts.new((x,  sw, z))
+    bm_s.verts.ensure_lookup_table()
+    for i in range(segs):
+        v0, v1 = bm_s.verts[2 * i], bm_s.verts[2 * i + 1]
+        v2, v3 = bm_s.verts[2 * i + 3], bm_s.verts[2 * i + 2]
+        bm_s.faces.new((v0, v1, v2, v3))
+    bmesh.ops.solidify(bm_s, geom=list(bm_s.faces), thickness=0.005)
+    me_s = bpy.data.meshes.new(f"{name}_strap")
+    bm_s.to_mesh(me_s)
+    bm_s.free()
+    me_s.materials.append(strap_m)
+    ob_s = bpy.data.objects.new(f"{name}_strap", me_s)
+    ob_s.parent = root
+    c.objects.link(ob_s)
+
+    # 4) Clear vinyl invoice pocket strip on top front-right
+    W.box(f"{name}_sleeve", (0.14, 0.09, 0.003), sleeve_m, c, (0.09, 0.06, sz + 0.001), parent=root)
+    return root
+
+
+def build_rocket_fresh_stack(c, hall):
+    """Two slightly squished Coupang Rocket Fresh cooler bags stacked beside the gym entrance wall."""
+    stack = W.empty("Hallway_RocketFreshStack", c, (-1.48, 0.25, 0.0), parent=hall)
+    # Bottom bag: purple/green, slightly more squished from weight of top bag
+    _squished_freshbag(c, stack, "FreshBag_Bottom", "sangga_elev/freshbag_purple.jpg",
+                       (0.43, 0.31, 0.21), (0.0, 0.0, 0.0), rot_z_deg=-4.5, squish=0.026,
+                       strap_col=(0.32, 0.14, 0.42), seed=2)
+    # Top bag: cobalt blue/green, sitting slightly askew on top
+    _squished_freshbag(c, stack, "FreshBag_Top", "sangga_elev/freshbag_blue.jpg",
+                       (0.42, 0.30, 0.24), (0.015, -0.008, 0.202), rot_z_deg=6.5, squish=0.018,
+                       strap_col=(0.16, 0.26, 0.68), seed=5)
 
 
 def _standing_xbanner(c, parent, name, img_rel, loc, rot_z_deg=0.0, width=0.56, height=1.52):
