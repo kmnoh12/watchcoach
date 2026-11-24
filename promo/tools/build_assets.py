@@ -135,17 +135,70 @@ def _morph_extra_body(arm_obj, mode):
     me.update()
 
 
+def _apply_compression_top(arm_obj):
+    """Apply a skin-tight glossy black/charcoal compression short-sleeve shirt ('콘돔핏 컴프레션')
+    to the upper torso & upper arms using a second material slot (zero extra geometry!)."""
+    mesh_objs = [o for o in arm_obj.children if o.type == "MESH"]
+    if not mesh_objs:
+        return
+    ob = mesh_objs[0]
+    me = ob.data
+    comp_m = bpy.data.materials.get("Compression_Black")
+    if not comp_m:
+        comp_m = bpy.data.materials.new("Compression_Black")
+        comp_m.use_nodes = True
+        bsdf = next(n for n in comp_m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        bsdf.inputs["Base Color"].default_value = (0.032, 0.036, 0.045, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.22
+        bsdf.inputs["Specular IOR Level"].default_value = 0.65
+        if "Coat Weight" in bsdf.inputs:
+            bsdf.inputs["Coat Weight"].default_value = 0.65
+            bsdf.inputs["Coat Roughness"].default_value = 0.20
+        if "Sheen Weight" in bsdf.inputs:
+            bsdf.inputs["Sheen Weight"].default_value = 0.35
+    if comp_m.name not in [m.name for m in me.materials if m]:
+        me.materials.append(comp_m)
+    comp_idx = list(me.materials).index(comp_m)
+
+    zs = [v.co.z for v in me.vertices]
+    zmin, zmax = min(zs), max(zs)
+    h = max(0.01, zmax - zmin)
+    vg_idx_to_name = {vg.index: vg.name for vg in ob.vertex_groups}
+    shirt_bones = {"spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "upperarm_l", "upperarm_r"}
+
+    for poly in me.polygons:
+        # Check polygon centroid height & dominant vertex group
+        cz = sum(me.vertices[vi].co.z for vi in poly.vertices) / len(poly.vertices)
+        nz = (cz - zmin) / h
+        if not (0.55 <= nz <= 0.845):
+            continue
+        # Vote dominant bone across vertices of this polygon
+        scores = {}
+        for vi in poly.vertices:
+            for g in me.vertices[vi].groups:
+                bn = vg_idx_to_name.get(g.group, "")
+                scores[bn] = scores.get(bn, 0.0) + g.weight
+        dom = max(scores, key=scores.get) if scores else ""
+        if dom in shirt_bones:
+            # Stop short-sleeve cleanly midway down upperarm
+            cx = abs(sum(me.vertices[vi].co.x for vi in poly.vertices) / len(poly.vertices))
+            if dom.startswith("upperarm") and cx > 0.30:
+                continue
+            poly.material_index = comp_idx
+    me.update()
+
+
 def step_cast():
     """Hero + the five role extras in one library file; lineup render with a different pose each."""
     W.new_scene("flat", bg="mint")
     g = W.add_hero("Guy", (0, 0, 0))
     W.apply_pose(g, "triumph")
     roles = list(W.ROLES)
-    poses = {"red": "mirror_flex", "yellow": "carry_plate", "gray": "phone_look", "blue": "sneak", "green": "shrug"}
+    poses = {"red": "ils_strut", "yellow": "carry_plate", "gray": "phone_look", "blue": "sneak", "green": "shrug"}
     # Distinct silhouette lineup (2026-11-24):
     # - blue: 165cm 난쟁이(단신) 속성
     # - gray: 172cm 돼지 체형 (chubby)
-    # - red:  175cm 멸치 체형 (skinny)
+    # - red:  175cm 멸치 체형 (skinny) + 콘돔핏 컴프레션 + 광배 피기(ils_strut)
     # - yellow: 180cm 일반 체형
     # - green: 183cm 키 큰 캐릭터
     heights = {
@@ -163,6 +216,8 @@ def step_cast():
         a = W.add_extra(r, None, (x, 0.3, 0), 0, heights[r], girth[r])
         if r in morphs:
             _morph_extra_body(a, morphs[r])
+        if r == "red":
+            _apply_compression_top(a)
         W.apply_pose(a, poses[r])
         extras.append(a)
     phone = W.prop("phone", (0.0, -0.06, 0.03), (90, 0, 0), parent=bpy.data.objects["Extra_gray"], bone="hand_r")

@@ -132,3 +132,25 @@ P["sneak"] = {"desc": "살금살금 (자리 맡고 도망)", "root": {"pitch": 1
 P["point_r"] = {"desc": "가리킴 (화면 왼쪽 앞)", "mirror": "point"}
 P["walk_c"] = {"desc": "걷기 중간 (지나가는 자세)", "aim": {"thigh_l": [0.06, 0.25, -1], "calf_l": [0.03, -0.35, -1], "thigh_r": [-0.06, -0.05, -1], "calf_r": [-0.03, 0, -1]},
                "sym": {"upperarm": [0.16, 0.02, -1], "lowerarm": [0.08, 0.2, -1]}, "fingers": {"l": "relax", "r": "relax"}}
+
+P["ils_strut"] = {"desc": "광배 피기 (투명 수박 멸치 빌런)", "root": {"pitch": -5},
+                  "rot": {"spine_02": {"pitch": -4}, "spine_03": {"pitch": -7}, "head": {"pitch": -6}},
+                  "sym": {"upperarm": [0.58, 0.06, -0.78], "lowerarm": [0.36, 0.24, -0.84], "thigh": [0.14, 0.02, -1], "calf": [0.08, 0.0, -1]},
+                  "fingers": {"l": "fist", "r": "fist"}}
+
+P["walk_phone_a"] = {"desc": "폰 보며 걷기 1 (1화 복도 워킹)", "base": "walk_a",
+                     "rot": {"spine_02": {"pitch": 6}, "neck_01": {"pitch": 18}, "head": {"pitch": 20}},
+                     "aim": {"upperarm_r": [-0.14, 0.16, -1], "lowerarm_r": [0.30, 1.0, 0.44]},
+                     "rot_after": {"hand_r": {"pitch": -25}},
+                     "fingers": {"l": "relax", "r": "grip"}}
+P["walk_phone_b"] = {"desc": "폰 보며 걷기 2 (1화 복도 워킹)", "base": "walk_b",
+                     "rot": {"spine_02": {"pitch": 6}, "neck_01": {"pitch": 18}, "head": {"pitch": 20}},
+                     "aim": {"upperarm_r": [-0.14, 0.16, -1], "lowerarm_r": [0.30, 1.0, 0.44]},
+                     "rot_after": {"hand_r": {"pitch": -25}},
+                     "fingers": {"l": "relax", "r": "grip"}}
+
+P["incline_climb"] = {"desc": "경사 30도 런닝머신 등산 빌런", "root": {"pitch": 18},
+                      "rot": {"spine_02": {"pitch": 6}, "head": {"pitch": -14}},
+                      "sym": {"upperarm": [0.18, 0.85, -0.35], "lowerarm": [-0.08, 0.95, 0.18]},
+                      "aim": {"thigh_l": [0.06, 0.65, -0.85], "calf_l": [0.03, 0.05, -1], "thigh_r": [-0.06, -0.35, -1], "calf_r": [-0.03, -0.65, -0.85]},
+                      "fingers": {"l": "grip", "r": "grip"}}
