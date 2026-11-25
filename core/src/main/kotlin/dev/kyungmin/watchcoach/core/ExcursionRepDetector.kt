@@ -27,6 +27,9 @@ internal class ExcursionRepDetector(
     private val isPress = profile.family == MotionFamily.PRESS_RETURN
     private val isPull = profile.family == MotionFamily.PULL_RETURN
     private val isPressOrPull = isPress || isPull
+    /** Pulldowns: the handle returns upward, so a rep ends when the hand is back up (not upright rows, which pull up). */
+    private val isVerticalPull = isPull &&
+        ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe == MeasurementRecipe.VERTICAL_PULL
     private val points = ArrayDeque<Point>()
     private val gBias = DoubleArray(3)
     private val gPos = DoubleArray(3)
@@ -176,12 +179,23 @@ internal class ExcursionRepDetector(
         // handles are back at the chest (one full push-and-return), independent of how the set happened to start.
         val forearmOriented = useAccel && isPress && abs(v[0]) >= FOREARM_AXIS_MIN_X
         if (forearmOriented && v[0] * handwardX > 0.0) for (c in 0..2) v[c] = -v[c]
+        // Pulldowns used to keep the sign voted by the opening second (whichever way it moved most), so about half of
+        // real lat pulldown sets (2026-10/11 captures) counted at the bottom of the pull instead of the return. Once the
+        // window holds a few seconds of reps and its axis is clearly vertical, point +v up (the accelerometer reads +g
+        // upward at rest) so the scan counts when the upward return stops. Earlier windows mix in the set-up motion and
+        // keep the vote: oriented from the first window, synthetic pulldowns counted their first reps at the bottom.
+        val motionStartNs = if (primeEndNs == Long.MIN_VALUE) history.first().t else max(primeEndNs, history.first().t)
+        val gravityOriented = useAccel && isVerticalPull && history.last().t - motionStartNs >= GRAVITY_ORIENT_AFTER_NS && run {
+            val gNorm = sqrt(grav.sumOf { it * it })
+            gNorm > 1e-6 && abs((0..2).sumOf { v[it] * grav[it] }) / gNorm >= VERTICAL_AXIS_MIN_DOT
+        }
+        if (gravityOriented && (0..2).sumOf { v[it] * grav[it] } < 0.0) for (c in 0..2) v[c] = -v[c]
         val primeAnchor = if (primeEndNs == Long.MIN_VALUE) 0 else {
             val idx = history.indexOfLast { it.t <= primeEndNs }
             if (idx < 0) 0 else idx
         }
         val raw = DoubleArray(n) { i -> (0..2).sumOf { c -> series[i][c] * v[c] } }
-        if (prevAxis == null && !forearmOriented) {
+        if (prevAxis == null && !forearmOriented && !gravityOriented) {
             val base = raw[primeAnchor]
             var maxVal = base
             var minVal = base
@@ -330,6 +344,12 @@ internal class ExcursionRepDetector(
     private companion object {
         /** The principal motion axis must lie mostly along the forearm before its direction is trusted. */
         const val FOREARM_AXIS_MIN_X = 0.5
+
+        /** A pulldown axis must be at least this aligned with gravity before up/down decides its sign. */
+        const val VERTICAL_AXIS_MIN_DOT = 0.7
+
+        /** Seconds of post-preparation history a pulldown window needs before gravity, not the opening vote, sets the sign. */
+        const val GRAVITY_ORIENT_AFTER_NS = 6_000_000_000L
 
         /** A cut-short return still counts when it covered this share of its pull before the next pull began. */
         const val SHORT_RETURN_FRACTION = 0.5
