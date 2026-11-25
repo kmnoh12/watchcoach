@@ -250,53 +250,25 @@ def apply():
         if n.type=='BSDF_PRINCIPLED':
             n.inputs['Emission Strength'].default_value = 35
 
-    # The unit was pasted on the face of a continuous solid wall. Preserve the host
-    # and its name and rebuild just its visible masonry returns around the opening.
+    # Restore original cluttered vacant storefront (newspapers, kraft paper, lease signs, frosted glass, stainless mullions)
+    # and clean up any previously generated HallFinish_* empty-room shell objects.
     wall = objects['HallExt wall R']
-    wall.hide_render = wall.hide_viewport = True
-    wall_mat = wall.active_material
-    def box(n,lo,hi,m,r=0):
-        return block(n,(lo,hi),m,hall,col,r)
-    box('WallLeft',(-11.57,2.86,0),(-7.48,2.94,2.8),wall_mat)
-    box('WallRight',(-4.87,2.86,0),(-4.63,2.94,2.8),wall_mat)
-    box('Lintel',(-7.48,2.86,2.68),(-4.87,2.94,2.8),wall_mat)
-    paint = material('ShopPlaster',(.54,.526,.495),.77)[0]
-    rubber = material('GlazingRubber',(.023,.025,.024),.54)[0]
-    enamel = material('GraphiteJoinery',(.058,.063,.064),.34)[0]
-    interior = material('VacancyFloor',(.25,.239,.215),.48)[0]
-    box('UnitBack',(-7.49,5.62,0),(-4.865,5.68,2.72),paint)
-    box('UnitLeft',(-7.53,2.93,0),(-7.49,5.62,2.72),paint)
-    box('UnitRight',(-4.865,2.93,0),(-4.815,5.62,2.72),paint)
-    box('UnitCeiling',(-7.49,2.94,2.72),(-4.865,5.62,2.76),paint)
-    box('UnitFloor',(-7.49,2.855,.054),(-4.865,5.62,.095),interior)
-    box('RearSkirt',(-7.489,5.605,.095),(-4.866,5.62,.17),enamel,.001)
-    box('SocketPlate',(-6.84,5.594,.34),(-6.71,5.605,.415),paint,.003)
-    for i,x in enumerate((-6.815,-6.751)):
-        box('Socket'+str(i),(x,5.589,.357),(x+.038,5.594,.394),enamel,.0004)
-    # Empty unit as in refs 128,135: read through the glazing. Keep a single
-    # lease sign and a few taped management sheets; remove the repeated faux newspaper.
+    wall.hide_render = wall.hide_viewport = False
+    for o in list(bpy.data.objects):
+        if o.name.startswith(PREFIX):
+            me = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            if me and not me.users:
+                bpy.data.meshes.remove(me)
+    orig_mullion = bpy.data.materials.get('Hallway_StainlessMullion')
+    orig_glass = bpy.data.materials.get('Vacant_FrostedGlass')
     for o in hall.children_recursive:
         if o.name.startswith((SHOP+'VacPaper_',SHOP+'VacTape_',SHOP+'VacLeaseSheet',SHOP+'VacNoticeMail')):
-            o.hide_render = o.hide_viewport = True
-        if o.name.startswith('Vacant_Mullion'):
-            replace(o,enamel)
-    glass = objects[SHOP+'OppGlass_0'].active_material
-    if glass:
-        if hasattr(glass, 'surface_render_method'):
-            glass.surface_render_method = 'BLENDED'
-        if glass.use_nodes:
-            gbs = next((n for n in glass.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
-            if gbs:
-                gbs.inputs['Transmission Weight'].default_value = 0.0
-                gbs.inputs['Alpha'].default_value = 0.22
-                gbs.inputs['Roughness'].default_value = 0.04
-                gbs.inputs['Coat Weight'].default_value = 0.8
-    replace(objects['Vacant_Glass'],glass)
-    box('MeetingGasket',(-5.514,2.831,.133),(-5.508,2.840,2.142),rubber,.001)
-    for i,x in enumerate((-7.47,-6.211,-6.148,-4.883)):
-        box('FrameSeal'+str(i),(x,2.836,.132),(x+.005,2.843,2.142),rubber,.001)
-    for i,(x0,x1) in enumerate(((-7.465,-6.21),(-6.143,-5.516),(-5.505,-4.884))):
-        box('GlassShoe'+str(i),(x0,2.82,.133),(x1,2.859,.185),enamel,.0015)
+            o.hide_render = o.hide_viewport = False
+        if o.name.startswith('Vacant_Mullion') and orig_mullion:
+            replace(o, orig_mullion)
+    if orig_glass and 'Vacant_Glass' in objects:
+        replace(objects['Vacant_Glass'], orig_glass)
     for name in ('Mat_GymEntrance','Mat_Academy'):
         fabric_detail(objects[SHOP+name])
     umb = objects.get(SHOP+'Umbrella_StandBody')
@@ -310,5 +282,4 @@ def apply():
                 bs.inputs['Metallic'].default_value = .92
                 bs.inputs['Roughness'].default_value = .24
     bpy.context.view_layer.update()
-    return {'generated':len([o for o in col.objects if o.name.startswith(PREFIX)]),
-            'floor_ends_at':-4.70,'vacant_depth_m':2.78}
+    return {'vacant_storefront':'restored','floor_ends_at':-4.70}
