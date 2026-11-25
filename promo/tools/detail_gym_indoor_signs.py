@@ -323,35 +323,104 @@ def easel(m):
     rod("D04.Rear stay",p,(0,.39,-.184),(.218,.39,.05),.006,m["metal"])
 
 
-def gallery(m,paths):
-    p=anchor("D06.Gallery",(-7.471,1.86,1.68),(1,0,0))
-    # Fixings bear directly against the measured relief of the existing slate tiles.
-    slate=bpy.data.objects["GS_Real_SplitSlateBay"]
-    inv=slate.matrix_world.inverted()
-    for row,z in enumerate((-.312,-.07,.29)):
-        for side in (-1,1):
-            horizontal=.50*side
-            origin=Vector((-7.471,1.86+horizontal,1.68+z))
-            hit,pos,_,_=slate.ray_cast(inv@origin,inv.to_3x3()@Vector((-1,0,0)))
-            if not hit: raise ValueError("Missing slate support under picture fitting")
-            gap=origin.x-(slate.matrix_world@pos).x
-            box(f"D06.Spacer {row} {side}",p,(horizontal,z,-gap/2),(.035,.012,gap),m["metal"],.0004)
+def gallery_print(name, path, roughness, coat):
+    ink = bpy.data.materials.get(PREFIX + name)
+    if ink is None:
+        ink = print_mat(name, path)
+    image = ink.node_tree.nodes.active.image
+    content = path.read_bytes()
+    if not image.packed_file or image.packed_file.data != content:
+        image.pack(data=content, data_len=len(content))
+    surface = next(n for n in ink.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    surface.inputs["Roughness"].default_value = roughness
+    surface.inputs["Coat Weight"].default_value = coat
+    surface.inputs["Coat Roughness"].default_value = .19
+    return ink
 
-    panel=print_mat("Project offset print",ART/"D06_project.jpg")
-    box("D06.Mounted print",p,(0,.112,.008),(1.19,.508,.016),m["navy"],.002)
-    image_face("D06.Award print",p,(0,.112,.0162),1.184,.505,panel)
-    box("D06.Picture ledge",p,(0,-.311,.053),(1.21,.016,.106),m["oak"],.002)
-    box("D06.Ledge lip",p,(0,-.292,.103),(1.21,.024,.006),m["oak"],.001)
-    for i in range(5):
-        x=(i-2)*.221
-        width,height=.163,.20375
-        # Lean on the panel, just behind the front lip; outer mount has 3 mm margins.
-        card=obj(f"D06.Card {i+1}",None,p,(x,-.303,.092))
-        card.rotation_euler.x=math.radians(-21)
-        box(f"D06.Photo mount {i+1}",card,(0,height/2+.003,0),(width+.006,height+.006,.004),m["cream"],.0006)
+
+def gallery(m, paths):
+    p = anchor("D06.Gallery", (-7.471, 1.86, 1.68), (1, 0, 0))
+    stone = bpy.data.materials.get(PREFIX + "Honed ivory stone")
+    if stone is None:
+        stone = mat("Honed ivory stone", (.72,.70,.64), .55)
+        nodes, links = stone.node_tree.nodes, stone.node_tree.links
+        grain = nodes.new("ShaderNodeTexNoise")
+        grain.inputs["Scale"].default_value = 1150
+        grain.inputs["Detail"].default_value = 2
+        coords = nodes.new("ShaderNodeTexCoord")
+        links.new(coords.outputs["Object"], grain.inputs["Vector"])
+        finish = nodes.new("ShaderNodeValToRGB")
+        lo, hi = finish.color_ramp.elements
+        lo.color, hi.color = (.59,.57,.52,1), (.84,.82,.76,1)
+        links.new(grain.outputs["Fac"], finish.inputs["Fac"])
+        bs = next(n for n in nodes if n.type == "BSDF_PRINCIPLED")
+        links.new(finish.outputs["Color"], bs.inputs["Base Color"])
+    acrylic = bpy.data.materials.get(PREFIX + "Polished clear print edges")
+    if acrylic is None:
+        acrylic = mat("Polished clear print edges", (.77,.80,.78), .17)
+        bs = next(n for n in acrylic.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        bs.inputs["IOR"].default_value = 1.49
+        bs.inputs["Transmission Weight"].default_value = .40
+
+    # A slightly raised printed plaque and a stone sill share the same wall datum.
+    top_of_sill = -.322
+    panel_center = .065
+    panel_front = .014
+    panel = gallery_print("Project offset print", ART / "D06_project.jpg", .43, .19)
+    box("D06.Mounted print", p, (0,panel_center,.007), (1.242,.690,.014), m["navy"], .0016)
+    image_face("D06.Award print", p, (0,panel_center,panel_front+.00015), 1.239, .688, panel)
+    box("D06.Picture ledge", p, (0,top_of_sill-.012,.055), (1.273,.024,.110), stone, .002)
+    box("D06.Ledge lip", p, (0,top_of_sill+.0025,.107), (1.270,.005,.006), stone, .001)
+    slate = bpy.data.objects["GS_Real_SplitSlateBay"]
+    inv = slate.matrix_world.inverted()
+    for row, z in enumerate((top_of_sill-.012, -.218, .343)):
+        for side in (-1, 1):
+            horizontal = .54 * side
+            origin = Vector((-7.471, 1.86+horizontal, 1.68+z))
+            hit, pos, _, _ = slate.ray_cast(inv @ origin, inv.to_3x3() @ Vector((-1,0,0)))
+            if not hit:
+                raise ValueError("Missing slate under display fastener")
+            gap = origin.x - (slate.matrix_world @ pos).x
+            box(f"D06.Spacer {row} {side}", p, (horizontal,z,-gap/2), (.034,.014,gap), m["metal"], .0004)
+
+    width, height = .208, .260
+    border, depth = .0015, .004
+    outer_height = height + 2*border
+    # Front faces are slightly glossy prints with clear polished edges. The bottom
+    # rear corner seats on the sill, the upper rear corner bears on the plaque.
+    for i, degrees in enumerate((9.5,11.0,8.5,10.5,9.0)):
+        a = math.radians(degrees)
+        x = (i-2)*.249
+        bottom = top_of_sill + .5*depth*math.sin(a)
+        standoff = panel_front + .00015 + outer_height*math.sin(a) + .5*depth*math.cos(a)
+        card = obj(f"D06.Card {i+1}", None, p, (x,bottom,standoff))
+        card.rotation_euler.x = -a
+        box(f"D06.Photo mount {i+1}", card, (0,outer_height/2,0),
+            (width+2*border,outer_height,depth), acrylic, .00055)
         if paths:
-            ink=print_mat(f"Member {i+1:02}",paths[i])
-            image_face(f"D06.Member {i+1:02}",card,(0,height/2+.003,.00215),width,height,ink)
+            ink = gallery_print(f"Member {i+1:02}", paths[i], .29, .44)
+            image_face(f"D06.Member {i+1:02}", card, (0,outer_height/2,depth/2+.00012), width, height, ink)
+
+
+def finish_display():
+    """Replace only the D06 assembly and D04's packed artwork on a previously signed gym."""
+    group = bpy.data.collections[GROUP]
+    old = [o for o in group.objects if o.name.startswith(PREFIX+"D06.")]
+    if not old:
+        raise ValueError("Expected an installed D06 display")
+    owned = [o.data for o in old if o.type == "MESH"]
+    for o in old:
+        bpy.data.objects.remove(o, do_unlink=True)
+    for mesh_data in owned:
+        if not mesh_data.users:
+            bpy.data.meshes.remove(mesh_data)
+    materials = {k:bpy.data.materials[PREFIX+n] for k,n in (("metal","Satin machined alloy"),("navy","Navy mount"))}
+    gallery(materials, member_images())
+    board = bpy.data.images[PREFIX+"D04_marker.jpg"]
+    d04 = (ART/"D04_marker.jpg").read_bytes()
+    if not board.packed_file or board.packed_file.data != d04:
+        board.pack(data=d04, data_len=len(d04))
+    bpy.context.view_layer.update()
 
 
 def apply(paths=None):
@@ -408,8 +477,17 @@ def main():
     parser.add_argument("--output",type=Path)
     parser.add_argument("--review",action="store_true")
     parser.add_argument("--structure-only",action="store_true")
+    parser.add_argument("--finish-display",action="store_true")
     args=parser.parse_args(sys.argv[sys.argv.index("--")+1:])
     if Path(bpy.data.filepath).resolve()!=SOURCE: raise ValueError("Open the saved gym base")
+    if args.finish_display:
+        output = WORK/"finish_candidate.blend"
+        if args.output is None or args.output.resolve()!=output or args.review or args.structure_only:
+            raise ValueError("Finish mode requires just the finish candidate output")
+        finish_display()
+        bpy.context.preferences.filepaths.save_version=0
+        bpy.ops.wm.save_as_mainfile(filepath=str(output),compress=True,copy=True,relative_remap=False)
+        return
     allowed_outputs={OUTPUT.resolve(),(WORK/"candidate_v2.blend").resolve(),SOURCE.resolve()}
     if args.output and args.output.resolve() not in allowed_outputs: raise ValueError("Only authorized L1 outputs are valid")
     if args.output and args.structure_only: raise ValueError("Final portraits required for candidate")

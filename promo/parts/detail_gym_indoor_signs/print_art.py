@@ -1,6 +1,7 @@
 """Rebuild the original typeset notices and mirror masks from the repository root with Pillow."""
 from pathlib import Path
 import math
+import random
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = Path(__file__).resolve().parent
@@ -30,35 +31,8 @@ def mirror_notice():
 
 
 def achievement():
-    im=Image.new("RGB",(1500,640),"#19283e")
-    d=ImageDraw.Draw(im)
-    for bounds,color in [((-70,15,1700,1150),"#b79152"),((-15,29,1680,1160),"#e5c585"),
-                         ((15,43,1690,1200),"#faf2df")]:
-        d.ellipse(bounds,fill=color)
-    gold="#b39457"
-    for side in [-1,1]:
-        pts=[]
-        for i in range(15):
-            t=i/14
-            x=750+side*(350+134*math.sin(t*1.9))
-            y=504-285*t
-            pts.append((x,y))
-            if 0<i<14:
-                for direction in (-1,1):
-                    tip=(x+side*direction*24,y-29)
-                    d.polygon([(x,y),(x+side*direction*16,y-4),tip,(x+side*direction*7,y-20)],fill=gold)
-        d.line(pts,fill=gold,width=3)
-    d.text((750,199),"워치코치 바디프로필 프로젝트",anchor="mm",font=typeface(KOREAN,46),fill="#303342")
-    d.text((750,341),"회원 성과 전시",anchor="mm",font=typeface(KOREAN,95),fill="#19283e",stroke_width=1)
-    d.line((649,442,851,442),fill=gold,width=3)
-    cx,cy=1362,112
-    for x in [cx-19,cx+19]:
-        d.polygon([(x-13,cy+17),(x+14,cy+17),(x+20,cy+66),(x+1,cy+56),(x-13,cy+69)],fill="#9f4f3e")
-    d.regular_polygon((cx,cy,47),32,fill="#c09c5d")
-    d.ellipse((cx-37,cy-37,cx+37,cy+37),fill="#273247",outline="#f1d796",width=3)
-    d.text((cx,cy),"WC",anchor="mm",font=typeface(SYSTEM/"Georgia Bold.ttf",24),fill="#ead39b")
-    save(im,"D06_project.jpg")
-
+    from runpy import run_path
+    run_path(str(HERE / "draw_award.py"))["achievement"]()
 
 
 def mirror_lightboxes():
@@ -75,7 +49,105 @@ def mirror_lightboxes():
                                 Image.new("RGB",mask.size,"#9d886e"),mask)
         save(preview,f"B03_{title}_face.jpg")
 
+def event_board():
+    """Draw the D04 blackboard at print resolution from original lettering and marker paths."""
+    rng = random.Random(1104)
+    scale = 2
+    board = Image.new("RGB", (800 * scale, 1176 * scale), (5, 5, 5))
+    draw = ImageDraw.Draw(board)
+    blue, peach, pink = "#74cbe9", "#f7b784", "#efa397"
+    cream, mint, lemon = "#f0eedf", "#a8d794", "#e6dc91"
+    font = typeface(KOREAN, 164)
+
+    def letters(text, box, ink, tilt=2):
+        # Ink each glyph separately. Keep its aspect and baseline variation local so
+        # short particles remain small and a line never overflows the physical board.
+        run = Image.new("L", (int(font.getlength(text)) + len(text) * 40 + 64, 258))
+        cursor = 12
+        for ch in text:
+            advance = font.getlength(ch)
+            if ch != " ":
+                glyph = Image.new("L", (242, 236))
+                ImageDraw.Draw(glyph).text((24, 172), ch, font=font, anchor="ls", fill=255)
+                glyph = glyph.rotate(rng.uniform(-tilt, tilt), Image.Resampling.BICUBIC,
+                                     center=(103, 120))
+                run.paste(255, (round(cursor) - 12, rng.randint(1, 8)), glyph)
+            cursor += advance * rng.uniform(.99, 1.04) + 3
+        x, y, w, h = box
+        mask = run.crop(run.getbbox()).resize((w * scale, h * scale), Image.Resampling.LANCZOS)
+        board.paste(ink, (x * scale, y * scale), mask)
+
+    def stroke(points, ink, width):
+        pts = [(round(x * scale), round(y * scale)) for x, y in points]
+        radius = width * scale / 2
+        draw.line(pts, fill=ink, width=round(2 * radius), joint="curve")
+        for x, y in (pts[0], pts[-1]):
+            draw.ellipse((x-radius, y-radius, x+radius, y+radius), fill=ink)
+
+    def bezier_segments(start, segments):
+        points = [start]
+        for b, c, end in segments:
+            a = points[-1]
+            for j in range(1, 19):
+                t = j / 18
+                points.append(tuple((1-t)**3*a[k] + 3*(1-t)**2*t*b[k]
+                                    + 3*(1-t)*t*t*c[k] + t**3*end[k] for k in (0, 1)))
+        return points
+
+    # Hand-drawn, upright, disconnected E-v-e-n-t. The turns and crossbars have
+    # slightly different lengths, as on the in-store board.
+    letters("11", (64, 60, 164, 140), blue)
+    letters("월", (244, 49, 71, 94), blue)
+    for points in [
+        [(418,62),(343,65),(346,190),(422,186)], [(346,124),(402,120)],
+        [(431,105),(463,183),(493,101)],
+        bezier_segments((511,140), [((524,136),(550,137),(565,134)),
+            ((568,78),(507,84),(506,143)),((506,182),(538,198),(569,172))]),
+        bezier_segments((592,183), [((592,162),(591,120),(590,101)),
+            ((597,137),(597,102),(620,99)),((653,89),(650,144),(654,180))]),
+        bezier_segments((704,65), [((706,105),(702,147),(706,168)),((709,186),(722,184),(733,180))]),
+        [(679,106),(711,103),(737,101)],
+    ]:
+        stroke(points, peach, 11)
+
+    def number_badge(n, y):
+        path = bezier_segments((36,y+19), [((62,y+25),(93,y-17),(133,y-6)),
+            ((169,y+9),(158,y+66),(116,y+72)),((68,y+82),(44,y+60),(36,y+19))])
+        stroke([(x+3, yy+4) for x,yy in path], mint, 7)
+        stroke(path, cream, 4)
+        letters(n, (78,y+11,34,43), cream)
+
+    number_badge("1", 275)
+    letters("공동구매", (192, 258, 356, 102), cream)
+    letters("1:1", (597, 230, 120, 63), mint)
+    letters("PT", (608, 311, 109, 68), mint)
+    letters("200회", (220, 421, 287, 92), cream)
+    letters("한정!", (554, 420, 175, 80), peach)
+    stroke([(212,473),(288,475),(362,483),(444,486),(505,490)], pink, 8)
+
+    letters("잔여수량", (53, 600, 219, 58), cream)
+    letters("115", (325, 563, 214, 107), cream)
+    letters("회", (582, 574, 76, 89), lemon)
+    stroke([(325,694),(398,692),(473,695),(543,686)], lemon, 7)
+
+    number_badge("2", 776)
+    letters("7번", (185, 780, 100, 75), peach)
+    letters("운동 인증하고", (310, 774, 420, 74), cream)
+    letters("회원권", (199, 908, 199, 71), cream)
+    letters("7일", (421, 897, 113, 78), pink)
+    letters("받자!", (565, 891, 167, 80), cream)
+
+    letters("카운터", (47, 1073, 154, 58), mint)
+    letters("또는", (222, 1083, 88, 43), cream)
+    letters("담당 선생님", (337, 1068, 264, 61), mint)
+    letters("문의", (630, 1063, 113, 60), cream)
+    stroke([(49,1141),(99,1137),(149,1139),(202,1135)], lemon, 4)
+    stroke([(340,1140),(405,1137),(479,1139),(550,1134),(602,1133)], lemon, 4)
+    save(board.resize((1024, 1505), Image.Resampling.LANCZOS), "D04_marker.jpg")
+
+
 if __name__ == "__main__":
+    event_board()
     mirror_lightboxes()
     mirror_notice()
     achievement()
