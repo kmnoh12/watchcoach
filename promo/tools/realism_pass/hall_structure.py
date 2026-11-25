@@ -233,13 +233,16 @@ def apply():
         if l.type != 'LIGHT':
             continue
         if l.name.startswith(SHELL+'FloorBounce'):
-            l.data.energy = 28 if l.name.endswith('Main') else 20
+            l.data.energy = 185.0 if l.name.endswith('Main') else 140.0
             l.data.specular_factor = 0
-        elif l.name.startswith(('HallwayLight_','HallExtLight_')):
-            l.data.energy = 26
-            l.data.specular_factor = .12
+        elif l.name.startswith('HallwayLight_'):
+            l.data.energy = 155.0
+            l.data.specular_factor = 1.0
+        elif l.name.startswith('HallExtLight_'):
+            l.data.energy = 145.0
+            l.data.specular_factor = 1.0
         elif l.name.startswith(SHELL+'DownlightSpot'):
-            l.data.energy = 44
+            l.data.energy = 75.0
     m = bpy.data.materials[SHELL+'DownlightLens']
     for n in m.node_tree.nodes:
         if n.type=='EMISSION':
@@ -278,6 +281,16 @@ def apply():
         if o.name.startswith('Vacant_Mullion'):
             replace(o,enamel)
     glass = objects[SHOP+'OppGlass_0'].active_material
+    if glass:
+        if hasattr(glass, 'surface_render_method'):
+            glass.surface_render_method = 'BLENDED'
+        if glass.use_nodes:
+            gbs = next((n for n in glass.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+            if gbs:
+                gbs.inputs['Transmission Weight'].default_value = 0.0
+                gbs.inputs['Alpha'].default_value = 0.22
+                gbs.inputs['Roughness'].default_value = 0.04
+                gbs.inputs['Coat Weight'].default_value = 0.8
     replace(objects['Vacant_Glass'],glass)
     box('MeetingGasket',(-5.514,2.831,.133),(-5.508,2.840,2.142),rubber,.001)
     for i,x in enumerate((-7.47,-6.211,-6.148,-4.883)):

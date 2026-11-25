@@ -185,26 +185,36 @@ def screens_and_counter():
     for nm in ('NoticePrice','NoticeHours','SignTowel','SignSlipper','KeyboxLabel','BizCard'):
         bsdf(bpy.data.materials[C+nm]).inputs['Emission Strength'].default_value=0
     bsdf(bpy.data.materials[C+'FridgeInteriorLit']).inputs['Emission Strength'].default_value=.65
-    # Real translucent frosted glass for consultation dividers instead of opaque white slabs.
+    # EEVEE-clean translucent frosted glass for consultation dividers (zero dither static).
     frost = bpy.data.materials.get('InfoRef_FrostedGlass')
     if frost and frost.use_nodes:
+        if hasattr(frost, 'surface_render_method'):
+            frost.surface_render_method = 'BLENDED'
+        if hasattr(frost, 'use_transparency_overlap'):
+            frost.use_transparency_overlap = False
         p = bsdf(frost)
-        p.inputs['Base Color'].default_value = (0.86, 0.91, 0.90, 1.0)
-        p.inputs['Roughness'].default_value = 0.26
+        p.inputs['Base Color'].default_value = (0.88, 0.92, 0.92, 1.0)
+        p.inputs['Roughness'].default_value = 0.28
         p.inputs['IOR'].default_value = 1.50
-        p.inputs['Alpha'].default_value = 1.0
-        p.inputs['Transmission Weight'].default_value = 0.84
-        p.inputs['Coat Weight'].default_value = 0.25
-        p.inputs['Coat Roughness'].default_value = 0.08
-    # Clear refractive PET/gel for hand sanitiser pump bottle.
+        p.inputs['Transmission Weight'].default_value = 0.0
+        p.inputs['Alpha'].default_value = 0.42
+        p.inputs['Coat Weight'].default_value = 0.40
+        p.inputs['Coat Roughness'].default_value = 0.06
+    # EEVEE-clean translucent PET/gel for hand sanitiser pump bottle (zero dither static).
     gel = bpy.data.materials.get(C + 'SanitiserGel')
     if gel and gel.use_nodes:
+        if hasattr(gel, 'surface_render_method'):
+            gel.surface_render_method = 'BLENDED'
+        if hasattr(gel, 'use_transparency_overlap'):
+            gel.use_transparency_overlap = False
         p = bsdf(gel)
-        p.inputs['Base Color'].default_value = (0.86, 0.95, 0.98, 1.0)
+        p.inputs['Base Color'].default_value = (0.82, 0.93, 0.97, 1.0)
         p.inputs['Roughness'].default_value = 0.08
         p.inputs['IOR'].default_value = 1.46
-        p.inputs['Alpha'].default_value = 1.0
-        p.inputs['Transmission Weight'].default_value = 0.90
+        p.inputs['Transmission Weight'].default_value = 0.0
+        p.inputs['Alpha'].default_value = 0.34
+        p.inputs['Coat Weight'].default_value = 0.80
+        p.inputs['Coat Roughness'].default_value = 0.04
     # Satin lacquer finish on the warm wood reception counter.
     wood = bpy.data.materials.get('InfoRef_WarmWood')
     if wood and wood.use_nodes:

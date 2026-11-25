@@ -106,10 +106,13 @@ def apply():
     coll = bpy.data.collections[C]
     for o in list(coll.objects):
         if o.get(TAG):
-            mesh = o.data
+            data = o.data
             bpy.data.objects.remove(o,do_unlink=True)
-            if not mesh.users:
-                bpy.data.meshes.remove(mesh)
+            if data and not data.users:
+                if isinstance(data, bpy.types.Mesh):
+                    bpy.data.meshes.remove(data)
+                elif isinstance(data, bpy.types.LightProbe):
+                    bpy.data.lightprobes.remove(data)
     hall = old("Rack_Back").parent
     steel = material("BrushedNickel",(.55,.53,.49),.29,1)
     rubber = material("EPDM",(.027,.029,.028),.73,grain=900)
@@ -195,11 +198,14 @@ def apply():
           [(.041,.7472),(.044,.7486),(.040,.750),(.028,.750),(.026,.7474)]],True)
     rod("WasteGrate",hall,steel,(x-.040,y,.749),(x-.014,y,.749),.002)
     rod("MixerLever",hall,steel,(6.45,1.30,.957),(6.41,1.30,.966),.006)
-    # True silvered glass mirror instead of dull metallic grey plate.
-    mirror_mat = material("SilveredMirror",(.93,.95,.96),.012,1.0)
+    # EEVEE + Cycles friendly silvered glass mirror (bright reflective glass without black void in EEVEE).
+    mirror_mat = material("SilveredMirror",(.76,.80,.82),.05,.55)
     m_bsdf = next(n for n in mirror_mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-    m_bsdf.inputs["Coat Weight"].default_value = .45
-    m_bsdf.inputs["Coat Roughness"].default_value = .01
+    m_bsdf.inputs["Base Color"].default_value = (.76,.80,.82,1.0)
+    m_bsdf.inputs["Roughness"].default_value = .05
+    m_bsdf.inputs["Metallic"].default_value = .55
+    m_bsdf.inputs["Coat Weight"].default_value = 1.0
+    m_bsdf.inputs["Coat Roughness"].default_value = .012
     assign(old("Rest_Mirror"), mirror_mat)
     # Dark walnut laminate with vertical grain on restroom doors + stainless lock escutcheon.
     walnut = material("WalnutLaminate",(.065,.038,.026),.34)

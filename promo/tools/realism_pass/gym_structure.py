@@ -250,17 +250,23 @@ def wall():
             y=end+.003
         z=top+.003
     mesh_object("SplitSlateBay",verts,faces,coll,mats,slots)
-    # Fix milky translucent acrylic sign plates -> crystal-clear optical acrylic (refs 278/283).
+    # Fix milky translucent acrylic sign plates -> EEVEE-clean crystal-clear optical acrylic (zero dither noise).
     acrylic = bpy.data.materials.get("Dgym_wall_graphics_ClearAcrylic")
     if acrylic and acrylic.use_nodes:
+        if hasattr(acrylic, "surface_render_method"):
+            acrylic.surface_render_method = "BLENDED"
+        if hasattr(acrylic, "use_transparency_overlap"):
+            acrylic.use_transparency_overlap = False
         bsdf = next((n for n in acrylic.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
         if bsdf:
-            bsdf.inputs["Base Color"].default_value = (0.97, 0.99, 1.0, 1.0)
-            bsdf.inputs["Roughness"].default_value = 0.025
+            bsdf.inputs["Base Color"].default_value = (0.94, 0.98, 1.0, 1.0)
+            bsdf.inputs["Roughness"].default_value = 0.03
             bsdf.inputs["IOR"].default_value = 1.49
-            bsdf.inputs["Alpha"].default_value = 1.0
-            bsdf.inputs["Transmission Weight"].default_value = 0.96
-            bsdf.inputs["Specular IOR Level"].default_value = 0.55
+            bsdf.inputs["Transmission Weight"].default_value = 0.0
+            bsdf.inputs["Alpha"].default_value = 0.14
+            bsdf.inputs["Specular IOR Level"].default_value = 0.70
+            bsdf.inputs["Coat Weight"].default_value = 1.0
+            bsdf.inputs["Coat Roughness"].default_value = 0.02
     # Eliminate giant floating cyan/pink orb reflections of point lights in the gym mirrors.
     for lname in ("Dgym_wall_graphics_NameSign_Glow", "Dgym_wall_graphics_StretchSign_Glow",
                   "NeonGlow_Blue", "NeonGlow_PinkLeft", "NeonGlow_PinkRight"):
