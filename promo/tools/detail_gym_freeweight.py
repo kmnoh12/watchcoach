@@ -528,6 +528,42 @@ def _layout_tier(weights, x0, x1, fx, gap_frame=0.035, clr=0.008, pair_gap=0.02)
     return out
 
 
+def ensure_mirror_probe():
+    """Idempotently ensure the freeweight/rack mirror wall has a clean silvered material and planar EEVEE probe."""
+    mat = bpy.data.materials.get(P + "Mirror_Silvered")
+    if mat and mat.node_tree:
+        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf:
+            bsdf.inputs["Base Color"].default_value = (0.93, 0.94, 0.93, 1.0)
+            bsdf.inputs["Metallic"].default_value = 1.0
+            bsdf.inputs["Roughness"].default_value = 0.01
+            bsdf.inputs["Coat Weight"].default_value = 0.0
+    x0, x1 = MIR_X
+    zb, zt = 0.165, MIR_TOP
+    y_front = 4.960  # front face of Mirror_glass_0..3
+    probe_name = P + "MirrorProbe"
+    coll = _coll()
+    ob = bpy.data.objects.get(probe_name)
+    if ob is not None and ob.type != "LIGHT_PROBE":
+        bpy.data.objects.remove(ob, do_unlink=True)
+        ob = None
+    if ob is None:
+        lp = bpy.data.lightprobes.new(probe_name, "PLANE")
+        ob = bpy.data.objects.new(probe_name, lp)
+        coll.objects.link(ob)
+    else:
+        lp = ob.data
+        if coll not in ob.users_collection:
+            coll.objects.link(ob)
+    lp.influence_distance = 0.12
+    lp.clip_start = 0.001
+    ob.parent = None
+    ob.location = (0.5 * (x0 + x1), y_front - 0.010, 0.5 * (zb + zt))
+    ob.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    ob.scale = (0.5 * (x1 - x0) + 0.05, 0.5 * (zt - zb) + 0.05, 1.0)
+    return ob
+
+
 def build_mirror(mats):
     glass, alu, steel, rubber = mats["mirror"], mats["alu_black"], mats["steel"], mats["rubber"]
     x0, x1 = MIR_X
@@ -551,6 +587,7 @@ def build_mirror(mats):
         _box("Mirror_kick_rail_%d" % i, (b - a, 0.034, 0.170), ((a + b) / 2, y_back - 0.018, 0.085), steel, bevel=0.003)
         _box("Mirror_kick_bumper_%d" % i, (b - a - 0.01, 0.018, 0.045), ((a + b) / 2, y_back - 0.042, 0.115), rubber,
              bevel=0.004)
+    ensure_mirror_probe()
 
 
 def build_dumbbell_rack(mats, dbm):

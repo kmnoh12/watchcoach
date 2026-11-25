@@ -211,6 +211,37 @@ def fabric_detail(ob):
     bs.inputs['Sheen Weight'].default_value = .27
 
 
+def fix_vacant_glass():
+    """Give only Vacant_Glass its own semi-frosted dusty glass material so exposed glass isn't a black void,
+    without touching other storefront clear glass or any VacPaper_* / lease sheets."""
+    vg = bpy.data.objects.get('Vacant_Glass')
+    if vg is None or vg.type != 'MESH':
+        return {'updated': False}
+    mat_name = PREFIX + 'VacantGlass'
+    m = bpy.data.materials.get(mat_name) or bpy.data.materials.new(mat_name)
+    m.diffuse_color = (0.55, 0.60, 0.62, 0.65)
+    if hasattr(m, 'surface_render_method'):
+        m.surface_render_method = 'BLENDED'
+    if hasattr(m, 'use_transparency_overlap'):
+        m.use_transparency_overlap = False
+    nt = m.node_tree
+    nt.nodes.clear()
+    bs = nt.nodes.new('ShaderNodeBsdfPrincipled')
+    bs.inputs['Base Color'].default_value = (0.55, 0.60, 0.62, 1.0)
+    bs.inputs['Metallic'].default_value = 0.0
+    bs.inputs['Roughness'].default_value = 0.05
+    bs.inputs['IOR'].default_value = 1.50
+    bs.inputs['Transmission Weight'].default_value = 0.0
+    bs.inputs['Alpha'].default_value = 0.65
+    bs.inputs['Specular IOR Level'].default_value = 0.60
+    bs.inputs['Coat Weight'].default_value = 0.20
+    bs.inputs['Coat Roughness'].default_value = 0.04
+    out = nt.nodes.new('ShaderNodeOutputMaterial')
+    nt.links.new(bs.outputs[0], out.inputs['Surface'])
+    replace(vg, m)
+    return {'updated': True, 'material': mat_name}
+
+
 def apply():
     objects = bpy.data.objects
     hall = objects['Sangga_Hallway']
@@ -235,6 +266,7 @@ def apply():
         if l.name.startswith(SHELL+'FloorBounce'):
             l.data.energy = 185.0 if l.name.endswith('Main') else 140.0
             l.data.specular_factor = 0
+            l.data.use_shadow = False
         elif l.name.startswith('HallwayLight_'):
             l.data.energy = 155.0
             l.data.specular_factor = 1.0
@@ -267,8 +299,8 @@ def apply():
             o.hide_render = o.hide_viewport = False
         if o.name.startswith('Vacant_Mullion') and orig_mullion:
             replace(o, orig_mullion)
-    if orig_glass and 'Vacant_Glass' in objects:
-        replace(objects['Vacant_Glass'], orig_glass)
+    if 'Vacant_Glass' in objects:
+        fix_vacant_glass()
     for name in ('Mat_GymEntrance','Mat_Academy'):
         fabric_detail(objects[SHOP+name])
     umb = objects.get(SHOP+'Umbrella_StandBody')

@@ -290,6 +290,65 @@ def wall():
     assign(bpy.data.objects["Dgym_wall_graphics_Lettering_EN"],steel)
 
 
+def mirrors_and_shadows():
+    """Upgrade Gym_Mirror to bright silvered metal, add planar probe for Stretch mirror, and clear EEVEE shadow pool overflow."""
+    gm = bpy.data.materials.get("Gym_Mirror")
+    if gm and gm.node_tree:
+        bsdf = next((n for n in gm.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf:
+            bsdf.inputs["Base Color"].default_value = (0.93, 0.94, 0.94, 1.0)
+            bsdf.inputs["Metallic"].default_value = 1.0
+            bsdf.inputs["Roughness"].default_value = 0.01
+            bsdf.inputs["Coat Weight"].default_value = 0.0
+
+    # Planar reflection probe for the stretching-zone mirror (faces +X at x=-7.442).
+    stretch = bpy.data.objects.get("Stretch mirror glass")
+    if stretch is not None:
+        bpy.context.view_layer.update()
+        pts = [stretch.matrix_world @ Vector(c) for c in stretch.bound_box]
+        lo = [min(p[i] for p in pts) for i in range(3)]
+        hi = [max(p[i] for p in pts) for i in range(3)]
+        probe_name = PREFIX + "StretchMirrorProbe"
+        coll = bpy.data.collections["DETAIL_gym_wall_graphics"]
+        ob = bpy.data.objects.get(probe_name)
+        if ob is not None and ob.type != "LIGHT_PROBE":
+            bpy.data.objects.remove(ob, do_unlink=True)
+            ob = None
+        if ob is None:
+            lp = bpy.data.lightprobes.new(probe_name, "PLANE")
+            ob = bpy.data.objects.new(probe_name, lp)
+            coll.objects.link(ob)
+        else:
+            lp = ob.data
+            if coll not in ob.users_collection:
+                coll.objects.link(ob)
+        lp.influence_distance = 0.12
+        lp.clip_start = 0.001
+        ob.parent = None
+        ob.location = (hi[0] + 0.010, 0.5 * (lo[1] + hi[1]), 0.5 * (lo[2] + hi[2]))
+        # Local +Z -> +X, local +X -> -Z (half-height), local +Y -> +Y (half-width)
+        ob.rotation_euler = (0.0, math.radians(90.0), 0.0)
+        ob.scale = (0.5 * (hi[2] - lo[2]) + 0.05, 0.5 * (hi[1] - lo[1]) + 0.05, 1.0)
+
+    # Prevent EEVEE shadow buffer full warnings: raise shadow pool to 1024 MB (1 GB) and disable shadows
+    # on fill/bounce lights + the 0.16W outdoor Sun fill ("Key") whose clipmaps consume ~1500+ shadow pages.
+    sc = bpy.context.scene
+    if hasattr(sc.eevee, "shadow_pool_size"):
+        sc.eevee.shadow_pool_size = "1024"
+    for lo in sc.objects:
+        if lo.type != "LIGHT":
+            continue
+        nl = lo.name
+        if (nl.startswith("Dhall_surfaces_FloorBounce")
+                or nl == "Warm neon fill"
+                or nl == "Key"
+                or nl.startswith("Dgym_counter_LED wash")
+                or nl.startswith("Dgym_posing_Mirror LED bar")
+                or nl == "Dhall_props_Stair_LightPit"
+                or (nl.startswith("Dgym_ceiling_LEDFrame") and nl.endswith(("_2", "_3")))):
+            lo.data.use_shadow = False
+
+
 def apply():
     floor()
     ceiling()
@@ -300,6 +359,7 @@ def apply():
         for v,y in zip(lead.data.vertices,lead["gs_original_y"]):
             v.co.y=y
     wall()
+    mirrors_and_shadows()
     bpy.context.view_layer.update()
     owned=[bpy.data.objects[PREFIX+name] for name in ("RolledSeam","SplitSlateBay","DiffuserVanes")]
     for obj in owned:

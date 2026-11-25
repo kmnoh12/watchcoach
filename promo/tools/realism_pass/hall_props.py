@@ -198,15 +198,30 @@ def apply():
           [(.041,.7472),(.044,.7486),(.040,.750),(.028,.750),(.026,.7474)]],True)
     rod("WasteGrate",hall,steel,(x-.040,y,.749),(x-.014,y,.749),.002)
     rod("MixerLever",hall,steel,(6.45,1.30,.957),(6.41,1.30,.966),.006)
-    # EEVEE + Cycles friendly silvered glass mirror (bright reflective glass without black void in EEVEE).
-    mirror_mat = material("SilveredMirror",(.76,.80,.82),.05,.55)
+    # True metallic mirror + EEVEE planar reflection probe sized to Rest_Mirror (idempotent via TAG).
+    mirror_mat = material("SilveredMirror",(.93,.94,.94),.01,1.0)
     m_bsdf = next(n for n in mirror_mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-    m_bsdf.inputs["Base Color"].default_value = (.76,.80,.82,1.0)
-    m_bsdf.inputs["Roughness"].default_value = .05
-    m_bsdf.inputs["Metallic"].default_value = .55
-    m_bsdf.inputs["Coat Weight"].default_value = 1.0
-    m_bsdf.inputs["Coat Roughness"].default_value = .012
-    assign(old("Rest_Mirror"), mirror_mat)
+    m_bsdf.inputs["Base Color"].default_value = (.93,.94,.94,1.0)
+    m_bsdf.inputs["Roughness"].default_value = .01
+    m_bsdf.inputs["Metallic"].default_value = 1.0
+    m_bsdf.inputs["Coat Weight"].default_value = 0.0
+    m_bsdf.inputs["Coat Roughness"].default_value = 0.0
+    rest_mirror = old("Rest_Mirror")
+    assign(rest_mirror, mirror_mat)
+    # Unparented world-space planar reflection probe ~1 cm proud of Rest_Mirror facing -Y toward corridor.
+    bpy.context.view_layer.update()
+    rm_pts = [rest_mirror.matrix_world @ Vector(c) for c in rest_mirror.bound_box]
+    rm_lo = [min(p[i] for p in rm_pts) for i in range(3)]
+    rm_hi = [max(p[i] for p in rm_pts) for i in range(3)]
+    rm_lp = bpy.data.lightprobes.new(P + "HP_RestMirrorProbe", "PLANE")
+    rm_lp.influence_distance = 0.12
+    rm_lp.clip_start = 0.001
+    rm_probe = bpy.data.objects.new(P + "HP_RestMirrorProbe", rm_lp)
+    rm_probe[TAG] = True
+    coll.objects.link(rm_probe)
+    rm_probe.location = (0.5 * (rm_lo[0] + rm_hi[0]), rm_lo[1] - 0.010, 0.5 * (rm_lo[2] + rm_hi[2]))
+    rm_probe.rotation_euler = (math.radians(90.0), 0.0, 0.0)
+    rm_probe.scale = (0.5 * (rm_hi[0] - rm_lo[0]) + 0.03, 0.5 * (rm_hi[2] - rm_lo[2]) + 0.03, 1.0)
     # Dark walnut laminate with vertical grain on restroom doors + stainless lock escutcheon.
     walnut = material("WalnutLaminate",(.065,.038,.026),.34)
     w_tree = walnut.node_tree

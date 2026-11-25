@@ -2185,9 +2185,38 @@ def build_info_desk(c):
 
     # 9) 3 Slim Brass Cylinder Pendant Lights hanging from ceiling over the info desk!
     for px in (-0.85, 0.05, 0.95):
-        W.cyl("Pendant cord", 0.004, 0.85, charcoal, c, (px, 0.42, 3.16), parent=root, seg=8)
-        W.cyl("Pendant brass tube", 0.016, 0.36, brass_m, c, (px, 0.42, 2.58), parent=root, seg=16)
-        W.cyl("Pendant tip glow", 0.014, 0.012, pend_glow, c, (px, 0.42, 2.398), parent=root, seg=14)
+        W.cyl("Pendant cord", 0.004, 0.39, charcoal, c, (px, 0.42, 3.390), parent=root, seg=8)
+        W.cyl("Pendant brass tube", 0.016, 0.36, brass_m, c, (px, 0.42, 3.040), parent=root, seg=16)
+        W.cyl("Pendant tip glow", 0.014, 0.012, pend_glow, c, (px, 0.42, 2.858), parent=root, seg=14)
+
+
+def update_info_pendant_length():
+    """Shorten only the 3 info-desk pendants in an existing scene so their tips sit >= 2.85 m."""
+    root = bpy.data.objects.get("Gym_InfoDesk")
+    if root is None:
+        return {"updated": 0}
+    updated = 0
+    for ob in bpy.context.scene.objects:
+        if ob.parent != root or ob.type != "MESH":
+            continue
+        if ob.name.startswith("Pendant cord"):
+            ob.location.z = 3.390
+            zs = [v.co.z for v in ob.data.vertices]
+            if zs:
+                half_h = 0.195
+                z_mid = 0.5 * (min(zs) + max(zs))
+                for v in ob.data.vertices:
+                    v.co.z = half_h if v.co.z >= z_mid else -half_h
+                ob.data.update()
+            updated += 1
+        elif ob.name.startswith("Pendant brass tube"):
+            ob.location.z = 3.040
+            updated += 1
+        elif ob.name.startswith("Pendant tip glow"):
+            ob.location.z = 2.858
+            updated += 1
+    bpy.context.view_layer.update()
+    return {"updated": updated, "tip_bottom_z": 2.852}
 
 
 def build_stretching_zone(c):
