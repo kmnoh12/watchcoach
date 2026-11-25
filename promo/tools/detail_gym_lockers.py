@@ -18,9 +18,10 @@ Reference photos (work/refs/interior):
   148                  clean towel stacks on a wall shelf above the used-towel return
   185 148              printed notices in thin frames (usage rules, lost & found)
 Layout per room (u = distance from the central partition, both suites share the frame of gym_locker_suites):
-  island u 1.55..3.05, y -8.60..-9.50 (10 + 10 lockers), one column beside the entry, one at the back corner
-  of the outer run -> 24 new lockers per room (men 225-248, women 325-348) + fobs on the existing 24.
-Existing objects touched: the old centre bench (top/legs/feet) is hidden (the island + new bench supersede it);
+  pass 3 (deeper 5.4 m room): no island any more (it left 0.6 m aisles). One column beside the entry and a 3-column
+  run on the partition wall between the vanity and the towel return -> 8 new lockers per room (men 241-248,
+  women 341-348) + fobs on the builder's 40; one long padded bench down the middle with >= 1.2 m aisles.
+Existing objects touched: the old centre bench (top/legs/feet) is hidden (the padded bench supersedes it);
 the gym bag and folded towel are moved onto the new bench. Originals are stored in custom props.
 """
 import math
@@ -45,16 +46,19 @@ FONT = os.path.normpath(os.path.join(HERE, "..", "parts", "fonts", "NanumGothic-
 # Suite frame (gym_locker_suites.py, verified by probe)
 PART_X, PART_T = 11.60, 0.10
 WIDTH = 4.15
-Y_FRONT, Y_WALL_B = -6.92, -10.45     # room faces of front liner / locker back wall
+Y_FRONT, Y_WALL_B = -6.92, -12.25     # room faces of front liner / locker back wall (Y_LBACK -12.30)
 PLINTH, BODY_H = 0.10, 1.90
-ISL_U, ISL_Y = (1.55, 3.05), (-8.60, -9.50)
 CW, DEPTH = 0.30, 0.45
-BENCH_U, BENCH_Y = (1.62, 2.82), -8.03
+SUITE_CW = 0.33                       # gym_locker_suites.LOCKER_CW (fob matching on the builder's lockers)
+VANITY_Y = -9.72                      # gym_locker_suites.VANITY_Y
+BENCH_U, BENCH_Y = 2.26, (-8.70, -10.60)  # gym_locker_suites.BENCH_U / BENCH_Y
+PART_RUN_Y = (-10.90, -11.80)         # 3 narrow columns on the partition wall behind the vanity
+SLIPPER_Y = -8.22                     # slipper rack on the partition wall, past the entry landing
 
 SUITES = (
-    dict(tag="Men", s=-1, first=225, fob="black", bench=(0.02, 0.02, 0.022), metal="black",
+    dict(tag="Men", s=-1, first=241, fob="black", bench=(0.02, 0.02, 0.022), metal="black",
          slipper=(0.16, 0.20, 0.30), fan=(0.86, 0.87, 0.86)),
-    dict(tag="Women", s=1, first=325, fob="red", bench=(0.62, 0.55, 0.46), metal="brass",
+    dict(tag="Women", s=1, first=341, fob="red", bench=(0.62, 0.55, 0.46), metal="brass",
          slipper=(0.86, 0.62, 0.68), fan=(0.62, 0.46, 0.26)),
 )
 
@@ -424,28 +428,19 @@ def _lockers(R):
     xs = (R.x(1.097), R.x(1.383))
     root = R.frame("Lockers entry column", 1.097, Y_FRONT - 0.03, "-y")
     root.location.x = max(xs)
-    count += _locker_run(R, root, 1, [(no, no + 1)], keyed, depth=0.52, cw=0.286, crown_over=0.0)
+    count += _locker_run(R, root, 1, [(no, no + 1)], keyed, depth=DEPTH, cw=0.286, crown_over=0.0)
     no += 2
-    # 2) double-sided island: north side faces the front wall, south side the back wall
-    yc = (ISL_Y[0] + ISL_Y[1]) / 2
-    xa, xb = sorted((R.x(ISL_U[0]), R.x(ISL_U[1])))
-    n = round((ISL_U[1] - ISL_U[0]) / CW)
-    for side, face, xr in (("north", "+y", xa), ("south", "-y", xb)):
-        root = R.frame(f"Lockers island {side}", 0, yc, face)
-        root.location.x = xr
-        # number left-to-right as seen from the aisle (local +x is the viewer's left)
-        nums = [(no + 2 * (n - 1 - i), no + 2 * (n - 1 - i) + 1) for i in range(n)]
-        count += _locker_run(R, root, n, nums, keyed, crown_over=0.0)
-        no += 2 * n
-    L = n * CW
-    for xe in (xa - 0.011, xb + 0.011):  # full-height end panels in the door finish (refs 005 020)
-        B("Island end panel", None, (0.02, 0.94, PLINTH + BODY_H + 0.05), R.M["door"],
-          (xe, yc, (PLINTH + BODY_H + 0.05) / 2 + 0.001), 0.004).parent = None
-    # 3) back corner of the outer run (existing run stops 0.35 m short of the back wall)
-    y0 = -10.112 if R.s < 0 else -10.412
-    root = R.frame("Lockers back corner", WIDTH, y0, "-u")
-    count += _locker_run(R, root, 1, [(no, no + 1)], keyed, depth=0.52, cw=0.30, crown_over=0.0)
-    no += 2
+    # 2) short run on the partition wall between the vanity and the used-towel return (local +x runs +y for men,
+    #    -y for women, so the frame sits at the far end for men)
+    n = round(abs(PART_RUN_Y[1] - PART_RUN_Y[0]) / CW)
+    root = R.frame("Lockers partition", 0.0, PART_RUN_Y[1] if R.s < 0 else PART_RUN_Y[0], "+u")
+    nums = [(no + 2 * i, no + 2 * i + 1) for i in range(n)]
+    count += _locker_run(R, root, n, nums, keyed, crown_over=0.0)
+    no += 2 * n
+    for ye in PART_RUN_Y:  # full-height end panels in the door finish (refs 005 020)
+        B("Run end panel", None, (0.02, DEPTH + 0.03, PLINTH + BODY_H + 0.05), R.M["door"],
+          (R.x((DEPTH + 0.03) / 2 + 0.001), ye + (0.011 if ye == max(PART_RUN_Y) else -0.011),
+           (PLINTH + BODY_H + 0.05) / 2 + 0.001), 0.004, rot=(0, 0, 90))
     return count, no - 1
 
 
@@ -466,7 +461,7 @@ def _fobs_on_existing(R, keyed_rate=0.72):
         lx, ly, lz = ob.location
         best = None
         for lb in labels.get(ob.parent, []):
-            d = abs(lb.location.x - (lx - 0.189)) + abs(lb.location.z - (lz + 0.1835))
+            d = abs(lb.location.x - (lx - (SUITE_CW * 0.33 + 0.05))) + abs(lb.location.z - (lz + 0.1835))
             if d < 0.03 and (best is None or d < best[0]):
                 best = (d, lb)
         if best is None or rng.random() > keyed_rate:
@@ -482,9 +477,8 @@ def _fobs_on_existing(R, keyed_rate=0.72):
 # --------------------------------------------------------------------------------------------
 def _bench(R):
     M = R.M
-    u0, u1 = BENCH_U
-    root = R.frame("Bench", (u0 + u1) / 2, BENCH_Y, "+y")
-    L, W_ = u1 - u0, 0.38
+    root = R.frame("Bench", BENCH_U, sum(BENCH_Y) / 2, "+u")  # bench runs along y, down the middle of the room
+    L, W_ = abs(BENCH_Y[1] - BENCH_Y[0]), 0.36
     B("Bench cushion", root, (L, W_, 0.075), M["bench"], (0, 0, 0.41), 0.025)
     B("Bench base board", root, (L - 0.04, W_ - 0.04, 0.03), M["steel"], (0, 0, 0.358), 0.004)
     for sx in (-1, 1):  # flat-bar sled legs
@@ -501,7 +495,8 @@ def _touch_existing(R):
     """Hide the old centre bench (superseded) and move the bag + towel onto the new bench."""
     touched = []
     seat = 0.4475 + 0.0025
-    moves = {f"{R.tag} Gym bag on bench": (2.05, 0.115), f"{R.tag} Folded towel bench": (2.55, 0.025)}
+    yc = sum(BENCH_Y) / 2
+    moves = {f"{R.tag} Gym bag on bench": yc + 0.45, f"{R.tag} Folded towel bench": yc - 0.40}
     for ob in bpy.data.objects:
         nm = ob.name
         if not ob.users_collection or ob.users_collection[0].name != f"Annex - {R.tag} Suite":
@@ -517,11 +512,9 @@ def _touch_existing(R):
         if is_bench:
             ob.hide_render = ob.hide_viewport = True
         else:
-            u, dz = moves[nm]
             loc0, rot0, sc0 = m0.decompose()
             half_h = ob.dimensions.z / 2
-            ob.matrix_world = Matrix.LocRotScale(Vector((R.x(u), BENCH_Y, seat + half_h + 0.0005)),
-                                                 Matrix.Rotation(math.radians(90), 4, "Z").to_quaternion() @ rot0, sc0)
+            ob.matrix_world = Matrix.LocRotScale(Vector((R.x(BENCH_U), moves[nm], seat + half_h + 0.0005)), rot0, sc0)
         touched.append(nm)
     return touched
 
@@ -550,7 +543,7 @@ def _slipper(R, root, x, y, z, tilt):
 def _slipper_rack(R):
     """Low 3-tier slanted slipper rack on the partition wall just inside the entry."""
     M = R.M
-    root = R.frame("Slipper rack", 0.0, -7.36, "+u")
+    root = R.frame("Slipper rack", 0.0, SLIPPER_Y, "+u")
     w, d = 0.64, 0.26
     for sx in (-1, 1):
         B("Slipper rack side", root, (0.02, d, 0.58), M["lamp"], (sx * (w / 2 - 0.01), d / 2 + 0.002, 0.291), 0.003)
@@ -585,7 +578,7 @@ def _notice(R, name, root, xyz, file, w=0.21, h=0.297):
 def _powder(R):
     """Amenities on the existing vanity (frame of gym_locker_suites: u 0, y -8.85, facing +u)."""
     M = R.M
-    root = R.frame("Powder corner", 0.0, -8.85, "+u")
+    root = R.frame("Powder corner", 0.0, VANITY_Y, "+u")
     top = 0.8175 + 0.0005
     # desk fan (refs 037 185)
     fx, fy = 1.00, 0.30
@@ -641,7 +634,7 @@ def _powder(R):
 def _towel_shelf(R):
     """Clean towel shelf above the existing used-towel return (ref 148)."""
     M = R.M
-    root = R.frame("Clean towel shelf", 0.0, -10.225, "+u")
+    root = R.frame("Clean towel shelf", 0.0, Y_WALL_B + 0.225, "+u")
     for z in (1.30, 1.66):
         B("Towel shelf board", root, (0.40, 0.30, 0.025), M["wood"], (0, 0.152, z), 0.004)
         for sx in (-0.17, 0.17):
@@ -680,9 +673,9 @@ def _wall_fan(R):
 
 
 def _scale(R):
-    """Mechanical dial body scale (ref 183) on the floor in the north aisle, low enough for locker doors to swing over."""
+    """Mechanical dial body scale (ref 183) in the front corner nook between the front run and the outer run."""
     M = R.M
-    root = R.frame("Body scale", 3.40, -8.05, "-u")
+    root = R.frame("Body scale", 3.78, Y_FRONT - 0.01, "-y")
     B("Scale body", root, (0.30, 0.38, 0.05), M["chrome"], (0, 0.19, 0.026), 0.02)
     for sx in (-0.072, 0.072):
         B("Scale foot pad", root, (0.11, 0.20, 0.004), M["rubber"], (sx, 0.25, 0.0525), 0.01)
@@ -707,10 +700,10 @@ def _body_dryer(R):
 
 
 def _notices(R):
-    root = R.frame("Island notices", ISL_U[0] - 0.021, (ISL_Y[0] + ISL_Y[1]) / 2, "-u")
-    _notice(R, "rules", root, (0.20 * -R.s, 0, 1.45), "notice_rules.png")
-    _notice(R, "lost", root, (-0.20 * -R.s, 0, 1.45), "notice_lost.png")
-    root = R.frame("Slipper notice", 0.0, -7.36, "+u")
+    root = R.frame("Entry notices", 0.0, -7.42, "+u")  # partition wall beside the entry landing
+    _notice(R, "rules", root, (0.20, 0, 1.45), "notice_rules.png")
+    _notice(R, "lost", root, (-0.20, 0, 1.45), "notice_lost.png")
+    root = R.frame("Slipper notice", 0.0, SLIPPER_Y, "+u")
     _notice(R, "slipper", root, (0, 0, 1.35), "notice_slipper.png")
 
 
@@ -754,7 +747,7 @@ def apply() -> dict:
         _scale(R)
         _body_dryer(R)
         _notices(R)
-        lockers[R.tag] = dict(new=n, total=24 + n, numbers=f"{spec['first']}-{last}", fobs_on_existing=fobs)
+        lockers[R.tag] = dict(new=n, total=2 * (14 + 6) + n, numbers=f"{spec['first']}-{last}", fobs_on_existing=fobs)
     bpy.context.view_layer.update()
     return {"collection": COLL, "objects_added": len(c.objects), "triangles_added": _tris(c),
             "existing_touched": touched, "lockers": lockers}

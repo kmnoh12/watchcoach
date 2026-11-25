@@ -22,7 +22,7 @@ Korean public-restroom conventions (cleaning checklist on the cleaning cabinet, 
 yellow wet-floor A-frame, plastic bath stools + basin) follow common Korean gym/bathhouse practice.
 
 Suite frame (from gym_locker_suites): u = distance from the central partition face toward the outer wall,
-Men x = 11.55 - u, Women x = 11.65 + u; shower u 0..2.00, restroom u 2.10..4.15, y -10.55..-15.30.
+Men x = 11.55 - u, Women x = 11.65 + u; shower u 0..2.00, restroom u 2.10..4.15, y -12.35..-17.10 (pass 3).
 Existing objects touched (material swap only, object-linked slot, original kept in custom props):
   {Men,Women} Floor shower                -> D gym_wet anti-slip 300x300 matte tile
   {Men,Women} shower walls (marble)        -> same marble look with wider, darker grout so tiles read
@@ -49,15 +49,17 @@ FONT = os.path.normpath(os.path.join(HERE, "..", "parts", "fonts", "NanumGothic-
 # Suite constants (mirrors gym_locker_suites, read-only)
 PART_X, PART_T = 11.60, 0.10
 WIDTH = 4.15
-Y_IN = -10.55          # shower / restroom side face of the locker back wall
-Y_BACK = -15.30
+Y_LBACK = -12.30       # gym_locker_suites.Y_LBACK (pass 3: locker room deepened from -10.50)
+DY = Y_LBACK + 10.50   # every wet-zone y below was laid out for Y_LBACK -10.50 and moves back by DY
+Y_IN = -10.55 + DY     # shower / restroom side face of the locker back wall
+Y_BACK = -15.30 + DY
 CEIL_TILE_Z = 2.985    # underside of the tiled ceiling in shower / restroom
 U_SHOWER_IN = 2.00     # shower side face of the divider wall
 U_WC_IN = 2.10         # restroom side face of the divider wall
-BOOTH_Y = (-12.30, -13.30, -14.30, -15.30)
+BOOTH_Y = tuple(y + DY for y in (-12.30, -13.30, -14.30, -15.30))
 BOOTH_D = 1.05
 CUBE_U = (2.10, 3.125, 4.15)
-CUBE_Y = -13.80
+CUBE_Y = -13.80 + DY
 SUITES = (("Men", -1), ("Women", 1))
 
 
@@ -699,7 +701,7 @@ def _duckboard(M, parent, u0, u1, y0, y1, s, tag):
 
 def _cleaning_cabinet(M, tag, s):
     """Grey steel cleaning cabinet in the restroom corner by the door, checklist on its door, mop + bucket beside."""
-    root = frame(tag, s, "Cleaning cabinet", WIDTH, -10.87, "-u")
+    root = frame(tag, s, "Cleaning cabinet", WIDTH, -10.87 + DY, "-u")
     w, d, h = 0.48, 0.38, 1.85
     box("Cabinet body", (w, d - 0.02, h), M["cabinet"], root, (0, 0.002 + (d - 0.02) / 2, h / 2 + 0.002), bevel=0.006)
     box("Cabinet door", (w - 0.02, 0.016, h - 0.06), M["cabinet"], root, (0, d - 0.009, h / 2 + 0.02), bevel=0.004)
@@ -715,7 +717,7 @@ def _cleaning_cabinet(M, tag, s):
     quad("Checklist", 0.21, 0.297, M["d_check"], root, (0.03, d + 0.0055, 1.07))
     box("Pen on string", (0.008, 0.008, 0.13), M["bucket"], root, (0.17, d + 0.006, 0.88), rot=(0, 8, 0))
     # mop bucket with wringer + mop leaning on the wall
-    b = frame(tag, s, "Mop bucket", WIDTH - 0.24, -11.36, "-u")
+    b = frame(tag, s, "Mop bucket", WIDTH - 0.24, -11.36 + DY, "-u")
     frustum("Mop bucket body", (0.34, 0.25), (0.38, 0.28), 0.28, M["bucket"], b, (0, 0, 0.004), bevel=0.02)
     box("Mop bucket water", (0.34, 0.24, 0.004), M["water"], b, (0.04, 0, 0.24))
     box("Mop wringer", (0.12, 0.26, 0.16), M["yellow"], b, (-0.12, 0, 0.36), bevel=0.012)
@@ -724,7 +726,7 @@ def _cleaning_cabinet(M, tag, s):
     for wx in (-0.17, 0.17):
         cyl("Bucket caster", 0.022, 0.02, M["rubber"], b, (wx, 0.11, 0.024), (90, 0, 0), seg=12)
         cyl("Bucket caster b", 0.022, 0.02, M["rubber"], b, (wx, -0.11, 0.024), (90, 0, 0), seg=12)
-    m = frame(tag, s, "Mop", WIDTH, -11.78, "-u")
+    m = frame(tag, s, "Mop", WIDTH, -11.78 + DY, "-u")
     p0, p1 = (0.30, 0.13), (0.022, 1.40)        # (local y, z): mop head -> top resting on the wall
     dy, dz = p1[0] - p0[0], p1[1] - p0[1]
     ang = math.degrees(math.atan2(-dy, dz))
@@ -776,43 +778,43 @@ def _shower(M, tag, s):
         _hook_towel(M, root, -0.38, 1.74, towel=(i != 1), mat=M["towel"] if i == 0 else M["towel_grey"])
         _booth_plate(M, tag, s, i + 1, ya)
     # Booth 1 (door open) has a stool with a basin, the others are bare
-    root = frame(tag, s, "Booth stool", 0.55, -13.65, "+u")
+    root = frame(tag, s, "Booth stool", 0.55, -13.65 + DY, "+u")
     _bath_stool(M, stool, root, (0, 0, 0), rz=8)
     # Spare stools stacked + basin in the aisle corner by the back wall
-    root = frame(tag, s, "Stool stack", 1.82, -15.08, "+u")
+    root = frame(tag, s, "Stool stack", 1.82, -15.08 + DY, "+u")
     _bath_stool(M, stool, root, (0, 0, 0), rz=90)
     _bath_stool(M, stool, root, (0, 0, 0.222), rz=93)
-    root2 = frame(tag, s, "Booth stool basin", 0.55, -13.65, "+u", 0.2195)
+    root2 = frame(tag, s, "Booth stool basin", 0.55, -13.65 + DY, "+u", 0.2195)
     _basin(M, root2, (0, 0, 0))
     # Squeegee leaning on the back wall
     sq = frame(tag, s, "Squeegee", 1.38, Y_BACK + 0.27, "+y")
     _squeegee(M, sq)
     # Square drains in the dry aisle (ref 046)
-    for y in (-11.95, -14.45):
+    for y in (-11.95 + DY, -14.45 + DY):
         e = frame(tag, s, f"Aisle drain {y}", 1.52, y, "+y")
         _square_drain(M, e, (0, 0))
     # Exhaust fans
     e = frame(tag, s, "Shower exhaust", 0, 0, "+y")
     e.location = (0, 0, 0)
     e.rotation_euler.z = 0
-    _exhaust(M, e, (_sx(s, 1.55), -13.95))
-    _exhaust(M, e, (_sx(s, 0.52), -11.30))
+    _exhaust(M, e, (_sx(s, 1.55), -13.95 + DY))
+    _exhaust(M, e, (_sx(s, 0.52), -11.30 + DY))
     # Duckboard inside the doorway
-    _duckboard(M, e, 0.80, 1.60, -10.86, -11.42, s, tag)
+    _duckboard(M, e, 0.80, 1.60, -10.86 + DY, -11.42 + DY, s, tag)
     # Rules sign left of the doorway (on the locker back wall's shower face)
     r = frame(tag, s, "Shower rules", 0.36, Y_IN, "-y")
     box("Rules sign plate", (0.42, 0.006, 0.32), M["backer"], r, (0, 0.005, 1.55), bevel=0.002)
     quad("Rules sign", 0.40, 0.30, M["d_rules"], r, (0, 0.0090, 1.55))
     # Wet-floor A-frame in the free corner before booth 0
-    _wet_floor_sign(M, e, (_sx(s, 0.45), -11.75, 0.0), rz=-20 * s)
+    _wet_floor_sign(M, e, (_sx(s, 0.45), -11.75 + DY, 0.0), rz=-20 * s)
 
 
 def _restroom(M, tag, s):
     # Under-counter LED glow (mirror/vanity lighting, refs 061/070): strip under the counter apron
-    v = frame(tag, s, "Vanity LED", U_WC_IN, -11.75, "+u")
+    v = frame(tag, s, "Vanity LED", U_WC_IN, -11.75 + DY, "+u")
     box("Under counter LED", (1.36, 0.012, 0.006), M["led"], v, (0, 0.49, 0.714))
     # Paper towel dispenser next to the vanity (ref 063): white box with smoked window
-    p = frame(tag, s, "Paper towel box", U_WC_IN + 0.002, -10.80, "+u")
+    p = frame(tag, s, "Paper towel box", U_WC_IN + 0.002, -10.80 + DY, "+u")
     box("Towel box body", (0.27, 0.11, 0.34), M["abs"], p, (0, 0.055, 1.38), bevel=0.012)
     box("Towel box window", (0.10, 0.004, 0.14), M["smoke"], p, (0, 0.111, 1.42), bevel=0.002)
     box("Towel box slot", (0.20, 0.03, 0.012), M["dark"], p, (0, 0.06, 1.2045))
@@ -826,17 +828,17 @@ def _restroom(M, tag, s):
     e = frame(tag, s, "Restroom exhaust", 0, 0, "+y")
     e.location = (0, 0, 0)
     e.rotation_euler.z = 0
-    _exhaust(M, e, (_sx(s, 3.70), -12.25), 0.25)
+    _exhaust(M, e, (_sx(s, 3.70), -12.25 + DY), 0.25)
     for i in range(2):
-        _exhaust(M, e, (_sx(s, (CUBE_U[i] + CUBE_U[i + 1]) / 2), -14.30), 0.25)
+        _exhaust(M, e, (_sx(s, (CUBE_U[i] + CUBE_U[i + 1]) / 2), -14.30 + DY), 0.25)
     if s < 0:
         # Urinal sticker above each urinal (outer wall, u = 4.15)
-        for i, y in enumerate((-12.30, -13.00)):
+        for i, y in enumerate((-12.30 + DY, -13.00 + DY)):
             r = frame(tag, s, f"Urinal sticker {i}", WIDTH, y, "-u")
             quad("Urinal notice", 0.20, 0.14, M["d_urinal"], r, (0, 0.002, 1.74))
     else:
         # Sanitary pad vending box on the outer wall + labels on the cubicle sanitary bins
-        r = frame(tag, s, "Sanitary vending", WIDTH, -12.40, "-u")
+        r = frame(tag, s, "Sanitary vending", WIDTH, -12.40 + DY, "-u")
         box("Vending body", (0.32, 0.14, 0.45), M["abs"], r, (0, 0.072, 1.38), bevel=0.01)
         quad("Vending face", 0.31, 0.44, M["d_vend"], r, (0, 0.1425, 1.38))
         for i in range(2):

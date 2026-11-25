@@ -1,12 +1,15 @@
 """WatchCoach gym annex, phase 3: gender-separated locker suites behind the gym front wall.
 
 build_locker_suites(parent) adds two suites that mirror each other across a central partition at x = 11.60:
-  Men   x  7.40 .. 11.55      Women  x 11.65 .. 15.80      y -6.90 (front) .. -15.30 (back), ceiling z = 3.00
-  Locker room  y  -6.90 .. -10.50   entered through the MEN / WOMEN doors (x 10.95 / 12.25) of gym_annex.build_gym_doors
+  Men   x  7.40 .. 11.55      Women  x 11.65 .. 15.80      y -6.90 (front) .. -17.10 (back), ceiling z = 3.00
+  Locker room  y  -6.90 .. -12.30 (5.4 m deep, ~22.4 m2)   entered through the MEN / WOMEN doors (x 10.95 / 12.25) of gym_annex.build_gym_doors
   Behind the locker room the suite splits in two, both reached straight from the locker room's back wall:
     Shower    (partition side)  open doorway (no door), white marble tile, 3 frameless clear/frosted glass booths
     Restroom  (outer side)      its own door; fluted green-glass vanity with pill mirrors, 2 stainless WC cubicles,
                                 stainless towel/dryer unit (+ 2 urinals with screens for men)
+Locker room layout (pass 3, Korean gym 탈의실 refs work/refs/interior 002 005 008 011 020 032): 2-tier lockers line
+the walls (front run beside the entry, a long outer-wall run, a short run on the partition near the back), the vanity
+sits mid-partition and one low bench runs down the middle with >= 1.2 m clear aisles on both sides.
 Every suite works in its own frame: u = distance from the partition face toward the suite's outer wall.
 """
 import math
@@ -15,7 +18,8 @@ import bmesh
 import bpy
 import wc_lib as W
 
-Y_FRONT, Y_LBACK, Y_BACK = -6.90, -10.50, -15.30
+Y_FRONT, Y_LBACK = -6.90, -12.30
+Y_BACK = Y_LBACK - 4.80        # shower + restroom zone keeps its 4.8 m depth behind the locker room
 CEIL = 3.00
 PART_X, PART_T = 11.60, 0.10   # central partition
 WIDTH = 4.15                   # inner width of one suite
@@ -26,9 +30,15 @@ ENTRY_W, ENTRY_H = 0.91, 2.18  # same opening gym_annex cuts through Wall_Front
 SHOWER_OPEN = (0.70, 1.70, 2.20)  # open doorway locker -> shower (u0, u1, top)
 WC_DOOR = (2.55, 3.45, 2.10)      # door locker -> restroom
 BOOTH_D = 1.05                    # booth depth from the partition wall
-BOOTH_Y = (-12.30, -13.30, -14.30, -15.30)
-CUBE_Y = -13.80                   # WC cubicle front line
+BOOTH_Y = tuple(Y_LBACK - d for d in (1.80, 2.80, 3.80, 4.80))
+CUBE_Y = Y_LBACK - 3.30            # WC cubicle front line
 CUBE_U = (U_DIV + DIV_T / 2, 3.125, WIDTH)
+# Locker room layout
+LOCKER_CW, LOCKER_D = 0.33, 0.45  # 2-tier column width / carcass depth (front faces 0.47 m off the wall)
+N_FRONT, FRONT_U0 = 6, 1.40       # front-wall run beside the entry
+N_OUTER, OUTER_GAP = 14, 0.62     # outer-wall run starts 0.62 m behind the front wall (clear of the front run)
+VANITY_Y = -9.72                  # powder vanity centre on the partition wall (y -8.62 .. -10.82)
+BENCH_U, BENCH_Y = 2.26, (-8.70, -10.60)  # centre bench (aisles >= 1.2 m to the outer lockers and vanity stools)
 
 SUITES = (
     dict(tag="Men", s=-1, door_x=10.95, accent=(0.18, 0.56, 0.96), urinals=True, first_locker=201,
@@ -549,7 +559,7 @@ class _Suite:
 
 def _locker_run(S, root, n, first_no):
     c, M = S.c, S.M
-    cw, d, H, plinth = 0.42, 0.52, 1.90, 0.10
+    cw, d, H, plinth = LOCKER_CW, LOCKER_D, 1.90, 0.10
     L = n * cw
     _lb(c, root, "Locker carcass", (L, d, H), M["carcass"], (L / 2, d / 2, plinth + H / 2))
     _lb(c, root, "Locker plinth", (L, d - 0.06, plinth), M["steel"], (L / 2, (d - 0.06) / 2, plinth / 2))
@@ -596,9 +606,9 @@ def _powder_vanity(S, root, length, sinks, powder):
         _lc(c, root, "Hair dryer body", 0.045, 0.19, M["carcass"], (px, 0.15, 1.08), (90, 0, 0), seg=20)
         _lc(c, root, "Hair dryer nozzle", 0.03, 0.05, M["steel"], (px, 0.265, 1.08), (90, 0, 0), seg=16, r2=0.024)
         _lc(c, root, "Hair dryer cord", 0.004, 0.16, M["dark"], (px, 0.12, 0.89), seg=6)
-        _lc(c, root, "Stool base", 0.17, 0.02, M["chrome"], (px, 0.78, 0.01), seg=24)
-        _lc(c, root, "Stool post", 0.022, 0.56, M["chrome"], (px, 0.78, 0.30), seg=12)
-        _lc(c, root, "Stool cushion", 0.17, 0.07, M["carcass"], (px, 0.78, 0.615), seg=24)
+        _lc(c, root, "Stool base", 0.17, 0.02, M["chrome"], (px, 0.70, 0.01), seg=24)
+        _lc(c, root, "Stool post", 0.022, 0.56, M["chrome"], (px, 0.70, 0.30), seg=12)
+        _lc(c, root, "Stool cushion", 0.17, 0.07, M["carcass"], (px, 0.70, 0.615), seg=24)
     if powder:
         _lb(c, root, "Tissue box", (0.22, 0.11, 0.08), M["white"], (powder[0] + 0.24, 0.20, 0.858), 0.01)
 
@@ -713,20 +723,9 @@ def _toilet(S, root, half_w, sanitary_bin):
 
 
 def _urinal(S, root, idx):
-    c, M = S.c, S.M
-    body = _lc(c, root, "Urinal body", 0.19, 0.66, M["ceramic"], (0, 0.08, 0.86), seg=36)
-    body.scale.y = 1.15
-    cutter = _lc(c, root, f"{S.tag} urinal cutter {idx}", 0.15, 0.50, M["dark"], (0, 0.20, 0.93), seg=32)
-    cutter.hide_render = cutter.hide_viewport = True
-    cutter.display_type = "WIRE"
-    bo = body.modifiers.new("Bowl", "BOOLEAN")
-    bo.operation = "DIFFERENCE"
-    bo.object = cutter
-    _bevel(body, 0.008, harden=True)
-    _lc(c, root, "Urinal drain", 0.04, 0.01, M["chrome"], (0, 0.13, 0.68), seg=16)
-    _lc(c, root, "Flush valve pipe", 0.016, 0.26, M["chrome"], (0, 0.05, 1.32), seg=12)
-    _lb(c, root, "Flush sensor", (0.10, 0.05, 0.12), M["brushed"], (0, 0.03, 1.50), 0.01)
-    _lb(c, root, "Flush sensor eye", (0.03, 0.004, 0.018), M["dark"], (0, 0.057, 1.48))
+    """Sensor-integrated wall-hung urinal (real-product model in urinal_model.py)."""
+    import urinal_model
+    urinal_model.urinal(S, root, idx)
 
 
 def _steel_unit(S, root):
@@ -801,29 +800,29 @@ def _locker_room(S):
     S.box("SuiteCeiling cove p", sb + 0.005, sb + 0.02, yi0, yi1, CEIL - 0.03, CEIL - 0.005, M["glow_warm"])
     S.box("SuiteCeiling cove o", WIDTH - sb - 0.02, WIDTH - sb - 0.005, yi0, yi1, CEIL - 0.03, CEIL - 0.005, M["glow_warm"])
     for u in (sb / 2, WIDTH - sb / 2):
-        for y in (-7.9, -9.5):
+        for y in (-7.9, -9.6, -11.3):
             W.cyl(f"{S.tag} SuiteCeiling downlight", 0.045, 0.006, M["glow_warm"], c, (S.x(u), y, z0 - 0.003), seg=16)
 
-    # Two-tier lockers: 7 columns on the outer wall, 5 on the front wall
+    # Two-tier lockers: a long run on the outer wall, a run on the front wall beside the entry
     n = S.spec["first_locker"]
-    run_len = 7 * 0.42
-    y_start = Y_FRONT - 0.26 - run_len if S.s > 0 else Y_FRONT - 0.26
-    n = _locker_run(S, S.frame("Lockers outer wall", WIDTH, y_start, "-u"), 7, n)
-    x_hi = max(S.x(1.40), S.x(1.40 + 5 * 0.42))
+    run_len = N_OUTER * LOCKER_CW
+    y_start = Y_FRONT - OUTER_GAP - run_len if S.s > 0 else Y_FRONT - OUTER_GAP
+    n = _locker_run(S, S.frame("Lockers outer wall", WIDTH, y_start, "-u"), N_OUTER, n)
+    x_hi = max(S.x(FRONT_U0), S.x(FRONT_U0 + N_FRONT * LOCKER_CW))
     root = W.empty(f"{S.tag} Lockers front wall", c, (x_hi, Y_FRONT - 0.02, 0))
     root.rotation_euler.z = math.pi
-    _locker_run(S, root, 5, n)
+    _locker_run(S, root, N_FRONT, n)
 
-    # Centre bench
-    bu, by = 2.35, -8.75
-    S.box("Bench top", bu - 0.21, bu + 0.21, by + 0.95, by - 0.95, 0.425, 0.47, M["wood"], 0.01)
-    for ly in (by + 0.75, by - 0.75):
+    # Centre bench (detail_gym_lockers hides it and puts its padded bench on the same spot)
+    bu, by, bl = BENCH_U, sum(BENCH_Y) / 2, abs(BENCH_Y[1] - BENCH_Y[0]) / 2
+    S.box("Bench top", bu - 0.18, bu + 0.18, by + bl, by - bl, 0.425, 0.47, M["wood"], 0.01)
+    for ly in (by + bl - 0.20, by - bl + 0.20):
         S.box("Bench leg", bu - 0.19, bu + 0.19, ly + 0.02, ly - 0.02, 0.0, 0.425, M["steel"], 0.004)
         S.box("Bench foot", bu - 0.19, bu + 0.19, ly + 0.03, ly - 0.03, 0.0, 0.02, M["steel"], 0.004)
     S.box("Gym bag on bench", bu - 0.15, bu + 0.12, by + 0.55, by + 0.12, 0.47, 0.70, M["carcass"], 0.06)
     S.box("Folded towel bench", bu - 0.12, bu + 0.12, by - 0.30, by - 0.62, 0.47, 0.52, M["white"], 0.02)
 
-    _powder_vanity(S, S.frame("Vanity", 0, -8.85, "+u"), 2.2, sinks=(-0.75, -0.25), powder=(0.35, 0.85))
+    _powder_vanity(S, S.frame("Vanity", 0, VANITY_Y, "+u"), 2.2, sinks=(-0.75, -0.25), powder=(0.35, 0.85))
 
     # Back wall, left to right: towel return | open shower doorway | full mirror | restroom door
     root = S.frame("Towel return", 0.35, yw, "+y")
@@ -840,7 +839,7 @@ def _locker_room(S):
     _sign(S, S.frame("Restroom sign", (WC_DOOR[0] + WC_DOOR[1]) / 2, yw, "+y"), "RESTROOM", "화장실", 2.36)
 
     _area_light(c, f"{S.tag} Locker light", (S.x(WIDTH / 2), (Y_FRONT + Y_LBACK) / 2, CEIL - 0.05),
-                WIDTH - 0.7, abs(Y_LBACK - Y_FRONT) - 0.7, 420, (1.0, 0.86, 0.70))
+                WIDTH - 0.7, abs(Y_LBACK - Y_FRONT) - 0.7, 630, (1.0, 0.86, 0.70))
 
 
 def _shower_room(S):
@@ -889,14 +888,14 @@ def _shower_room(S):
     # Tiled grid ceiling over the whole shower
     S.box("SuiteCeiling shower tiles", 0, u_in, y_in, Y_BACK, CEIL - 0.015, CEIL - 0.001, M["ceil_tile"])
     # Dry aisle: towel hooks along the divider wall, a couple of towels hanging
-    root = S.frame("Hook rail", u_in, -13.85, "-u")
+    root = S.frame("Hook rail", u_in, Y_LBACK - 3.35, "-u")
     _lb(c, root, "Hook rail bar", (2.2, 0.025, 0.035), M["brushed"], (0, 0.0125, 1.66), 0.004)
     for i in range(6):
         hx = -0.95 + i * 0.38
         _lc(c, root, "Towel hook", 0.011, 0.07, M["chrome"], (hx, 0.055, 1.66), (90, 0, 0), seg=10)
         if i in (1, 4):
             _lb(c, root, "Hanging towel", (0.30, 0.03, 0.62), M["white"], (hx, 0.09, 1.34), 0.012)
-    for y in (-11.10, -12.60):
+    for y in (Y_LBACK - 0.60, Y_LBACK - 2.10):
         W.cyl(f"{S.tag} SuiteCeiling aisle downlight", 0.045, 0.006, M["glow_white"], c, (S.x(1.55), y, CEIL - 0.018), seg=20)
         _spot(c, f"{S.tag} Aisle spot {y}", (S.x(1.55), y, CEIL - 0.03), 40, (1.0, 0.91, 0.80), shadow=False)
     _area_light(c, f"{S.tag} Shower fill", (S.x(u_in / 2), (y_in + Y_BACK) / 2, CEIL - 0.05),
@@ -921,10 +920,10 @@ def _restroom(S):
         _lb(c, hg, "WC door pull", (0.02, 0.02, 0.40), M["chrome"], (w - 0.08, -0.02 + side * 0.035, 1.05), 0.006)
 
     # Vanity on the divider wall, steel unit + teal bin after it, coiled hose under the counter
-    _restroom_vanity(S, S.frame("Restroom vanity", u_in, -11.75, "+u"), 1.40, sinks=(-0.35, 0.35))
-    _trash_bin(S, S.frame("Teal bin", u_in + 0.24, -12.68, "+u"))
-    _steel_unit(S, S.frame("Steel towel unit", u_in, -13.25, "+u"))
-    hose = S.frame("Floor hose", u_in + 0.26, -11.30, "+u")
+    _restroom_vanity(S, S.frame("Restroom vanity", u_in, Y_LBACK - 1.25, "+u"), 1.40, sinks=(-0.35, 0.35))
+    _trash_bin(S, S.frame("Teal bin", u_in + 0.24, Y_LBACK - 2.18, "+u"))
+    _steel_unit(S, S.frame("Steel towel unit", u_in, Y_LBACK - 2.75, "+u"))
+    hose = S.frame("Floor hose", u_in + 0.26, Y_LBACK - 0.80, "+u")
     _torus(c, hose, f"{S.tag} hose coil a", 0.15, 0.016, M["hose"], (0, 0, 0.016))
     _torus(c, hose, f"{S.tag} hose coil b", 0.14, 0.016, M["hose"], (0.02, 0.01, 0.048))
 
@@ -953,13 +952,13 @@ def _restroom(S):
                 sanitary_bin=not S.spec["urinals"])
 
     if S.spec["urinals"]:
-        for i, y in enumerate((-12.30, -13.00)):
+        for i, y in enumerate((Y_LBACK - 1.80, Y_LBACK - 2.50)):
             _urinal(S, S.frame(f"Urinal {i}", WIDTH, y, "-u"), i)
-        for i, y in enumerate((-11.95, -12.65, -13.35)):
+        for i, y in enumerate((Y_LBACK - 1.45, Y_LBACK - 2.15, Y_LBACK - 2.85)):
             S.box(f"Urinal screen {i}", WIDTH - 0.46, WIDTH, y + 0.0125, y - 0.0125, 0.42, 1.62, M["brushed"], 0.006)
 
     S.box("SuiteCeiling restroom tiles", u_in, WIDTH, y_in, Y_BACK, CEIL - 0.015, CEIL - 0.001, M["ceil_tile"])
-    for y in (-11.6, -12.9):
+    for y in (Y_LBACK - 1.10, Y_LBACK - 2.40):
         S.box("SuiteCeiling LED panel", 2.80, 3.40, y + 0.30, y - 0.30, CEIL - 0.020, CEIL - 0.014, M["glow_white"])
     _area_light(c, f"{S.tag} Restroom light", (S.x((u_in + WIDTH) / 2), (y_in + CUBE_Y) / 2, CEIL - 0.05),
                 1.2, 2.2, 105, (1.0, 0.97, 0.93))
