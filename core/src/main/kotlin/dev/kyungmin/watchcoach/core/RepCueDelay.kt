@@ -85,6 +85,13 @@ object RepCueDelay {
 class UnifiedCueScheduler(
     private val family: MotionFamily,
     private val returnScale: Double = 1.0,
+    /**
+     * Suppresses predicted return delay when the underlying detector already detects and emits at
+     * the physical return-end stop (`RowReturnStopDetector` for rowing exercises). Non-row
+     * `CYCLE_AXIS_RETURN` exercises (lateral/front raises, straight-arm pulldowns, pull-ups, squats),
+     * `MULTI_AXIS_RETURN` (`machine_fly` with `returnScale = 1.27`), and `PULL_RETURN` stay unchanged.
+     */
+    private val suppressReturnDelay: Boolean = false,
 ) {
     private data class Point(val t: Long, val theta: DoubleArray, val gPos: DoubleArray)
     private data class PendingReturn(
@@ -176,6 +183,10 @@ class UnifiedCueScheduler(
 
     fun schedule(event: ProfiledMotionRepEvent, emittedAtNs: Long): Long {
         val turnNs = event.turnaroundTimestampNs
+        val isCycle = event.endTimestampNs == turnNs
+        if (suppressReturnDelay) {
+            return 0L
+        }
         if (turnNs < lastTurnaroundNs) {
             learnedReturns.clear()
             learnedRatios.clear()
@@ -187,7 +198,6 @@ class UnifiedCueScheduler(
             repCount = 0
         }
         val repIdx = repCount++
-        val isCycle = event.endTimestampNs == turnNs
         val sinceTurn = max(0L, emittedAtNs - turnNs)
         val predReturnNs = (predictReturnNs(isCycle, sinceTurn) * returnScale).roundToLong()
         val delayMs = RepCueDelay.unifiedDelayMs(turnNs, emittedAtNs, predReturnNs)

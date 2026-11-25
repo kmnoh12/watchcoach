@@ -121,6 +121,21 @@ class ProfiledMotionRepDetector(
 
         /** Rowing strokes with strong linear travel whose minor forearm pitch wiggle double-peaks in gyro. */
         private val DYN_ONLY_ROWS = setOf("one_arm_dumbbell_row")
+
+        /**
+         * Rowing exercises routed to direct causal return-stop detection ([RowReturnStopDetector]).
+         * Scoped strictly to rows so lateral/front raises, straight-arm pulldowns, face pulls,
+         * squats, and pull-ups keep their existing [CycleAxisRepDetector] behavior unchanged.
+         */
+        private val ROW_RETURN_STOP_EXERCISES = setOf(
+            "seated_row", "cable_seated_row", "seated_cable_row_close",
+            "single_arm_machine_seated_row", "single_arm_cable_seated_row",
+            "one_arm_cable_row", "barbell_row", "bent_over_dumbbell_row", "one_arm_dumbbell_row",
+            "lying_tbar_row", "machine_row_plate", "single_arm_plate_loaded_row",
+            "high_row_machine", "single_arm_high_row_machine", "machine_tbar_row", "tbar_row_landmine",
+            "chest_supported_dumbbell_row", "single_arm_chest_supported_dumbbell_row",
+            "seal_row", "meadows_row", "inverted_row",
+        )
     }
 
     private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION)
@@ -130,21 +145,34 @@ class ProfiledMotionRepDetector(
         TranslationPressRepDetector(profile, rotateGravityByGyro = profile.exerciseId in GYRO_GRAVITY_PUSHDOWNS) else null
     private val hingeCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN && profile.exerciseId in HINGE_DISPLACEMENT)
         HingeDisplacementRepDetector() else null
-    private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN && hingeCounter == null)
-        CycleAxisRepDetector(
-            countOnReturn = ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe in
-                setOf(MeasurementRecipe.LATERAL_RAISE, MeasurementRecipe.ROW) ||
-                profile.exerciseId in SEATED_ROWS || profile.exerciseId in RETURN_COUNTED,
-            phaseKernel = false,
-            dynOnly = profile.exerciseId in DYN_ONLY_ROWS,
-        ) else null
+    private val rowReturnStopCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN &&
+        hingeCounter == null &&
+        profile.exerciseId in ROW_RETURN_STOP_EXERCISES
+    ) RowReturnStopDetector(dynOnly = profile.exerciseId in DYN_ONLY_ROWS) else null
+    private val cycleCountOnReturn = profile.family == MotionFamily.CYCLE_AXIS_RETURN &&
+        hingeCounter == null && rowReturnStopCounter == null && (
+        ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe in
+            setOf(MeasurementRecipe.LATERAL_RAISE, MeasurementRecipe.ROW) ||
+            profile.exerciseId in SEATED_ROWS || profile.exerciseId in RETURN_COUNTED
+    )
+    private val cycleCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN &&
+        hingeCounter == null && rowReturnStopCounter == null
+    ) CycleAxisRepDetector(
+        countOnReturn = cycleCountOnReturn,
+        phaseKernel = false,
+        dynOnly = profile.exerciseId in DYN_ONLY_ROWS,
+    ) else null
     private val arcCounter = if (profile.family == MotionFamily.ARC_RETURN) ForearmRotationRepDetector(profile) else null
     private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
     private val excursionCounter = if (!legacyLobes &&
         profile.id.substringBefore('+') == profile.family.sharedAlgorithmId &&
         profile.family in setOf(MotionFamily.PULL_RETURN, MotionFamily.MULTI_AXIS_RETURN, MotionFamily.PRESS_RETURN)
     ) ExcursionRepDetector(profile, handwardX) else null
-    private val cueScheduler = UnifiedCueScheduler(profile.family, RepCueDelay.returnScale(profile.exerciseId))
+    private val cueScheduler = UnifiedCueScheduler(
+        family = profile.family,
+        returnScale = RepCueDelay.returnScale(profile.exerciseId),
+        suppressReturnDelay = rowReturnStopCounter != null,
+    )
 
     private var lastTimestampNs = 0L
     private var motionSampleNs = 0L
@@ -180,13 +208,13 @@ class ProfiledMotionRepDetector(
 
     // Pose counting previously allowed long top holds without a maximum duration.
     // Bound set-end grace at 12s, preserving slow returns; this policy still needs Watch8 validation.
-    val maximumCycleNs: Long get() = translationCounter?.maximumCycleNs ?: verticalCounter?.maximumCycleNs ?: hingeCounter?.maximumCycleNs ?: cycleCounter?.maximumCycleNs ?: if (poseCounter != null) 12_000_000_000L else profile.maximumRepMs * 1_000_000L
+    val maximumCycleNs: Long get() = translationCounter?.maximumCycleNs ?: verticalCounter?.maximumCycleNs ?: hingeCounter?.maximumCycleNs ?: rowReturnStopCounter?.maximumCycleNs ?: cycleCounter?.maximumCycleNs ?: if (poseCounter != null) 12_000_000_000L else profile.maximumRepMs * 1_000_000L
 
     /** Latest sample that looked like working motion, even when no complete rep was accepted. */
     var lastMotionNs: Long = 0L
         private set
 
-    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (cycleCounter != null || hingeCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
+    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (rowReturnStopCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
         ?: lobeStartNs.takeIf { it > 0L && lobeDisplacement >= profile.minimumLobeDisplacement }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
@@ -201,6 +229,7 @@ class ProfiledMotionRepDetector(
         translationCounter?.let { return it.add(sample) }
         verticalCounter?.let { return it.add(sample) }
         hingeCounter?.let { return it.add(sample) }
+        rowReturnStopCounter?.let { return it.add(sample) }
         cycleCounter?.let { return it.add(sample) }
         poseCounter?.let { return it.add(sample) }
         excursionCounter?.let { return it.add(sample) }
@@ -254,7 +283,7 @@ class ProfiledMotionRepDetector(
 
     fun finish(): ProfiledMotionRepEvent? {
         arcCounter?.let { return it.finish()?.asProfiledEvent() }
-        if (translationCounter != null || verticalCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) return null
+        if (translationCounter != null || verticalCounter != null || rowReturnStopCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) return null
         if (poseCounter != null) return null // A partial return never becomes a rep when the set ends.
         if (!legacyLobes) { resetAll(); return null } // Only observed quiet/reversal closes a new-engine lobe.
         if (direction == 0 || lastTimestampNs == 0L) return null
@@ -268,13 +297,14 @@ class ProfiledMotionRepDetector(
      * estimate learned from the user's real starting pose.
      */
     /** Offline end of stream: every rep still undelivered (the cycle engine confirms reps with a delay). */
-    fun finishAll(): List<ProfiledMotionRepEvent> = translationCounter?.finishAll() ?: hingeCounter?.finishAll() ?: cycleCounter?.finishAll() ?: listOfNotNull(finish())
+    fun finishAll(): List<ProfiledMotionRepEvent> = translationCounter?.finishAll() ?: hingeCounter?.finishAll() ?: rowReturnStopCounter?.finishAll() ?: cycleCounter?.finishAll() ?: listOfNotNull(finish())
 
     fun beginCounting() {
         arcCounter?.beginCounting()
         translationCounter?.beginCounting()
         verticalCounter?.beginCounting()
         hingeCounter?.beginCounting()
+        rowReturnStopCounter?.beginCounting()
         cycleCounter?.beginCounting()
         poseCounter?.reset()
         excursionCounter?.beginCounting()
@@ -311,6 +341,7 @@ class ProfiledMotionRepDetector(
                 verticalCounter.beginCounting()
             }
             hingeCounter != null -> hingeCounter.prime(samples)
+            rowReturnStopCounter != null -> rowReturnStopCounter.prime(samples)
             cycleCounter != null -> cycleCounter.prime(samples)
             poseCounter != null -> while (iterator.hasNext()) poseCounter.add(iterator.next())
             excursionCounter != null -> excursionCounter.prime(samples)

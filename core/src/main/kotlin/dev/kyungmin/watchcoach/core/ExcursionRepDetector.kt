@@ -48,6 +48,8 @@ internal class ExcursionRepDetector(
     private var maxGyroRate = 0.0
     private var period = 2.5
     private var primeEndNs = Long.MIN_VALUE
+    private var flipGuardNs = Long.MIN_VALUE
+    private var lastRepIntervalNs = 0L
     private val pending = ArrayDeque<ProfiledMotionRepEvent>()
 
     val candidateStartNs: Long? get() = null
@@ -57,7 +59,7 @@ internal class ExcursionRepDetector(
         gBias.fill(0.0); gPos.fill(0.0); gSmooth.fill(0.0)
         gravInit = false; grav.fill(0.0); aBias.fill(0.0); aPos.fill(0.0); aSmooth.fill(0.0)
         hasSample = false; lastNs = 0L; analyzedNs = Long.MIN_VALUE; deliveredNs = Long.MIN_VALUE
-        gAxis = null; aAxis = null; maxGyroRate = 0.0; period = 2.5; primeEndNs = Long.MIN_VALUE; pending.clear()
+        gAxis = null; aAxis = null; maxGyroRate = 0.0; period = 2.5; primeEndNs = Long.MIN_VALUE; flipGuardNs = Long.MIN_VALUE; lastRepIntervalNs = 0L; pending.clear()
     }
 
     /**
@@ -72,6 +74,8 @@ internal class ExcursionRepDetector(
         maxGyroRate = 0.0
         period = 2.5
         primeEndNs = Long.MIN_VALUE
+        flipGuardNs = Long.MIN_VALUE
+        lastRepIntervalNs = 0L
         pending.clear()
     }
 
@@ -189,7 +193,13 @@ internal class ExcursionRepDetector(
             val gNorm = sqrt(grav.sumOf { it * it })
             gNorm > 1e-6 && abs((0..2).sumOf { v[it] * grav[it] }) / gNorm >= VERTICAL_AXIS_MIN_DOT
         }
-        if (gravityOriented && (0..2).sumOf { v[it] * grav[it] } < 0.0) for (c in 0..2) v[c] = -v[c]
+        if (gravityOriented && (0..2).sumOf { v[it] * grav[it] } < 0.0) {
+            for (c in 0..2) v[c] = -v[c]
+            // Turning the sign over mid-set moves the count from one end of the stroke to the other, so the next
+            // return-end lands only half a cycle after the last count; without this guard that half cycle was
+            // counted as an extra rep (plate-loaded pulldown 2026-11-25 set 1: 13 counted for 12).
+            if (prevAxis != null && deliveredNs != Long.MIN_VALUE) flipGuardNs = deliveredNs + (FLIP_GUARD_PERIODS * max(period * 1e9, lastRepIntervalNs.toDouble())).toLong()
+        }
         val primeAnchor = if (primeEndNs == Long.MIN_VALUE) 0 else {
             val idx = history.indexOfLast { it.t <= primeEndNs }
             if (idx < 0) 0 else idx
@@ -285,7 +295,7 @@ internal class ExcursionRepDetector(
                     start < rawTurn && rawTurn < end && end > primeEndNs &&
                     end - start >= profile.minimumRepMs * 1_000_000L &&
                     end - start <= profile.maximumRepMs * 1_000_000L &&
-                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs)
+                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs) && end >= flipGuardNs
                 ) {
                     val turn = (rawTurn - 220_000_000L).coerceIn(start + 1_000_000L, (start + end) / 2L - 1_000_000L)
                     val durMs = (end - start) / 1_000_000L
@@ -302,6 +312,7 @@ internal class ExcursionRepDetector(
                             confidence = 0.90,
                         ),
                     )
+                    if (deliveredNs != Long.MIN_VALUE) lastRepIntervalNs = minOf(end - deliveredNs, MAX_GUARD_INTERVAL_NS)
                     deliveredNs = end
                 }
                 low = trough; lowIndex = troughIndex; high = value; highIndex = i; returning = false
@@ -316,7 +327,7 @@ internal class ExcursionRepDetector(
                     end > primeEndNs &&
                     end - start >= profile.minimumRepMs * 1_000_000L &&
                     end - start <= profile.maximumRepMs * 1_000_000L &&
-                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs)
+                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs) && end >= flipGuardNs
                 ) {
                     val turn = (rawTurn - 220_000_000L).coerceIn(start + 1_000_000L, (start + end) / 2L - 1_000_000L)
                     val durMs = (end - start) / 1_000_000L
@@ -334,6 +345,7 @@ internal class ExcursionRepDetector(
                             confidence = 0.90,
                         ),
                     )
+                    if (deliveredNs != Long.MIN_VALUE) lastRepIntervalNs = minOf(end - deliveredNs, MAX_GUARD_INTERVAL_NS)
                     deliveredNs = end
                 }
                 low = value; high = value; lowIndex = i; highIndex = i; returning = false
@@ -346,10 +358,16 @@ internal class ExcursionRepDetector(
         const val FOREARM_AXIS_MIN_X = 0.5
 
         /** A pulldown axis must be at least this aligned with gravity before up/down decides its sign. */
-        const val VERTICAL_AXIS_MIN_DOT = 0.7
+        const val VERTICAL_AXIS_MIN_DOT = 0.5
 
         /** Seconds of post-preparation history a pulldown window needs before gravity, not the opening vote, sets the sign. */
-        const val GRAVITY_ORIENT_AFTER_NS = 6_000_000_000L
+        const val GRAVITY_ORIENT_AFTER_NS = 3_000_000_000L
+
+        /** After a mid-set sign flip, the next count must come at least this many periods after the last one. */
+        const val FLIP_GUARD_PERIODS = 0.9
+
+        /** Longest rep interval trusted for the flip guard (a rest pause must not swallow the next rep). */
+        const val MAX_GUARD_INTERVAL_NS = 5_000_000_000L
 
         /** A cut-short return still counts when it covered this share of its pull before the next pull began. */
         const val SHORT_RETURN_FRACTION = 0.5

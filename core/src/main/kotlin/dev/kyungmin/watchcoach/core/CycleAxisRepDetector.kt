@@ -59,6 +59,16 @@ class CycleAxisRepDetector(
 
         /** How long the first report waits for the return lobe before falling back to the lift peak. */
         private const val RETURN_WAIT_NS = 3_000_000_000L
+
+        /** Peak-timestamp matching windows for 4-phase consensus (tight immediate match, loose fallback within one rep). */
+        private const val TIGHT_CONSENSUS_WINDOW_NS = 450_000_000L
+        private const val LOOSE_CONSENSUS_WINDOW_NS = 950_000_000L
+
+        /** Bounded period-adaptive duplicate suppression for return-counted cycles (blocks sub-cycle double peaks without losing tempo speedups). */
+        private const val ADAPTIVE_PERIOD_FRACTION = 0.55
+        private const val MAX_ADAPTIVE_SEPARATION_NS = 1_350_000_000L
+        private const val MAX_PERIOD_INTERVAL_NS = 4_500_000_000L
+        private const val RECENT_INTERVAL_WINDOW = 5
     }
 
     private class TrailingMean(private val window: Int) {
@@ -81,21 +91,124 @@ class CycleAxisRepDetector(
         fun clear() { size = 0 }
     }
 
-    private data class PhaseEvent(val event: ProfiledMotionRepEvent, val emittedNs: Long)
+    private data class KernelLock(val gyroSource: Boolean, val sign: Int)
+    private data class PhaseEvent(val event: ProfiledMotionRepEvent, val emittedNs: Long, val lock: KernelLock?)
     private val phases = if (phaseKernel) emptyList() else List(4) { CycleAxisRepDetector(countOnReturn, true, dynOnly) }
-    private val phaseCounts = IntArray(4)
     private val phaseEvents = Array(4) { ArrayDeque<PhaseEvent>() }
+    private val phaseLocks = arrayOfNulls<KernelLock>(4)
     private var phaseSamples = 0
-    private var deliveredCount = 0
+    private var outerLastNs = 0L
+    private var lastConsensusPeakNs: Long? = null
+    private var consensusSecondDelivered = false
+    private val consensusIntervals = ArrayDeque<Long>()
+    private var chosenSplitLock: KernelLock? = null
 
+    private fun consensusMinSeparationNs(prevPeakNs: Long): Long {
+        val base = if (!consensusSecondDelivered) FIRST_PAIR_SEPARATION_NS else MIN_SEPARATION_NS
+        if (!countOnReturn || consensusIntervals.isEmpty()) return base
+        val sorted = consensusIntervals.sorted()
+        val medianPeriodNs = sorted[sorted.size / 2]
+        val adaptive = (medianPeriodNs * ADAPTIVE_PERIOD_FRACTION).toLong().coerceAtMost(MAX_ADAPTIVE_SEPARATION_NS)
+        return max(base, adaptive)
+    }
+
+    /**
+     * Timestamp-matched consensus across the 4 phase-shifted kernels.
+     *
+     * Replaces queue-index pairing, which paired unrelated reps across queues whenever one kernel locked onto
+     * the opposite sign or caught an extra peak (causing 1.4s+ burst delays, timestamp reversals, and duplicate
+     * pairs). Requires 3-of-4 kernels to agree on a peak timestamp (within [TIGHT_CONSENSUS_WINDOW_NS], falling
+     * back to [LOOSE_CONSENSUS_WINDOW_NS] when all kernels detect the same rep with wider subgrid spread),
+     * or resolves a clean 2-vs-2 lock split once all 4 kernels have locked (preferring linear acceleration over
+     * gyro when D vs G splits) and enforces strictly monotonic peak delivery with period-adaptive duplicate
+     * suppression.
+     */
     private fun consensus(nowNs: Long): ProfiledMotionRepEvent? {
-        if (phaseCounts.minOrNull()!! <= deliveredCount) return null
-        val limiting = phaseCounts.indices.minByOrNull { phaseCounts[it] }!!
-        val selected = phaseEvents[limiting].first()
-        phaseEvents.forEach { it.removeFirst() }
-        deliveredCount++
-        val remainingDelay = ((selected.emittedNs + selected.event.cueDelayMs * 1_000_000L - nowNs) / 1_000_000L).coerceAtLeast(0L)
-        return selected.event.copy(cueDelayMs = remainingDelay)
+        while (true) {
+            val prevPeak = lastConsensusPeakNs
+            if (prevPeak != null) {
+                val barrier = prevPeak + consensusMinSeparationNs(prevPeak)
+                for (q in phaseEvents) {
+                    while (q.isNotEmpty() && q.first().event.endTimestampNs < barrier) q.removeFirst()
+                }
+            }
+
+            if (chosenSplitLock == null && phaseLocks.all { it != null }) {
+                val counts = HashMap<KernelLock, Int>()
+                for (lk in phaseLocks) counts[lk!!] = (counts[lk] ?: 0) + 1
+                if (counts.size == 2 && counts.values.all { it == 2 }) {
+                    val keys = counts.keys.toList()
+                    val l1 = keys[0]; val l2 = keys[1]
+                    chosenSplitLock = when {
+                        l1.gyroSource != l2.gyroSource -> if (!l1.gyroSource) l1 else l2
+                        else -> {
+                            val t1 = phaseEvents.indices.filter { phaseLocks[it] == l1 }
+                                .mapNotNull { phaseEvents[it].firstOrNull()?.event?.endTimestampNs }.minOrNull() ?: Long.MAX_VALUE
+                            val t2 = phaseEvents.indices.filter { phaseLocks[it] == l2 }
+                                .mapNotNull { phaseEvents[it].firstOrNull()?.event?.endTimestampNs }.minOrNull() ?: Long.MAX_VALUE
+                            if (t1 <= t2) l1 else l2
+                        }
+                    }
+                }
+            }
+
+            val split = chosenSplitLock
+            val eligible = if (split != null) {
+                phaseEvents.indices.filter { phaseLocks[it] == split }
+            } else {
+                phaseEvents.indices.toList()
+            }
+            val quorum = if (split != null) 2 else 3
+
+            val allCandidates = ArrayList<Pair<Int, PhaseEvent>>()
+            for (i in eligible) {
+                for (pe in phaseEvents[i]) allCandidates += i to pe
+            }
+            if (allCandidates.size < quorum) return null
+            allCandidates.sortBy { it.second.event.endTimestampNs }
+
+            fun findCluster(windowNs: Long): List<Pair<Int, PhaseEvent>>? {
+                for (a in allCandidates.indices) {
+                    val anchorNs = allCandidates[a].second.event.endTimestampNs
+                    val byKernel = HashMap<Int, PhaseEvent>()
+                    for (b in a until allCandidates.size) {
+                        val (ki, pe) = allCandidates[b]
+                        if (pe.event.endTimestampNs - anchorNs > windowNs) break
+                        if (ki !in byKernel) byKernel[ki] = pe
+                    }
+                    if (byKernel.size >= quorum) {
+                        return byKernel.entries.map { it.key to it.value }.sortedBy { it.second.event.endTimestampNs }
+                    }
+                }
+                return null
+            }
+
+            val matched = findCluster(TIGHT_CONSENSUS_WINDOW_NS) ?: findCluster(LOOSE_CONSENSUS_WINDOW_NS) ?: return null
+            val selected = matched[matched.size / 2].second
+            val selectedPeakNs = selected.event.endTimestampNs
+            val cutoffNs = max(matched.last().second.event.endTimestampNs, selectedPeakNs + TIGHT_CONSENSUS_WINDOW_NS / 2)
+            for (q in phaseEvents) {
+                while (q.isNotEmpty() && q.first().event.endTimestampNs <= cutoffNs) q.removeFirst()
+            }
+
+            val startNs = prevPeak ?: selected.event.startTimestampNs
+            val durationMs = ((selectedPeakNs - startNs) / 1_000_000L).coerceAtLeast(0L)
+            if (prevPeak != null) {
+                consensusSecondDelivered = true
+                val gap = selectedPeakNs - prevPeak
+                if (gap in MIN_SEPARATION_NS..MAX_PERIOD_INTERVAL_NS) {
+                    if (consensusIntervals.size >= RECENT_INTERVAL_WINDOW) consensusIntervals.removeFirst()
+                    consensusIntervals.addLast(gap)
+                }
+            }
+            lastConsensusPeakNs = selectedPeakNs
+            val remainingDelay = ((selected.emittedNs + selected.event.cueDelayMs * 1_000_000L - nowNs) / 1_000_000L).coerceAtLeast(0L)
+            return selected.event.copy(
+                startTimestampNs = startNs,
+                durationMs = durationMs,
+                cueDelayMs = remainingDelay,
+            )
+        }
     }
 
     private val times = LongArray(MAX_HISTORY)
@@ -119,7 +232,15 @@ class CycleAxisRepDetector(
     val maximumCycleNs: Long get() = (MAX_MEDIAN_S * 1e9).toLong()
 
     fun beginCounting() {
-        phases.forEach { it.beginCounting() }; phaseCounts.fill(0); phaseEvents.forEach { it.clear() }; phaseSamples = 0; deliveredCount = 0
+        phases.forEach { it.beginCounting() }
+        phaseEvents.forEach { it.clear() }
+        phaseLocks.fill(null)
+        phaseSamples = 0
+        outerLastNs = 0L
+        lastConsensusPeakNs = null
+        consensusSecondDelivered = false
+        consensusIntervals.clear()
+        chosenSplitLock = null
         count = 0; gyro.forEach { it.clear() }; dyn.forEach { it.clear() }
         gyroMean = TrailingMean(GYRO_SMOOTH); gravityMean = TrailingMean(GRAVITY_WINDOW); dynMean = TrailingMean(GYRO_SMOOTH)
         lastNs = 0L; startNs = 0L; nextAnalysisNs = 0L; lastPeakNs = null
@@ -144,9 +265,12 @@ class CycleAxisRepDetector(
 
     private fun clearDetections(primedThroughNs: Long) {
         phases.forEach { it.clearDetections(primedThroughNs) }
-        phaseCounts.fill(0)
         phaseEvents.forEach { it.clear() }
-        deliveredCount = 0
+        phaseLocks.fill(null)
+        lastConsensusPeakNs = null
+        consensusSecondDelivered = false
+        consensusIntervals.clear()
+        chosenSplitLock = null
         lastPeakNs = null
         lockedGyro = false
         lockedSign = 0
@@ -158,8 +282,17 @@ class CycleAxisRepDetector(
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
         if (phases.isNotEmpty()) {
+            val t = sample.timestampNs
+            if (sample.sensorAccuracy != 0 && t >= 0L) {
+                if (outerLastNs != 0L && t - outerLastNs > MAX_GAP_NS) beginCounting()
+                if (t > outerLastNs) outerLastNs = t
+            }
             for (i in phases.indices) if (phaseSamples >= i) {
-                phases[i].add(sample)?.let { phaseCounts[i]++; phaseEvents[i].addLast(PhaseEvent(it, sample.timestampNs)) }
+                phases[i].add(sample)?.let { ev ->
+                    val lk = if (phases[i].locked) KernelLock(phases[i].lockedGyro, phases[i].lockedSign) else null
+                    if (lk != null) phaseLocks[i] = lk
+                    phaseEvents[i].addLast(PhaseEvent(ev, sample.timestampNs, lk))
+                }
             }
             phaseSamples++
             return consensus(sample.timestampNs)
@@ -188,9 +321,14 @@ class CycleAxisRepDetector(
     /** Final analysis at the end of a stream; returns every rep that has not been delivered yet. */
     fun finishAll(): List<ProfiledMotionRepEvent> {
         if (phases.isNotEmpty()) {
-            for (i in phases.indices) for (event in phases[i].finishAll()) { phaseCounts[i]++; phaseEvents[i].addLast(PhaseEvent(event, phases[i].lastNs)) }
+            for (i in phases.indices) for (event in phases[i].finishAll()) {
+                val lk = if (phases[i].locked) KernelLock(phases[i].lockedGyro, phases[i].lockedSign) else null
+                if (lk != null) phaseLocks[i] = lk
+                phaseEvents[i].addLast(PhaseEvent(event, phases[i].lastNs, lk))
+            }
             val result = ArrayList<ProfiledMotionRepEvent>()
-            while (true) result += consensus(phases.maxOf { it.lastNs }) ?: break
+            val endNs = phases.maxOf { it.lastNs }
+            while (true) result += consensus(endNs) ?: break
             return result
         }
         if (count > 0) analyze(lastNs, 0L)
