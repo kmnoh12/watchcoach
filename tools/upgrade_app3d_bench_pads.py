@@ -107,7 +107,7 @@ def wrap(size, shaft_radius):
 
 
 def batch_files(batch):
-    suffix = {1: "", 2: "_02", 3: "_03"}[batch]
+    suffix = {1: "", 2: "_02", 3: "_03", 4: "_04"}[batch]
     return f"bench_pad_targets{suffix}.json", f"bench_pad_fit{suffix}.json"
 
 
@@ -138,6 +138,13 @@ def upgrade(view, batch=1):
                         )
                     )
                     prototype = [wrap(dims, radius)]
+                elif role == "knee_pad":
+                    # Loose kneeling mat on the floor, not a bench with a rigid pan.
+                    from upgrade_app3d_rest_bars import parts as mat_parts
+
+                    mat = load(HERE / "scene_rest_bar_source.json")["floor_mat__002"]
+                    _, layers = mat_parts("floor_mat__002", mat, mat_size=dims)
+                    prototype = [(v, t, mat["rgb"], m, sm) for v, t, sm, m in layers]
                 else:
                     shape = (
                         "back_pad"
@@ -182,7 +189,7 @@ def upgrade(view, batch=1):
             meta[name] = dict(
                 group=group,
                 adjustment_axis=None,
-                attachment="bar_shaft" if role == "hip_pad" else "fixed_mount",
+                attachment={"hip_pad": "bar_shaft", "knee_pad": "floor"}.get(role, "fixed_mount"),
                 records=len(parts),
                 collision=check,
             )
@@ -201,6 +208,6 @@ def upgrade(view, batch=1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    parser.add_argument("--batch", type=int, choices=(1, 2, 3), default=1)
+    parser.add_argument("--batch", type=int, choices=(1, 2, 3, 4), default=1)
     args = parser.parse_args()
     upgrade(args.viewer, args.batch)

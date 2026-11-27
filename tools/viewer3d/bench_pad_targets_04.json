@@ -1,0 +1,32 @@
+{
+  "cable_crunch_kneel": {
+    "kneeling_pad": [
+      21,
+      "knee_pad__004"
+    ]
+  },
+  "cable_seated_crunch": {
+    "bench_pad": [
+      4,
+      "seat_pad__004"
+    ]
+  },
+  "cable_pullover": {
+    "pad_bench": [
+      17,
+      "seat_pad__002"
+    ]
+  },
+  "chest_supported_dumbbell_row": {
+    "chest_abdomen_pad": [
+      9,
+      "chest_pad__001"
+    ]
+  },
+  "single_arm_chest_supported_dumbbell_row": {
+    "chest_abdomen_pad": [
+      9,
+      "chest_pad__001"
+    ]
+  }
+}

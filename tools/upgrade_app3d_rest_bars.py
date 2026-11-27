@@ -20,7 +20,7 @@ MATERIALS = {
 }
 
 
-def parts(group, source):
+def parts(group, source, *, mat_size=(0.660, 1.850, 0.025)):
     """Preserve scene resolution and keep smooth sides separate from flat end normals."""
     v = np.array(source["v"])
     t = np.array(source["t"])
@@ -43,7 +43,7 @@ def parts(group, source):
         sides = np.r_[sides[sides], np.zeros(len(caps), dtype=bool)]
     if group == "floor_mat__002":
         # Preserve the moulded rim and the flat upper contact surface. Only resize the middle.
-        for axis, size in enumerate((0.660, 1.850, 0.025)):
+        for axis, size in enumerate(mat_size):
             v[:, axis] = _nine(v[:, axis], np.ptp(v[:, axis]) / 2, size / 2, 0.016)
     dims = np.ptp(v, axis=0)
     result = []

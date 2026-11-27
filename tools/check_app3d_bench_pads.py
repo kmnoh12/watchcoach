@@ -55,7 +55,7 @@ def check(view, baseline, batch=1):
     assert changed - {"v5_bundle_report.json"} == {
         "data/" + k + ".wgm" for k in applied
     } | {"data/wgm_manifest.json", "data/" + report_file} | (
-        {"data/parts.bin"} if batch == 1 else set()
+        {"data/parts.bin"} if batch in (1, 4) else set()
     )
     reports = [load(root / "v5_bundle_report.json") for root in [baseline, view]]
     assert {k: v for k, v in reports[0].items() if k != "bytes"} == {
@@ -126,7 +126,8 @@ def check(view, baseline, batch=1):
             info = fit[key]["pads"][name]
             assert info["group"] == group and info["adjustment_axis"] is None
             wrap = group.startswith("hip_pad__")
-            layer = rows[idx : idx + (1 if wrap else 3)]
+            mat = group.startswith("knee_pad__")
+            layer = rows[idx : idx + (1 if wrap or mat else 3)]
             idx += len(layer)
             ids = tuple(x["pid"] for x in layer)
             assert groups.setdefault(group, ids) == ids
@@ -164,6 +165,14 @@ def check(view, baseline, batch=1):
                     abs(rad.max() - np.linalg.norm(ov[:, :2], axis=1).max()),
                     np.max(abs(v[:, 2].min() - ov[:, 2].min())),
                     abs(v[:, 2].max() - ov[:, 2].max()),
+                )
+            elif mat:
+                slot = load(HERE / "scene_rest_bar_source.json")["floor_mat__002"]
+                assert info["attachment"] == "floor" and r["mat"] == MAT_PAD
+                assert not any(slot["smooth"]) and np.array_equal(r["faces"], slot["t"])
+                assert np.allclose(np.asarray(r["rgb"]) / 255, slot["rgb"], atol=0.5 / 255)
+                surface_error = max(
+                    abs(v.max(0) - ov.max(0)).max(), abs(v.min(0) - ov.min(0)).max()
                 )
             else:
                 assert info["attachment"] == "fixed_mount" and [
@@ -211,7 +220,7 @@ if __name__ == "__main__":
     ap.add_argument("view", type=Path)
     ap.add_argument("baseline", type=Path)
     ap.add_argument("--report", type=Path)
-    ap.add_argument("--batch", type=int, choices=(1, 2, 3), default=1)
+    ap.add_argument("--batch", type=int, choices=(1, 2, 3, 4), default=1)
     args = ap.parse_args()
     result = json.dumps(check(args.view, args.baseline, args.batch), indent=2)
     print(result)
