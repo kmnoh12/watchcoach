@@ -502,6 +502,28 @@ def open_source(path):
     return Folder(path) if Path(path).is_dir() else zipfile.ZipFile(path)
 
 
+def fit_incline_curl_seat(machine, tr, frames):
+    """Register the seated lifter and bench as rigid assemblies, after fitting the grips."""
+    weights = {"handle", "handle.001", "dumbbell_head", "dumbbell_head.001",
+               "dumbbell_head.002", "dumbbell_head.003"}
+    objects = machine["objects"]
+    if ({o["name"] for o in objects if len(o["m"]) != 1} != weights or
+            not {"seat", "back", "hinge", "foot_cap"} <= {o["name"] for o in objects}):
+        raise ValueError("Unexpected incline curl bench or moving assembly")
+    feet = np.isin(np.asarray(tr.names)[tr.u.argmax(axis=1)], ["foot_l", "foot_r"])
+    lift = -float(frames[0, feet, 2].min())  # bench feet are on z=0
+    if not 0 <= lift < 0.01:
+        raise ValueError("Unexpected incline curl floor registration")
+    for obj in objects:
+        if obj["name"] in weights:
+            for m in obj["m"]:
+                m[14] += lift  # same vertical offset as the hands, at every key
+        else:
+            # Slide the whole bench towards its head; retain all pin and pad settings.
+            obj["m"][0][13] += 0.032
+    return (0, 0, lift)
+
+
 def convert(clip, apk, outdir, tr):
     from build_app3d_v5 import pack_motion
     from fit_app3d_dumbbell_contacts import CLIPS, correct
@@ -578,7 +600,8 @@ def convert(clip, apk, outdir, tr):
             if part in shifted:
                 row[side]["handle_shift_mm"], row[side]["shifted_parts"] = shifted[part]
         support = correct(key, machine, acts, tr, result, q, t, row) if key in CLIPS else {}
-        blob, error = pack_motion(dict(acts=acts, frames=result), len(tr.n))
+        origin = fit_incline_curl_seat(machine, tr, result) if key in {"incline_curl", "incline_hammer_curl"} else None
+        blob, error = pack_motion(dict(acts=acts, frames=result), len(tr.n), origin_offset=origin)
         (outdir / "human_v5" / (key + ".bin")).write_bytes(blob)
         (outdir / "data" / (key + ".json")).write_text(
             json.dumps(machine, ensure_ascii=False, separators=(",", ":")),

@@ -17,7 +17,7 @@ read = lambda p: json.loads(p.read_text())
 sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def pack_motion(data, vertices):
+def pack_motion(data, vertices, *, origin_offset=None):
     acts = np.asarray(data['acts'], dtype='<f4')
     points = np.asarray(data['frames'], dtype=np.float32).reshape(len(acts), vertices, 3)
     assert np.isfinite(points).all() and np.isfinite(acts).all() and (np.diff(acts) > 0).all()
@@ -29,6 +29,9 @@ def pack_motion(data, vertices):
     assert error_mm < .1, f'Cache precision loss: {error_mm} mm'
     delta = np.diff(quantized.astype(np.int32), axis=0, prepend=np.zeros_like(quantized[:1], dtype=np.int32)).astype('<u2')   # wraps mod 65536, lossless
     assert (np.cumsum(delta.astype(np.uint32), axis=0).astype('<u2') == quantized).all()
+    # A rigid placement belongs in the origin, not in re-quantized motion keys.
+    if origin_offset is not None:
+        minimum = minimum + np.asarray(origin_offset, dtype='<f4').reshape(3)
     blob = struct.pack('<4sIII', b'WGP2', len(acts), vertices, 0) + minimum.tobytes() + scale.tobytes() + acts.tobytes() + delta.tobytes()
     assert len(blob) == 40+len(acts)*4+len(acts)*vertices*6
     return blob, error_mm
