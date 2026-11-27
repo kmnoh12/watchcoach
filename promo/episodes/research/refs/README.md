@@ -16,3 +16,9 @@
 - **출처:** MBC충북 뉴스데스크 「단백질 보충제 단백질 함량·가격 차 커」(2023-08-08)
 - **장면:** 헬스장 회원 인터뷰. 인터뷰이가 검정 ALLRIGHT 캡을 눌러쓰고 검정 집업 차림으로 나온다. 뒤로는 랙과 머신이 보이는 헬스장. 보충제는 단백질 양을 중시한다는 진지한 답변을 한다.
 - **포인트:** 공중파 뉴스 인터뷰에도 올라잇 굿즈를 입고 나오는 팬덤의 일상성. 뉴스 인터뷰 컷 패러디나 팬덤 엑스트라 착장에 쓴다.
+
+## airport_carousel_posing.jpg — 공항 수하물 컨베이어 위 상탈 포징 (경민 제공, 2026-11-27)
+- **출처:** 인스타 @johnymuenster 게시물(캡션 "Airport bodybuilder energy! 😂", 좋아요 2.1만). 계정 주인은 독일 보디빌더·피트니스 크리에이터 Johny Münster(팔로워 약 156만, [HypeAuditor](https://hypeauditor.com/de/instagram/johnymuenster/)).
+  - 같은 수하물 컨베이어 포징 기사가 [EssentiallySports](https://essentiallysports.com/bodybuilding-news-i-didnt-mean-it-literally-bodybuilding-coach-milos-sarcev-startled-at-his-mr-olympia-competitor-regan-grimes-trainees-bizarre-stunt-at-the-airport)에도 있다. 기사에서는 Regan Grimes의 제자로 나온다. 이 게시물이 원본인지 재업로드인지는 확인하지 못했다.
+- **장면:** 공항 수하물 컨베이어 벨트 위에 상의를 벗고 서서 양손을 허리에 짚고 광배를 편 프론트 포즈를 잡는다. 하의는 검정 짧은 반바지, 흰 양말, 검정 운동화. 주변 승객들이 짐을 찾다가 웃으며 구경한다.
+- **포인트:** 공공장소에서 벗고 포징하는 보디빌더의 기괴함(벅어움). 3D에서는 "아무렇지 않게 컨베이어를 타고 들어오는 빌더"처럼 배경만 바꿔서 써먹을 수 있다.
