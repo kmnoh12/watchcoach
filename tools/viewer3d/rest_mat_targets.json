@@ -1,0 +1,70 @@
+{
+  "ab_wheel_rollout": {
+    "flanged_foam_grip": [
+      1,
+      "foam_grip__001"
+    ],
+    "flanged_foam_grip.001": [
+      2,
+      "foam_grip__002"
+    ],
+    "rubber_tyre": [
+      4,
+      "wheel_tire__001"
+    ],
+    "spoke": [
+      5,
+      "wheel_spoke__001"
+    ],
+    "spoke.001": [
+      6,
+      "wheel_spoke__001"
+    ],
+    "spoke.002": [
+      7,
+      "wheel_spoke__001"
+    ],
+    "spoke.003": [
+      8,
+      "wheel_spoke__001"
+    ],
+    "spoke.004": [
+      9,
+      "wheel_spoke__001"
+    ],
+    "rubber_mat": [
+      10,
+      "floor_mat__001"
+    ]
+  },
+  "bicycle_crunch": {
+    "rubber_mat": [
+      0,
+      "floor_mat__001"
+    ]
+  },
+  "crunch": {
+    "rubber_mat": [
+      0,
+      "floor_mat__001"
+    ]
+  },
+  "dead_bug": {
+    "rubber_mat": [
+      0,
+      "floor_mat__001"
+    ]
+  },
+  "diamond_push_up": {
+    "rubber_mat": [
+      0,
+      "floor_mat__001"
+    ]
+  },
+  "glute_bridge": {
+    "rubber_mat": [
+      0,
+      "floor_mat__001"
+    ]
+  }
+}
