@@ -1,0 +1,106 @@
+{
+  "chest_press_variants~m=decline": {
+    "back.006": [
+      2,
+      "back_pad__003"
+    ]
+  },
+  "chest_press_variants~m=flat_bench": {
+    "back": [
+      2,
+      "back_pad__004"
+    ],
+    "seat": [
+      51,
+      "seat_pad__005"
+    ]
+  },
+  "chest_press_variants~m=incline_pin": {
+    "back.006": [
+      2,
+      "back_pad__003"
+    ],
+    "headrest.001": [
+      16,
+      "head_pad__001"
+    ]
+  },
+  "chest_press_variants~m=incline_plate": {
+    "back.006": [
+      2,
+      "back_pad__003"
+    ],
+    "headrest.001": [
+      11,
+      "head_pad__001"
+    ],
+    "seat.015": [
+      44,
+      "seat_pad__002"
+    ],
+    "seat_adjust.002": [
+      45,
+      "seat_adjuster__001"
+    ],
+    "seat_post.008": [
+      46,
+      "seat_post__002"
+    ],
+    "seat_slide.002": [
+      47,
+      "adjustment_rail__002"
+    ]
+  },
+  "chest_press_variants~m=lying_decline": {
+    "ankle_roller": [
+      0,
+      "leg_roller__001"
+    ],
+    "back": [
+      3,
+      "back_pad__004"
+    ],
+    "seat": [
+      56,
+      "seat_pad__006"
+    ]
+  },
+  "chest_press_variants~m=lying_incline": {
+    "back": [
+      2,
+      "back_pad__004"
+    ],
+    "seat": [
+      51,
+      "seat_pad__005"
+    ]
+  },
+  "chest_press_variants~m=pin": {
+    "back.006": [
+      2,
+      "back_pad__003"
+    ]
+  },
+  "chest_press_variants~m=plate": {
+    "back.006": [
+      2,
+      "back_pad__003"
+    ],
+    "seat.015": [
+      43,
+      "seat_pad__002"
+    ],
+    "seat_adjust.002": [
+      44,
+      "seat_adjuster__001"
+    ],
+    "seat_post.008": [
+      45,
+      "seat_post__002"
+    ],
+    "seat_slide.002": [
+      46,
+      "adjustment_rail__002"
+    ]
+  }
+}
