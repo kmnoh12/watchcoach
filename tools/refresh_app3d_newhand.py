@@ -49,6 +49,7 @@ def main():
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_machines.py"),
                     "--viewer-dir", str(stage), "--stage1", "--plates"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_cable_towers.py"), str(stage)], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_adjust_bench.py"), str(stage)], check=True)
     report = json.loads((old / "v5_bundle_report.json").read_text())
     manifest = json.loads((stage / "human_v5/manifest.json").read_text())
     manifest["revision"] = report["revision"] + "+newhand"

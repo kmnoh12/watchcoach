@@ -1,0 +1,376 @@
+{
+  "seated_barbell_overhead_press": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  },
+  "arnold_press": {
+    "back_brace": [
+      0,
+      "frame_brace__001"
+    ],
+    "back": [
+      4,
+      "back_pad__001"
+    ],
+    "back_mount": [
+      5,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      6,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      7,
+      "pad_rail__001"
+    ],
+    "seat": [
+      18,
+      "seat_pad__001"
+    ],
+    "seat_mount": [
+      19,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      20,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      21,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      22,
+      "adjustment_rail__001"
+    ]
+  },
+  "dumbbell_shoulder_press": {
+    "back_brace": [
+      0,
+      "frame_brace__001"
+    ],
+    "back": [
+      4,
+      "back_pad__001"
+    ],
+    "back_mount": [
+      5,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      6,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      7,
+      "pad_rail__001"
+    ],
+    "seat": [
+      18,
+      "seat_pad__001"
+    ],
+    "seat_mount": [
+      19,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      20,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      21,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      22,
+      "adjustment_rail__001"
+    ]
+  },
+  "single_arm_incline_bench_curl": {
+    "incline_pad": [
+      4,
+      "back_pad__001"
+    ],
+    "rear_post": [
+      10,
+      "frame_post__001"
+    ],
+    "spine": [
+      11,
+      "frame_spine__004"
+    ]
+  },
+  "incline_curl": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  },
+  "incline_dumbbell_fly": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  },
+  "incline_hammer_curl": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  },
+  "rdf_incline": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  },
+  "spider_curl": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  }
+}

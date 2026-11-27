@@ -22,12 +22,13 @@ def roller_depth_bound(frames, surface, *, swept):
 
 def contact_region(base, role):
     """Include entire triangles incident to the contact anatomy, including joint blends."""
-    region = {'thigh_roller': 'thigh_'}[role]
+    regions = {'thigh_roller': ('thigh_',), 'seat_pad': ('thigh_', 'pelvis'),
+               'back_pad': ('pelvis', 'spine_', 'clavicle_'), 'arm_pad': ('upperarm_', 'lowerarm_')}[role]
     names = np.asarray(base['bone_names'])
     weights, joints = np.asarray(base['weights']), np.asarray(base['joints'])
     dominant = joints[np.arange(len(joints)), weights.argmax(1)]
     faces = np.asarray(base['triangles']).reshape(-1, 3)
-    selected = np.char.startswith(names[dominant], region)[faces].any(1)
+    selected = np.logical_or.reduce([np.char.startswith(names[dominant], r) for r in regions])[faces].any(1)
     if not selected.any():
         raise ValueError(f'Missing skin region for {role}')
     return faces[selected], faces[~selected]

@@ -62,14 +62,19 @@ def tracks(pos,q,grid,times):
 def check(view):
     data=view/'data'; human=view/'human_v5'; manifest=json.loads((data/'wgm_manifest.json').read_text())
     targets=json.loads((HERE/'plate_targets.json').read_text()); source=json.loads((HERE/'scene_plate_source.json').read_text())
-    assert manifest['plateOverlays']==targets and set(manifest['clips'])-set(manifest.get('machineOverlays', {}))==set(targets)|set(wire.build.STAGE1)
+    assert manifest['plateOverlays']==targets and set(manifest['clips'])==set(targets)|set(wire.build.STAGE1)|set(manifest.get('machineOverlays', {}))
     with Image.open(data/'plate_faces.webp') as texture, Image.open(HERE.parents[1]/'promo/parts/detail_gym_freeweight/plate_faces.png') as ref:
         assert texture.size==ref.size and np.array_equal(np.asarray(ref),np.asarray(texture))
     base=json.loads((human/'base.json').read_text());faces=np.asarray(base['triangles']).reshape(-1,3);assert base['vertices']==1401
     uv=[]; parts=wire.read_parts(data/'parts.bin',uvs=uv);seen=set(); counts=Counter(); report=[]
     for model, targets_by_index in targets.items():
         raw=json.loads((data/f'{model}.json').read_text());acts,rows=wire.read_clip(data/f'{model}.wgm',parts)
-        assert np.array_equal(acts,np.asarray(raw['acts'],'<f4')) and len(rows)==2*len(targets_by_index)
+        plate_count=2*len(targets_by_index)
+        overlay=manifest.get('machineOverlays',{}).get(model)
+        if overlay:
+            assert all(overlay['targets'].get(i)==name for i,name in targets_by_index.items())
+        assert np.array_equal(acts,np.asarray(raw['acts'],'<f4')) and len(rows)==(overlay['count'] if overlay else plate_count)
+        assert len(rows)>=plate_count  # preceding plate tracks are always the prefix
         path=human/f'{model}.bin';h=wire.build.load_wgp2_human_frames(path);ht=np.frombuffer(path.read_bytes(),'<f4',len(h),40)
         keys=np.unique(np.r_[acts, ht]);t=np.unique(np.r_[keys,(keys[:-1]+keys[1:])/2]);j=np.searchsorted(ht,t,side='right').clip(1,len(ht)-1);w=((t-ht[j-1])/(ht[j]-ht[j-1])).clip(0,1)
         skin=h[j-1]+w[:,None,None]*(h[j]-h[j-1]);center=skin[:,faces].mean(2); edges=np.unique(np.sort(np.vstack([faces[:,[0,1]],faces[:,[1,2]],faces[:,[2,0]]]),axis=1),axis=0)
