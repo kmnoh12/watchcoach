@@ -1,6 +1,6 @@
 """Read back this batch's packed records. Sweep actual V6 skin faces against each changed
 part's conservative bounding box on the union of equipment and human key times.
-These parts have identity or constant rotation and scale; only stack translation varies.
+The stack can translate. Retargeted sheaves also spin about their original fixed axles.
 """
 
 import argparse
@@ -14,6 +14,7 @@ from scipy.spatial.transform import Rotation
 
 import check_app3d_stage1 as wire
 from upgrade_app3d_cable_towers import load_batch
+from retarget_app3d_cable_hands import KEYS as HAND_TRACKS
 
 
 def bounds(raw):
@@ -79,12 +80,22 @@ def check(view, batch=1):
             rotations = Rotation.from_matrix(original[:, :3, :3].transpose(0, 2, 1))
             expected = original[:, 3, :3].copy()
             assert nf in (1, len(acts))
+            spinning = key in HAND_TRACKS and role == "pulley_wheel" and nf > 1
+            if spinning:
+                line = next(o for o in raw["objects"] if o["name"] == "cable.025")
+                # The encoded free line has end planes at y=0 and y=1.
+                payout = np.linalg.norm(np.asarray(line["m"])[:, 4:7], axis=1)
+                radius = np.linalg.norm(np.asarray(obj["verts"]).reshape(-1, 3)[:, :2], axis=1).max()
+                sign = {"pulley.007": -1, "pulley.008": 1, "pulley.009": 1}[name]
+                driven = rotations[0] * Rotation.from_euler("z", sign * (payout - payout[0]) / radius)
+                assert np.allclose(expected, expected[0]) and np.ptp(payout) > .05
+                assert np.max((driven.inv() * rotations).magnitude()) < .00001
             if role == "pulley_fork":
                 expected += rotations.apply([0, -0.03, 0.09])
             for layer, r in enumerate(got):
                 assert (
                     r["nf"] == nf
-                    and np.allclose(r["quat"], r["quat"][0])
+                    and (spinning or np.allclose(r["quat"], r["quat"][0]))
                     and np.allclose(r["scale"], r["scale"][0])
                 )
                 orientation = original[:, :3, :3].transpose(0, 2, 1)
@@ -107,11 +118,14 @@ def check(view, batch=1):
                     depth = np.ptp(np.asarray(obj["verts"]).reshape(-1, 3)[:, 1])
                     offset = [0, -front * (0.28 - depth) / 2, 0]
                     target = expected + (rotations.apply(offset) if batch == 3 else offset)
-                assert np.allclose(
-                    Rotation.from_quat(r["quat"]).as_matrix(),
-                    orientation,
-                    atol=0.00003,
-                )
+                if spinning:
+                    # Check the actual encoded values (the component quantizer does not
+                    # promise a 0.00003 bound on entries of the resulting rotation matrix).
+                    q = wire.build.decompose_frames(matrices)[1]
+                    encoded = q[0].astype("<f4") + np.rint((q - q[0]) * 32767) / 32767
+                    assert np.allclose(r["quat"], encoded, atol=1e-12, rtol=0)
+                else:
+                    assert np.allclose(Rotation.from_quat(r["quat"]).as_matrix(), orientation, atol=0.00003)
                 mm = 1000 * np.linalg.norm(r["pos"] - target, axis=1).max()
                 max_mm = max(max_mm, mm)
                 assert mm < 0.1
@@ -119,6 +133,13 @@ def check(view, batch=1):
                 mesh = r["world"][0] - r["pos"][0]
                 lower = mesh.min(0)
                 upper = mesh.max(0)
+                if spinning:
+                    # Conservative swept cylinder, including angles BETWEEN stored keys.
+                    local = catalog[r["pid"]][0] * r["scale"][0]
+                    axis = rotations[0].apply([0, 0, 1])
+                    radial = np.sqrt(np.maximum(0, 1 - axis ** 2)) * np.linalg.norm(local[:, :2], axis=1).max()
+                    caps = local[:, 2, None] * axis
+                    lower, upper = caps.min(0) - radial, caps.max(0) + radial
                 track = np.column_stack([np.interp(times, acts if nf > 1 else [0], x) for x in r["pos"].T])
                 # Subtract moving origin BEFORE taking swept bounds (includes all interpolated phases).
                 left = lo - track[:, None, :]
