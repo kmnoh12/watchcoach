@@ -84,8 +84,8 @@ def round_profile(source, sides):
     return fit_round_profile(ring / np.linalg.norm(ring, axis=1).mean(), sides)
 
 
-def round_parts(group, obj, source):
-    shape, mat, sides, axis = ROUNDS[group]
+def round_parts(group, obj, source, *, rounds=ROUNDS):
+    shape, mat, sides, axis = rounds[group]
     src = source[shape]
     order = [0, 2, 1] if axis == 1 else [0, 1, 2]
     old = obj[:, order].copy()
