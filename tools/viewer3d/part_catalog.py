@@ -276,7 +276,7 @@ def build_stack_acrylic_shield(
     parts.append(SubPart(v_caps, t_caps, [0.22, 0.23, 0.26], MAT_FRAME, smooth=False, name_suffix="_shroud_caps"))
 
     # 3. Smoked translucent acrylic panels (left + right front panels leaving 76mm center slot, plus 2 side panels)
-    t_ac = 0.006
+    t_ac = 0.008
     slot_half = 0.038  # 76 mm center pin slot
     cx = 0.5 * (x0 + x1)
     az0, az1 = z0 + cap_h, z1 - cap_h
@@ -285,16 +285,34 @@ def build_stack_acrylic_shield(
 
     acrylic_boxes = [
         # Front-left panel
-        make_box(np.array([x0, fy0, az0]), np.array([cx - slot_half, fy1, az1])),
+        make_box(np.array([x0 + 0.008, fy0, az0]), np.array([cx - slot_half, fy1, az1])),
         # Front-right panel
-        make_box(np.array([cx + slot_half, fy0, az0]), np.array([x1, fy1, az1])),
+        make_box(np.array([cx + slot_half, fy0, az0]), np.array([x1 - 0.008, fy1, az1])),
         # Left side panel
-        make_box(np.array([x0, y_lo, az0]), np.array([x0 + t_ac, y_hi, az1])),
+        make_box(np.array([x0, y_lo + 0.008, az0]), np.array([x0 + t_ac, y_hi - 0.008, az1])),
         # Right side panel
-        make_box(np.array([x1 - t_ac, y_lo, az0]), np.array([x1, y_hi, az1])),
+        make_box(np.array([x1 - t_ac, y_lo + 0.008, az0]), np.array([x1, y_hi - 0.008, az1])),
     ]
     v_ac, t_ac_arr = _merge_meshes(acrylic_boxes)
-    parts.append(SubPart(v_ac, t_ac_arr, [0.16, 0.20, 0.24], MAT_ACRYLIC, smooth=False, name_suffix="_acrylic"))
+    parts.append(SubPart(v_ac, t_ac_arr, [0.58, 0.68, 0.78], MAT_ACRYLIC, smooth=False, name_suffix="_acrylic"))
+
+    # 4. Slim satin-silver corner edge rails + mounting clips so the glass shield silhouette reads crisply
+    rail_w = 0.012
+    trim_boxes = [
+        # Front-left & front-right corner rails
+        make_chamfered_box(np.array([x0 - 0.002, front_y - 0.006, az0]), np.array([x0 + rail_w, front_y + 0.008, az1]), bevel=0.002),
+        make_chamfered_box(np.array([x1 - rail_w, front_y - 0.006, az0]), np.array([x1 + 0.002, front_y + 0.008, az1]), bevel=0.002),
+        # Slim vertical pin-slot edge trims flanking the 76mm center slot
+        make_box(np.array([cx - slot_half - 0.005, fy0 - 0.001, az0]), np.array([cx - slot_half, fy1 + 0.001, az1])),
+        make_box(np.array([cx + slot_half, fy0 - 0.001, az0]), np.array([cx + slot_half + 0.005, fy1 + 0.001, az1])),
+    ]
+    # Horizontal mid-level mounting clips on left/right sides (3 heights)
+    for frac in (0.18, 0.50, 0.82):
+        cz = az0 + (az1 - az0) * frac
+        trim_boxes.append(make_box(np.array([x0 - 0.004, front_y - 0.008, cz - 0.014]), np.array([x0 + 0.016, front_y + 0.012, cz + 0.014])))
+        trim_boxes.append(make_box(np.array([x1 - 0.016, front_y - 0.008, cz - 0.014]), np.array([x1 + 0.004, front_y + 0.012, cz + 0.014])))
+    v_trim, t_trim = _merge_meshes(trim_boxes)
+    parts.append(SubPart(v_trim, t_trim, [0.56, 0.60, 0.65], MAT_SILVER, smooth=False, name_suffix="_shroud_trim"))
 
     return parts
 
