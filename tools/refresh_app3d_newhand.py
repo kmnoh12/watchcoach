@@ -104,6 +104,7 @@ def main():
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_mat.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_mat.py"),
                     str(stage), "--batch", "2"], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/fit_app3d_floating_mounts.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_press_rest.py"), str(stage)], check=True)
     report = json.loads((old / "v5_bundle_report.json").read_text())
     manifest = json.loads((stage / "human_v5/manifest.json").read_text())
