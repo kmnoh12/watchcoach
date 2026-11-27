@@ -1,0 +1,62 @@
+{
+  "ez_lying_extension": {
+    "top": [
+      18,
+      "seat_pad__003"
+    ]
+  },
+  "incline_push_up": {
+    "top": [
+      10,
+      "seat_pad__003"
+    ]
+  },
+  "lying_barbell_pullover": {
+    "top": [
+      28,
+      "seat_pad__003"
+    ]
+  },
+  "reverse_wrist_curl": {
+    "top": [
+      9,
+      "seat_pad__003"
+    ]
+  },
+  "rolling_triceps_extension": {
+    "top": [
+      15,
+      "seat_pad__003"
+    ]
+  },
+  "seal_row": {
+    "bench_pad": [
+      7,
+      "seat_pad__015"
+    ]
+  },
+  "single_arm_dumbbell_kickback": {
+    "top": [
+      12,
+      "seat_pad__003"
+    ]
+  },
+  "skullcrusher_barbell": {
+    "top": [
+      14,
+      "seat_pad__003"
+    ]
+  },
+  "skullcrusher_dumbbell": {
+    "top": [
+      15,
+      "seat_pad__003"
+    ]
+  },
+  "wrist_curl": {
+    "top": [
+      9,
+      "seat_pad__003"
+    ]
+  }
+}

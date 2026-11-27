@@ -48,9 +48,9 @@ def check(view, baseline, batch=1):
         if f not in f0 or (baseline / f).read_bytes() != (view / f).read_bytes()
     }
     assert f0.keys() <= f1.keys()
-    # Batch 02 uses the same five upholstery sizes already packed by batch 01.
+    # Batches 02 and 03 reuse upholstery sizes already packed by batch 01.
     # Every record must point back into the existing, byte-identical catalogue.
-    if batch == 2:
+    if batch in (2, 3):
         assert (data / "parts.bin").read_bytes() == stock
     assert changed - {"v5_bundle_report.json"} == {
         "data/" + k + ".wgm" for k in applied
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     ap.add_argument("view", type=Path)
     ap.add_argument("baseline", type=Path)
     ap.add_argument("--report", type=Path)
-    ap.add_argument("--batch", type=int, choices=(1, 2), default=1)
+    ap.add_argument("--batch", type=int, choices=(1, 2, 3), default=1)
     args = ap.parse_args()
     result = json.dumps(check(args.view, args.baseline, args.batch), indent=2)
     print(result)

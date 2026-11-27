@@ -107,7 +107,7 @@ def wrap(size, shaft_radius):
 
 
 def batch_files(batch):
-    suffix = {1: "", 2: "_02"}[batch]
+    suffix = {1: "", 2: "_02", 3: "_03"}[batch]
     return f"bench_pad_targets{suffix}.json", f"bench_pad_fit{suffix}.json"
 
 
@@ -201,6 +201,6 @@ def upgrade(view, batch=1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    parser.add_argument("--batch", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--batch", type=int, choices=(1, 2, 3), default=1)
     args = parser.parse_args()
     upgrade(args.viewer, args.batch)
