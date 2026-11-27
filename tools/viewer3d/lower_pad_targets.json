@@ -1,0 +1,192 @@
+{
+  "glute_kickback_machine": {
+    "chest_pad": [
+      8,
+      "chest_pad__003"
+    ],
+    "forearm_pad": [
+      12,
+      "forearm_pad__002"
+    ],
+    "forearm_pad.001": [
+      13,
+      "forearm_pad__002"
+    ],
+    "sole_roller": [
+      23,
+      "leg_roller__002"
+    ]
+  },
+  "hip_abductor": {
+    "back": [
+      0,
+      "back_pad__008"
+    ],
+    "thigh_pad.001": [
+      33,
+      "thigh_pad__001"
+    ],
+    "thigh_pad": [
+      41,
+      "thigh_pad__001"
+    ],
+    "seat": [
+      57,
+      "seat_pad__009"
+    ],
+    "seat.001": [
+      58,
+      "seat_pad__009"
+    ],
+    "mopt_seat_stem": [
+      23,
+      "seat_post__007"
+    ]
+  },
+  "hip_adductor": {
+    "back": [
+      0,
+      "back_pad__009"
+    ],
+    "thigh_pad.001": [
+      38,
+      "thigh_pad__002"
+    ],
+    "thigh_pad": [
+      50,
+      "thigh_pad__002"
+    ],
+    "seat": [
+      66,
+      "seat_pad__010"
+    ]
+  },
+  "hyperextension": {
+    "ankle_roller": [
+      0,
+      "leg_roller__003"
+    ],
+    "hip_pad": [
+      13,
+      "hip_pad__002"
+    ],
+    "hip_pad.001": [
+      14,
+      "hip_pad__002"
+    ],
+    "hip_pad_wrap": [
+      15,
+      "hip_pad__002"
+    ],
+    "hip_pad_wrap.001": [
+      16,
+      "hip_pad__002"
+    ]
+  },
+  "leg_extension": {
+    "back": [
+      0,
+      "back_pad__008"
+    ],
+    "knee_pad": [
+      17,
+      "leg_roller__006"
+    ],
+    "roller": [
+      26,
+      "leg_roller__003"
+    ]
+  },
+  "lying_leg_curl": {
+    "ankle_roller": [
+      22,
+      "leg_roller__001"
+    ],
+    "thigh_bed": [
+      51,
+      "thigh_pad__003"
+    ],
+    "torso_bed": [
+      52,
+      "chest_pad__005"
+    ]
+  },
+  "nordic_curl": {
+    "ankle_roller": [
+      2,
+      "leg_roller__003"
+    ],
+    "ankle_roller.001": [
+      3,
+      "leg_roller__003"
+    ],
+    "knee_pad": [
+      6,
+      "knee_pad__005"
+    ],
+    "knee_pad.001": [
+      7,
+      "knee_pad__005"
+    ]
+  },
+  "seated_calf": {
+    "knee": [
+      11,
+      "knee_pad__006"
+    ],
+    "knee.001": [
+      12,
+      "knee_pad__006"
+    ],
+    "seat.001": [
+      33,
+      "seat_pad__021"
+    ],
+    "height_pin": [
+      10,
+      "adjustment_pin__001"
+    ],
+    "knee_insert": [
+      14,
+      "knee_insert__001"
+    ],
+    "adjust_hole": [
+      7,
+      "adjustment_hole__001"
+    ],
+    "adjust_hole.001": [
+      8,
+      "adjustment_hole__001"
+    ],
+    "adjust_hole.002": [
+      9,
+      "adjustment_hole__001"
+    ],
+    "knee_cross": [
+      13,
+      "pad_crossbeam__004"
+    ],
+    "pad_carrier": [
+      19,
+      "pad_carrier__001"
+    ],
+    "pad_carrier.001": [
+      20,
+      "pad_carrier__001"
+    ]
+  },
+  "seated_leg_curl": {
+    "back.001": [
+      0,
+      "back_pad__015"
+    ],
+    "ankle_roller": [
+      16,
+      "leg_roller__001"
+    ],
+    "seat.001": [
+      49,
+      "seat_pad__022"
+    ]
+  }
+}

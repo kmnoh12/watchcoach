@@ -23,7 +23,8 @@ def roller_depth_bound(frames, surface, *, swept):
 def contact_region(base, role):
     """Include entire triangles incident to the contact anatomy, including joint blends."""
     regions = {'thigh_roller': ('thigh_',), 'seat_pad': ('thigh_', 'pelvis'),
-               'back_pad': ('pelvis', 'spine_', 'clavicle_'), 'arm_pad': ('upperarm_', 'lowerarm_')}[role]
+               'back_pad': ('pelvis', 'spine_', 'clavicle_'), 'arm_pad': ('upperarm_', 'lowerarm_'),
+               'ankle_roller': ('calf_', 'foot_', 'ball_')}[role]
     names = np.asarray(base['bone_names'])
     weights, joints = np.asarray(base['weights']), np.asarray(base['joints'])
     dominant = joints[np.arange(len(joints)), weights.argmax(1)]
