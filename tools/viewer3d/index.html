@@ -221,7 +221,7 @@ function fetchWgmParts() {
   })();
   return wgmPartsPromise;
 }
-const LAT_STACK_LABEL = 9, PLATE_FACE = 10;
+const LAT_STACK_LABEL = 9, PLATE_FACE = 10, PLYO_WOOD = 12;
 let plateMapPromise, plateMap;
 async function loadPlateMap() {
   if (!plateMapPromise) plateMapPromise = new THREE.TextureLoader().loadAsync('data/plate_faces.webp').then(map => {
@@ -229,6 +229,15 @@ async function loadPlateMap() {
     return map;
   });
   return plateMapPromise;
+}
+let plyoWoodPromise, plyoWood;
+function loadPlyoWood() {
+  if (!plyoWoodPromise) plyoWoodPromise = new THREE.TextureLoader().loadAsync('data/plyo_wood.jpg').then(map => {
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    return map;
+  });
+  return plyoWoodPromise;
 }
 let latStackTexturePromise, latStackTexture;
 async function loadLatStackTexture() {
@@ -313,6 +322,8 @@ async function fetchWgmModel(name) {
     } else if (mat === PLATE_FACE) {
       if (!geom.hasAttribute('uv')) throw Error('missing plate UVs');
       plateMap = await loadPlateMap();
+    } else if (mat === PLYO_WOOD) {
+      plyoWood = await loadPlyoWood().catch(() => null);
     }
     parsed[o] = { geom, smooth, color: [cr, cg, cb], mat, steps };
   }
@@ -364,6 +375,28 @@ function barKnurlMaterial(color) {
   return mat;
 }
 
+function plyoWoodMaterial(color) {
+  if (!plyoWood) return new THREE.MeshStandardMaterial({ color, roughness: 0.52, flatShading: true });
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.52, flatShading: true });
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.plyoGrain = { value: plyoWood };
+    shader.vertexShader = 'varying vec3 vPlyoLocal;\n' + shader.vertexShader
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPlyoLocal = position;');
+    shader.fragmentShader = 'uniform sampler2D plyoGrain;\nvarying vec3 vPlyoLocal;\n' + shader.fragmentShader
+      .replace('#include <map_fragment>', `
+        vec3 p = vPlyoLocal * 1.2;
+        vec3 axis = pow(abs(normalize(cross(dFdx(p), dFdy(p)))), vec3(5.0));
+        axis /= dot(axis, vec3(1.0));
+        vec3 grain = texture2D(plyoGrain, p.yz).rgb * axis.x
+          + texture2D(plyoGrain, p.xz).rgb * axis.y
+          + texture2D(plyoGrain, p.xy).rgb * axis.z;
+        float value = max(grain.r, max(grain.g, grain.b));
+        diffuseColor.rgb *= mix(vec3(value), grain, 0.84) * 1.28;
+      `);
+  };
+  return mat;
+}
+
 function makePresetMaterial(preset, rgb, smooth) {
   const color = new THREE.Color(rgb[0], rgb[1], rgb[2]);
   if (!preset) return new THREE.MeshLambertMaterial({ color, flatShading: !smooth });
@@ -378,6 +411,7 @@ function makePresetMaterial(preset, rgb, smooth) {
     case 7: return new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.45, flatShading: !smooth });
     case PLATE_FACE: return new THREE.MeshStandardMaterial({ map: plateMap, roughness: 0.55, metalness: 0 });
     case BAR_KNURL: return barKnurlMaterial(color);
+    case PLYO_WOOD: return plyoWoodMaterial(color);
     case SELECTOR_WINDOW: return selectorWindowMaterial(color);
     case LAT_STACK_LABEL: return new THREE.MeshStandardMaterial({ map: latStackTexture, roughness: 0.9, alphaTest: 0.5 });
     default: return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25, flatShading: !smooth });
@@ -423,12 +457,14 @@ function parse(d) {
   return { ...d, parsed: objs };
 }
 
-function mergePlateOverlay(raw, overlay, targets, count = Object.keys(targets).length * 2) {
+function mergePlateOverlay(raw, overlay, targets, count = Object.keys(targets).length * 2, covered = {}) {
   const replaced = Object.entries(targets);
+  const hidden = Object.entries(covered);
   if (!Number.isInteger(count) || count < replaced.length || overlay.parsed.length !== count || overlay.acts.length !== raw.acts.length ||
       overlay.acts.some((a,i) => a !== Math.fround(raw.acts[i])) ||
-      replaced.some(([i,name]) => raw.objects[i]?.name !== name)) throw Error('stale plate overlay');
-  const base = parse({ ...raw, objects: raw.objects.filter((o,i) => !(i in targets)) });
+      [...replaced, ...hidden].some(([i,name]) => raw.objects[i]?.name !== name) ||
+      hidden.some(([i]) => i in targets)) throw Error('stale plate overlay');
+  const base = parse({ ...raw, objects: raw.objects.filter((o,i) => !(i in targets || i in covered)) });
   for (const part of base.parsed) part.legacy = true;
   return { ...base, format: 'wgm2', parsed: [...base.parsed, ...overlay.parsed] };
 }
@@ -442,7 +478,7 @@ async function fetchModel(name) {
         const [original, overlay] = await Promise.all([raw(), fetchWgmModel(name)]);
         if (original && overlay) {
           const batch = machineOverlays[name];
-          return mergePlateOverlay(original, overlay, batch ? batch.targets : plateOverlays[name], batch?.count);
+          return mergePlateOverlay(original, overlay, batch ? batch.targets : plateOverlays[name], batch?.count, batch?.covered);
         }
       } else {
         const w = await fetchWgmModel(name);

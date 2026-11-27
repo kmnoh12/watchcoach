@@ -111,6 +111,7 @@ class Exercise3DView(
             "html" -> "text/html"
             "js" -> "text/javascript"
             "json" -> "application/json"
+            "jpg" -> "image/jpeg"
             "webp" -> "image/webp"
             else -> "application/octet-stream"
         }

@@ -107,6 +107,10 @@ if (label === 'app asset' && source.includes('function mergePlateOverlay(')) che
   const tower={...overlay,parsed:[{mat:7},{mat:6},{mat:3}]};
   assert.deepEqual(Array.from(ctx.mergePlateOverlay(raw,tower,{1:'plate'},3).parsed,o=>o.name??o.mat),['grip','footplate',7,6,3]);
   assert.throws(()=>ctx.mergePlateOverlay(raw,tower,{1:'plate'},2),/stale plate overlay/);
+  const covered={acts:overlay.acts,parsed:[{mat:7}]};
+  assert.deepEqual(Array.from(ctx.mergePlateOverlay(raw,covered,{1:'plate'},1,{2:'footplate'}).parsed,o=>o.name??o.mat),['grip',7]);
+  assert.throws(()=>ctx.mergePlateOverlay(raw,covered,{1:'plate'},1,{2:'plate'}),/stale plate overlay/);
+  assert.throws(()=>ctx.mergePlateOverlay(raw,covered,{1:'plate'},1,{1:'plate'}),/stale plate overlay/);
   for (const [targets,clip] of [[{0:'plate'},overlay],[{1:'plate'},{...overlay,acts:[0,.4,1]}],[{1:'plate'},{...overlay,parsed:[]}]])
     assert.throws(()=>ctx.mergePlateOverlay(raw,clip,targets),/stale plate overlay/);
 });

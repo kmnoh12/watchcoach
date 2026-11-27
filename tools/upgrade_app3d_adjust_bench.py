@@ -295,7 +295,7 @@ def assemble(key, raw, mapping, source, frames, base):
 
 
 def append_batch(view, *, targets_file="adjust_bench_targets.json", source_file="scene_bench_source.json",
-                 report_file="adjust_bench_fit.json", build_model=assemble):
+                 report_file="adjust_bench_fit.json", build_model=assemble, covered_slots=None):
     d = view / "data"
     h = view / "human_v5"
     base = load(h / "base.json")
@@ -317,7 +317,11 @@ def append_batch(view, *, targets_file="adjust_bench_targets.json", source_file=
             "targets", mf.get("plateOverlays", {}).get(key, {})
         )
         new = {str(i): name for name, (i, g) in mapping.items()}
-        assert not set(new) & set(oldtargets) and (key not in mf["clips"] or oldtargets)
+        covered = (covered_slots or {}).get(key, {})
+        oldcovered = (previous or {}).get("covered", {})
+        assert not (set(new) | set(covered)) & (set(oldtargets) | set(oldcovered))
+        assert not set(new) & set(covered) and (key not in mf["clips"] or oldtargets)
+        assert all(raw["objects"][int(i)]["name"] == name for i, name in covered.items())
         try:
             rows, fitmeta = build_model(
                 key,
@@ -353,6 +357,8 @@ def append_batch(view, *, targets_file="adjust_bench_targets.json", source_file=
         mf.setdefault("machineOverlays", {})[key] = dict(
             targets={**oldtargets, **new}, count=len(rows) + oldcount
         )
+        if oldcovered or covered:
+            mf["machineOverlays"][key]["covered"] = {**oldcovered, **covered}
         report[key] = {"pads": fitmeta, "records": len(rows), "preceding": oldcount}
         print(key, fitmeta, flush=True)
     for key, blob in updates.items():
