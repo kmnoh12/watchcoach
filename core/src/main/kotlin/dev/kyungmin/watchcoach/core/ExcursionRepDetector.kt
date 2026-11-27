@@ -323,11 +323,17 @@ internal class ExcursionRepDetector(
                 val rawTurn = history[highIndex].t
                 val end = history[i].t
                 val minSepNs = (max(minSepS, period * sepFrac) * 1e9).toLong()
+                // Pauses and a change of pace can make the period estimate span two cable fly reps.
+                // Only bypass its adaptive spacing for a new, non-overlapping full-size excursion;
+                // the fixed spacing floor and the normal return and duration checks still apply.
+                val distinctCableFlyCycle = profile.exerciseId == "crossover_reverse_fly" &&
+                    deliveredNs != Long.MIN_VALUE && start > deliveredNs && high - low >= retFrac * span &&
+                    end - deliveredNs >= (minSepS * 1e9).toLong()
                 if (start < rawTurn && rawTurn < end &&
                     end > primeEndNs &&
                     end - start >= profile.minimumRepMs * 1_000_000L &&
                     end - start <= profile.maximumRepMs * 1_000_000L &&
-                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs) && end >= flipGuardNs
+                    (deliveredNs == Long.MIN_VALUE || end - deliveredNs >= minSepNs || distinctCableFlyCycle) && end >= flipGuardNs
                 ) {
                     val turn = (rawTurn - 220_000_000L).coerceIn(start + 1_000_000L, (start + end) / 2L - 1_000_000L)
                     val durMs = (end - start) / 1_000_000L
