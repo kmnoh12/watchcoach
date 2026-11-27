@@ -42,6 +42,7 @@ SHELLS = {
 ROUNDS = {
     "cable_segment__001": ("cable_segment", MAT_RUBBER, 5, 1),
     "cable_segment__004": ("cable_segment", MAT_RUBBER, 8, 2),
+    "cable_segment__006": ("cable_segment", MAT_RUBBER, 6, 1),
     "hand_grip__002": ("hand_grip", MAT_RUBBER, 8, 2),
     "hand_grip__004": ("hand_grip", MAT_RUBBER, 8, 2),
     "handle_support__005": ("handle_support", MAT_CHROME, 6, 2),
