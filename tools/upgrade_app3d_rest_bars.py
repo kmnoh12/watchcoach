@@ -22,6 +22,8 @@ MATERIALS = {
 # A scene profile can cover several roles, but different contact polygons cannot
 # share geometry. Each role group gets one profile scaled by each part's track.
 ROUND_PROFILES = {
+    "barbell_shaft__002": ("barbell_shaft__001", 10, MAT_BAR_KNURL, True),
+    "bar_collar__005": ("bar_collar__001", 8, MAT_SILVER, True),
     "ez_bar__002": ("ez_bar__002", 12, MAT_SILVER, True),
     "hex_bar_frame__001": ("hex_bar_frame__001", 8, MAT_FRAME, False),
     "handle_bridge__006": ("hex_bar_frame__001", 8, MAT_FRAME, False),
@@ -29,6 +31,8 @@ ROUND_PROFILES = {
     "hand_grip__002": ("barbell_shaft__001", 8, MAT_BAR_KNURL, True),
     "hand_grip__009": ("barbell_shaft__001", 10, MAT_BAR_KNURL, True),
     "bar_sleeve__004": ("bar_sleeve__001", 10, MAT_CHROME, True),
+    "sleeve_shoulder__001": ("sleeve_shoulder__004", 10, MAT_CHROME, True),
+    "sleeve_shoulder__003": ("sleeve_shoulder__004", 10, MAT_CHROME, True),
     "sleeve_shoulder__004": ("sleeve_shoulder__004", 8, MAT_CHROME, True),
 }
 

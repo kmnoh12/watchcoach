@@ -68,6 +68,7 @@ def main():
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_adjust_bench_rest.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_bars.py"), str(stage), "--batch", "2"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_adjust_bench_rest.py"), str(stage), "--fixed"], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_adjust_bench_rest.py"), str(stage), "--flat"], check=True)
     report = json.loads((old / "v5_bundle_report.json").read_text())
     manifest = json.loads((stage / "human_v5/manifest.json").read_text())
     manifest["revision"] = report["revision"] + "+newhand"
