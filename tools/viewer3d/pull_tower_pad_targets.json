@@ -1,0 +1,76 @@
+{
+  "assisted_chin_up": {
+    "knee_pad.001": [
+      25,
+      "knee_pad__001"
+    ]
+  },
+  "assisted_dip": {
+    "knee_pad": [
+      25,
+      "knee_pad__002"
+    ]
+  },
+  "assisted_pullup": {
+    "knee_pad": [
+      25,
+      "knee_pad__003"
+    ]
+  },
+  "captain_chair_knee_raise": {
+    "backrest": [
+      10,
+      "back_pad__002"
+    ],
+    "forearm_pad": [
+      21,
+      "forearm_pad__001"
+    ],
+    "forearm_pad.001": [
+      22,
+      "forearm_pad__001"
+    ]
+  },
+  "captain_chair_leg_raise": {
+    "backrest": [
+      10,
+      "back_pad__002"
+    ],
+    "forearm_pad": [
+      21,
+      "forearm_pad__001"
+    ],
+    "forearm_pad.001": [
+      22,
+      "forearm_pad__001"
+    ]
+  },
+  "pullup_dip_tower": {
+    "back.020": [
+      4,
+      "back_pad__003"
+    ],
+    "forearm": [
+      16,
+      "forearm_pad__003"
+    ],
+    "forearm.001": [
+      17,
+      "forearm_pad__003"
+    ]
+  },
+  "weighted_dip_tower": {
+    "back": [
+      4,
+      "back_pad__003"
+    ],
+    "forearm": [
+      16,
+      "forearm_pad__003"
+    ],
+    "forearm.001": [
+      17,
+      "forearm_pad__003"
+    ]
+  }
+}
