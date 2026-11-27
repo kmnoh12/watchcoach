@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from upgrade_app3d_adjust_bench import HERE, append_batch, load
 from upgrade_app3d_machines import decompose_frames, strip_fake_animation
@@ -44,7 +45,7 @@ def cushion(source, role, size):
         )
 
 
-def wrap(size, shaft_radius):
+def wrap(size, shaft_radius, *, short_cuff=False):
     """Use the saved foam roller profile, not its rigid end cap. A bar wrap instead has
     a through bore and a longitudinal slit. Keep full scene angular resolution and end rings."""
     src = load(HERE / "scene_lat_source.json")
@@ -67,10 +68,21 @@ def wrap(size, shaft_radius):
     radius = max(r for _, r in profile)
     bore = shaft_radius + 0.0004
     assert np.isclose(size[0], size[1]) and 0 < bore < size[0] / 2
-    outer = [
-        (float(_nine(z, h, size[2] / 2, 0.032)), r / radius * size[0] / 2)
-        for z, r in profile
-    ]
+    outer_radius = size[0] / 2
+    if short_cuff:
+        # A 50 mm trap cuff has a much larger bore relative to its OD than the
+        # long hip pad. Fit the foam between bore and OD, not through the shaft.
+        inner_lip = bore + 0.0015
+        if inner_lip >= outer_radius:
+            raise ValueError("cuff has no clearance for its rounded lip")
+        min_r = min(r for _, r in profile)
+        outer = [
+            (float(_nine(z, h, size[2] / 2, size[2] / 4)),
+             inner_lip + (r - min_r) / (radius - min_r) * (outer_radius - inner_lip))
+            for z, r in profile
+        ]
+    else:
+        outer = [(float(_nine(z, h, size[2] / 2, 0.032)), r / radius * outer_radius) for z, r in profile]
     # Seam opposite the body-facing underside (local -X points up on this shaft). Close both cut faces.
     theta = np.linspace(np.pi + 0.035, 3 * np.pi - 0.035, res + 1)
     n = res + 1
@@ -107,6 +119,8 @@ def wrap(size, shaft_radius):
 
 
 def batch_files(batch):
+    if batch == 5:
+        return "smith_fixed_pad_targets.json", "smith_fixed_pad_fit.json"
     suffix = {1: "", 2: "_02", 3: "_03", 4: "_04"}[batch]
     return f"bench_pad_targets{suffix}.json", f"bench_pad_fit{suffix}.json"
 
@@ -125,8 +139,23 @@ def upgrade(view, batch=1):
             assert np.max(abs(old.max(0) + old.min(0))) < 1e-6
             p, q, s = decompose_frames(strip_fake_animation(o["m"]))
             role = group.split("__")[0]
+            cuff = group == "shoulder_pad__003"
+            if cuff:
+                shaft = next(x for x in raw["objects"] if x["name"] == "bar")
+                bar_p, bar_q, bar_s = decompose_frames(strip_fake_animation(shaft["m"]))
+                # The two cuffs ride at fixed, opposite offsets along the bar, not at its centre.
+                off = Rotation.from_quat(bar_q).inv().apply(p - bar_p)
+                if not (len(p) == len(bar_p) == len(raw["acts"])
+                        and np.allclose(q, bar_q) and np.allclose(s, bar_s)
+                        and np.allclose(off[:, :2], 0, atol=3e-5)
+                        and np.allclose(off, off[0], atol=3e-5)):
+                    raise ValueError("shoulder cuff does not ride on the original bar axis")
             if group not in shapes:
-                if role == "hip_pad":
+                if cuff:
+                    diameter = 2 * np.linalg.norm(old[:, :2], axis=1).max()
+                    radius = np.linalg.norm(np.array(shaft["verts"]).reshape(-1, 3)[:, :2], axis=1).max()
+                    prototype = [wrap((diameter, diameter, dims[2]), radius, short_cuff=True)]
+                elif role == "hip_pad":
                     shaft = next(
                         x for x in raw["objects"] if x["name"] == "barbell_shaft"
                     )
@@ -155,7 +184,7 @@ def upgrade(view, batch=1):
                 shapes[group] = dims, prototype
             template, parts = shapes[group]
             scale = s * (dims / template)
-            if role != "hip_pad" and len(p) != 1:
+            if not cuff and role != "hip_pad" and len(p) != 1:
                 raise ValueError("fixed bench has an adjustable or moving pad")
             assert np.max(abs(s - s[0])) < 1e-6
             hp = view / "human_v5" / (key + ".bin")
@@ -189,7 +218,7 @@ def upgrade(view, batch=1):
             meta[name] = dict(
                 group=group,
                 adjustment_axis=None,
-                attachment={"hip_pad": "bar_shaft", "knee_pad": "floor"}.get(role, "fixed_mount"),
+                attachment="bar_shaft" if cuff else {"hip_pad": "bar_shaft", "knee_pad": "floor"}.get(role, "fixed_mount"),
                 records=len(parts),
                 collision=check,
             )
@@ -208,6 +237,6 @@ def upgrade(view, batch=1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    parser.add_argument("--batch", type=int, choices=(1, 2, 3, 4), default=1)
+    parser.add_argument("--batch", type=int, choices=(1, 2, 3, 4, 5), default=1)
     args = parser.parse_args()
     upgrade(args.viewer, args.batch)

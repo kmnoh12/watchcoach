@@ -55,7 +55,7 @@ def check(view, baseline, batch=1):
     assert changed - {"v5_bundle_report.json"} == {
         "data/" + k + ".wgm" for k in applied
     } | {"data/wgm_manifest.json", "data/" + report_file} | (
-        {"data/parts.bin"} if batch in (1, 4) else set()
+        {"data/parts.bin"} if batch in (1, 4) or (batch == 5 and "smith_squat" in applied) else set()
     )
     reports = [load(root / "v5_bundle_report.json") for root in [baseline, view]]
     assert {k: v for k, v in reports[0].items() if k != "bytes"} == {
@@ -72,6 +72,10 @@ def check(view, baseline, batch=1):
         clips={},
     )
     groups = {}
+    if batch == 5:
+        # All bench layers already exist at these sizes. Only the pair of short
+        # bar cuffs needs a single shared catalogue entry on the first rollout.
+        assert len(parts) == report["catalog_before"] + int("smith_squat" in applied)
     for key, mapping in spec.items():
         if key not in applied:
             report["clips"][key] = {"unchanged": fit[key]["unchanged"]}
@@ -125,12 +129,15 @@ def check(view, baseline, batch=1):
             assert obj["name"] == name
             info = fit[key]["pads"][name]
             assert info["group"] == group and info["adjustment_axis"] is None
-            wrap = group.startswith("hip_pad__")
+            cuff = group == "shoulder_pad__003"
+            wrap = cuff or group.startswith("hip_pad__")
             mat = group.startswith("knee_pad__")
             layer = rows[idx : idx + (1 if wrap or mat else 3)]
             idx += len(layer)
             ids = tuple(x["pid"] for x in layer)
             assert groups.setdefault(group, ids) == ids
+            if batch == 5:
+                assert all((pid >= report["catalog_before"]) == cuff for pid in ids)
             pos, q, s = decompose_frames(strip_fake_animation(obj["m"]))
             r = layer[0]
             assert r["nf"] == len(pos) == (len(acts) if wrap else 1)
@@ -150,9 +157,18 @@ def check(view, baseline, batch=1):
             ov = np.asarray(obj["verts"]).reshape(-1, 3) * s[0]
             if wrap:
                 assert info["attachment"] == "bar_shaft" and r["mat"] == MAT_PAD
-                shaft = next(o for o in raw["objects"] if o["name"] == "barbell_shaft")
-                assert np.allclose(shaft["m"], obj["m"], atol=0.00003)
+                shaft = next(o for o in raw["objects"] if o["name"] == ("bar" if cuff else "barbell_shaft"))
+                if cuff:
+                    bp, bq, _ = decompose_frames(shaft["m"])
+                    offset = Rotation.from_quat(bq).inv().apply(r["pos"] - bp)
+                    expected = -0.065 if name == "trapezius_pad" else 0.065
+                    assert np.allclose(r["quat"], bq) and np.allclose(offset, [0, 0, expected], atol=0.00011)
+                else:
+                    assert np.allclose(shaft["m"], obj["m"], atol=0.00003)
                 closed_solid(v, r["faces"])
+                if cuff:
+                    a, b, c = v[r["faces"]].transpose(1, 0, 2)
+                    assert np.linalg.norm(np.cross(b - a, c - a), axis=1).min() > 1e-11
                 rad = np.linalg.norm(v[:, :2], axis=1)
                 shaft_r = np.linalg.norm(
                     np.asarray(shaft["verts"]).reshape(-1, 3)[:, :2], axis=1
@@ -220,7 +236,7 @@ if __name__ == "__main__":
     ap.add_argument("view", type=Path)
     ap.add_argument("baseline", type=Path)
     ap.add_argument("--report", type=Path)
-    ap.add_argument("--batch", type=int, choices=(1, 2, 3, 4), default=1)
+    ap.add_argument("--batch", type=int, choices=(1, 2, 3, 4, 5), default=1)
     args = ap.parse_args()
     result = json.dumps(check(args.view, args.baseline, args.batch), indent=2)
     print(result)

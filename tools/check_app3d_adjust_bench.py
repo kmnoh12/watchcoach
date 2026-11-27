@@ -36,7 +36,7 @@ def closed_solid(v, t):
     assert np.einsum("ij,ij->", a, np.cross(b, c)) > 0
 
 
-def check(view, baseline):
+def check(view, baseline, smith=False):
     d, old, human = view / "data", baseline / "data", view / "human_v5"
     base = load(human / "base.json")
     assert base["vertices"] == 1401 and (human / "watch.json").is_file()
@@ -47,8 +47,9 @@ def check(view, baseline):
     prev_parts = (old / "parts.bin").read_bytes()
     old_count = struct.unpack_from("<I", prev_parts, 4)[0]
     assert (d / "parts.bin").read_bytes()[8 : len(prev_parts)] == prev_parts[8:]
-    targets = load(HERE / "adjust_bench_targets.json")
-    fit = load(d / "adjust_bench_fit.json")
+    prefix = "smith_adjust_pad" if smith else "adjust_bench"
+    targets = load(HERE / (prefix + "_targets.json"))
+    fit = load(d / (prefix + "_fit.json"))
     source = load(HERE / "scene_bench_source.json")
     assert set(fit) == set(targets)
     fitted = {k for k, result in fit.items() if "pads" in result}
@@ -67,10 +68,15 @@ def check(view, baseline):
         if f not in f0 or (baseline / f).read_bytes() != (view / f).read_bytes()
     }
     required = {"data/" + s + ".wgm" for s in fitted} | {
-        "data/parts.bin",
-        "data/wgm_manifest.json",
-        "data/adjust_bench_fit.json",
+        "data/" + prefix + "_fit.json",
     }
+    if not smith or fitted:
+        required.add("data/wgm_manifest.json")
+    if smith:
+        # Same fitted hardware and cushions as the earlier seated barbell bench.
+        assert (d / "parts.bin").read_bytes() == prev_parts
+    else:
+        required.add("data/parts.bin")
     assert changed - {"v5_bundle_report.json"} == required, changed ^ required
     old_report, new_report = [
         load(v / "v5_bundle_report.json") for v in (baseline, view)
@@ -259,8 +265,9 @@ if __name__ == "__main__":
     p.add_argument("view", type=Path)
     p.add_argument("baseline", type=Path)
     p.add_argument("--report", type=Path)
+    p.add_argument("--smith", action="store_true")
     a = p.parse_args()
-    s = json.dumps(check(a.view, a.baseline), indent=2)
+    s = json.dumps(check(a.view, a.baseline, a.smith), indent=2)
     print(s)
     if a.report:
         a.report.write_text(s + chr(10))

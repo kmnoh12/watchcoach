@@ -375,4 +375,7 @@ def append_batch(view, *, targets_file="adjust_bench_targets.json", source_file=
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("view", type=Path)
-    append_batch(parser.parse_args().view)
+    parser.add_argument("--smith", action="store_true")
+    args = parser.parse_args()
+    kwargs = dict(targets_file="smith_adjust_pad_targets.json", report_file="smith_adjust_pad_fit.json") if args.smith else {}
+    append_batch(args.view, **kwargs)

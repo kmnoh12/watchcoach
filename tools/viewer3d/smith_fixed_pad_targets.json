@@ -1,0 +1,58 @@
+{
+  "smith_close_grip_bench_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      11,
+      "seat_pad__007"
+    ]
+  },
+  "smith_decline_close_grip_bench_press": {
+    "back_pad": [
+      7,
+      "back_pad__006"
+    ]
+  },
+  "smith_flat_bench_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      11,
+      "seat_pad__007"
+    ]
+  },
+  "smith_incline_bench_press": {
+    "back_pad": [
+      8,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      12,
+      "seat_pad__011"
+    ]
+  },
+  "smith_jm_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      11,
+      "seat_pad__007"
+    ]
+  },
+  "smith_squat": {
+    "trapezius_pad": [
+      20,
+      "shoulder_pad__003"
+    ],
+    "trapezius_pad.001": [
+      21,
+      "shoulder_pad__003"
+    ]
+  }
+}

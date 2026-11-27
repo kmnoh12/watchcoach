@@ -1,0 +1,48 @@
+{
+  "smith_seated_shoulder_press": {
+    "back": [
+      10,
+      "back_pad__011"
+    ],
+    "back_mount": [
+      11,
+      "pad_mount__001"
+    ],
+    "back_mount.001": [
+      12,
+      "pad_mount__001"
+    ],
+    "back_rail": [
+      13,
+      "pad_rail__004"
+    ],
+    "hinge_link": [
+      14,
+      "pivot_link__001"
+    ],
+    "seat": [
+      15,
+      "seat_pad__012"
+    ],
+    "seat_mount": [
+      16,
+      "pad_mount__001"
+    ],
+    "seat_mount.001": [
+      17,
+      "pad_mount__001"
+    ],
+    "seat_post": [
+      18,
+      "seat_post__001"
+    ],
+    "seat_rail": [
+      19,
+      "adjustment_rail__003"
+    ],
+    "telescopic_brace": [
+      20,
+      "frame_brace__005"
+    ]
+  }
+}
