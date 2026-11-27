@@ -1,0 +1,102 @@
+{
+  "single_arm_dumbbell_lateral_raise": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"]
+  },
+  "single_arm_dumbbell_shoulder_press": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "single_arm_hammer_curl": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "upright_row_dumbbell": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "walking_lunge_dumbbell": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "zottman_curl": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "dumbbell_reverse_curl": {
+    "drc_end": [0, "dumbbell_cap__001"],
+    "drc_end.001": [1, "dumbbell_cap__001"],
+    "drc_handle": [2, "dumbbell_grip__001"],
+    "drc_hex_head": [3, "dumbbell_head__001"],
+    "drc_hex_head.001": [4, "dumbbell_head__001"],
+    "drc_end.002": [5, "dumbbell_cap__001"],
+    "drc_end.003": [6, "dumbbell_cap__001"],
+    "drc_handle.001": [7, "dumbbell_grip__001"],
+    "drc_hex_head.002": [8, "dumbbell_head__001"],
+    "drc_hex_head.003": [9, "dumbbell_head__001"]
+  },
+  "dumbbell_triceps_extension": {
+    "handle": [0, "hand_grip__004"],
+    "dumbbell_head_-1": [1, "dumbbell_head__003"],
+    "dumbbell_head_1": [2, "dumbbell_head__003"]
+  },
+  "goblet_squat": {
+    "cast_body": [0, "cast_weight_body__001"],
+    "cast_handle": [1, "cast_handle__001"]
+  },
+  "kettlebell_swing": {
+    "cast_body": [0, "cast_weight_body__001"],
+    "cast_handle": [1, "cast_handle__001"]
+  },
+  "kickback_dumbbell": {
+    "dumbbell_l_handle": [0, "dumbbell_grip__004"],
+    "dumbbell_l_head_-1": [1, "dumbbell_head__003"],
+    "dumbbell_l_head_1": [2, "dumbbell_head__003"],
+    "dumbbell_r_handle": [3, "dumbbell_grip__004"],
+    "dumbbell_r_head_-1": [4, "dumbbell_head__003"],
+    "dumbbell_r_head_1": [5, "dumbbell_head__003"]
+  }
+}
