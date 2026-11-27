@@ -50,7 +50,7 @@ def slots(v, t, m):
 
 def casting(wide, thin=False, *,
             guides=((-0.130, 0.022, 0.022), (0, 0.022, 0.022), (0.130, 0.022, 0.022)),
-            socket=None):
+            socket=None, socket_z=0.0):
     # Start with the scene's through-bored casting, KEEP both mouth bevels. The
     # scene only models the front/back socket: drill three vertical passages for
     # the phone's fixed twin guides and central lift rod. No decimation.
@@ -68,6 +68,7 @@ def casting(wide, thin=False, *,
         v[i, [0, 2]] = (
             direction / abs(direction).max() * socket if wide else direction * 0.0102
         ) * lip
+        v[i, 2] += socket_z
     me = bpy.data.meshes.new("cable fit")
     me.from_pydata(v.tolist(), [], t.tolist())
     me.update()

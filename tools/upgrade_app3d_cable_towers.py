@@ -184,25 +184,18 @@ def assemble(raw, targets, source, batch=1):
     return entries
 
 
-def append_batch(view, batch=1):
+def append_overlays(view, entries_by_model, overlays):
     d = view / "data"
     manifest = json.loads((d / "wgm_manifest.json").read_text())
     base = (d / "parts.bin").read_bytes()
     magic, n = struct.unpack_from("<4sI", base)
     assert magic == b"WGC2"
-    targets, source = load_batch(batch)
-    assert not set(targets) & set(manifest["clips"]), "Append to the preceding catalogue, not a second time"
+    assert not set(entries_by_model) & set(manifest["clips"]), "Append to the preceding catalogue, not a second time"
     packer = PartCatalogPacker()
     clips = {}
-    overlays = {}
-    entries_by_model = {}
-    for model, slots in targets.items():
-        raw = json.loads((d / (model + ".json")).read_text())
-        entries = assemble(raw, slots, source, batch)
-        for e in entries:
-            e["part_id"] = packer.add(e["verts"], e["tris"], e["smooth"])
-        entries_by_model[model] = (raw["acts"], entries)
-        overlays[model] = dict(targets={i: x[0] for i, x in slots.items()}, count=len(entries))
+    for _, entries in entries_by_model.values():
+        for entry in entries:
+            entry["part_id"] = packer.add(entry["verts"], entry["tris"], entry["smooth"])
     # Reuse identical records from earlier overlays without changing any installed IDs.
     installed = {record: i for i, record in enumerate(catalog_records(base))}
     new_records, remap = [], []
@@ -224,8 +217,21 @@ def append_batch(view, batch=1):
     manifest["clips"] = sorted(set(manifest["clips"]) | set(clips))
     (d / "wgm_manifest.json").write_text(json.dumps(manifest, separators=(",", ":")))
     print(
-        f"{len(clips)} cable overlays, {sum(map(len, clips.values()))} bytes, {len(new_records)} additional shared parts"
+        f"{len(clips)} machine overlays, {sum(map(len, clips.values()))} bytes, {len(new_records)} additional shared parts"
     )
+
+
+def append_batch(view, batch=1):
+    d = view / "data"
+    targets, source = load_batch(batch)
+    entries_by_model = {}
+    overlays = {}
+    for model, slots in targets.items():
+        raw = json.loads((d / (model + ".json")).read_text())
+        entries = assemble(raw, slots, source, batch)
+        entries_by_model[model] = (raw["acts"], entries)
+        overlays[model] = dict(targets={i: x[0] for i, x in slots.items()}, count=len(entries))
+    append_overlays(view, entries_by_model, overlays)
 
 
 if __name__ == "__main__":

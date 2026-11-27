@@ -1,0 +1,554 @@
+{
+  "glute_kickback_machine": {
+    "24": [
+      "selected_weight",
+      "selected_stack_plate__006"
+    ],
+    "25": [
+      "selected_weight.001",
+      "selected_stack_plate__006"
+    ],
+    "26": [
+      "selected_weight.002",
+      "selected_stack_plate__006"
+    ],
+    "29": [
+      "pulley.001",
+      "pulley_wheel__003"
+    ],
+    "30": [
+      "pulley.002",
+      "pulley_wheel__003"
+    ],
+    "31": [
+      "pulley_hub",
+      "pulley_hub__004"
+    ],
+    "32": [
+      "pulley_hub.001",
+      "pulley_hub__004"
+    ],
+    "33": [
+      "pulley_support",
+      "pulley_support__002"
+    ],
+    "39": [
+      "stack_top_pulley_mount",
+      "pulley_bracket__002"
+    ],
+    "56": [
+      "unselected_weight",
+      "rest_stack_plate__004"
+    ],
+    "57": [
+      "unselected_weight.001",
+      "rest_stack_plate__004"
+    ],
+    "58": [
+      "unselected_weight.002",
+      "rest_stack_plate__004"
+    ],
+    "59": [
+      "unselected_weight.003",
+      "rest_stack_plate__004"
+    ],
+    "60": [
+      "unselected_weight.004",
+      "rest_stack_plate__004"
+    ],
+    "61": [
+      "unselected_weight.005",
+      "rest_stack_plate__004"
+    ],
+    "62": [
+      "unselected_weight.006",
+      "rest_stack_plate__004"
+    ]
+  },
+  "hip_abductor": {
+    "44": [
+      "pulley",
+      "pulley_wheel__004"
+    ],
+    "45": [
+      "pulley.001",
+      "pulley_wheel__004"
+    ],
+    "46": [
+      "pulley.002",
+      "pulley_wheel__004"
+    ],
+    "47": [
+      "pulley_hub",
+      "pulley_hub__005"
+    ],
+    "48": [
+      "pulley_hub.001",
+      "pulley_hub__005"
+    ],
+    "49": [
+      "pulley_hub.002",
+      "pulley_hub__005"
+    ],
+    "62": [
+      "tower_cap",
+      "shroud_cap__002"
+    ],
+    "69": [
+      "mopt_fixed_plate_00",
+      "rest_stack_plate__005"
+    ],
+    "70": [
+      "mopt_fixed_plate_01",
+      "rest_stack_plate__005"
+    ],
+    "71": [
+      "mopt_fixed_plate_02",
+      "rest_stack_plate__005"
+    ],
+    "72": [
+      "mopt_fixed_plate_03",
+      "rest_stack_plate__005"
+    ],
+    "73": [
+      "mopt_fixed_plate_04",
+      "rest_stack_plate__005"
+    ],
+    "74": [
+      "mopt_fixed_plate_05",
+      "rest_stack_plate__005"
+    ],
+    "76": [
+      "mopt_selected_plate_00",
+      "selected_stack_plate__007"
+    ],
+    "77": [
+      "mopt_selected_plate_01",
+      "selected_stack_plate__007"
+    ],
+    "78": [
+      "mopt_selected_plate_02",
+      "selected_stack_plate__007"
+    ],
+    "79": [
+      "mopt_selected_plate_03",
+      "selected_stack_plate__007"
+    ]
+  },
+  "hip_adductor": {
+    "24": [
+      "weight.005",
+      "selected_stack_plate__001"
+    ],
+    "25": [
+      "weight.006",
+      "selected_stack_plate__001"
+    ],
+    "26": [
+      "weight.007",
+      "selected_stack_plate__001"
+    ],
+    "53": [
+      "pulley",
+      "pulley_wheel__001"
+    ],
+    "54": [
+      "pulley.001",
+      "pulley_wheel__001"
+    ],
+    "55": [
+      "pulley.002",
+      "pulley_wheel__001"
+    ],
+    "56": [
+      "pulley_hub",
+      "pulley_hub__001"
+    ],
+    "57": [
+      "pulley_hub.001",
+      "pulley_hub__004"
+    ],
+    "58": [
+      "pulley_hub.002",
+      "pulley_hub__001"
+    ],
+    "75": [
+      "tower_back",
+      "shroud_rear__001"
+    ],
+    "77": [
+      "tower_cap",
+      "shroud_cap__001"
+    ],
+    "78": [
+      "tower_cheek",
+      "shroud_side__001"
+    ],
+    "79": [
+      "tower_cheek.001",
+      "shroud_side__001"
+    ],
+    "84": [
+      "upper_shroud",
+      "shroud_cap__001"
+    ],
+    "85": [
+      "weight",
+      "rest_stack_plate__001"
+    ],
+    "86": [
+      "weight.001",
+      "rest_stack_plate__001"
+    ],
+    "87": [
+      "weight.002",
+      "rest_stack_plate__001"
+    ],
+    "88": [
+      "weight.003",
+      "rest_stack_plate__001"
+    ],
+    "89": [
+      "weight.004",
+      "rest_stack_plate__001"
+    ]
+  },
+  "leg_extension": {
+    "37": [
+      "pulley",
+      "pulley_wheel__004"
+    ],
+    "38": [
+      "pulley.001",
+      "pulley_wheel__004"
+    ],
+    "39": [
+      "pulley.002",
+      "pulley_wheel__004"
+    ],
+    "40": [
+      "pulley_bracket",
+      "pulley_bracket__003"
+    ],
+    "41": [
+      "pulley_hub",
+      "pulley_hub__005"
+    ],
+    "42": [
+      "pulley_hub.001",
+      "pulley_hub__005"
+    ],
+    "43": [
+      "pulley_hub.002",
+      "pulley_hub__005"
+    ],
+    "52": [
+      "tower_cap",
+      "shroud_cap__002"
+    ],
+    "59": [
+      "mopt_fixed_plate_00",
+      "rest_stack_plate__005"
+    ],
+    "60": [
+      "mopt_fixed_plate_01",
+      "rest_stack_plate__005"
+    ],
+    "61": [
+      "mopt_fixed_plate_02",
+      "rest_stack_plate__005"
+    ],
+    "62": [
+      "mopt_fixed_plate_03",
+      "rest_stack_plate__005"
+    ],
+    "63": [
+      "mopt_fixed_plate_04",
+      "rest_stack_plate__005"
+    ],
+    "64": [
+      "mopt_fixed_plate_05",
+      "rest_stack_plate__005"
+    ],
+    "66": [
+      "mopt_selected_plate_00",
+      "selected_stack_plate__007"
+    ],
+    "67": [
+      "mopt_selected_plate_01",
+      "selected_stack_plate__007"
+    ],
+    "68": [
+      "mopt_selected_plate_02",
+      "selected_stack_plate__007"
+    ],
+    "69": [
+      "mopt_selected_plate_03",
+      "selected_stack_plate__007"
+    ],
+    "70": [
+      "mopt_selected_plate_04",
+      "selected_stack_plate__007"
+    ]
+  },
+  "lying_leg_curl": {
+    "27": [
+      "selected_plate",
+      "selected_stack_plate__001"
+    ],
+    "28": [
+      "selected_plate.001",
+      "selected_stack_plate__001"
+    ],
+    "29": [
+      "selected_plate.002",
+      "selected_stack_plate__001"
+    ],
+    "30": [
+      "selected_plate.003",
+      "selected_stack_plate__001"
+    ],
+    "35": [
+      "pulley.001",
+      "pulley_wheel__001"
+    ],
+    "36": [
+      "pulley.002",
+      "pulley_wheel__001"
+    ],
+    "37": [
+      "pulley.003",
+      "pulley_wheel__001"
+    ],
+    "38": [
+      "pulley_bracket",
+      "pulley_bracket__004"
+    ],
+    "39": [
+      "pulley_hub",
+      "pulley_hub__001"
+    ],
+    "40": [
+      "pulley_hub.001",
+      "pulley_hub__006"
+    ],
+    "41": [
+      "pulley_hub.002",
+      "pulley_hub__001"
+    ],
+    "42": [
+      "resting_plate",
+      "rest_stack_plate__001"
+    ],
+    "43": [
+      "resting_plate.001",
+      "rest_stack_plate__001"
+    ],
+    "44": [
+      "resting_plate.002",
+      "rest_stack_plate__001"
+    ],
+    "45": [
+      "resting_plate.003",
+      "rest_stack_plate__001"
+    ],
+    "46": [
+      "resting_plate.004",
+      "rest_stack_plate__001"
+    ],
+    "53": [
+      "tower_back",
+      "shroud_rear__001"
+    ],
+    "55": [
+      "tower_cap",
+      "shroud_cap__001"
+    ]
+  },
+  "seated_leg_curl": {
+    "21": [
+      "selected_plate",
+      "selected_stack_plate__001"
+    ],
+    "22": [
+      "selected_plate.001",
+      "selected_stack_plate__001"
+    ],
+    "23": [
+      "selected_plate.002",
+      "selected_stack_plate__001"
+    ],
+    "24": [
+      "selected_plate.003",
+      "selected_stack_plate__001"
+    ],
+    "30": [
+      "pulley.001",
+      "pulley_wheel__001"
+    ],
+    "31": [
+      "pulley.002",
+      "pulley_wheel__001"
+    ],
+    "32": [
+      "pulley.003",
+      "pulley_wheel__001"
+    ],
+    "33": [
+      "pulley_bracket",
+      "pulley_bracket__005"
+    ],
+    "34": [
+      "pulley_hub",
+      "pulley_hub__001"
+    ],
+    "35": [
+      "pulley_hub.001",
+      "pulley_hub__006"
+    ],
+    "36": [
+      "pulley_hub.002",
+      "pulley_hub__001"
+    ],
+    "37": [
+      "resting_plate",
+      "rest_stack_plate__001"
+    ],
+    "38": [
+      "resting_plate.001",
+      "rest_stack_plate__001"
+    ],
+    "39": [
+      "resting_plate.002",
+      "rest_stack_plate__001"
+    ],
+    "40": [
+      "resting_plate.003",
+      "rest_stack_plate__001"
+    ],
+    "41": [
+      "resting_plate.004",
+      "rest_stack_plate__001"
+    ],
+    "54": [
+      "tower_back",
+      "shroud_rear__001"
+    ],
+    "56": [
+      "tower_cap",
+      "shroud_cap__001"
+    ]
+  },
+  "standing_calf": {
+    "12": [
+      "selected_plate",
+      "selected_stack_plate__001"
+    ],
+    "13": [
+      "selected_plate.001",
+      "selected_stack_plate__001"
+    ],
+    "14": [
+      "selected_plate.002",
+      "selected_stack_plate__001"
+    ],
+    "15": [
+      "selected_plate.003",
+      "selected_stack_plate__001"
+    ],
+    "38": [
+      "pulley",
+      "pulley_wheel__001"
+    ],
+    "39": [
+      "pulley.001",
+      "pulley_wheel__001"
+    ],
+    "40": [
+      "pulley.002",
+      "pulley_wheel__001"
+    ],
+    "41": [
+      "pulley_hub",
+      "pulley_hub__004"
+    ],
+    "42": [
+      "pulley_hub.001",
+      "pulley_hub__004"
+    ],
+    "43": [
+      "pulley_hub.002",
+      "pulley_hub__004"
+    ],
+    "44": [
+      "resting_plate",
+      "rest_stack_plate__001"
+    ],
+    "45": [
+      "resting_plate.001",
+      "rest_stack_plate__001"
+    ],
+    "46": [
+      "resting_plate.002",
+      "rest_stack_plate__001"
+    ],
+    "47": [
+      "resting_plate.003",
+      "rest_stack_plate__001"
+    ],
+    "48": [
+      "resting_plate.004",
+      "rest_stack_plate__001"
+    ],
+    "53": [
+      "stack_back",
+      "shroud_rear__001"
+    ],
+    "55": [
+      "stack_cap",
+      "shroud_cap__001"
+    ]
+  },
+  "torso_rotation_machine": {
+    "16": [
+      "weight_plate.005",
+      "selected_stack_plate__001"
+    ],
+    "17": [
+      "weight_plate.006",
+      "selected_stack_plate__001"
+    ],
+    "19": [
+      "return_wheel",
+      "pulley_wheel__005"
+    ],
+    "20": [
+      "return_wheel.001",
+      "pulley_wheel__005"
+    ],
+    "28": [
+      "tower_back",
+      "shroud_rear__001"
+    ],
+    "35": [
+      "weight_plate",
+      "rest_stack_plate__001"
+    ],
+    "36": [
+      "weight_plate.001",
+      "rest_stack_plate__001"
+    ],
+    "37": [
+      "weight_plate.002",
+      "rest_stack_plate__001"
+    ],
+    "38": [
+      "weight_plate.003",
+      "rest_stack_plate__001"
+    ],
+    "39": [
+      "weight_plate.004",
+      "rest_stack_plate__001"
+    ]
+  }
+}
