@@ -40,8 +40,8 @@ ROUND_PROFILES = {
 def fit_round_profile(ring, sides):
     """Keep the scene samples and the original polygon's corners and contact planes."""
     degrees = np.rint(np.degrees(np.arctan2(ring[:, 0], ring[:, 1]))).astype(int) % 360
-    step = 360 // sides
-    angles = np.union1d(degrees, np.arange(0, 360, step))
+    step = 360 / sides
+    angles = np.union1d(degrees, np.arange(sides) * step)
     radius = np.linalg.norm(ring, axis=1).mean()
     radius *= np.cos(np.radians(step / 2)) / np.cos(np.radians(angles % step - step / 2))
     return radius[:, None] * np.column_stack((np.sin(np.radians(angles)), np.cos(np.radians(angles))))
