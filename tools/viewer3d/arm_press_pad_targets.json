@@ -1,0 +1,90 @@
+{
+  "dip_machine": {
+    "back.001": [
+      7,
+      "back_pad__003"
+    ],
+    "seat.001": [
+      51,
+      "seat_pad__002"
+    ],
+    "seat_pan": [
+      52,
+      "pad_pan__001"
+    ],
+    "seat_post": [
+      53,
+      "seat_post__002"
+    ],
+    "seat_rail": [
+      54,
+      "adjustment_rail__002"
+    ]
+  },
+  "pec_deck~m=fly": {
+    "back": [
+      0,
+      "back_pad__013"
+    ]
+  },
+  "pec_deck~m=reverse": {
+    "back": [
+      0,
+      "back_pad__014"
+    ]
+  },
+  "pec_deck~m=reverse_single": {
+    "back": [
+      0,
+      "back_pad__014"
+    ]
+  },
+  "preacher_machine": {
+    "pad_post": [
+      26,
+      "pad_post__003"
+    ],
+    "preacher_pad": [
+      27,
+      "arm_pad__002"
+    ]
+  },
+  "shoulder_press_machine": {
+    "back_adjust_pin": [
+      0,
+      "adjustment_pin__001"
+    ],
+    "back_mount": [
+      1,
+      "pad_mount__006"
+    ],
+    "back_mount.001": [
+      2,
+      "pad_mount__013"
+    ],
+    "headrest": [
+      12,
+      "head_pad__002"
+    ],
+    "seat.001": [
+      36,
+      "seat_pad__023"
+    ],
+    "seat_adjuster": [
+      37,
+      "seat_adjuster__003"
+    ],
+    "seat_base": [
+      38,
+      "seat_support__005"
+    ],
+    "seat_pin": [
+      39,
+      "adjustment_pin__001"
+    ],
+    "tapered_back": [
+      45,
+      "back_pad__016"
+    ]
+  }
+}

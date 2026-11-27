@@ -61,7 +61,7 @@ def avatar_at_key_times(path, acts):
     return clock, frames[i-1] + weight*(frames[i]-frames[i-1])
 
 
-def verify_skin(rows, clock, skin, acts, faces):
+def verify_skin(rows, clock, skin, acts, faces, *, surface_seat=False):
     static = SkinSweep(skin, faces)
     for row in rows:
         q, sc, pos = row["quats"], row["sc"], row["pos"]
@@ -70,6 +70,10 @@ def verify_skin(rows, clock, skin, acts, faces):
         mesh = Rotation.from_quat(q[0]).apply(row["verts"]*sc[0])
         if len(pos) == 1:
             clear = static.clear(mesh + pos[0], margin=.0001)
+            if not clear and surface_seat and row["name"] == "seat":
+                # Rounded seats can separate on an edge axis missed by the face-plane test.
+                from bench_fit import swept_clear
+                clear = swept_clear(static, mesh + pos[0])
         else:
             travel = np.column_stack([np.interp(clock, np.asarray(acts, "<f4"), p) for p in pos.T])
             relative = skin - travel[:, None, :]
@@ -408,7 +412,8 @@ def append_batch(view, *, targets_file="pull_station_targets.json", report_file=
         try:
             clock, human = avatar_at_key_times(humans/f"{key}.bin", raw["acts"])
             entries, fits = build_model(key, raw, mapping, source, human, base)
-            verify_skin(entries, clock, human, raw["acts"], np.asarray(base["triangles"]).reshape(-1, 3))
+            verify_skin(entries, clock, human, raw["acts"], np.asarray(base["triangles"]).reshape(-1, 3),
+                        surface_seat=fits.get("seat", {}).get("gap_method") == "axial_surface")
         except ValueError as exc:
             report[key] = {"unchanged": str(exc)}
             print(f"{key}: unchanged ({exc})", flush=True)

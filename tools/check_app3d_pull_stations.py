@@ -90,7 +90,8 @@ def check(view, baseline, *, targets_file="pull_station_targets.json", report_fi
                 pads[entry["name"]].append((row["world"][0], t))
             counts["moving" if row["nf"] > 1 else "static"] += 1
             real.append(dict(name=entry["name"], verts=v, pos=row["pos"], quats=row["quat"], sc=row["scale"]))
-        verify_skin(real, clock, skin, acts, faces)
+        verify_skin(real, clock, skin, acts, faces,
+                    surface_seat=fits.get("seat", {}).get("gap_method") == "axial_surface")
         clearances = {}
         for name, surfaces in pads.items():
             surface = np.vstack([v for v, _ in surfaces])

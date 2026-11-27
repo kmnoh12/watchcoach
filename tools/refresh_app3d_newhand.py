@@ -68,6 +68,7 @@ def main():
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_lower_press_pads.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_press_stations.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_chest_press_pads.py"), str(stage)], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_arm_press_pads.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_bars.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_bench.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_adjust_bench_rest.py"), str(stage)], check=True)

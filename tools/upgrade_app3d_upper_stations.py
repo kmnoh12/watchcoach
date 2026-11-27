@@ -10,6 +10,7 @@ from upgrade_app3d_pull_stations import (
     HERE, append_batch, assemble, load, load_source as load_tower_source, slider_bottom, vertices, world,
 )
 from body_fit import fit_body_part
+from pull_pad_fit import axial_gap
 from part_registry import MAT_CHROME, MAT_FRAME
 from scene_lat_parts import build_seat, palette
 from selector_tower import cylinder, drilled_slider
@@ -37,6 +38,11 @@ def fit_seat(raw, mapping, source, skin, base, emit):
     surface = np.vstack([part.verts for part in cushion]) + center
     target = fit_body_part(skin, base, "seat_pad", center, surface, -up, across)
     shift = target - center
+    # The pelvis may sit over a rounded front edge, not the top of the bounding box.
+    layers = [(part.verts + target, part.tris) for part in cushion]
+    clearance = axial_gap(skin, base, "seat_pad", layers, up)
+    if not .002 <= clearance <= .005:
+        shift = shift + up * (clearance - .0035)
 
     sleeve = world(objects["seat_socket"])[0]
     low, high = sleeve.min(0), sleeve.max(0)
@@ -78,9 +84,9 @@ def fit_seat(raw, mapping, source, skin, base, emit):
     hardware("seat_socket", cylinder(.0031*min(*width, height), pin_end-pin_start, 0, 20),
              spindle, [1, 1, 1], MAT_CHROME, steel)
 
-    gap = .0035 - np.dot(fit_body_part(skin, base, "seat_pad", target, surface+shift, -up, across)-target, -up)
+    gap = axial_gap(skin, base, "seat_pad", [(part.verts + center + shift, part.tris) for part in cushion], up)
     return {"seat": dict(role="seat_pad", axis=up.tolist(), normal=(-up).tolist(), across=across.tolist(),
-                         origin=center.tolist(), offset=shift.tolist(), gap_mm=gap*1000)}
+                         origin=center.tolist(), offset=shift.tolist(), gap_mm=gap*1000, gap_method="axial_surface")}
 
 
 def build_model(key, raw, mapping, source, human, base):
