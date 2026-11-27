@@ -103,6 +103,19 @@ def extract():
     out["rope_connector"] = named_mesh("Rope swivel collar")
     out["cable_segment"] = straight_profile("Coated load cable.002", along_y=True)
 
+    # These keep the original cable and bar axes. Sleeve and clevis are distinct islands.
+    for role, point, axes, count in (
+        ("rope_ferrule", [0, .006, .171], (1, 2, 3), 124),
+        ("swivel_collar", [-.017, .021, .060], (2, 3, 1), 156),
+    ):
+        name = "Ddetail6_LP_BarHardware"
+        v, t, m = mesh(name, "P_lat_bar")
+        seed = np.argmin(np.linalg.norm(v - point, axis=1))
+        p, faces, slots = select(v, t, m, island(t, seed, len(v)))
+        assert len(faces) == count and set(slots) == {0}, role
+        p -= (p.min(0) + p.max(0)) / 2
+        out[role] = encode(orient(p, axes), faces, bpy.data.objects[name].material_slots[0].material, True)
+
     name = "Ddetail6_LP_BarHardware"
     v, t, m = mesh(name, LP)
     center = np.array((0, -0.450, 1.922))

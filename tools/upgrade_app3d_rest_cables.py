@@ -7,7 +7,7 @@ import numpy as np
 from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
 
-from upgrade_app3d_adjust_bench import append_batch
+from upgrade_app3d_adjust_bench import HERE, append_batch, load
 from upgrade_app3d_machines import decompose_frames, strip_fake_animation
 from upgrade_app3d_rest_bars import fit_round_profile
 from fixed_pad_contact import penetration
@@ -17,6 +17,9 @@ from part_registry import MAT_CHROME, MAT_FRAME, MAT_RUBBER, MAT_SILVER
 TARGETS = "rest_cable_targets.json"
 SOURCE = "scene_rest_cable_source.json"
 REPORT = "rest_cable_fit.json"
+TARGETS_03 = "rest_cable_targets_03.json"
+REPORT_03 = "rest_cable_fit_03.json"
+CARABINER_LINKS = tuple(f"carabiner_main_{i}" for i in range(12))
 
 # The authored runner and upright carry the frame's powder coat and bevels.
 SHELLS = {
@@ -30,6 +33,11 @@ SHELLS = {
     "rubber_foot": ("rubber_foot", "rubber_foot", MAT_RUBBER),
     "rope_stop": ("rope_stop", "rope_stop", MAT_RUBBER),
     "rope_connector": ("rope_connector", "rope_connector", MAT_SILVER),
+    "frame_crossbeam": ("frame_link", "frame_link", MAT_FRAME),
+    "frame_leg": ("frame_post", "frame_post", MAT_FRAME),
+    "frame_spine": ("frame_spine", "frame_spine", MAT_FRAME),
+    "top_beam": ("frame_link", "frame_link", MAT_FRAME),
+    "tower_post": ("frame_post", "frame_post", MAT_FRAME),
 }
 ROUNDS = {
     "cable_segment__001": ("cable_segment", MAT_RUBBER, 5, 1),
@@ -41,6 +49,26 @@ ROUNDS = {
     "d_handle_bridge__001": ("handle_support", MAT_CHROME, 8, 2),
     "lat_bar__001": ("lat_bar", MAT_CHROME, 8, 2),
     "rope_cord__002": ("rope_cord", MAT_RUBBER, 6, 2),
+    "d_handle_bridge__002": ("handle_support", MAT_CHROME, 8, 2),
+    "d_handle_grip__001": ("hand_grip", MAT_RUBBER, 12, 2),
+    "d_handle_side__002": ("handle_support", MAT_CHROME, 8, 2),
+    "hand_grip__005": ("hand_grip", MAT_RUBBER, 8, 2),
+    "rope_cord__003": ("rope_cord", MAT_RUBBER, 8, 2),
+    "rope_grip__002": ("rope_cord", MAT_RUBBER, 8, 2),
+    "lat_bar__002": ("hand_grip", MAT_RUBBER, 8, 2),
+    "pullup_bar__001": ("hand_grip", MAT_RUBBER, 8, 2),
+}
+FINISH_03 = {
+    "carabiner_link": ("carabiner_link_ring", MAT_CHROME),
+    "ez_bar": ("ez_bar", MAT_SILVER),
+    "handle_eye": ("handle_support", MAT_CHROME),
+    "handle_support": ("handle_support", MAT_CHROME),
+}
+HARDWARE_03 = {
+    "bar_sleeve": ("bar_sleeve", MAT_CHROME),
+    "rope_ferrule": ("rope_ferrule", MAT_SILVER),
+    "rope_stop": ("rope_stop", MAT_RUBBER),
+    "swivel_collar": ("swivel_collar", MAT_CHROME),
 }
 
 
@@ -110,7 +138,7 @@ def shell_parts(group, old, source):
 
 
 def carabiner(raw, attachments, source):
-    names = [f"carabiner_main_{i}" for i in range(12)]
+    names = CARABINER_LINKS
     by_name = {obj["name"]: obj for obj in attachments}
     if set(by_name) != set(names):
         raise ValueError("carabiner does not have the twelve original track segments")
@@ -171,7 +199,38 @@ def carabiner_clearance(attachments, replacement, frames, skin, times, phase):
     return check
 
 
-def build_model(key, raw, mapping, source, frames, base, times):
+def hardware_03(role, old, source):
+    template, mat = HARDWARE_03[role]
+    src = source[template]
+    v = np.asarray(src["v"])
+    lo, hi = old.min(0), old.max(0)
+    if np.any(hi <= lo):
+        raise ValueError(f"{role}: empty hardware bounds")
+    size = hi - lo
+    dims = np.ptp(v, axis=0)
+    # Apply the offset in catalogue coordinates so the original rotation pivot survives.
+    v = v + ((lo + hi) / 2 / size * dims).round(7)
+    return size / dims, [(v, np.asarray(src["t"]), True, mat, src["rgb"])]
+
+
+def check_outlet(raw):
+    # Some authored overhead clips start the outgoing cable in mid-air. Their
+    # original path needs an animation correction before the exterior can ship.
+    by_name = {obj["name"]: obj for obj in raw["objects"]}
+    if "cable_out_main" not in by_name or "carriage.006" not in by_name:
+        return
+    if "pulley.041" not in by_name:
+        raise ValueError("outgoing cable has no original outlet pulley")
+    pulley, _, _ = decompose_frames(by_name["pulley.041"]["m"])
+    start, _, _ = decompose_frames(by_name["cable_out_main"]["m"])
+    gap = np.linalg.norm(start - pulley, axis=1).max()
+    if gap > 0.10:
+        raise ValueError(f"original outgoing cable starts {gap * 1000:.0f} mm from the outlet pulley")
+
+
+def build_model(key, raw, mapping, source, frames, base, times, *, batch_03=False):
+    if batch_03:
+        check_outlet(raw)
     skin = np.asarray(base["triangles"]).reshape(-1, 3)
     phase = np.asarray(raw["acts"], dtype="<f4")
     rows, audit, attachments = [], {}, []
@@ -186,10 +245,23 @@ def build_model(key, raw, mapping, source, frames, base, times):
         p, q, s = decompose_frames(strip_fake_animation(obj["m"]))
         if np.any(s <= 0):
             raise ValueError(f"{name}: unexpected mirrored or singular track")
-        factor, parts = round_parts(group, old, source) if group in ROUNDS else shell_parts(group, old, source)
+        role = group.split("__")[0]
+        if batch_03 and role in FINISH_03:
+            template, mat = FINISH_03[role]
+            factor = np.ptp(old, axis=0)
+            if np.any(factor <= 0):
+                raise ValueError(f"{name}: empty finish bounds")
+            parts = [((old / factor).round(7), np.asarray(obj["tris"]), True, mat,
+                      source[template]["rgb"])]
+        elif batch_03 and role in HARDWARE_03:
+            factor, parts = hardware_03(role, old, source)
+        elif group in ROUNDS:
+            factor, parts = round_parts(group, old, source)
+        else:
+            factor, parts = shell_parts(group, old, source)
         scale = s * factor
         fitted = np.concatenate([v * factor for v, *_ in parts])
-        if group in ROUNDS:
+        if group in ROUNDS or (batch_03 and role in FINISH_03):
             # Check the shape in its unscaled frame so this also covers variable
             # cable lengths and all interpolated scales without skin resampling.
             hull = ConvexHull(old).equations
@@ -198,7 +270,8 @@ def build_model(key, raw, mapping, source, frames, base, times):
                 raise ValueError(f"{name}: replacement protrudes beyond original tube")
             check = dict(added_hull_mm=0.0)
         else:
-            if not np.allclose(s[0], s, atol=0.00001):
+            scale_tolerance = 0.00003 if batch_03 else 0.00001
+            if not np.allclose(s[0], s, atol=scale_tolerance):
                 raise ValueError(f"{name}: unexpected varying shell scale")
             check = penetration(frames, skin, times, phase, old * s[0], fitted * s[0], p, q)
             if check["added_hull_mm"] > 10:
@@ -208,28 +281,55 @@ def build_model(key, raw, mapping, source, frames, base, times):
                              mat=mat, color=color, pos=p, quats=q, sc=scale))
         audit[name] = dict(group=group, count=len(parts), frames=len(p), collision=check)
     if attachments:
+        if batch_03:
+            attachments = [o for o in raw["objects"] if o["name"] in CARABINER_LINKS]
         fitted = carabiner(raw, attachments, source)
         rows.extend(fitted)
         audit["carabiner_main_0"] = dict(group="carabiner_link__001", count=len(fitted),
                                          frames=len(fitted[0]["pos"]), merged=len(attachments),
                                          collision=carabiner_clearance(attachments, fitted, frames, skin, times, phase))
-    track = next((o for o in raw["objects"] if o["name"].startswith("adjustment_track.")), None)
-    audit["adjustment_axis"] = [0, 0, 1] if track else None
+    if batch_03:
+        # Each pose already sets the carriage height and routes its cable through
+        # that carriage. Retain the indexed rail and existing lock geometry.
+        audit["adjustment_axes"] = {
+            o["name"]: [0, 0, 1] for o in raw["objects"]
+            if o["name"].split(".")[0] == "adjustment_track"
+        }
+    else:
+        track = next((o for o in raw["objects"] if o["name"].startswith("adjustment_track.")), None)
+        audit["adjustment_axis"] = [0, 0, 1] if track else None
     return rows, audit
 
 
-def upgrade(view):
+def upgrade(view, *, batch_03=False):
+    shared = {}
+    covered = {}
+    if batch_03:
+        bars = load(HERE / "scene_rest_bar_source.json")
+        shared = {"frame_spine": load(HERE / "scene_rest_bench_source.json")["frame_spine"],
+                  "bar_sleeve": bars["bar_sleeve__001"], "ez_bar": bars["ez_bar__002"]}
+        for key, mapping in load(HERE / TARGETS_03).items():
+            if CARABINER_LINKS[0] in mapping:
+                raw = load(view / "data" / (key + ".json"))
+                covered[key] = {str(i): o["name"] for i, o in enumerate(raw["objects"])
+                                if o["name"] in CARABINER_LINKS[1:]}
+
     def build(key, raw, mapping, source, frames, base):
         if frames is None or len(frames) < 2:
             raise ValueError("missing posed character samples")
         path = view / "human_v5" / (key + ".bin")
         times = np.frombuffer(path.read_bytes(), "<f4", len(frames), 40)
-        return build_model(key, raw, mapping, source, frames, base, times)
+        return build_model(key, raw, mapping, {**source, **shared}, frames, base, times,
+                           batch_03=batch_03)
 
-    return append_batch(view, targets_file=TARGETS, source_file=SOURCE, report_file=REPORT, build_model=build)
+    return append_batch(view, targets_file=TARGETS_03 if batch_03 else TARGETS, source_file=SOURCE,
+                        report_file=REPORT_03 if batch_03 else REPORT, build_model=build,
+                        covered_slots=covered)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    upgrade(parser.parse_args().viewer)
+    parser.add_argument("--batch-03", action="store_true")
+    args = parser.parse_args()
+    upgrade(args.viewer, batch_03=args.batch_03)
