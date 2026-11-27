@@ -5,6 +5,7 @@ import struct
 from pathlib import Path
 
 import numpy as np
+from scipy.interpolate import PchipInterpolator
 from scipy.optimize import brentq
 from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation, Slerp
@@ -15,9 +16,10 @@ from check_app3d_stage1 import read_clip, read_parts
 from upgrade_app3d_machines import PartCatalogPacker, decompose_frames, load_wgp2_human_frames
 from upgrade_app3d_adjust_bench import catalog_records
 from part_catalog import make_chamfered_box
+from fit_app3d_dumbbell_contacts import swing_segment
 
 KEYS = ("lying_leg_curl", "seated_leg_curl", "standing_leg_curl",
-        "decline_sit_up", "leg_press_calf", "lat_pulldown~g=d", "decline_push_up")
+        "decline_sit_up", "leg_press_calf", "lat_pulldown~g=d", "decline_push_up", "seated_calf")
 
 
 def mats(obj):
@@ -195,6 +197,135 @@ def translate_record(blob, offsets, slot, delta):
     p[:] += delta
 
 
+def tread_contact(foot, faces, top):
+    """Lowest sole clearance and contact station on a piecewise linear tread."""
+    tri = foot[faces, 1:]
+    (y, z), (ey, ez) = tri.T, np.roll(tri, -1, axis=1).T
+    on = (y >= top[0, 0]) & (y <= top[-1, 0])
+    stations = [y[on]]
+    gaps = [z[on] - np.interp(y[on], *top.T)]
+    for station, height in top:
+        cross = (y < station) != (ey < station)
+        if cross.any():
+            gap = z[cross] + (ez[cross]-z[cross])*(station-y[cross])/(ey[cross]-y[cross]) - height
+            stations.append([station]); gaps.append([gap.min()])
+    distances = np.concatenate(gaps)
+    i = distances.argmin()
+    return np.concatenate(stations)[i], distances[i]
+
+
+def foot_roll_path(reference, faces, ball, tread, sign):
+    # Roll about each successive sole contact rather than sliding a fixed toe
+    # along the platform. At the neutral setting the forefoot rests on its rear lip.
+    section = profile(tread)
+    ys = np.unique(np.round(section[:, 0], 8))
+    top = np.array([(y, section[np.isclose(section[:, 0], y, atol=1e-8, rtol=0), 1].max()) for y in ys])
+    offsets = {}
+    for direction, stop in ((-1, -51), (1, 26)):
+        origin = ball + [sign*.035, .131, 0.]
+        for angle in range(-10, stop, direction):
+            if angle != -10:
+                origin = spin_x(origin[None], pivot, np.deg2rad(direction))[0]
+            foot = spin_x(reference, ball, np.deg2rad(angle)) + origin - ball
+            y, gap = tread_contact(foot, faces, top)
+            origin[2] += .0007 - gap
+            pivot = np.array([0., y, np.interp(y, *top.T) + .0007])
+            offsets[angle] = origin - ball
+    grid = sorted(offsets)
+    return PchipInterpolator(grid, [offsets[a] for a in grid], extrapolate=False)
+
+
+def park_calf_catch(objs, rows, blob):
+    # The rep is under load, not racked. Swing the cradle AND its operating
+    # handle as one piece about the fixed post, clear of the rising heel.
+    pivot = mats(objs['rest_post'])[0, 3, :3]
+    turn = Rotation.from_euler('z', -90, degrees=True)
+    handle = world(objs['rest_handle'])[0]
+    bounds = [handle.min(0), handle.max(0)]
+    offsets = wgm_offsets(blob)
+    for slot in (21, 22):
+        row = rows[slot]
+        v = row['world'][0]
+        if row['nf'] != 1 or not np.allclose([v.min(0), v.max(0)], bounds, atol=.001):
+            raise ValueError('Expected both static seated calf catch handle overlays')
+        off = offsets[slot] + 10
+        pose = np.frombuffer(blob, '<f4', 7, off)
+        pose[:3] = turn.apply(row['pos'][0] - pivot) + pivot
+        pose[3:] = (turn * Rotation.from_quat(row['quat'][0])).as_quat()
+    for name in ('rest_handle', 'rest_cradle'):
+        m = mats(objs[name])
+        m[:, 3, :3] = turn.apply(m[:, 3, :3] - pivot) + pivot
+        m[:, :3, :3] = np.einsum('fij,kj->fik', m[:, :3, :3], turn.as_matrix())
+        save_mats(objs[name], m)
+
+
+def fit_seated_calf(objs, skin, frames, acts, base, rows, blob):
+    # Engage the next existing hole. The twin knee pads, their arms, the
+    # insert, and its markings share one rigid adjustment in lever space.
+    holes = ('adjust_hole', 'adjust_hole.001', 'adjust_hole.002')
+    delta = mats(objs[holes[1]])[:, 3, :3] - mats(objs[holes[0]])[:, 3, :3]
+    if not np.allclose(delta, .05*mats(objs['knee_insert'])[:, 2, :3], atol=1e-5):
+        raise ValueError('Unexpected calf lever insert pitch')
+    for n in ('knee_insert', 'knee_cross', 'pad_carrier', 'pad_carrier.001', 'knee', 'knee.001', *holes):
+        move(objs[n], delta)
+    # Seat each backing rail in the pad (the stock faces stop 0.8 mm apart).
+    # Both rails remain engaged in the same crossbar; neither pad is moved alone.
+    for n in ('pad_carrier', 'pad_carrier.001'):
+        move(objs[n], -.002*mats(objs['knee_insert'])[:, 2, :3])
+    park_calf_catch(objs, rows, blob)
+    tread = rows[30]['world'][0]
+    if rows[30]['nf'] != 1 or not np.allclose(tread.max(0), world(objs['tread'])[0].max(0), atol=.001):
+        raise ValueError('Unexpected seated calf tread overlay')
+    source = skin.copy()
+    ref = source[0]
+    rest = np.reshape(base['rest'], (-1, 3))
+    # Keep the seated pelvis and the part of the thigh resting on the saddle.
+    u = np.clip((.16-ref[:, 1])/.09, 0, 1)
+    fade = (u*u*(3-2*u))[:, None]
+    for side, pad_name, sign in [('l', 'knee.001', 1), ('r', 'knee', -1)]:
+        def centre(bone, position):
+            w = weights(base, [bone+'_'+side])
+            mask = w >= min(.75, w.max() - .05)
+            rot, pos = rigid(rest[mask], ref[None, mask])
+            return np.einsum('i,ij->j', np.array(position)*[sign, 1, 1], rot[0]) + pos[0]
+
+        hip, knee, ankle, ball = (centre(b, p) for b, p in (
+            ('thigh', REST['thigh']), ('calf', REST['calf']), ('calf', REST['foot']), ('ball', [.29, -.14, .04])))
+        thigh, shin, sole = [weights(base, [b+'_'+side for b in bones])[:, None] * fade
+                             for bones in (['thigh'], ['calf'], ['foot', 'ball'])]
+        feet = leg_triangles(base, ['foot', 'ball'], side)
+        path = foot_roll_path(ref, feet, ball, tread, sign)
+        legs = leg_triangles(base, ['thigh', 'calf'], side)
+        upper, lower = knee-hip, ankle-knee
+        for i, pad in enumerate(roller_at(objs[pad_name], acts, frames)):
+            section = profile(pad)
+
+            def pose(angle):
+                rad = np.deg2rad(angle)
+                foot = spin_x(ref, ball, rad) + path(angle)
+                dest = spin_x(ankle[None], ball, rad)[0] + path(angle)
+                # Solve the upright knee bend with the original rigid link lengths.
+                d = np.linalg.norm(dest-hip)
+                axis = (dest-hip)/d
+                along = (d*d + upper.dot(upper) - lower.dot(lower))/(2*d)
+                pole = np.array([0., 0., 1.]) - axis*axis[2]
+                k = hip + axis*along + pole/np.linalg.norm(pole)*np.sqrt(upper.dot(upper) - along*along)
+                def swung(points, old_link, new_link):
+                    rot = swing_segment(old_link[None], new_link[None])[0]
+                    return np.einsum('ij,vj->vi', rot, points)
+                old = source[i]
+                return ((swung(ref-hip, upper, k-hip) + hip-old)*thigh
+                        + (swung(ref-knee, lower, dest-k) + k-old)*shin + (foot-old)*sole)
+
+            def clearance(angle):
+                tri = (source[i] + pose(angle))[legs]
+                tri = tri[(tri[:, :, 0].min(1) < pad[:, 0].max()) & (tri[:, :, 0].max(1) > pad[:, 0].min())]
+                return section_gap(section, tri[:, :, 1:]) - .0013
+
+            skin[i] += pose(brentq(clearance, -50., 25.))
+    return {'insert_holes_raised': 1, 'parked_catch_degrees': -90, 'knee_pad_clearance_mm': 1.3}
+
+
 def sled_cross_profile(vertices, scale):
     # Preserve the existing crossmember on each rail sleeve. A welded dogleg
     # puts the centre span behind the heels without moving the sled or plate.
@@ -367,9 +498,11 @@ def apply(view, keys=KEYS):
             result = clear_lat_foot(skin, base, rows[105]["world"][0])
         elif key == "decline_push_up":
             result = set_push_up_toes(skin, base)
+        elif key == "seated_calf":
+            result = fit_seated_calf(objs, skin, ts, acts, base, rows, blob)
         else:
             raise ValueError(key)
-        if key in ("lying_leg_curl", "seated_leg_curl", "standing_leg_curl", "lat_pulldown~g=d", "decline_push_up"):
+        if key in ("lying_leg_curl", "seated_leg_curl", "standing_leg_curl", "lat_pulldown~g=d", "decline_push_up", "seated_calf"):
             store_skin(hp, skin, ts)
         if blob != wp.read_bytes():
             wp.write_bytes(blob)
