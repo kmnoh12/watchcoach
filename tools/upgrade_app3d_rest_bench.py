@@ -16,6 +16,8 @@ from part_registry import MAT_SILVER
 TARGETS = "rest_bench_targets.json"
 SOURCE = "scene_rest_bench_source.json"
 REPORT = "rest_bench_fit.json"
+HANDWEIGHT_TARGETS = "rest_handweights_targets.json"
+HANDWEIGHT_REPORT = "rest_handweights_fit.json"
 
 
 def exterior_part(group, source, centered, triangles):
@@ -72,21 +74,28 @@ def assemble(view, key, raw, mapping, source, frames, base, bars):
     return rows + bar_rows, {**audit, **bar_audit}
 
 
-def upgrade(view):
-    shared = load(HERE / "scene_adjust_bench_rest_source.json")
-    shared["rubber_foot"] = load(HERE / "scene_fixed_bench_rest_source.json")["rubber_foot"]
-    source_bars = load(HERE / "scene_rest_bar_source.json")
-    bars = {group: (*bar_parts(group, source_bars[group]), source_bars[group]["rgb"])
-            for group in BAR_GROUPS}
+def upgrade(view, *, handweights=False):
+    source_file = "scene_adjust_bench_rest_source.json"
+    targets_file, report_file = HANDWEIGHT_TARGETS, HANDWEIGHT_REPORT
+    shared, bars = {}, {}
+    if not handweights:
+        targets_file, source_file, report_file = TARGETS, SOURCE, REPORT
+        shared = load(HERE / "scene_adjust_bench_rest_source.json")
+        shared["rubber_foot"] = load(HERE / "scene_fixed_bench_rest_source.json")["rubber_foot"]
+        source_bars = load(HERE / "scene_rest_bar_source.json")
+        bars = {group: (*bar_parts(group, source_bars[group]), source_bars[group]["rgb"])
+                for group in BAR_GROUPS}
 
     def build_model(key, raw, mapping, source, frames, base):
         return assemble(view, key, raw, mapping, {**shared, **source}, frames, base, bars)
 
-    return append_batch(view, targets_file=TARGETS, source_file=SOURCE,
-                        report_file=REPORT, build_model=build_model)
+    return append_batch(view, targets_file=targets_file, source_file=source_file,
+                        report_file=report_file, build_model=build_model)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    upgrade(parser.parse_args().viewer)
+    parser.add_argument("--handweights", action="store_true", help="apply the standing dumbbell batch")
+    args = parser.parse_args()
+    upgrade(args.viewer, handweights=args.handweights)
