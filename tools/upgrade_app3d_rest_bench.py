@@ -18,6 +18,8 @@ SOURCE = "scene_rest_bench_source.json"
 REPORT = "rest_bench_fit.json"
 HANDWEIGHT_TARGETS = "rest_handweights_targets.json"
 HANDWEIGHT_REPORT = "rest_handweights_fit.json"
+HANDWEIGHT_TARGETS_02 = "rest_handweights_targets_02.json"
+HANDWEIGHT_REPORT_02 = "rest_handweights_fit_02.json"
 
 
 def exterior_part(group, source, centered, triangles):
@@ -74,11 +76,13 @@ def assemble(view, key, raw, mapping, source, frames, base, bars):
     return rows + bar_rows, {**audit, **bar_audit}
 
 
-def upgrade(view, *, handweights=False):
+def upgrade(view, *, handweights=False, handweights_02=False):
     source_file = "scene_adjust_bench_rest_source.json"
     targets_file, report_file = HANDWEIGHT_TARGETS, HANDWEIGHT_REPORT
     shared, bars = {}, {}
-    if not handweights:
+    if handweights_02:
+        targets_file, report_file = HANDWEIGHT_TARGETS_02, HANDWEIGHT_REPORT_02
+    elif not handweights:
         targets_file, source_file, report_file = TARGETS, SOURCE, REPORT
         shared = load(HERE / "scene_adjust_bench_rest_source.json")
         shared["rubber_foot"] = load(HERE / "scene_fixed_bench_rest_source.json")["rubber_foot"]
@@ -96,6 +100,8 @@ def upgrade(view, *, handweights=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    parser.add_argument("--handweights", action="store_true", help="apply the standing dumbbell batch")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--handweights", action="store_true", help="apply the first dumbbell batch")
+    mode.add_argument("--handweights-02", action="store_true", help="apply the second dumbbell batch")
     args = parser.parse_args()
-    upgrade(args.viewer, handweights=args.handweights)
+    upgrade(args.viewer, handweights=args.handweights, handweights_02=args.handweights_02)

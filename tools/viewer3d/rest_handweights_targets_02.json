@@ -1,0 +1,117 @@
+{
+  "dumbbell_deadlift": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "dumbbell_front_raise": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "dumbbell_lateral_raise": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "dumbbell_shrug": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "dumbbell_squat": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "hammer_curl": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "lateral_lunge": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"]
+  },
+  "reverse_lunge": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "romanian_deadlift_dumbbell": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  },
+  "single_arm_dumbbell_curl": {
+    "dumbbell_end": [0, "dumbbell_cap__001"],
+    "dumbbell_end.001": [1, "dumbbell_cap__001"],
+    "dumbbell_handle": [2, "dumbbell_grip__001"],
+    "dumbbell_head": [3, "dumbbell_head__001"],
+    "dumbbell_head.001": [4, "dumbbell_head__001"],
+    "dumbbell_end.002": [5, "dumbbell_cap__001"],
+    "dumbbell_end.003": [6, "dumbbell_cap__001"],
+    "dumbbell_handle.001": [7, "dumbbell_grip__001"],
+    "dumbbell_head.002": [8, "dumbbell_head__001"],
+    "dumbbell_head.003": [9, "dumbbell_head__001"]
+  }
+}
