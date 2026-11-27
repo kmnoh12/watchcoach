@@ -14,7 +14,8 @@ from pathlib import Path
 import numpy as np
 
 from part_catalog import SubPart, _ensure_outward, _merge_meshes, make_box, make_revolved_profile
-from part_registry import MAT_ACCENT, MAT_CHROME, MAT_FRAME, MAT_RUBBER, MAT_SELECTOR_WINDOW
+from part_registry import MAT_ACCENT, MAT_CHROME, MAT_FRAME, MAT_LAT_STACK_LABEL, MAT_RUBBER, MAT_SELECTOR_WINDOW
+from lat_stack_labels import WIDTH, DEPTH, PITCH, FIXED_ROWS, LIFT_ROWS, atlas
 
 # Linear RGB, not sRGB swatches. Chrome is reserved for pins/rods and small fasteners.
 COAT = (.042, .042, .042)
@@ -31,6 +32,7 @@ class Placed:
     part: SubPart
     at: tuple
     lift: bool = False
+    pitch: float = 0.
 
 
 def block(size, bevel=0, center=(0, 0, 0)):
@@ -160,9 +162,15 @@ class Kit(list):
         return post, front
 
     def stack(self, width, depth, pitch, selected_z, fixed_rows, lift_rows):
-        mesh=cast_plate(width,depth,pitch-.004)
+        from scene_lat_parts import build_plate
+
+        casting, = build_plate(width, depth, pitch-.004)
         for row in range(-fixed_rows,lift_rows):
-            self.put('cast_plate',mesh,(0,0,selected_z+row*pitch),IRON,lift=row>=0)
+            self.append(Placed('cast_plate', casting, (0,0,selected_z+row*pitch), row>=0))
+        assert (width,depth,pitch,fixed_rows,lift_rows) == (WIDTH,DEPTH,PITCH,FIXED_ROWS,LIFT_ROWS)
+        _, fixed_decal, lift_decal = atlas()
+        for name, mesh, move in [('fixed_stack_labels',fixed_decal,False), ('lift_stack_labels',lift_decal,True)]:
+            self.put(name, mesh, (0,0,selected_z), (1.,1.,1.), MAT_LAT_STACK_LABEL, lift=move)
         face=-depth/2
         knob=make_revolved_profile([(.015,-.062),(.023,-.058),(.023,-.044),(.015,-.038),(.013,-.034)],12,1)
         self.put('selector_knob',knob,(0,face,selected_z),YELLOW,MAT_ACCENT,lift=True,smooth=True)
@@ -176,8 +184,8 @@ def lat_station(head, crown, outlet, pin_z, thigh, foot, guide='lat_pulldown'):
     Points are relative to the stack axis at floor level. Each sheave supplies its original centre/radius.
     """
     kit=Kit(); (rear,r0),(mid,r1),(tip,r2)=head,crown,outlet
-    height=rear[2]; width,depth=.380,.310
-    pitch, fixed, moving = .039, 14, 14
+    height=rear[2]; width,depth=WIDTH,DEPTH
+    pitch, fixed, moving = PITCH,FIXED_ROWS,LIFT_ROWS
     bed_top = pin_z-fixed*pitch-(pitch-.004)/2
     post,front=kit.housing(height,width,depth,bed_top,guide)
     kit.stack(width,depth,pitch,pin_z,fixed,moving)
@@ -192,4 +200,64 @@ def lat_station(head, crown, outlet, pin_z, thigh, foot, guide='lat_pulldown'):
     kit.sheave(mid,r1,r1+.066)
     kit.sheave(tip,r2,r2+.066)
     kit.put('boom',beam((0,mid[1]+.052,mid[2]+r1+.072), (0,tip[1]-.054,tip[2]+r2+.060),.064,.084))
+    return kit
+
+
+def drilled_slider():
+    """Square slider with real transverse bores, in identical 20 mm indexing bands."""
+    vertex, index, faces = [], {}, []
+    def ring(x, yz):
+        ids=[]
+        for y,z in yz:
+            key=(x,round(y,8),round(z,8))
+            if key not in index:
+                index[key]=len(vertex); vertex.append(key)
+            ids.append(index[key])
+        return ids
+    def strip(a,b):
+        for i in range(len(a)):
+            j=(i+1)%len(a); faces.extend([(a[i],a[j],b[j]),(a[i],b[j],b[i])])
+    half=.013; dz=.010; ang=np.arange(16)*np.pi/8 + np.pi/4
+    c,s=np.cos(ang),np.sin(ang); m=np.maximum(abs(c),abs(s))
+    for band in range(12):
+        z=-.24+(band+.5)*2*dz
+        outside=list(zip(half*c/m,z+dz*s/m)); inside=list(zip(.0037*c,z+.0037*s))
+        L,R=[ring(x,outside) for x in (-half,half)]; l,r=[ring(x,inside) for x in (-half,half)]
+        strip(R,r);strip(l,L);strip(r,l)
+        for i in range(16):
+            j=(i+1)%16; y0,z0=outside[i];y1,z1=outside[j]
+            if abs(y0-y1)<1e-8 or (abs(z0-z1)<1e-8 and ((band==0 and z0<z) or (band==11 and z0>z))):
+                faces.extend([(L[i],R[j],R[i]),(L[i],L[j],R[j])])
+    v=np.asarray(vertex);return v,_ensure_outward(v,np.asarray(faces))
+
+
+def adjuster_kit(cross, arm, roller, target):
+    """Pitch in YZ only; swivel heads keep the axle strictly transverse. All meshes rigid/shared."""
+    sign=np.sign(arm[0]); x=arm[0]+sign*.084
+    pivot=np.array([x,cross[1]-.220,cross[2]-.270]); head=pivot.copy()
+    head[1]+=target[1]-roller[1]; head[2]=target[2]; direction=head-pivot
+    length=np.linalg.norm(direction); axis=direction/length
+    pitch=-np.arctan2(direction[1],direction[2]); assert .23<length<.40
+    kit=Kit()
+    def put(name,mesh,at,color=COAT,mat=MAT_FRAME,angle=0.):
+        kit.put(name,mesh,at,color,mat);kit[-1].pitch=angle
+    start=np.array([arm[0],cross[1],cross[2]])
+    put('adjuster_bracket',beam(start,pivot,.040,.045),(0,0,0))
+    put('adjuster_hinge',cylinder(.023,.062,0,24),pivot,CHARCOAL)
+    # A continuous hollow guide with an open mouth, not overlapping solid walls.
+    corners=[(-1,-1),(1,-1),(1,1),(-1,1)]
+    v=np.array([(x*r,y*r,z) for r,z in ((.020,0),(.020,.175),(.015,.175),(.015,0)) for x,y in corners])
+    t=[]
+    for k in range(4):
+        for i in range(4):
+            j=(i+1)%4; a=4*k; b=4*((k+1)%4)
+            t.extend([(a+i,a+j,b+j),(a+i,b+j,b+i)])
+    sleeve=v,_ensure_outward(v,np.array(t))
+    put('adjuster_sleeve',sleeve,pivot,CHARCOAL,angle=pitch)
+    put('adjuster_slider',drilled_slider(),head,STEEL,MAT_CHROME,pitch)
+    put('adjuster_clamp',cylinder(.012,.017,0,16),pivot+.152*axis+[sign*.026,0,0],YELLOW,MAT_ACCENT)
+    arm_end=np.array([x,target[1],target[2]])
+    put('adjuster_arm',block((.038,head[1]-arm_end[1]+.025,.040),.004),(head+arm_end)/2)
+    put('adjuster_head',cylinder(.021,.050,0,20),head,CHARCOAL)
+    put('adjuster_axle',cylinder(.013,abs(x-roller[0]),0,20),[(x+roller[0])/2,target[1],target[2]],STEEL,MAT_CHROME)
     return kit

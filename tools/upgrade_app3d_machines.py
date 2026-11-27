@@ -37,7 +37,9 @@ from part_catalog import (  # noqa: E402
     build_carabiner_ring,
     build_stack_acrylic_shield,
 )
-from selector_tower import COAT, RUBBER, STEEL, lat_station
+from selector_tower import COAT, RUBBER, STEEL, adjuster_kit, lat_station
+from body_fit import SkinSweep, fit_body_part, roller_depth_bound
+from lat_stack_labels import atlas
 from part_registry import MAT_CHROME, MAT_FRAME, MAT_PAD, MAT_RUBBER, classify_object, normalize_base_name  # noqa: E402
 
 
@@ -166,9 +168,67 @@ STAGE1 = tuple('lat_pulldown~' + variant for variant in
                ('g=d', 'g=lat', 'g=mag', 'g=neutral', 'g=rope', 'g=straight', 'm=behind_neck'))
 REPLACED = {'stack_guard', 'stack_base', 'selected_plate', 'rest_plate', 'pulley', 'pulley_hub',
             'selector_rod', 'selector_pin', 'rear_brace', 'mast', 'arm'}
+LAT_RED_FRAME = {'base', 'foot', 'seat_post', 'seat_sleeve'}
 
 
-def fit_lat_station(objs, packer, n):
+def improved_d_handle_contact(key, obj, part, human, base):
+    """Only the D-handle's existing right hand/wrist path may still touch its +X roller."""
+    m = np.asarray(obj['m'][0]).reshape(4,4)
+    if key != 'lat_pulldown~g=d' or m[3,0] <= 0 or normalize_base_name(obj['name']) != 'thigh_roller':
+        return False
+    faces = np.asarray(base['triangles']).reshape(-1,3)
+    dominant = np.asarray(base['joints'])[np.arange(human.shape[1]), np.asarray(base['weights']).argmax(1)]
+    bones = np.asarray(base['bone_names'])[dominant]
+    wrist = np.array([b.endswith('_r') and b.split('_')[0] in
+                      ('lowerarm','hand','thumb','index','middle','ring','pinky') for b in bones])
+    if not SkinSweep(human, faces[~wrist[faces].all(1)]).clear(part):
+        return False
+    # Compare against legacy convex foam at its original mount on THIS body, not a
+    # fixed mm allowance. Ignoring old caps only lowers the reference. Enclosing
+    # the new foam + caps in their hull only raises the candidate depth bound.
+    v = np.asarray(obj['verts']).reshape(-1,3)
+    foam, _ = CATALOG_BUILDERS['roller_contoured'](v.min(0), v.max(0), obj['color'], MAT_PAD)
+    previous = roller_depth_bound(human[:,wrist], foam.verts @ m[:3,:3] + m[3,:3], swept=False)
+    current = roller_depth_bound(human, part, swept=True)
+    print(f'  D-handle wrist/roller: legacy >= {previous*1000:.3f} mm; fitted <= {current*1000:.3f} mm')
+    return previous > 0 and current <= previous
+
+
+def fit_lat_rollers(ex_id, objs, human, base):
+    """Prefer vertical adjustment. Pitch the post only if another limb crosses the pad.
+    Never move the axle out of its original thigh footprint just to clear a hand.
+    """
+    from scene_lat_parts import build_roller
+    pads = []
+    for o in objs:
+        if normalize_base_name(o['name']) != 'thigh_roller': continue
+        assert len(strip_fake_animation(o['m'])) == 1
+        m = np.asarray(o['m'][0]).reshape(4,4); pos = m[3,:3]
+        v = np.asarray(o['verts']).reshape(-1,3)
+        pieces = build_roller(v.min(0), v.max(0), int(np.sign(pos[0]*m[2,0])))
+        world = np.vstack([p.verts for p in pieces]) @ m[:3,:3] + pos
+        pads.append((o['name'], pos, world, m[2,:3]))
+    assert len(pads) == 2
+    sweep = SkinSweep(human, np.asarray(base['triangles']).reshape(-1,3))
+    reach = min(np.ptp(v[:,1])/2 for _,_,v,_ in pads)
+    for dy in [0., *(s*y for y in np.arange(.005,reach+.00001,.005) for s in (1,-1))]:
+        fits = {}; ok = True
+        for name,pos,v,axle in pads:
+            offset = np.array([0.,dy,0.]); centre = pos+offset
+            fit = fit_body_part(human, base, 'thigh_roller', centre, v+offset, [0,0,1], axle)
+            fits[name] = (pos,fit)
+            ok &= sweep.clear(v+fit-pos)
+        if ok: return fits, sweep, True
+        if dy == 0: vertical = fits
+    by_name = {o['name']: o for o in objs}
+    for name,pos,v,_ in pads:
+        part = v + vertical[name][1] - pos
+        if not sweep.clear(part) and not improved_d_handle_contact(ex_id, by_name[name], part, human, base):
+            return vertical, sweep, False
+    return vertical, sweep, True
+
+
+def fit_lat_station(objs, packer, n, fits):
     by_name = {}
     for obj in objs:
         by_name.setdefault(normalize_base_name(obj['name']), []).append(obj)
@@ -199,14 +259,21 @@ def fit_lat_station(objs, packer, n):
     thigh = np.round(center(by_name['thigh_cross'][0])-root, 3)
     foot = np.round(center(by_name['foot'][0])-root, 3); foot[0] = round(points(by_name['foot'][0])[:,0].max()-root[0], 3)
     kit = lat_station(*sheaves, round(pin_pos[0,2]-root[2], 3), thigh, foot)
+    for orig,target in fits.values():
+        arm, = [center(o) for o in by_name['thigh_arm'] if center(o)[0]*orig[0]>0]
+        kit.extend(adjuster_kit(thigh, arm-root, orig-root, target-root))
+    from scene_lat_parts import palette
+
+    lower_red = palette()['lower_red']
     entries = []
     for part in kit:
         sp = part.part
         pos = root + part.at + (lift if part.lift else np.zeros((1,3)))
-        entries.append(dict(name=part.name, role='STATION', catalog_id=part.name,
+        entries.append(dict(name=part.name, role='BODY_FIT' if part.name.startswith('adjuster_') else 'STATION', catalog_id=part.name,
                             part_id=packer.add(sp.verts, sp.tris, sp.smooth), verts=sp.verts, tris=sp.tris,
-                            color=sp.color, mat=sp.mat_preset, smooth=sp.smooth, pos=pos,
-                            quats=np.tile([0.,0.,0.,1.], (len(pos),1)), sc=np.ones_like(pos)))
+                            color=lower_red if part.name == 'anchor' else sp.color,
+                            mat=sp.mat_preset, smooth=sp.smooth, pos=pos,
+                            quats=np.tile(Rotation.from_rotvec([part.pitch,0,0]).as_quat(), (len(pos),1)), sc=np.ones_like(pos)))
     socket = next(e for e in entries if e['name'] == 'load_socket')
     eye = socket['pos'][:,2] + socket['verts'][:,2].max()
     assert max(eye) + .002 < root[2]+sheaves[0][0][2]-sheaves[0][1], 'Load socket hits head sheave at full travel'
@@ -237,6 +304,7 @@ def upgrade_machine(
     human_frames: np.ndarray | None,
     human_faces: np.ndarray | None = None,
     audit: list | None = None,
+    *, human_base: dict | None = None,
 ) -> tuple[bytes, dict]:
     objs = raw_data["objects"]
     acts = raw_data["acts"]
@@ -260,11 +328,20 @@ def upgrade_machine(
 
     pilot = ex_id in STAGE1
     if pilot:
+        from scene_lat_parts import build_roller, build_seat, palette
+
+        lower_red = palette()['lower_red']
         assert human_frames is not None and len(human_frames) == len(acts) and human_faces is not None, f'[{ex_id}] missing matching human frames/faces'
-        upgraded_entries, cable_eye = fit_lat_station(objs, packer, len(acts))
+        fits, sweep, roller_clear = fit_lat_rollers(ex_id, objs, human_frames, human_base)
+        upgraded_entries, cable_eye = fit_lat_station(objs, packer, len(acts), fits)
+        blocked = [] if roller_clear else ['thigh_roller']
+        for e in upgraded_entries:
+            if e['role'] == 'BODY_FIT':
+                w = Rotation.from_quat(e['quats'][0]).apply(e['verts']) + e['pos'][0]
+                if not sweep.clear(w): blocked.append(e['name'])
 
     for o, spec in other_objs:
-        if pilot and spec.base_name in REPLACED:
+        if pilot and (spec.base_name in REPLACED or spec.base_name == 'thigh_arm'):
             continue
         v_orig = np.asarray(o["verts"], dtype=np.float64).reshape(-1, 3)
         t_orig = np.asarray(o["tris"], dtype=np.int32).reshape(-1)
@@ -308,6 +385,18 @@ def upgrade_machine(
         else:
             builder = CATALOG_BUILDERS[spec.catalog_id]
             subparts = builder(mn, mx, color, spec.mat_preset)
+        if pilot and spec.catalog_id == 'pad_contoured_seat':
+            cushion, trim = subparts
+            subparts = [*build_seat(cushion.verts.min(0), cushion.verts.max(0)), trim]
+        elif pilot and spec.catalog_id == 'roller_contoured':
+            # Preserve the original local axle and motion; which end faces out
+            # depends on the placement and signed local-Z basis of each instance.
+            m0 = compose_matrix(pos[0], quats[0], sc[0])
+            outer_sign = np.sign(pos[0, 0] * m0[0, 2])
+            assert outer_sign, 'Expected a mirrored pair of off-axis lat rollers'
+            all_orig = np.vstack([sp.verts for sp in subparts])
+            subparts = build_roller(all_orig.min(0), all_orig.max(0), int(outer_sign))
+            pos = fits[o['name']][1][None,:]
 
         # Gate 1: Contact invariance check
         if spec.role == "LOCKED_GRIP":
@@ -334,14 +423,17 @@ def upgrade_machine(
         for sp in subparts:
             if pilot and spec.catalog_id:
                 if spec.catalog_id == 'frame_tube_chamfer' or spec.base_name == 'seat_lock' or sp.name_suffix in ('_caps', '_undertrim'):
-                    sp.color, sp.mat_preset = COAT, MAT_FRAME
+                    if spec.catalog_id != 'roller_contoured':
+                        sp.color, sp.mat_preset = COAT, MAT_FRAME
                 elif spec.catalog_id == 'foot_flange_rubber':
                     sp.color = RUBBER if sp.mat_preset == MAT_RUBBER else COAT
                     if sp.mat_preset != MAT_RUBBER: sp.mat_preset = MAT_FRAME
-                elif sp.mat_preset in (MAT_PAD, MAT_RUBBER):
+                elif sp.mat_preset in (MAT_PAD, MAT_RUBBER) and spec.role != 'SURFACE_LOCKED':
                     sp.color = RUBBER
                 elif sp.mat_preset == MAT_CHROME:
                     sp.color = STEEL
+                if spec.base_name in LAT_RED_FRAME and sp.mat_preset == MAT_FRAME:
+                    sp.color = lower_red
             pid = packer.add(sp.verts, sp.tris, sp.smooth)
             upgraded_entries.append({
                 "name": o["name"] + sp.name_suffix,
@@ -469,6 +561,7 @@ def upgrade_machine(
         "max_grip_diff_mm": round(max_grip_diff_mm, 4),
         "max_surface_diff_mm": round(max_surface_diff_mm, 4),
         "new_human_pen_mm": round(new_human_penetration_mm, 4),
+        "blocked_body_fit": sorted(set(blocked)) if pilot else [],
     }
     if audit is not None:
         audit.extend(upgraded_entries)
@@ -511,7 +604,8 @@ def main() -> None:
     new_raw_sum = 0
     new_zip_sum = 0
 
-    faces = np.asarray(json.loads((human_dir / "base.json").read_text())["triangles"], dtype=int).reshape(-1,3) if any(f.stem in STAGE1 for f in files) else None
+    base = json.loads((human_dir / "base.json").read_text()) if any(f.stem in STAGE1 for f in files) else None
+    faces = np.asarray(base['triangles']).reshape(-1,3) if base else None
     for f in files:
         raw_bytes = f.read_bytes()
         orig_raw_sum += len(raw_bytes)
@@ -519,7 +613,9 @@ def main() -> None:
 
         raw_data = json.loads(raw_bytes)
         human_frames = load_wgp2_human_frames(human_dir / f"{f.stem}.bin")
-        wgm_bytes, st = upgrade_machine(f.stem, raw_data, packer, human_frames, faces)
+        wgm_bytes, st = upgrade_machine(f.stem, raw_data, packer, human_frames, faces, human_base=base)
+        if st['blocked_body_fit']:
+            raise ValueError(f"{f.stem}: body clearance not proved for {st['blocked_body_fit']}; not writing catalogue")
         clip_blobs[f.stem] = wgm_bytes
 
         w_zip = len(zlib.compress(wgm_bytes, level=6))
@@ -536,6 +632,8 @@ def main() -> None:
 
     # Write outputs
     (data_dir / "parts.bin").write_bytes(parts_bytes)
+    if any(k in STAGE1 for k in clip_blobs):
+        (data_dir / 'lat_stack_labels.svg').write_text(atlas()[0], encoding='ascii')
     for stem, blob in clip_blobs.items():
         (data_dir / f"{stem}.wgm").write_bytes(blob)
 

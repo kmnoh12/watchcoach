@@ -214,6 +214,36 @@ function fetchWgmParts() {
   })();
   return wgmPartsPromise;
 }
+const LAT_STACK_LABEL = 9;
+let latStackTexturePromise, latStackTexture;
+async function loadLatStackTexture() {
+  if (!latStackTexturePromise) latStackTexturePromise = (async () => {
+    const r = await fetch('data/lat_stack_labels.svg');
+    if (!r.ok) throw Error('missing stack label atlas');
+    // The Android asset interceptor serves unknown extensions as octet-stream.
+    const url = URL.createObjectURL(new Blob([await r.text()], { type: 'image/svg+xml' }));
+    try {
+      const map = await new THREE.TextureLoader().loadAsync(url);
+      map.colorSpace = THREE.SRGBColorSpace;
+      return map;
+    } finally { URL.revokeObjectURL(url); }
+  })();
+  return latStackTexturePromise;
+}
+
+function addLatStackUV(geom) {
+  if (geom.hasAttribute('uv')) return;
+  geom.computeBoundingBox();
+  const { min, max } = geom.boundingBox;
+  const tile = min.z + max.z > 0 ? 0.5 : 0;
+  const pos = geom.getAttribute('position'), uv = new Float32Array(2 * pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    uv[2*i] = (pos.getX(i)-min.x)/(max.x-min.x);
+    uv[2*i+1] = tile + 0.5 * (pos.getZ(i)-min.z)/(max.z-min.z);
+  }
+  geom.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+
 async function fetchWgmModel(name) {
   const [r, parts] = await Promise.all([fetch(`data/${encodeURIComponent(name)}.wgm`), fetchWgmParts()]);
   if (!r.ok) return null;
@@ -260,7 +290,13 @@ async function fetchWgmModel(name) {
         steps[f] = { p: new THREE.Vector3(px, py, pz), q: new THREE.Quaternion(qx, qy, qz, qw).normalize(), s: new THREE.Vector3(sx, sy, sz) };
       }
     }
-    parsed[o] = { geom: parts[pid].geom, smooth: parts[pid].smooth, color: [cr, cg, cb], mat, steps };
+    const { geom, smooth } = parts[pid];
+    if (mat === LAT_STACK_LABEL) {
+      try { latStackTexture = await loadLatStackTexture(); }
+      catch (e) { console.warn(e); return null; }
+      addLatStackUV(geom);
+    }
+    parsed[o] = { geom, smooth, color: [cr, cg, cb], mat, steps };
   }
   return { acts, parsed, format: "wgm2" };
 }
@@ -298,11 +334,12 @@ function makePresetMaterial(preset, rgb, smooth) {
     case 6: return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.04, flatShading: !smooth });
     case 7: return new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.45, flatShading: !smooth });
     case SELECTOR_WINDOW: return selectorWindowMaterial(color);
+    case LAT_STACK_LABEL: return new THREE.MeshStandardMaterial({ map: latStackTexture, roughness: 0.9, alphaTest: 0.5 });
     default: return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25, flatShading: !smooth });
   }
 }
 
-function mergeStaticNonIndexed(items) {
+function mergeStaticNonIndexed(items, atlasUV = false) {
   let totalVerts = 0;
   const baked = items.map(({ geom, matrix }) => {
     const g = (geom.index ? geom.toNonIndexed() : geom.clone());
@@ -311,15 +348,19 @@ function mergeStaticNonIndexed(items) {
     return g;
   });
   const pos = new Float32Array(totalVerts * 3), norm = new Float32Array(totalVerts * 3);
+  const uv = atlasUV ? new Float32Array(totalVerts * 2) : null;
   let off = 0;
   for (const g of baked) {
     const p = g.attributes.position.array, n = g.attributes.normal.array;
-    pos.set(p, off); norm.set(n, off); off += p.length;
+    pos.set(p, off); norm.set(n, off);
+    if (uv) uv.set(g.attributes.uv.array, off / 3 * 2);
+    off += p.length;
     g.dispose();
   }
   const out = new THREE.BufferGeometry();
   out.setAttribute("position", new THREE.BufferAttribute(pos, 3));
   out.setAttribute("normal", new THREE.BufferAttribute(norm, 3));
+  if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   return out;
 }
 
@@ -381,7 +422,7 @@ function buildGroup(name, d) {
     bucket.forEach((o, slot) => objs.push({ mesh, slot, steps: o.steps }));
   }
   for (const b of staticBuckets.values()) {
-    const geom = mergeStaticNonIndexed(b.items);
+    const geom = mergeStaticNonIndexed(b.items, b.mat === LAT_STACK_LABEL);
     const mat = makePresetMaterial(b.mat, b.color, b.smooth);
     const mesh = new THREE.Mesh(geom, mat);
     if (isTransparentPreset(b.mat)) mesh.renderOrder = 2;

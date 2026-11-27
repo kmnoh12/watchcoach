@@ -5,10 +5,10 @@ import vm from 'node:vm';
 import test from 'node:test';
 const sources = [
   ['canonical', '../../design/exercise-figure/viewer/index.html'],
-  ['app asset', '../../phone/src/main/assets/viewer3d/index.html'],
+  ['app asset', process.env.VIEWER3D_TEST_ASSET || fileURLToPath(new URL('../../phone/src/main/assets/viewer3d/index.html', import.meta.url))],
 ];
 for (const [label, path] of sources) {
-const source = readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8');
+const source = readFileSync(label === 'app asset' ? path : new URL(path, import.meta.url), 'utf8');
 const check = (name, body) => test(`${label}: ${name}`, body);
 function fn(name) {
   const found = source.match(new RegExp(`function ${name}\\([^]*?\\n}`));
@@ -56,7 +56,11 @@ check('invalid phase arrays and nonfinite inputs fail before deforming geometry'
   assert.throws(()=>r.parse({acts:[0,0],objects:[]}),/invalid animation phases/);
 });
 check('inconsistent equipment samples fail at load instead of drifting during playback',()=>{
-  const r=runtime();assert.throws(()=>r.parse({acts:[0,1],objects:[{m:[1,2,3]}]}),/invalid equipment frame count/);
+  const r=runtime();
+  // The app intentionally accepts an independent uniform track (e.g. 9 equipment
+  // samples alongside 25 human samples); the canonical viewer requires matching counts.
+  const invalidTrack=label === 'app asset' ? [] : [1,2,3];
+  assert.throws(()=>r.parse({acts:[0,1],objects:[{m:invalidTrack}]}),/invalid equipment frame count/);
 });
 check('static equipment remains still alongside animated human motion',()=>{
   const r=runtime(),matrix={compose(p){this.x=typeof p==='number'?p:p.value;}},m={acts:[0,1],objs:[{steps:[{p:7,q:0,s:1}],mesh:{matrix}}]};
@@ -70,6 +74,26 @@ if (label === 'app asset') check('shared moving equipment preserves each slot at
   for(const a of [0,.1,.55,1,.25]){
     r.pose(m,a); assert.ok(Math.abs(slots[0]-a*100)<1e-7); assert.ok(Math.abs(slots[1]-slots[0]-35)<1e-7);
     assert.equal(mesh.instanceMatrix.needsUpdate,true);
+  }
+});
+if (label === 'app asset') check('independent equipment uses its own uniform grid',()=>{
+  const r=runtime(), matrix={compose(p){this.x=p.value;}};
+  const acts=Array.from({length:25},(_,i)=>(i/24)**2);
+  const steps=Array.from({length:9},(_,i)=>({p:i/8,q:0,s:1}));
+  for (const a of [0,.1,.5,.875,1]) {
+    r.pose({acts,objs:[{steps,mesh:{matrix}}]},a);
+    assert.ok(Math.abs(matrix.x-a)<1e-7);
+  }
+});
+if (label === 'app asset' && source.includes('function addLatStackUV(')) check('stack decals use their own atlas half',()=>{
+  const context=vm.createContext({Float32Array,THREE:{BufferAttribute:class { constructor(array){this.array=array;} }}});
+  vm.runInContext(fn('addLatStackUV'),context);
+  for (const [lo,hi,v0] of [[-.5655,-.0195,0],[-.0195,.5265,.5]]) {
+    const geom={attributes:{position:{count:4,getX:i=>[-1,1,1,-1][i],getZ:i=>[lo,lo,hi,hi][i]}},
+      hasAttribute(k){return k in this.attributes;}, getAttribute(k){return this.attributes[k];},
+      setAttribute(k,v){this.attributes[k]=v;}, computeBoundingBox(){this.boundingBox={min:{x:-1,z:lo},max:{x:1,z:hi}};}};
+    context.addLatStackUV(geom);
+    assert.deepEqual(Array.from(geom.attributes.uv.array),[0,v0,1,v0,1,v0+.5,0,v0+.5]);
   }
 });
 }
