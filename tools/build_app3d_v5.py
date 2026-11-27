@@ -63,6 +63,9 @@ def main():
     (stage/'human_v5/base.json').write_text(json.dumps(base, separators=(',', ':')))
     report = dict(revision='v5-app-20261109-2', exercises=len(models), models=len(keys),
                   legacy_avatar_fallback=False, rows=[])
+    tower_slots = {}
+    for filename in ('cable_tower_targets.json', 'cable_tower_targets_02.json', 'cable_tower_03_targets.json'):
+        tower_slots.update(read(REPO/'tools/viewer3d'/filename))
     for key in keys:
         folder = args.extra if key == 'rolling_triceps_extension' else source
         path = folder/f'{key}.json'
@@ -71,10 +74,17 @@ def main():
         assert data['acts'] == clips[key]['acts'] and len(data['frames']) == clips[key]['frames']
         blob, error = pack_motion(data, base['vertices'])
         (stage/'human_v5'/f'{key}.bin').write_bytes(blob)
-        equipment = source/'equipment'/f'{key}.json'
-        if not equipment.exists():
-            equipment = args.viewer_root/'data'/f'{key}.json'
-        machine = read(equipment)
+        # Desktop equipment overrides can use a different tower assembly. Only use a
+        # source whose indexed slots actually match the reviewed phone overlay.
+        for equipment in (source/'equipment'/f'{key}.json', args.viewer_root/'data'/f'{key}.json'):
+            if equipment.is_file():
+                machine = read(equipment)
+                objects = machine['objects']
+                if all(int(i) < len(objects) and objects[int(i)]['name'] == slot[0]
+                       for i, slot in tower_slots.get(key, {}).items()):
+                    break
+        else:
+            raise ValueError(f'No compatible equipment source for {key}')
         assert machine['objects'] is not None
         (stage/'data'/f'{key}.json').write_bytes(equipment.read_bytes())
         report['rows'].append(dict(id=key, source_sha256=sha(path), packed_sha256=sha(stage/'human_v5'/f'{key}.bin'),
