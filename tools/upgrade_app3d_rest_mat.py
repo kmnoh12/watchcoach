@@ -15,8 +15,10 @@ from part_registry import MAT_FRAME, MAT_RUBBER
 
 
 TARGETS = "rest_mat_targets.json"
+FLOOR_TARGETS = "rest_mat_targets_02.json"
 SOURCE = "scene_rest_mat_source.json"
 REPORT = "rest_mat_fit.json"
+FLOOR_REPORT = "rest_mat_fit_02.json"
 # Local axle sections (axial position, radius) in metres. Keep the flanges on
 # the hand-fitted grip and the open bore around the original hub and spokes.
 GRIP_SECTIONS = [(-.0655, .025), (-.0585, .025), (-.0555, .023),
@@ -62,7 +64,7 @@ def rubber_shell(old, source, *, tire):
     return layers
 
 
-def upgrade(view):
+def upgrade(view, batch=1):
     mat = load(HERE / "scene_rest_bar_source.json")["floor_mat__002"]
 
     def build_model(key, raw, mapping, source, frames, base):
@@ -126,11 +128,14 @@ def upgrade(view):
                                adjustment_axis=None, collision=check)
         return rows, audit
 
-    return append_batch(view, targets_file=TARGETS, source_file=SOURCE,
-                        report_file=REPORT, build_model=build_model)
+    targets, report = (TARGETS, REPORT) if batch == 1 else (FLOOR_TARGETS, FLOOR_REPORT)
+    return append_batch(view, targets_file=targets, source_file=SOURCE,
+                        report_file=report, build_model=build_model)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    upgrade(parser.parse_args().viewer)
+    parser.add_argument("--batch", type=int, choices=(1, 2), default=1)
+    args = parser.parse_args()
+    upgrade(args.viewer, args.batch)

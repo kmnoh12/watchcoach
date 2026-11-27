@@ -1,0 +1,9 @@
+{
+  "hollow_hold": {"rubber_mat": [0, "floor_mat__001"]},
+  "lying_leg_raise": {"rubber_mat": [0, "floor_mat__001"]},
+  "plank": {"rubber_mat": [0, "floor_mat__001"]},
+  "push_up": {"rubber_mat": [0, "floor_mat__001"]},
+  "russian_twist": {"rubber_mat": [0, "floor_mat__001"]},
+  "side_plank": {"rubber_mat": [0, "floor_mat__001"]},
+  "sit_up": {"rubber_mat": [0, "floor_mat__001"]}
+}
