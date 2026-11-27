@@ -48,7 +48,7 @@ def slots(v, t, m):
     return result
 
 
-def casting(wide):
+def casting(wide, thin=False):
     # Start with the scene's through-bored casting, KEEP both mouth bevels. The
     # scene only models the front/back socket: drill three vertical passages for
     # the phone's fixed twin guides and central lift rod. No decimation.
@@ -56,12 +56,14 @@ def casting(wide):
     v = np.asarray(s["verts"], float) / s["size"] * [0.34, 0.28, 0.075]
     t = np.asarray(s["tri"])
     old = np.asarray(s["verts"], float)
+    # The 45 mm plates still need passage for the same 35 mm-high selector pin.
+    socket = [0.0235, 0.0305] if thin else [0.023, 0.022]
     for i in range(16, 80):
         direction = old[i, [0, 2]]
         direction /= np.linalg.norm(direction)
         lip = 1.15 if i < 32 or i >= 64 else 1.0
         v[i, [0, 2]] = (
-            direction / abs(direction).max() * [0.023, 0.022] if wide else direction * 0.0102
+            direction / abs(direction).max() * socket if wide else direction * 0.0102
         ) * lip
     me = bpy.data.meshes.new("cable fit")
     me.from_pydata(v.tolist(), [], t.tolist())
@@ -140,9 +142,15 @@ def extract_mount():
 
 
 if __name__ == "__main__":
-    mount = "--mount" in sys.argv
-    data = {"pulley_bracket": extract_mount()} if mount else extract()
-    output = HERE / ("scene_cable_mount_source.json" if mount else "scene_cable_source.json")
+    if "--thin-stack" in sys.argv:
+        data = {"stack_thin_socket": casting(True, thin=True)}
+        output = HERE / "scene_cable_thin_source.json"
+    elif "--mount" in sys.argv:
+        data = {"pulley_bracket": extract_mount()}
+        output = HERE / "scene_cable_mount_source.json"
+    else:
+        data = extract()
+        output = HERE / "scene_cable_source.json"
     encoded = json.dumps(data, separators=(",", ":")) + chr(10)
     if "--check" in sys.argv:
         assert output.read_text() == encoded

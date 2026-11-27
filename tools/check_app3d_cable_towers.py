@@ -13,18 +13,17 @@ from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
 
 import check_app3d_stage1 as wire
-from upgrade_app3d_cable_towers import HERE
+from upgrade_app3d_cable_towers import load_batch
 
 
 def bounds(raw):
     return (raw.min(axis=1) + raw.max(axis=1)) / 2
 
 
-def check(view, *, batch_03=False):
+def check(view, batch=1):
     d = view / "data"
     hdir = view / "human_v5"
-    target_file = "cable_tower_03_targets.json" if batch_03 else "cable_tower_targets.json"
-    targets = json.loads((HERE / target_file).read_text())
+    targets, _ = load_batch(batch)
     manifest = json.loads((d / "wgm_manifest.json").read_text())
     base = json.loads((hdir / "base.json").read_text())
     faces = np.asarray(base["triangles"]).reshape(-1, 3)
@@ -59,15 +58,21 @@ def check(view, *, batch_03=False):
         static = Counter()
         moving = Counter()
         tested = set()
+        shrouds = [raw["objects"][int(i)] for i, (_, g) in slots.items() if g.startswith("shroud_panel__")]
+        wheels = [raw["objects"][int(i)] for i, (_, g) in slots.items() if g.startswith("pulley_wheel__")]
         for idx, (name, group) in slots.items():
             role = group.split("__")[0]
             obj = raw["objects"][int(idx)]
             assert obj["name"] == name
-            nr = 3 if role in ("pulley_wheel", "selected_stack_plate", "rest_stack_plate") else 1
+            nr = {
+                "pulley_wheel": 3, "selected_stack_plate": 3, "rest_stack_plate": 3,
+                "cable_mount": 2,
+            }.get(role, 1)
             got = rows[k : k + nr]
             k += nr
-            pid = tuple(r["pid"] for r in got[:1])
-            assert groups.setdefault(group, pid) == pid
+            shared = got if batch == 2 and not role.endswith("stack_plate") else got[:1]
+            pids = tuple(r["pid"] for r in shared)
+            assert groups.setdefault(group, pids) == pids
             matrices = wire.build.strip_fake_animation(obj["m"])
             nf = len(matrices)
             original = np.asarray(matrices).reshape(-1, 4, 4)
@@ -82,15 +87,31 @@ def check(view, *, batch_03=False):
                     and np.allclose(r["quat"], r["quat"][0])
                     and np.allclose(r["scale"], r["scale"][0])
                 )
+                orientation = original[:, :3, :3].transpose(0, 2, 1)
+                target = expected
+                if role == "cable_mount" and layer:
+                    wheel = max(wheels, key=lambda o: o["m"][0][12])
+                    target = np.asarray(wheel["m"][0][12:15])[None, :]
+                    orientation = Rotation.from_euler("x", -60, degrees=True).as_matrix()
+                    arm = got[0]["world"][0]
+                    bracket = r["world"][0]
+                    assert ((bracket > arm.min(0) + 0.005) & (bracket < arm.max(0) - 0.005)).all(1).any()
+                    assert np.max(bracket[:, 0]) <= wire.original(wheel)[0, :, 0].min() + 0.0001
+                    assert np.allclose(np.ptp(arm, axis=0), np.ptp(wire.original(obj)[0], axis=0), atol=0.00001)
+                if role.endswith("stack_plate") and layer:
+                    front = -1
+                    if batch == 2:
+                        cover = min(shrouds, key=lambda s: np.linalg.norm(s["m"][0][12:14] - expected[0, :2]))
+                        front = -np.sign(cover["m"][0][13] - expected[0, 1])
+                        orientation = np.diag([-front, -front, 1])
+                    depth = np.ptp(np.asarray(obj["verts"]).reshape(-1, 3)[:, 1])
+                    offset = [0, -front * (0.28 - depth) / 2, 0]
+                    target = expected + (rotations.apply(offset) if batch == 3 else offset)
                 assert np.allclose(
                     Rotation.from_quat(r["quat"]).as_matrix(),
-                    original[:, :3, :3].transpose(0, 2, 1),
+                    orientation,
                     atol=0.00003,
                 )
-                target = expected
-                if role.endswith("stack_plate") and layer:
-                    depth = np.ptp(np.asarray(obj["verts"]).reshape(-1, 3)[:, 1])
-                    target = expected + rotations.apply([0, (0.28 - depth) / 2, 0])
                 mm = 1000 * np.linalg.norm(r["pos"] - target, axis=1).max()
                 max_mm = max(max_mm, mm)
                 assert mm < 0.1
@@ -114,6 +135,13 @@ def check(view, *, batch_03=False):
                 fitted_bounds = got[0]["world"][0]
                 assert np.allclose(original_bounds.min(0), fitted_bounds.min(0), atol=0.0001)
                 assert np.allclose(original_bounds.max(0), fitted_bounds.max(0), atol=0.0001)
+            if batch == 2 and role in ("pulley_wheel", "pulley_hub"):
+                local = np.concatenate([catalog[r["pid"]][0] * r["scale"][0] for r in got])
+                native = np.asarray(obj["verts"]).reshape(-1, 3)
+                # Preserve the cable-side rim radius and the axle's original span.
+                assert abs(np.ptp(local[:, 2]) - np.ptp(native[:, 2])) < 0.00002
+                assert abs(np.linalg.norm(local[:, :2], axis=1).max()
+                           - np.linalg.norm(native[:, :2], axis=1).max()) < 0.00002
             if role.endswith("stack_plate"):
                 assert np.allclose(bounds(got[0]["world"]), expected, atol=0.0001)
                 # Vertical open channels in the actual decoded casting around the two guide axes and rod.
@@ -125,6 +153,8 @@ def check(view, *, batch_03=False):
                     if o["name"].split(".")[0] in ("guide", "stack_guide", "selector_rod", "selector_pin")
                 ]
                 for part in bodies:
+                    if batch == 2 and abs(part["m"][0][12] - expected[0, 0]) > 0.19:
+                        continue  # Guide or pin belongs to the other tower.
                     pn = part["name"].split(".")[0]
                     axis = [0, 2] if pn == "selector_pin" else [0, 1]
                     pts = wire.original(part)[0][:, axis].copy()
@@ -148,7 +178,7 @@ def check(view, *, batch_03=False):
                         )
         assert k == len(rows)
         old_all = sum(len(o["tris"]) // 3 for o in raw["objects"])
-        pad = [x[0] for g in fit[key]["grips"].values() for x in g["pad_mm"].values()]
+        pad = [x[0] for g in fit.get(key, {}).get("grips", {}).values() for x in g["pad_mm"].values()]
         result.append(
             dict(
                 model=key,
@@ -172,10 +202,12 @@ def check(view, *, batch_03=False):
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("view", type=Path)
+    batch_options = p.add_mutually_exclusive_group()
+    batch_options.add_argument("--batch", type=int, choices=(1, 2, 3), default=1)
+    batch_options.add_argument("--batch-03", dest="batch", action="store_const", const=3)
     p.add_argument("--report", type=Path)
-    p.add_argument("--batch-03", action="store_true")
     a = p.parse_args()
-    r = check(a.view, batch_03=a.batch_03)
+    r = check(a.view, a.batch)
     if a.report:
         a.report.write_text(json.dumps(r, indent=2) + chr(10))
     print(
