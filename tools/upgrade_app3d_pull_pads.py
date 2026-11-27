@@ -4,10 +4,6 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-from fixed_pad_contact import penetration
-from part_registry import MAT_PAD
-from pull_pad_fit import vertical_gap
-from scene_lat_parts import build_roller, build_seat, palette
 from scipy.spatial.transform import Rotation
 from upgrade_app3d_adjust_bench import HERE, append_batch, load, object_pose
 from upgrade_app3d_bench_pads import cushion
@@ -19,6 +15,10 @@ from upgrade_app3d_pull_stations import (
 from upgrade_app3d_pull_stations import (
     assemble as lever,
 )
+from fixed_pad_contact import penetration
+from part_registry import MAT_PAD
+from pull_pad_fit import vertical_gap
+from scene_lat_parts import build_roller, build_seat, palette
 
 TARGETS = "pull_pad_targets.json"
 REPORT = "pull_pad_fit.json"
