@@ -38,7 +38,7 @@ from mathutils import Matrix, Vector
 
 ROOT_NAME = "P_tbar_row_machine"
 TAG = "detail6_fix_tbar_row"
-TAG_VER = "v2"
+TAG_VER = "v3"
 OBTAG = "detail6_tbar_fix"
 
 # Target coordinates in P_tbar_row_machine local space (at Stroke L = Stroke R = 0)
@@ -49,11 +49,11 @@ MOUNT_P0 = Vector((0.0, 0.170, 0.390))
 MOUNT_P1 = Vector((0.0, 0.170, 0.810))
 
 LEVER_Y0, LEVER_Z0 = 0.840, 0.500
-LEVER_Y1, LEVER_Z1 = -0.360, 0.440
+LEVER_Y1, LEVER_Z1 = -0.360, 0.300
 
-GRIP_JUNCTION_Y, GRIP_JUNCTION_Z = 0.040, 0.460
-PARALLEL_GRIP_X_ABS = 0.370
-HORN_Y, HORN_Z = -0.320, 0.442
+GRIP_JUNCTION_Y, GRIP_JUNCTION_Z = -0.060, 0.350
+PARALLEL_GRIP_X_ABS = 0.432
+HORN_Y, HORN_Z = -0.320, 0.307
 
 
 def _kid(root, name):
@@ -285,6 +285,7 @@ def apply() -> dict:
                     }
 
             par_cap1 = _kid(root, "parallel_grip_cap1" + sfx)
+            par_cap2 = _kid(root, "parallel_grip_cap2" + sfx)
             pj_cur = _center_root(root, par_cap1)
             par_delta = Vector((
                 side * PARALLEL_GRIP_X_ABS - pj_cur.x,
@@ -294,12 +295,29 @@ def apply() -> dict:
             for gn in ("parallel_grip" + sfx, "parallel_grip_cap1" + sfx, "parallel_grip_cap2" + sfx):
                 gob = _kid(root, gn)
                 gb = _bbox_root(root, gob)
-                _translate_root(root, gob, par_delta, "parallel grip mounted cleanly on wide grip below front half of chest pad")
+                _translate_root(root, gob, par_delta, "parallel grip mounted at outer tip of wide grip")
                 if gn == "parallel_grip" + sfx:
                     changes[gn] = {
                         "before": [[round(x, 3) for x in gb[0]], [round(x, 3) for x in gb[1]]],
                         "after": [[round(x, 3) for x in b] for b in _bbox_root(root, gob)],
                     }
+
+            # Level parallel_grip* horizontally around its junction (par_cap1) so it doesn't poke up awkwardly
+            p_start = _center_root(root, par_cap1)
+            p_end = _center_root(root, par_cap2)
+            v_cur = p_end - p_start
+            if abs(v_cur.z) > 1e-4 and abs(v_cur.y) > 1e-4:
+                import math
+                ang = -math.atan2(v_cur.z, v_cur.y)
+                R = Matrix.Rotation(ang, 4, "X")
+                T = Matrix.Translation(p_start) @ R @ Matrix.Translation(-p_start)
+                for gn in ("parallel_grip" + sfx, "parallel_grip_cap1" + sfx, "parallel_grip_cap2" + sfx):
+                    gob = _kid(root, gn)
+                    # Apply rigid rotation T in root space to gob.matrix_basis via parent space
+                    parent_in_root = _in_root(root, gob.parent)
+                    T_parent = parent_in_root.inverted() @ T @ parent_in_root
+                    gob.matrix_basis = T_parent @ gob.matrix_basis
+                _upd()
 
             # 3c. Weight horn & cast plate (+ Mark 10 KG.* children follow plate automatically)
             horn = _kid(root, "weight_horn" + sfx)
