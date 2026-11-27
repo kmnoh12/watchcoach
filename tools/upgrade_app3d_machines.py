@@ -37,7 +37,8 @@ from part_catalog import (  # noqa: E402
     build_carabiner_ring,
     build_stack_acrylic_shield,
 )
-from part_registry import MAT_NAMES, classify_object  # noqa: E402
+from selector_tower import COAT, RUBBER, STEEL, lat_station
+from part_registry import MAT_CHROME, MAT_FRAME, MAT_PAD, MAT_RUBBER, classify_object, normalize_base_name  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -160,11 +161,82 @@ def _compute_stack_world_bbox(objs: list[dict]) -> tuple[np.ndarray, np.ndarray]
     return all_pts.min(axis=0), all_pts.max(axis=0)
 
 
+# Opt in by full clip ID: never fit a new machine family to these mounting points by accident.
+STAGE1 = tuple('lat_pulldown~' + variant for variant in
+               ('g=d', 'g=lat', 'g=mag', 'g=neutral', 'g=rope', 'g=straight', 'm=behind_neck'))
+REPLACED = {'stack_guard', 'stack_base', 'selected_plate', 'rest_plate', 'pulley', 'pulley_hub',
+            'selector_rod', 'selector_pin', 'rear_brace', 'mast', 'arm'}
+
+
+def fit_lat_station(objs, packer, n):
+    by_name = {}
+    for obj in objs:
+        by_name.setdefault(normalize_base_name(obj['name']), []).append(obj)
+    assert REPLACED <= by_name.keys(), 'Unknown lat station mounts'
+
+    def points(obj):
+        m = np.asarray(obj['m'][0]).reshape(4, 4).T
+        return np.asarray(obj['verts']).reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
+
+    def center(obj):
+        v = points(obj)
+        return (v.min(0) + v.max(0))/2
+
+    pin = by_name['selector_pin'][0]
+    pin_pos = np.array(pin['m'])[:, 12:15]
+    root = pin_pos[0].copy(); root[2] = points(by_name['stack_base'][0])[:, 2].min()
+    lift = pin_pos - pin_pos[0]
+    assert len(lift) == n and np.max(np.abs(lift[:, :2])) < .0005, 'Expected a vertical selector stroke'
+    for plate in by_name['selected_plate']:
+        pos = np.asarray(plate['m'])[:, 12:15]
+        assert np.max(np.abs(pos-pos[0]-lift)) < .0005, 'Selected plates do not travel with pin'
+    # Snap the shared stroke once. Offsetting each plate before rounding a half-step
+    # can put neighbouring plates on different 0.1 mm ticks of the WGM2 track.
+    lift = np.rint(lift * 10000.0) / 10000.0
+    wheels = sorted(by_name['pulley'], key=lambda o: -center(o)[1]); assert len(wheels) == 3
+    # Snap fixture dimensions, not animation, to the nearest mm to share meshes across exporters.
+    sheaves = [(np.round(center(o)-root, 3), round(np.ptp(points(o)[:, 1])/2, 3)) for o in wheels]
+    thigh = np.round(center(by_name['thigh_cross'][0])-root, 3)
+    foot = np.round(center(by_name['foot'][0])-root, 3); foot[0] = round(points(by_name['foot'][0])[:,0].max()-root[0], 3)
+    kit = lat_station(*sheaves, round(pin_pos[0,2]-root[2], 3), thigh, foot)
+    entries = []
+    for part in kit:
+        sp = part.part
+        pos = root + part.at + (lift if part.lift else np.zeros((1,3)))
+        entries.append(dict(name=part.name, role='STATION', catalog_id=part.name,
+                            part_id=packer.add(sp.verts, sp.tris, sp.smooth), verts=sp.verts, tris=sp.tris,
+                            color=sp.color, mat=sp.mat_preset, smooth=sp.smooth, pos=pos,
+                            quats=np.tile([0.,0.,0.,1.], (len(pos),1)), sc=np.ones_like(pos)))
+    socket = next(e for e in entries if e['name'] == 'load_socket')
+    eye = socket['pos'][:,2] + socket['verts'][:,2].max()
+    assert max(eye) + .002 < root[2]+sheaves[0][0][2]-sheaves[0][1], 'Load socket hits head sheave at full travel'
+    return entries, eye
+
+
+def check_station_clearance(entries, frames, faces):
+    # A separating axis between each padded part box and EVERY human triangle is a
+    # conservative non-penetration proof, including thin surfaces that contain no body vertex.
+    lo, hi = frames.min(1), frames.max(1)
+    face_bounds = {}
+    for e in entries:
+        if e['role'] != 'STATION':
+            continue
+        a = e['pos'] + e['verts'].min(0) - .0003
+        b = e['pos'] + e['verts'].max(0) + .0003
+        for f in np.flatnonzero(np.all((b >= lo) & (a <= hi), axis=1)):
+            if f not in face_bounds:
+                tris = frames[f][faces]; face_bounds[f] = tris.min(1), tris.max(1)
+            mn,mx = face_bounds[f]; i = f if len(a)>1 else 0
+            assert not np.any(np.all((mn <= b[i]) & (mx >= a[i]), axis=1)), f"Body clearance not proved: {e['name']} at frame {f}"
+
+
 def upgrade_machine(
     ex_id: str,
     raw_data: dict,
     packer: PartCatalogPacker,
     human_frames: np.ndarray | None,
+    human_faces: np.ndarray | None = None,
+    audit: list | None = None,
 ) -> tuple[bytes, dict]:
     objs = raw_data["objects"]
     acts = raw_data["acts"]
@@ -186,7 +258,14 @@ def upgrade_machine(
     max_grip_diff_mm = 0.0
     max_surface_diff_mm = 0.0
 
+    pilot = ex_id in STAGE1
+    if pilot:
+        assert human_frames is not None and len(human_frames) == len(acts) and human_faces is not None, f'[{ex_id}] missing matching human frames/faces'
+        upgraded_entries, cable_eye = fit_lat_station(objs, packer, len(acts))
+
     for o, spec in other_objs:
+        if pilot and spec.base_name in REPLACED:
+            continue
         v_orig = np.asarray(o["verts"], dtype=np.float64).reshape(-1, 3)
         t_orig = np.asarray(o["tris"], dtype=np.int32).reshape(-1)
         m_list_raw = o["m"]
@@ -196,6 +275,14 @@ def upgrade_machine(
 
         mn, mx = v_orig.min(axis=0), v_orig.max(axis=0)
         color = list(o.get("color", [0.5, 0.5, 0.5]))
+        if pilot and spec.base_name.startswith('cable_stack_'):
+            # Unit-Z cable. Seat the lower end in the new socket; keep the old upper endpoint fixed.
+            assert np.allclose([mn[2], mx[2]], [0, 1])
+            m = np.asarray(m_list).reshape(-1,4,4).copy()
+            shift = (cable_eye - .003 - m[:,3,2]) / m[:,2,2]
+            assert np.all((shift >= 0) & (shift < 1)), 'Cable would invert'
+            offset = shift[:,None] * m[:,2,:3]; m[:,3,:3] += offset; m[:,2,:3] -= offset
+            m_list = m.reshape(-1,16).tolist()
         pos, quats, sc = decompose_frames(m_list)
 
         if spec.role in ("LOCKED_GRIP", "KEEP_ORIGINAL") or spec.catalog_id is None:
@@ -245,6 +332,16 @@ def upgrade_machine(
                 assert r_diff_mm <= 0.5, f"[{ex_id}] roller {o['name']} radius shifted {r_diff_mm:.3f} mm!"
 
         for sp in subparts:
+            if pilot and spec.catalog_id:
+                if spec.catalog_id == 'frame_tube_chamfer' or spec.base_name == 'seat_lock' or sp.name_suffix in ('_caps', '_undertrim'):
+                    sp.color, sp.mat_preset = COAT, MAT_FRAME
+                elif spec.catalog_id == 'foot_flange_rubber':
+                    sp.color = RUBBER if sp.mat_preset == MAT_RUBBER else COAT
+                    if sp.mat_preset != MAT_RUBBER: sp.mat_preset = MAT_FRAME
+                elif sp.mat_preset in (MAT_PAD, MAT_RUBBER):
+                    sp.color = RUBBER
+                elif sp.mat_preset == MAT_CHROME:
+                    sp.color = STEEL
             pid = packer.add(sp.verts, sp.tris, sp.smooth)
             upgraded_entries.append({
                 "name": o["name"] + sp.name_suffix,
@@ -305,7 +402,9 @@ def upgrade_machine(
 
     # Gate 2: Full-frame human-machine AABB clearance check for newly added/expanded SHELL parts (e.g. acrylic shroud)
     new_human_penetration_mm = 0.0
-    if human_frames is not None:
+    if pilot:
+        check_station_clearance(upgraded_entries, human_frames, human_faces)
+    elif human_frames is not None:
         h_mn_all = human_frames.min(axis=(0, 1))
         h_mx_all = human_frames.max(axis=(0, 1))
         for e in upgraded_entries:
@@ -327,7 +426,7 @@ def upgrade_machine(
 
     total_tris = 0
     static_groups = set()
-    anim_objs = 0
+    anim_groups = set()
     for e in upgraded_entries:
         total_tris += len(e["tris"]) // 3
         pos, quats, sc = e["pos"], e["quats"], e["sc"]
@@ -336,7 +435,7 @@ def upgrade_machine(
         if nf == 1:
             static_groups.add((e["mat"], r, g, b, e["smooth"]))
         else:
-            anim_objs += 1
+            anim_groups.add((e["part_id"], e["mat"], r, g, b))
 
         const_scale = (nf == 1) or (np.max(np.abs(sc - sc[0])) < 1e-4)
         const_rot = (nf == 1) or (np.max(np.abs(quats - quats[0])) < 1e-4)
@@ -345,14 +444,15 @@ def upgrade_machine(
         buf += struct.pack("<H3BBBxH", e["part_id"], r, g, b, e["mat"], flags, nf)
         buf += struct.pack("<10f", *pos[0].tolist(), *quats[0].tolist(), *sc[0].tolist())
         if nf > 1:
-            dp_raw = np.rint(np.diff(pos, axis=0) * 10000.0)
+            dp_raw = np.diff(np.rint((pos-pos[0]) * 10000.0), axis=0)
             assert np.max(np.abs(dp_raw)) <= 32767, f"[{ex_id}] {e['name']} pos delta overflow!"
             buf += dp_raw.astype("<i2").tobytes()
             if not const_rot:
-                dq_raw = np.rint(np.diff(quats, axis=0) * 32767.0).clip(-32767, 32767)
+                dq_raw = np.diff(np.rint((quats-quats[0]) * 32767.0), axis=0)
+                assert np.max(np.abs(dq_raw)) <= 32767, f"[{ex_id}] quaternion delta overflow"
                 buf += dq_raw.astype("<i2").tobytes()
             if not const_scale:
-                ds_raw = np.rint(np.diff(sc, axis=0) * 10000.0)
+                ds_raw = np.diff(np.rint((sc-sc[0]) * 10000.0), axis=0)
                 assert np.max(np.abs(ds_raw)) <= 32767, f"[{ex_id}] {e['name']} scale delta overflow!"
                 buf += ds_raw.astype("<i2").tobytes()
 
@@ -361,7 +461,7 @@ def upgrade_machine(
         "id": ex_id,
         "orig_objs": len(objs),
         "new_objs": len(upgraded_entries),
-        "merged_draw_calls": len(static_groups) + anim_objs,
+        "merged_draw_calls": len(static_groups) + len(anim_groups),
         "orig_tris": orig_tris,
         "new_tris": total_tris,
         "fake_anim_stripped": fake_anim_stripped,
@@ -370,12 +470,15 @@ def upgrade_machine(
         "max_surface_diff_mm": round(max_surface_diff_mm, 4),
         "new_human_pen_mm": round(new_human_penetration_mm, 4),
     }
+    if audit is not None:
+        audit.extend(upgraded_entries)
     return bytes(buf), stats
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--viewer-dir", type=Path, default=REPO / "phone/src/main/assets/viewer3d")
+    parser.add_argument("--stage1", action="store_true", help="Build precisely the seven verified lat variants")
     parser.add_argument("--prefix", help="Upgrade all JSON models whose stem starts with this prefix")
     parser.add_argument("--ids", help="Comma-separated model stems to upgrade")
     parser.add_argument("--all", action="store_true", help="Upgrade all JSON models in data/")
@@ -384,7 +487,10 @@ def main() -> None:
     data_dir = args.viewer_dir / "data"
     human_dir = args.viewer_dir / "human_v5"
 
-    if args.ids:
+    if args.stage1:
+        files = [data_dir / f"{w}.json" for w in STAGE1]
+        assert all(f.is_file() for f in files), "Incomplete Stage 1 source bundle"
+    elif args.ids:
         wanted = [x.strip() for x in args.ids.split(",") if x.strip()]
         files = [data_dir / f"{w}.json" for w in wanted]
     elif args.prefix:
@@ -405,6 +511,7 @@ def main() -> None:
     new_raw_sum = 0
     new_zip_sum = 0
 
+    faces = np.asarray(json.loads((human_dir / "base.json").read_text())["triangles"], dtype=int).reshape(-1,3) if any(f.stem in STAGE1 for f in files) else None
     for f in files:
         raw_bytes = f.read_bytes()
         orig_raw_sum += len(raw_bytes)
@@ -412,7 +519,7 @@ def main() -> None:
 
         raw_data = json.loads(raw_bytes)
         human_frames = load_wgp2_human_frames(human_dir / f"{f.stem}.bin")
-        wgm_bytes, st = upgrade_machine(f.stem, raw_data, packer, human_frames)
+        wgm_bytes, st = upgrade_machine(f.stem, raw_data, packer, human_frames, faces)
         clip_blobs[f.stem] = wgm_bytes
 
         w_zip = len(zlib.compress(wgm_bytes, level=6))

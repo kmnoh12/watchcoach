@@ -17,13 +17,17 @@ function fn(name) {
 }
 function runtime() {
   const value = () => ({ value: 0, lerpVectors(a,b,t){this.value=a+(b-a)*t;}, slerpQuaternions(a,b,t){this.value=a+(b-a)*t;} });
-  const context = vm.createContext({ console, Float32Array, tp:value(), tq:value(), ts:value() });
+  const context = vm.createContext({ console, Float32Array, tp:value(), tq:value(), ts:value(),
+    instancePose:{ compose(p){ this.x=p.value; return this; } } });
   const optional = ['validatePhases','phaseBracket'].filter(n=>source.includes(`function ${n}(`));
   vm.runInContext([...optional,'humanFrame','poseHuman','pose','parse'].map(fn).join('\n'), context);
   return context;
 }
 function avatar(acts,values) {
-  return { human: { acts, frames:values.map(x=>new Float32Array([x,0,0])), geom:{attributes:{position:{array:new Float32Array(3)}}} } };
+  const cache = label === 'app asset'
+    ? { vertices:1, minimum:[0,0,0], scale:[1,1,1], quantized:Uint16Array.from(values.flatMap(x=>[x,0,0])), skinFrames:new Map() }
+    : { frames:values.map(x=>new Float32Array([x,0,0])) };
+  return { human: { acts, ...cache, geom:{attributes:{position:{array:new Float32Array(3)}}} } };
 }
 check('human reaches the stored keyframe at its actual nonuniform phase',()=>{
   const r=runtime(),m=avatar([0,.1,1],[0,10,100]);r.poseHuman(m,.1);assert.equal(m.human.geom.attributes.position.array[0],10);
@@ -57,5 +61,15 @@ check('inconsistent equipment samples fail at load instead of drifting during pl
 check('static equipment remains still alongside animated human motion',()=>{
   const r=runtime(),matrix={compose(p){this.x=typeof p==='number'?p:p.value;}},m={acts:[0,1],objs:[{steps:[{p:7,q:0,s:1}],mesh:{matrix}}]};
   for(const p of [0,.5,1]){r.pose(m,p);assert.equal(matrix.x,7);}
+});
+if (label === 'app asset') check('shared moving equipment preserves each slot at nonuniform phases',()=>{
+  const r=runtime(), slots=[], mesh={instanceMatrix:{},setMatrixAt(id,matrix){slots[id]=matrix.x;}};
+  const m={acts:[0,.1,1],instances:[mesh],objs:[[0,10,100],[35,45,135]].map((ps,slot)=>({
+    slot, mesh, steps:ps.map(p=>({p,q:0,s:1}))
+  }))};
+  for(const a of [0,.1,.55,1,.25]){
+    r.pose(m,a); assert.ok(Math.abs(slots[0]-a*100)<1e-7); assert.ok(Math.abs(slots[1]-slots[0]-35)<1e-7);
+    assert.equal(mesh.instanceMatrix.needsUpdate,true);
+  }
 });
 }

@@ -43,6 +43,11 @@ def main():
     watch = REPO / "tools/viewer3d/watch_v5.json"
     if watch.exists():
         shutil.copyfile(watch, stage / "human_v5/watch.json")
+    # The hand converter copies the old viewer. Install the current renderer and rebuild
+    # the shared machine catalogue against the final hand-adjusted grips before replacing anything.
+    shutil.copyfile(REPO / "tools/viewer3d/index.html", stage / "index.html")
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_machines.py"),
+                    "--viewer-dir", str(stage), "--stage1"], check=True)
     report = json.loads((old / "v5_bundle_report.json").read_text())
     manifest = json.loads((stage / "human_v5/manifest.json").read_text())
     manifest["revision"] = report["revision"] + "+newhand"

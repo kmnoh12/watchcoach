@@ -273,7 +273,8 @@ function makePresetMaterial(preset, rgb, smooth) {
     case 2: return new THREE.MeshStandardMaterial({ color, roughness: 0.36, metalness: 0.42, flatShading: !smooth });
     case 3: return new THREE.MeshStandardMaterial({ color, roughness: 0.22, metalness: 0.58, flatShading: !smooth });
     case 4: return new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.05, flatShading: !smooth });
-    case 5: return new THREE.MeshStandardMaterial({ color, roughness: 0.08, metalness: 0.18, transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide });
+    // Closed 4 mm sheets: draw only the facing surface, with no second tinted layer behind it.
+    case 5: return new THREE.MeshStandardMaterial({ color, roughness: 0.19, metalness: 0.02, transparent: true, opacity: 0.18, depthWrite: false });
     case 6: return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.04, flatShading: !smooth });
     case 7: return new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.45, flatShading: !smooth });
     default: return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25, flatShading: !smooth });
@@ -328,21 +329,35 @@ async function fetchModel(name) {
 function buildGroup(name, d) {
   const group = new THREE.Group();
   const objs = [];
-  const staticBuckets = new Map();
+  const staticBuckets = new Map(), movingBuckets = new Map(), instances = [];
+  function addSingle(o) {
+    const mesh = new THREE.Mesh(o.geom, makePresetMaterial(o.mat, o.color, o.smooth));
+    if (o.mat === 5) mesh.renderOrder = 2;
+    mesh.matrixAutoUpdate = false;
+    group.add(mesh);
+    objs.push({ mesh, steps: o.steps });
+  }
   for (const o of d.parsed) {
     if (d.format === "wgm2" && o.steps.length === 1) {
       const key = `${o.mat}|${Math.round(o.color[0]*255)},${Math.round(o.color[1]*255)},${Math.round(o.color[2]*255)}|${o.smooth?1:0}`;
       if (!staticBuckets.has(key)) staticBuckets.set(key, { mat: o.mat, color: o.color, smooth: o.smooth, items: [] });
       const m = new THREE.Matrix4().compose(o.steps[0].p, o.steps[0].q, o.steps[0].s);
       staticBuckets.get(key).items.push({ geom: o.geom, matrix: m });
-    } else {
-      const mat = makePresetMaterial(o.mat, o.color, o.smooth);
-      const mesh = new THREE.Mesh(o.geom, mat);
-      if (o.mat === 5) mesh.renderOrder = 2;
-      mesh.matrixAutoUpdate = false;
-      group.add(mesh);
-      objs.push({ mesh, steps: o.steps });
-    }
+    } else if (d.format === "wgm2" && o.mat !== 5 && o.steps.every(k => k.s.x > 0 && k.s.y > 0 && k.s.z > 0)) {
+      // Share the draw, not the track: each plate / rope link keeps its original motion.
+      const key = [o.geom.uuid, o.mat, ...o.color].join('|');
+      if (!movingBuckets.has(key)) movingBuckets.set(key, []);
+      movingBuckets.get(key).push(o);
+    } else addSingle(o);
+  }
+  for (const bucket of movingBuckets.values()) {
+    const first = bucket[0];
+    if (bucket.length === 1) { addSingle(first); continue; }
+    const mesh = new THREE.InstancedMesh(first.geom, makePresetMaterial(first.mat, first.color, first.smooth), bucket.length);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    group.add(mesh);
+    instances.push(mesh);
+    bucket.forEach((o, slot) => objs.push({ mesh, slot, steps: o.steps }));
   }
   for (const b of staticBuckets.values()) {
     const geom = mergeStaticNonIndexed(b.items);
@@ -351,10 +366,11 @@ function buildGroup(name, d) {
     if (b.mat === 5) mesh.renderOrder = 2;
     group.add(mesh);
   }
-  return { name, group, objs, n: d.acts.length, acts: d.acts, faces: d.faces };
+  return { name, group, objs, instances, n: d.acts.length, acts: d.acts, faces: d.faces };
 }
 
 const tp = new THREE.Vector3(), tq = new THREE.Quaternion(), ts = new THREE.Vector3();
+const instancePose = new THREE.Matrix4();
 function pose(m, a) {
   for (const o of m.objs) {
     const n = o.steps.length;
@@ -366,7 +382,13 @@ function pose(m, a) {
     else { const x = Math.min(1, Math.max(0, a)) * (n - 1); i = Math.min(Math.floor(x), n - 2); j = i + 1; t = x - i; }
     const A = o.steps[i], B = o.steps[j];
     tp.lerpVectors(A.p, B.p, t); tq.slerpQuaternions(A.q, B.q, t); ts.lerpVectors(A.s, B.s, t);
-    o.mesh.matrix.compose(tp, tq, ts);
+    if (o.slot !== undefined) o.mesh.setMatrixAt(o.slot, instancePose.compose(tp, tq, ts));
+    else { o.mesh.matrix.compose(tp, tq, ts); o.mesh.matrixWorldNeedsUpdate = true; }
+  }
+  for (const mesh of m.instances ?? []) {
+    mesh.instanceMatrix.needsUpdate = true;
+    // Camera framing, picking and frustum culling must use this pose, not the rest stack.
+    mesh.boundingBox = mesh.boundingSphere = null;
   }
 }
 function setAct(a) { act = a; for (const m of shown) { pose(m, a); poseHuman(m, a); } }
