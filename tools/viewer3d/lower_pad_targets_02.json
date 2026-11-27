@@ -1,0 +1,144 @@
+{
+  "standing_calf": {
+    "shoulder_pad": [
+      30,
+      "shoulder_pad__004"
+    ],
+    "shoulder_pad.001": [
+      31,
+      "shoulder_pad__004"
+    ]
+  },
+  "standing_leg_curl": {
+    "elbow_support_l": [
+      4,
+      "elbow_pad__001"
+    ],
+    "elbow_support_r": [
+      5,
+      "elbow_pad__001"
+    ],
+    "ankle_roller": [
+      14,
+      "leg_roller__003"
+    ],
+    "thigh_support": [
+      31,
+      "thigh_pad__004"
+    ]
+  },
+  "torso_rotation_machine": {
+    "lumbar_pad": [
+      5,
+      "back_pad__018"
+    ],
+    "elbow_pad": [
+      7,
+      "elbow_pad__002"
+    ],
+    "seat_column": [
+      21,
+      "seat_post__008"
+    ],
+    "seat_cushion": [
+      22,
+      "seat_pad__025"
+    ],
+    "seat_mount": [
+      23,
+      "pad_mount__015"
+    ]
+  },
+  "hack_squat": {
+    "back.004": [
+      11,
+      "back_pad__003"
+    ],
+    "shoulder": [
+      26,
+      "shoulder_pad__001"
+    ],
+    "shoulder.001": [
+      27,
+      "shoulder_pad__001"
+    ]
+  },
+  "hip_thrust_machine": {
+    "back_pad": [
+      0,
+      "back_pad__010"
+    ],
+    "start_mat": [
+      45,
+      "start_mat__001"
+    ]
+  },
+  "leg_press_45": {
+    "back": [
+      0,
+      "back_pad__012"
+    ],
+    "mopt_seat_stem": [
+      12,
+      "seat_post__007"
+    ],
+    "seat": [
+      42,
+      "seat_pad__013"
+    ]
+  },
+  "leg_press_calf": {
+    "back.001": [
+      0,
+      "back_pad__003"
+    ],
+    "seat.001": [
+      41,
+      "seat_pad__002"
+    ],
+    "seat_support": [
+      44,
+      "seat_support__002"
+    ]
+  },
+  "leg_press_horizontal": {
+    "back.006": [
+      0,
+      "back_pad__003"
+    ],
+    "seat.015": [
+      63,
+      "seat_pad__002"
+    ],
+    "seat_adjuster.001": [
+      64,
+      "seat_adjuster__001"
+    ],
+    "seat_frame": [
+      65,
+      "seat_support__002"
+    ],
+    "seat_post.008": [
+      67,
+      "seat_post__002"
+    ]
+  },
+  "pendulum_squat": {
+    "pendulum_back_pad": [
+      2,
+      "back_pad__003"
+    ],
+    "pendulum_head_pad": [
+      12,
+      "head_pad__001"
+    ],
+    "pendulum_shoulder_pad.006": [
+      23,
+      "shoulder_pad__002"
+    ],
+    "pendulum_shoulder_pad.007": [
+      24,
+      "shoulder_pad__002"
+    ]
+  }
+}
