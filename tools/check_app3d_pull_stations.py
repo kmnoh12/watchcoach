@@ -97,7 +97,10 @@ def check(view, baseline, *, targets_file="pull_station_targets.json", report_fi
             spec = fits[name]
             normal, across = np.array(spec["normal"]), np.array(spec["across"])
             center = np.array(spec["origin"]) + spec["offset"]
-            if spec.get("gap_method") == "vertical_surface":
+            if spec.get("gap_method") == "axial_surface":
+                from pull_pad_fit import axial_gap
+                gap = 1000 * axial_gap(skin, avatar, spec["role"], surfaces, -normal)
+            elif spec.get("gap_method") == "vertical_surface":
                 from pull_pad_fit import vertical_gap
                 gap = 1000 * vertical_gap(skin, avatar, spec["role"], surfaces)
             else:

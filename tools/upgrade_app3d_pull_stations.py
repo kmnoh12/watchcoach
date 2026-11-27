@@ -131,7 +131,14 @@ def fitted_layers(raw, mapping, source, human, base, emit, *, curved_contact=Fal
         surface = np.vstack([p[0] for p in pieces]) @ matrix + position
         target = fit_body_part(human, base, role, position, surface, normal, across)
         distance = np.dot(target - position, normal) / np.dot(rail, normal)
-        if curved_contact:
+        axial_chest = role == "back_pad" and curved_contact
+        if axial_chest:
+            from pull_pad_fit import axial_gap
+            layers = [(v @ matrix + target, t) for v, t, *_ in pieces]
+            measured = axial_gap(human, base, role, layers, -normal)
+            distance += (measured - .0035) / np.dot(rail, -normal)
+            gap = measured - np.dot(rail * distance - (target - position), -normal)
+        elif curved_contact:
             from pull_pad_fit import vertical_gap
             assert abs(abs(normal[2])-1) < 1e-6 and np.allclose(rail, [0, 0, 1])
             layers = [(v @ matrix + target, t) for v, t, *_ in pieces]
@@ -153,7 +160,7 @@ def fitted_layers(raw, mapping, source, human, base, emit, *, curved_contact=Fal
         fits[name] = dict(role=role, axis=rail.tolist(), normal=normal.tolist(), across=across.tolist(),
                           origin=position.tolist(), offset=shift.tolist(), gap_mm=gap*1000)
         if curved_contact:
-            fits[name]["gap_method"] = "vertical_surface"
+            fits[name]["gap_method"] = "axial_surface" if axial_chest else "vertical_surface"
         return shift
 
     def hardware(name, shape, center, scale, rotation, mat, color):
@@ -373,7 +380,8 @@ def assemble(key, raw, mapping, source, human, base, *, fit_layers=fitted_layers
                 color = colors["silver"] if mat == MAT_SILVER else [.16, .18, .22]
                 emit(name, vv, p["t"], mat, color, scale=size/np.ptp(vv, axis=0),
                      shift=center @ matrix[:3, :3])
-    if key in {"lever_pulldown~m=" + v for v in ("pin", "pin_single", "plate", "plate_single")} and fit_layers is fitted_layers:
+    if (key in {"lever_pulldown~m=" + v for v in ("pin", "pin_single", "plate", "plate_single")}
+            or key in {"seated_row_machine", "seated_row_machine~m=single"}) and fit_layers is fitted_layers:
         fits = fitted_layers(raw, mapping, source, human, base, emit, curved_contact=True)
     else:
         fits = fit_layers(raw, mapping, source, human, base, emit)

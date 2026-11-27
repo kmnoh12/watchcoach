@@ -1,0 +1,170 @@
+{
+  "plate_row": {
+    "chest": [
+      5,
+      "chest_pad__006"
+    ],
+    "seat.001": [
+      46,
+      "seat_pad__002"
+    ],
+    "adjust_pin": [
+      0,
+      "adjustment_pin__004"
+    ],
+    "chest_adjuster": [
+      6,
+      "pad_adjuster__001"
+    ],
+    "chest_pin": [
+      8,
+      "adjustment_pin__004"
+    ],
+    "chest_post": [
+      9,
+      "pad_post__005"
+    ],
+    "seat_adjuster": [
+      47,
+      "seat_adjuster__002"
+    ],
+    "seat_outer": [
+      48,
+      "seat_support__002"
+    ]
+  },
+  "plate_row~m=single": {
+    "chest": [
+      5,
+      "chest_pad__006"
+    ],
+    "seat.001": [
+      36,
+      "seat_pad__002"
+    ],
+    "adjust_pin": [
+      0,
+      "adjustment_pin__001"
+    ],
+    "chest_adjuster": [
+      6,
+      "pad_adjuster__002"
+    ],
+    "chest_pin": [
+      8,
+      "adjustment_pin__001"
+    ],
+    "chest_post": [
+      9,
+      "pad_post__005"
+    ],
+    "seat_adjuster": [
+      37,
+      "seat_adjuster__002"
+    ],
+    "seat_outer": [
+      38,
+      "seat_support__002"
+    ]
+  },
+  "pulldown_machine~m=pin": {
+    "chest_support": [
+      12,
+      "chest_pad__007"
+    ],
+    "seat": [
+      94,
+      "seat_pad__019"
+    ],
+    "thigh_roller": [
+      105,
+      "leg_roller__001"
+    ],
+    "thigh_roller.001": [
+      106,
+      "leg_roller__001"
+    ]
+  },
+  "pulldown_machine~m=plate": {
+    "chest_support": [
+      6,
+      "chest_pad__007"
+    ],
+    "seat": [
+      67,
+      "seat_pad__019"
+    ],
+    "thigh_roller": [
+      73,
+      "leg_roller__001"
+    ],
+    "thigh_roller.001": [
+      74,
+      "leg_roller__001"
+    ]
+  },
+  "pullover_machine": {
+    "back": [
+      0,
+      "back_pad__003"
+    ],
+    "headrest": [
+      15,
+      "head_pad__001"
+    ],
+    "triceps_cushion": [
+      23,
+      "arm_pad__003"
+    ],
+    "triceps_cushion.001": [
+      24,
+      "arm_pad__003"
+    ],
+    "seat": [
+      45,
+      "seat_pad__002"
+    ]
+  },
+  "seated_row_machine": {
+    "seat.001": [
+      45,
+      "seat_pad__013"
+    ]
+  },
+  "shrug_machine": {
+    "back": [
+      0,
+      "back_pad__017"
+    ],
+    "seat": [
+      24,
+      "seat_pad__016"
+    ],
+    "seat_adjuster": [
+      25,
+      "seat_adjuster__004"
+    ],
+    "seat_base": [
+      26,
+      "seat_support__005"
+    ],
+    "seat_pin": [
+      27,
+      "adjustment_pin__001"
+    ]
+  },
+  "wide_pulldown_machine": {
+    "seat_pad": [
+      12,
+      "seat_pad__026"
+    ],
+    "thigh_pad": [
+      16,
+      "leg_roller__008"
+    ],
+    "thigh_pad.001": [
+      30,
+      "leg_roller__008"
+    ]
+  }
+}
