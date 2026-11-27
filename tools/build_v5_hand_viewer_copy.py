@@ -504,6 +504,7 @@ def open_source(path):
 
 def convert(clip, apk, outdir, tr):
     from build_app3d_v5 import pack_motion
+    from fit_app3d_dumbbell_contacts import CLIPS, correct
 
     with open_source(apk) as z:
         key = clip["id"]
@@ -576,6 +577,7 @@ def convert(clip, apk, outdir, tr):
         for side, part in chosen.items():
             if part in shifted:
                 row[side]["handle_shift_mm"], row[side]["shifted_parts"] = shifted[part]
+        support = correct(key, machine, acts, tr, result, q, t, row) if key in CLIPS else {}
         blob, error = pack_motion(dict(acts=acts, frames=result), len(tr.n))
         (outdir / "human_v5" / (key + ".bin")).write_bytes(blob)
         (outdir / "data" / (key + ".json")).write_text(
@@ -583,6 +585,8 @@ def convert(clip, apk, outdir, tr):
             encoding="utf8",
         )
         row_report = {"grips": row, "cache_error_mm": error}
+        if support:
+            row_report["support"] = support
         print(
             key,
             len(acts),
