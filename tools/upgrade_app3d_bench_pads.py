@@ -106,7 +106,12 @@ def wrap(size, shaft_radius):
     )
 
 
-def upgrade(view):
+def batch_files(batch):
+    suffix = {1: "", 2: "_02"}[batch]
+    return f"bench_pad_targets{suffix}.json", f"bench_pad_fit{suffix}.json"
+
+
+def upgrade(view, batch=1):
     shapes = {}
 
     def assemble(key, raw, mapping, source, frames, base):
@@ -183,11 +188,12 @@ def upgrade(view):
             )
         return rows, meta
 
+    targets_file, report_file = batch_files(batch)
     return append_batch(
         view,
-        targets_file="bench_pad_targets.json",
+        targets_file=targets_file,
         source_file="scene_flat_bench_source.json",
-        report_file="bench_pad_fit.json",
+        report_file=report_file,
         build_model=assemble,
     )
 
@@ -195,4 +201,6 @@ def upgrade(view):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("viewer", type=Path)
-    upgrade(parser.parse_args().viewer)
+    parser.add_argument("--batch", type=int, choices=(1, 2), default=1)
+    args = parser.parse_args()
+    upgrade(args.viewer, args.batch)

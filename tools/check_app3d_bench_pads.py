@@ -12,14 +12,16 @@ import check_app3d_stage1 as wire
 from check_app3d_adjust_bench import closed_solid, files
 from fixed_pad_contact import penetration
 from upgrade_app3d_adjust_bench import HERE, load
+from upgrade_app3d_bench_pads import batch_files
 from upgrade_app3d_machines import decompose_frames, strip_fake_animation
 from part_registry import MAT_PAD, MAT_RUBBER
 
 
-def check(view, baseline):
+def check(view, baseline, batch=1):
     data, old, human = view / "data", baseline / "data", view / "human_v5"
-    spec = load(HERE / "bench_pad_targets.json")
-    fit = load(data / "bench_pad_fit.json")
+    targets_file, report_file = batch_files(batch)
+    spec = load(HERE / targets_file)
+    fit = load(data / report_file)
     assert fit.keys() == spec.keys()
     src = load(HERE / "scene_flat_bench_source.json")
     mf = load(data / "wgm_manifest.json")
@@ -46,9 +48,15 @@ def check(view, baseline):
         if f not in f0 or (baseline / f).read_bytes() != (view / f).read_bytes()
     }
     assert f0.keys() <= f1.keys()
+    # Batch 02 uses the same five upholstery sizes already packed by batch 01.
+    # Every record must point back into the existing, byte-identical catalogue.
+    if batch == 2:
+        assert (data / "parts.bin").read_bytes() == stock
     assert changed - {"v5_bundle_report.json"} == {
         "data/" + k + ".wgm" for k in applied
-    } | {"data/parts.bin", "data/wgm_manifest.json", "data/bench_pad_fit.json"}
+    } | {"data/wgm_manifest.json", "data/" + report_file} | (
+        {"data/parts.bin"} if batch == 1 else set()
+    )
     reports = [load(root / "v5_bundle_report.json") for root in [baseline, view]]
     assert {k: v for k, v in reports[0].items() if k != "bytes"} == {
         k: v for k, v in reports[1].items() if k != "bytes"
@@ -203,8 +211,9 @@ if __name__ == "__main__":
     ap.add_argument("view", type=Path)
     ap.add_argument("baseline", type=Path)
     ap.add_argument("--report", type=Path)
+    ap.add_argument("--batch", type=int, choices=(1, 2), default=1)
     args = ap.parse_args()
-    result = json.dumps(check(args.view, args.baseline), indent=2)
+    result = json.dumps(check(args.view, args.baseline, args.batch), indent=2)
     print(result)
     if args.report:
         args.report.write_text(result + chr(10))

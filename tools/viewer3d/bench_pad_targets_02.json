@@ -1,0 +1,82 @@
+{
+  "decline_dumbbell_bench_press": {
+    "back_pad": [
+      7,
+      "back_pad__006"
+    ]
+  },
+  "dumbbell_bench_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      21,
+      "seat_pad__007"
+    ]
+  },
+  "hex_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      21,
+      "seat_pad__007"
+    ]
+  },
+  "incline_dumbbell_bench_press": {
+    "back_pad": [
+      8,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      22,
+      "seat_pad__011"
+    ]
+  },
+  "rdf_seated": {
+    "top": [
+      9,
+      "seat_pad__003"
+    ]
+  },
+  "single_arm_dumbbell_bench_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      16,
+      "seat_pad__007"
+    ]
+  },
+  "tate_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      21,
+      "seat_pad__007"
+    ]
+  },
+  "concentration_curl": {
+    "top": [
+      12,
+      "seat_pad__003"
+    ]
+  },
+  "decline_push_up": {
+    "top": [
+      10,
+      "seat_pad__003"
+    ]
+  },
+  "dumbbell_seated_kickback": {
+    "bench_cushion": [
+      2,
+      "seat_pad__003"
+    ]
+  }
+}
