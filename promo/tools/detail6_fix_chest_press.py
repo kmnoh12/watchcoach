@@ -1,13 +1,13 @@
-"""detail6 fix: Chest Press (`P_chest_press_machine`) sleek inverted-L dual-grip handles.
+"""detail6 fix (v3): Chest Press (`P_chest_press_machine`) curved inward-stub + inverted-L dual-grip handles.
 
-Replaces the awkward `+`-shaped / forward-pointing handles on `P_chest_press_machine` with the
-continuous inverted-L curved commercial chest-press handle from the user's reference photo:
-  - Mounting collar welded cleanly onto the front tip of `press_forearm` / `press_forearm.001`
-    at `P_Moving assembly` local `(sx*0.080, -0.380, 0.000)` (= root `(±0.400, -0.180, 0.950)`).
-  - Sweeps smoothly UP into the vertical neutral grip (`z_root = 0.87..1.03`), then curves 90 deg
-    OUTWARD along `±X` into the horizontal wide chest-press grip (`x_root = ±0.40..±0.57`, `z_root = 1.03`)
-    with silver trim collars & outer end-cap.
-  - Zero collision with `Extra_gray_Body` (all geometry stays at `|x| >= 0.37`).
+Matches the exact commercial reference handle geometry:
+  - From the front tip of the red lever arm (`press_forearm` at `P_Moving assembly` local `(sx*0.080, -0.380, 0.000)`),
+    a matching red curved bracket tube goes INWARD toward the chest (`x = sx*0.080 -> sx*0.010`, dipping slightly to
+    `z = -0.045` for chest-height ergonomics) and bends smoothly 90 deg UPWARD into a silver trim collar.
+  - From that collar, a continuous black inverted-L grip tube rises vertically (neutral grip, `z = -0.020 -> +0.085`),
+    curves smoothly 90 deg OUTWARD (radius 0.028), and extends horizontally outward (`x = sx*0.038 -> sx*0.200`,
+    `z = +0.113`, wide chest-press grip) with a silver outer end-cap.
+  - Zero collision with `Extra_gray_Body` (innermost grip at `root |x| = 0.330`).
 
 Touches ONLY `P_chest_press_machine` handle objects. 100% idempotent.
 """
@@ -18,11 +18,11 @@ from pathlib import Path
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Vector
 
 ROOT_NAME = "P_chest_press_machine"
 TAG = "detail6_fix_chest_press"
-TAG_VER = "v2"
+TAG_VER = "v3"
 
 
 def _ensure_unique(root, ob):
@@ -33,19 +33,21 @@ def _ensure_unique(root, ob):
         ob.data = ob.data.copy()
 
 
-def _replace_mesh(root, ob, bm, mat=None):
+def _replace_mesh(root, ob, bm, mats=None):
     _ensure_unique(root, ob)
     me = ob.data
     bm.normal_update()
     bm.to_mesh(me)
     bm.free()
     me.update()
-    if mat is not None:
+    if mats is not None:
         me.materials.clear()
-        me.materials.append(mat)
+        for m in mats:
+            if m is not None:
+                me.materials.append(m)
 
 
-def _sweep_round_tube(bm, pts, radius, segs=20):
+def _sweep_round_tube(bm, pts, radius, segs=20, mat_idx=0):
     pts = [Vector(p) for p in pts]
     rings = []
     for i, p in enumerate(pts):
@@ -65,13 +67,10 @@ def _sweep_round_tube(bm, pts, radius, segs=20):
         rings.append(ring)
     for r0, r1 in zip(rings[:-1], rings[1:]):
         for k in range(segs):
-            bm.faces.new((r0[k], r0[(k + 1) % segs], r1[(k + 1) % segs], r1[k]))
-    bm.faces.new(list(reversed(rings[0])))
-    bm.faces.new(rings[-1])
-
-
-def _add_cyl(bm, p0, p1, radius, segs=20):
-    _sweep_round_tube(bm, [p0, p1], radius, segs=segs)
+            f = bm.faces.new((r0[k], r0[(k + 1) % segs], r1[(k + 1) % segs], r1[k]))
+            f.material_index = mat_idx
+    bm.faces.new(list(reversed(rings[0]))).material_index = mat_idx
+    bm.faces.new(rings[-1]).material_index = mat_idx
 
 
 def _clear_mesh(root, ob):
@@ -92,6 +91,11 @@ def apply() -> dict:
 
     m_grip = bpy.data.materials.get("E_grip")
     m_steel = bpy.data.materials.get("E_steel")
+    m_frame = bpy.data.materials.get("E_frame") or m_steel
+    # Reuse the exact red accent material from press_forearm if present
+    pf = bpy.data.objects.get("press_forearm")
+    if pf and pf.data and len(pf.data.materials) > 0 and pf.data.materials[0]:
+        m_frame = pf.data.materials[0]
 
     specs = [
         (-1.0, "handle.040", "handle_cap1", "handle_cap2", "handle_v", "handle_v_cap1", "handle_v_cap2"),
@@ -100,63 +104,83 @@ def apply() -> dict:
     touched = []
 
     for sx, h_nm, c1_nm, c2_nm, hv_nm, vc1_nm, vc2_nm in specs:
-        # Anchor at press_forearm tip in P_Moving assembly local space:
-        # (sx*0.080, -0.380, 0.000) -> root (±0.400, -0.180, 0.950).
-        # Build sleek inverted-L handle:
-        #   - Base stem from press_forearm tip (sx*0.080, -0.380, 0.000) -> slightly down/in to (sx*0.075, -0.380, -0.070)
-        #   - Vertical neutral grip rising from z = -0.070 -> +0.065 at x = sx*0.075
-        #   - Smooth 90-deg rounded corner (radius 0.032) bending OUTWARD along +sx*X
-        #   - Horizontal wide chest-press grip extending outward from x = sx*0.107 -> sx*0.255 at z = +0.097
-        #     (root: x = ±0.427..±0.575, y = -0.180, z = 1.047)
-        x0 = sx * 0.075
         y0 = -0.380
-        z_bot = -0.075
-        z_bend = 0.065
-        r_bend = 0.032
-        z_top = z_bend + r_bend  # +0.097
-        x_end = sx * 0.255
+        # Geometry in P_Moving assembly local space (root pivot at (sx*0.320, 0.200, 0.950)):
+        # 1. Curved red stub (`handle_v`) goes INWARD from forearm tip (sx*0.085, y0, -0.015)
+        #    -> inward to (sx*0.036, y0, -0.045) -> curves 90 deg UP (r=0.026) to (sx*0.010, y0, -0.019)
+        x_arm = sx * 0.085
+        x_in = sx * 0.010       # root |x| = 0.330 (cleanly inside lever arm, clear of Extra_gray_Body)
+        r_low = 0.026
+        z_low = -0.045
+        z_collar = z_low + r_low  # -0.019 (root z = 0.931)
 
-        # 1. Continuous black grip inverted-L tube (`handle.040` / `handle.041`)
+        z_bend = 0.082            # vertical neutral grip ~10.1 cm straight + bends
+        r_top = 0.028
+        z_top = z_bend + r_top    # +0.110 (root z = 1.060)
+        x_end = sx * 0.205        # root |x| = 0.525 (17 cm wide horizontal grip)
+
+        # Build red curved inward stub + silver trim collars in `handle_v`
+        hv_ob = bpy.data.objects[hv_nm]
+        hv_ob.location = Vector((0.0, 0.0, 0.0))
+        hv_ob.rotation_mode = "XYZ"
+        hv_ob.rotation_euler = (0.0, 0.0, 0.0)
+        hv_ob.scale = Vector((1.0, 1.0, 1.0))
+
+        stub_pts = [
+            (x_arm, y0, -0.008),
+            (sx * 0.060, y0, z_low),
+            (x_in + sx * r_low, y0, z_low),
+        ]
+        # Smooth 90-deg arc from inward (-sx*X) to upward (+Z)
+        cx_low = x_in + sx * r_low
+        cz_low = z_low + r_low
+        for i in range(1, 9):
+            a = (math.pi * 0.5) * i / 8.0
+            px = cx_low - sx * r_low * math.sin(a)
+            pz = cz_low - r_low * math.cos(a)
+            stub_pts.append((px, y0, pz))
+
+        bm_stub = bmesh.new()
+        _sweep_round_tube(bm_stub, stub_pts, radius=0.016, segs=20, mat_idx=0)
+        # Silver collar at transition from red stub to black vertical grip
+        _sweep_round_tube(
+            bm_stub,
+            [(x_in, y0, z_collar - 0.006), (x_in, y0, z_collar + 0.008)],
+            radius=0.0195, segs=20, mat_idx=1,
+        )
+        # Silver outer end-cap at horizontal grip tip
+        _sweep_round_tube(
+            bm_stub,
+            [(x_end - sx * 0.004, y0, z_top), (x_end + sx * 0.012, y0, z_top)],
+            radius=0.0195, segs=20, mat_idx=1,
+        )
+        _replace_mesh(root, hv_ob, bm_stub, [m_frame, m_steel])
+
+        # Build continuous black inverted-L grip tube in `handle.040` / `handle.041`
         h_ob = bpy.data.objects[h_nm]
         h_ob.location = Vector((0.0, 0.0, 0.0))
         h_ob.rotation_mode = "XYZ"
         h_ob.rotation_euler = (0.0, 0.0, 0.0)
         h_ob.scale = Vector((1.0, 1.0, 1.0))
 
-        pts = [
-            (x0, y0, z_bot),
-            (x0, y0, z_bend),
+        grip_pts = [
+            (x_in, y0, z_collar + 0.004),
+            (x_in, y0, z_bend),
         ]
         # Smooth 90-deg arc from vertical (+Z) to outward (+sx*X)
-        cx_arc = x0 + sx * r_bend
-        cz_arc = z_bend
+        cx_top = x_in + sx * r_top
+        cz_top = z_bend
         for i in range(1, 9):
             a = (math.pi * 0.5) * i / 8.0
-            px = cx_arc - sx * r_bend * math.cos(a)
-            pz = cz_arc + r_bend * math.sin(a)
-            pts.append((px, y0, pz))
-        pts.append((x_end, y0, z_top))
+            px = cx_top - sx * r_top * math.cos(a)
+            pz = cz_top + r_top * math.sin(a)
+            grip_pts.append((px, y0, pz))
+        grip_pts.append((x_end, y0, z_top))
 
-        bm_h = bmesh.new()
-        _sweep_round_tube(bm_h, pts, radius=0.0175, segs=20)
-        _replace_mesh(root, h_ob, bm_h, m_grip)
+        bm_g = bmesh.new()
+        _sweep_round_tube(bm_g, grip_pts, radius=0.0175, segs=20, mat_idx=0)
+        _replace_mesh(root, h_ob, bm_g, [m_grip])
 
-        # 2. Mounting bracket & collar connecting press_forearm tip cleanly to handle base (`handle_v` / `.001`)
-        hv_ob = bpy.data.objects[hv_nm]
-        hv_ob.location = Vector((0.0, 0.0, 0.0))
-        hv_ob.rotation_mode = "XYZ"
-        hv_ob.rotation_euler = (0.0, 0.0, 0.0)
-        hv_ob.scale = Vector((1.0, 1.0, 1.0))
-        bm_b = bmesh.new()
-        # Sleek steel sleeve collar at press_forearm junction
-        _add_cyl(bm_b, (sx * 0.080, y0 + 0.025, 0.000), (x0, y0 - 0.002, 0.000), radius=0.024, segs=20)
-        # Bottom cap collar under vertical grip
-        _add_cyl(bm_b, (x0, y0, z_bot - 0.012), (x0, y0, z_bot + 0.004), radius=0.0205, segs=20)
-        # Outer end-cap collar at horizontal grip tip
-        _add_cyl(bm_b, (x_end - sx * 0.004, y0, z_top), (x_end + sx * 0.012, y0, z_top), radius=0.0205, segs=20)
-        _replace_mesh(root, hv_ob, bm_b, m_steel)
-
-        # Clear redundant old cap objects so no stray caps float
         for c_nm in (c1_nm, c2_nm, vc1_nm, vc2_nm):
             _clear_mesh(root, bpy.data.objects[c_nm])
 
