@@ -1,0 +1,113 @@
+{
+  "barbell_row": {
+    "collar": [2, "bar_collar__001"],
+    "collar.001": [3, "bar_collar__001"],
+    "shaft": [6, "barbell_shaft__001"],
+    "sleeve": [7, "bar_sleeve__001"],
+    "sleeve.001": [8, "bar_sleeve__001"]
+  },
+  "ez_biceps_curl": {
+    "collar": [0, "bar_collar__001"],
+    "collar.001": [1, "bar_collar__001"],
+    "ez_shaft": [2, "ez_bar__002"],
+    "ez_shaft.001": [3, "ez_bar__002"],
+    "ez_shaft.002": [4, "ez_bar__002"],
+    "ez_shaft.003": [5, "ez_bar__002"],
+    "ez_shaft.004": [6, "ez_bar__002"],
+    "sleeve": [9, "bar_sleeve__001"],
+    "sleeve.001": [10, "bar_sleeve__001"]
+  },
+  "reverse_curl": {
+    "collar": [0, "bar_collar__001"],
+    "collar.001": [1, "bar_collar__001"],
+    "ez_shaft": [2, "ez_bar__002"],
+    "ez_shaft.001": [3, "ez_bar__002"],
+    "ez_shaft.002": [4, "ez_bar__002"],
+    "ez_shaft.003": [5, "ez_bar__002"],
+    "ez_shaft.004": [6, "ez_bar__002"],
+    "sleeve": [9, "bar_sleeve__001"],
+    "sleeve.001": [10, "bar_sleeve__001"]
+  },
+  "romanian_deadlift_barbell": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "snatch": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "stiff_leg_deadlift": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "sumo_deadlift": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "thruster": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "trap_bar_deadlift": {
+    "hex_frame": [2, "hex_bar_frame__001"],
+    "hex_frame.001": [3, "hex_bar_frame__001"],
+    "hex_frame.002": [4, "hex_bar_frame__001"],
+    "hex_frame.003": [5, "hex_bar_frame__001"],
+    "hex_frame.004": [6, "hex_bar_frame__001"],
+    "hex_frame.005": [7, "hex_bar_frame__001"],
+    "hex_frame.006": [8, "hex_bar_frame__001"],
+    "hex_frame.007": [9, "hex_bar_frame__001"],
+    "high_grip": [10, "hand_grip__009"],
+    "high_grip.001": [11, "hand_grip__009"],
+    "loading_sleeve": [14, "bar_sleeve__004"],
+    "loading_sleeve.001": [15, "bar_sleeve__004"],
+    "low_grip": [16, "hand_grip__002"],
+    "low_grip.001": [17, "hand_grip__002"],
+    "low_grip_bridge": [18, "handle_bridge__006"],
+    "low_grip_bridge.001": [19, "handle_bridge__006"],
+    "low_grip_bridge.002": [20, "handle_bridge__006"],
+    "low_grip_bridge.003": [21, "handle_bridge__006"],
+    "raised_grip_riser": [22, "handle_support__006"],
+    "raised_grip_riser.001": [23, "handle_support__006"],
+    "raised_grip_riser.002": [24, "handle_support__006"],
+    "raised_grip_riser.003": [25, "handle_support__006"],
+    "shoulder": [26, "sleeve_shoulder__004"],
+    "shoulder.001": [27, "sleeve_shoulder__004"]
+  },
+  "upright_row_barbell": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "walking_lunge_barbell": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  },
+  "zercher_squat": {
+    "barbell_shaft": [0, "barbell_shaft__001"],
+    "collar": [1, "bar_collar__001"],
+    "collar.001": [2, "bar_collar__001"],
+    "sleeve": [5, "bar_sleeve__001"],
+    "sleeve.001": [6, "bar_sleeve__001"]
+  }
+}

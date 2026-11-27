@@ -1,4 +1,4 @@
-"""Extract full evaluated barbell and exercise mat meshes from the saved gym scene."""
+"""Extract full evaluated free-weight and exercise mat meshes from the saved gym scene."""
 
 import json
 from pathlib import Path
@@ -13,6 +13,9 @@ SOURCES = {
     "bar_sleeve__001": ("P_barbell", "sleeve.001", "E_steel"),
     "bar_collar__001": ("P_barbell", "lock_collar.001", "E_silver"),
     "floor_mat__002": ("Gym_StretchingZone", "Stretch mat 3", "StretchMat_Charcoal"),
+    "ez_bar__002": ("Fixed EZ-bar rack", "EZ bar shaft 10kg", "Brushed alloy"),
+    "hex_bar_frame__001": ("Cable grip rack", "Rack upright front", "Accessory rack steel"),
+    "sleeve_shoulder__004": ("P_barbell", "flange.001", "E_steel"),
 }
 
 
@@ -34,9 +37,32 @@ def extract():
                 transform = obj.parent.matrix_world.inverted() @ ev.matrix_world
                 v = (v @ np.asarray(transform.to_3x3()).T)[:, [1, 0, 2]]
                 v[:, 0] *= -1
-            else:
+            elif group != "ez_bar__002":
                 # The authored cylinders already use local Z as their axle.
                 v *= np.asarray(ev.scale)
+            else:
+                # Keep the full curved reference and sample its straight terminal
+                # cross-section at 24 sides for the app's separately tracked pieces.
+                profile = obj.copy()
+                profile.data = obj.data.copy()
+                bpy.context.scene.collection.objects.link(profile)
+                curve = profile.data
+                try:
+                    curve.bevel_resolution = 10
+                    curve.use_fill_caps = False
+                    bpy.context.view_layer.update()
+                    profile_eval = profile.evaluated_get(deps)
+                    mesh_ring = profile_eval.to_mesh()
+                    try:
+                        ring = np.array([vert.co[:] for vert in mesh_ring.vertices])
+                        ring = ring[np.isclose(ring[:, 0], ring[:, 0].max()), 1:]
+                        assert len(ring) == 24
+                        ring -= (ring.max(0) + ring.min(0)) / 2
+                    finally:
+                        profile_eval.to_mesh_clear()
+                finally:
+                    bpy.data.objects.remove(profile, do_unlink=True)
+                    bpy.data.curves.remove(curve)
             v -= (v.max(0) + v.min(0)) / 2
             result[group] = dict(
                 object=name,
@@ -46,6 +72,8 @@ def extract():
                 t=[list(tri.vertices) for tri in mesh.loop_triangles],
                 smooth=[bool(mesh.polygons[tri.polygon_index].use_smooth) for tri in mesh.loop_triangles],
             )
+            if group == "ez_bar__002":
+                result[group]["ring"] = ring.round(7).tolist()
         finally:
             ev.to_mesh_clear()
     return result
