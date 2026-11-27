@@ -77,7 +77,7 @@ def original(obj):
 def check(directory):
     data, humans = directory/'data', directory/'human_v5'
     manifest = json.loads((data/'wgm_manifest.json').read_text())
-    assert set(manifest['clips']) - set(manifest.get('plateOverlays', {})) == set(build.STAGE1)
+    assert set(manifest['clips']) - set(manifest.get('plateOverlays', {})) - set(manifest.get('machineOverlays', {})) == set(build.STAGE1)
     assert (data/'lat_stack_labels.svg').read_text() == atlas()[0]
     assert load_numbers(13) == ('2.5', '6') and load_numbers(-14) == ('137.5', '303')
     parts = read_parts(data/'parts.bin'); names = build.PartCatalogPacker(); common = None

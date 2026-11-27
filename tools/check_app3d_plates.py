@@ -62,7 +62,7 @@ def tracks(pos,q,grid,times):
 def check(view):
     data=view/'data'; human=view/'human_v5'; manifest=json.loads((data/'wgm_manifest.json').read_text())
     targets=json.loads((HERE/'plate_targets.json').read_text()); source=json.loads((HERE/'scene_plate_source.json').read_text())
-    assert manifest['plateOverlays']==targets and set(manifest['clips'])==set(targets)|set(wire.build.STAGE1)
+    assert manifest['plateOverlays']==targets and set(manifest['clips'])-set(manifest.get('machineOverlays', {}))==set(targets)|set(wire.build.STAGE1)
     with Image.open(data/'plate_faces.webp') as texture, Image.open(HERE.parents[1]/'promo/parts/detail_gym_freeweight/plate_faces.png') as ref:
         assert texture.size==ref.size and np.array_equal(np.asarray(ref),np.asarray(texture))
     base=json.loads((human/'base.json').read_text());faces=np.asarray(base['triangles']).reshape(-1,3);assert base['vertices']==1401

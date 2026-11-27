@@ -1,0 +1,800 @@
+{
+ "cable_tower~h=high~g=d~p=down": {
+  "25": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "26": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "27": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "28": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "32": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "33": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "34": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "36": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "37": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "38": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "43": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "44": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "45": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=high~g=rope~p=down": {
+  "27": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "28": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "29": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "30": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "34": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "36": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "37": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "38": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "39": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "40": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "45": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "49": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "52": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=high~g=rope~p=face_pull": {
+  "27": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "28": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "29": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "30": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "34": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "36": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "37": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "38": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "39": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "40": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "45": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "49": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "52": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=high~g=straight~p=down": {
+  "24": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "25": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "26": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "27": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "31": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "32": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "33": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "34": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "35": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "36": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "37": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "42": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "43": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "44": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "45": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "49": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=high~g=straight~p=straight_arm": {
+  "12": [
+   "selected_plate.008",
+   "selected_stack_plate__001"
+  ],
+  "13": [
+   "selected_plate.009",
+   "selected_stack_plate__001"
+  ],
+  "14": [
+   "selected_plate.010",
+   "selected_stack_plate__001"
+  ],
+  "15": [
+   "selected_plate.011",
+   "selected_stack_plate__001"
+  ],
+  "17": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "18": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "19": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "20": [
+   "pulley_hub.007",
+   "pulley_hub__001"
+  ],
+  "25": [
+   "rest_plate.012",
+   "rest_stack_plate__001"
+  ],
+  "26": [
+   "rest_plate.013",
+   "rest_stack_plate__001"
+  ],
+  "27": [
+   "rest_plate.014",
+   "rest_stack_plate__001"
+  ],
+  "28": [
+   "rest_plate.015",
+   "rest_stack_plate__001"
+  ],
+  "29": [
+   "rest_plate.016",
+   "rest_stack_plate__001"
+  ],
+  "31": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=knee~g=d~p=lateral": {
+  "20": [
+   "selected_plate.039",
+   "selected_stack_plate__001"
+  ],
+  "21": [
+   "selected_plate.040",
+   "selected_stack_plate__001"
+  ],
+  "22": [
+   "selected_plate.041",
+   "selected_stack_plate__001"
+  ],
+  "23": [
+   "selected_plate.042",
+   "selected_stack_plate__001"
+  ],
+  "26": [
+   "pulley.041",
+   "pulley_wheel__001"
+  ],
+  "27": [
+   "pulley.042",
+   "pulley_wheel__001"
+  ],
+  "28": [
+   "pulley.043",
+   "pulley_wheel__001"
+  ],
+  "29": [
+   "pulley_fork.001",
+   "pulley_fork__001"
+  ],
+  "30": [
+   "pulley_hub.040",
+   "pulley_hub__001"
+  ],
+  "31": [
+   "pulley_hub.041",
+   "pulley_hub__004"
+  ],
+  "32": [
+   "pulley_hub.042",
+   "pulley_hub__004"
+  ],
+  "37": [
+   "rest_plate.052",
+   "rest_stack_plate__001"
+  ],
+  "38": [
+   "rest_plate.053",
+   "rest_stack_plate__001"
+  ],
+  "39": [
+   "rest_plate.054",
+   "rest_stack_plate__001"
+  ],
+  "40": [
+   "rest_plate.055",
+   "rest_stack_plate__001"
+  ],
+  "41": [
+   "rest_plate.056",
+   "rest_stack_plate__001"
+  ],
+  "42": [
+   "rest_plate.057",
+   "rest_stack_plate__001"
+  ],
+  "44": [
+   "stack_guard.009",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=low~g=d~p=bayesian": {
+  "25": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "26": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "27": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "28": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "32": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "33": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "34": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "36": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "37": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "38": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "43": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "44": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "45": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=low~g=d~p=kick": {
+  "25": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "26": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "27": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "28": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "32": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "33": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "34": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "36": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "37": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "38": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "43": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "44": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "45": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=low~g=d~p=overhead_ext": {
+  "20": [
+   "pulley.041",
+   "pulley_wheel__001"
+  ],
+  "21": [
+   "pulley.042",
+   "pulley_wheel__001"
+  ],
+  "22": [
+   "pulley.043",
+   "pulley_wheel__001"
+  ],
+  "23": [
+   "pulley_fork.001",
+   "pulley_fork__001"
+  ],
+  "24": [
+   "pulley_hub.040",
+   "pulley_hub__001"
+  ],
+  "25": [
+   "pulley_hub.041",
+   "pulley_hub__004"
+  ],
+  "26": [
+   "pulley_hub.042",
+   "pulley_hub__004"
+  ],
+  "32": [
+   "stack_guard.009",
+   "shroud_panel__001"
+  ],
+  "54": [
+   "selected_plate",
+   "selected_stack_plate__002"
+  ],
+  "55": [
+   "selected_plate.001",
+   "selected_stack_plate__003"
+  ],
+  "56": [
+   "selected_plate.002",
+   "selected_stack_plate__003"
+  ],
+  "57": [
+   "selected_plate.003",
+   "selected_stack_plate__003"
+  ],
+  "61": [
+   "rest_plate",
+   "rest_stack_plate__002"
+  ],
+  "62": [
+   "rest_plate.001",
+   "rest_stack_plate__002"
+  ],
+  "63": [
+   "rest_plate.002",
+   "rest_stack_plate__002"
+  ],
+  "64": [
+   "rest_plate.003",
+   "rest_stack_plate__002"
+  ],
+  "65": [
+   "rest_plate.004",
+   "rest_stack_plate__002"
+  ],
+  "66": [
+   "rest_plate.005",
+   "rest_stack_plate__002"
+  ]
+ },
+ "cable_tower~h=low~g=d~p=row_floor": {
+  "25": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "26": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "27": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "28": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "32": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "33": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "34": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "36": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "37": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "38": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "43": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "44": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "45": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ },
+ "cable_tower~h=low~g=d~p=up": {
+  "25": [
+   "selected_plate.008",
+   "selected_stack_plate__004"
+  ],
+  "26": [
+   "selected_plate.009",
+   "selected_stack_plate__005"
+  ],
+  "27": [
+   "selected_plate.010",
+   "selected_stack_plate__005"
+  ],
+  "28": [
+   "selected_plate.011",
+   "selected_stack_plate__005"
+  ],
+  "32": [
+   "pulley.007",
+   "pulley_wheel__001"
+  ],
+  "33": [
+   "pulley.008",
+   "pulley_wheel__001"
+  ],
+  "34": [
+   "pulley.009",
+   "pulley_wheel__001"
+  ],
+  "35": [
+   "pulley_fork.002",
+   "pulley_fork__001"
+  ],
+  "36": [
+   "pulley_hub.006",
+   "pulley_hub__001"
+  ],
+  "37": [
+   "pulley_hub.007",
+   "pulley_hub__004"
+  ],
+  "38": [
+   "pulley_hub.008",
+   "pulley_hub__004"
+  ],
+  "43": [
+   "rest_plate.012",
+   "rest_stack_plate__003"
+  ],
+  "44": [
+   "rest_plate.013",
+   "rest_stack_plate__003"
+  ],
+  "45": [
+   "rest_plate.014",
+   "rest_stack_plate__003"
+  ],
+  "46": [
+   "rest_plate.015",
+   "rest_stack_plate__003"
+  ],
+  "47": [
+   "rest_plate.016",
+   "rest_stack_plate__003"
+  ],
+  "48": [
+   "rest_plate.017",
+   "rest_stack_plate__003"
+  ],
+  "50": [
+   "stack_guard.002",
+   "shroud_panel__001"
+  ]
+ }
+}

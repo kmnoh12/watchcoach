@@ -170,7 +170,7 @@ function attachWatch(m, tpl) {
 }
 
 const LEGACY = new URLSearchParams(location.search).get("legacy") === "1";
-let plateOverlays = {}, wgmClips = new Set(), wgmPartsPromise = null;
+let plateOverlays = {}, machineOverlays = {}, wgmClips = new Set(), wgmPartsPromise = null;
 async function loadWgmManifest() {
   if (LEGACY) return;
   try {
@@ -178,7 +178,7 @@ async function loadWgmManifest() {
     if (!r.ok) return;
     const m = await r.json();
     if (m && m.version === 2 && Array.isArray(m.clips)) {
-      wgmClips = new Set(m.clips); plateOverlays = m.plateOverlays || {};
+      wgmClips = new Set(m.clips); plateOverlays = m.plateOverlays || {}; machineOverlays = m.machineOverlays || {};
     }
   } catch {}
 }
@@ -397,9 +397,9 @@ function parse(d) {
   return { ...d, parsed: objs };
 }
 
-function mergePlateOverlay(raw, overlay, targets) {
+function mergePlateOverlay(raw, overlay, targets, count = Object.keys(targets).length * 2) {
   const replaced = Object.entries(targets);
-  if (overlay.parsed.length !== replaced.length * 2 || overlay.acts.length !== raw.acts.length ||
+  if (!Number.isInteger(count) || count < replaced.length || overlay.parsed.length !== count || overlay.acts.length !== raw.acts.length ||
       overlay.acts.some((a,i) => a !== Math.fround(raw.acts[i])) ||
       replaced.some(([i,name]) => raw.objects[i]?.name !== name)) throw Error('stale plate overlay');
   const base = parse({ ...raw, objects: raw.objects.filter((o,i) => !(i in targets)) });
@@ -412,9 +412,12 @@ async function fetchModel(name) {
   const raw = () => rawPromise ||= fetch(`data/${name}.json`).then(r => r.ok ? r.json() : null);
   if (!LEGACY && wgmClips.has(name)) {
     try {
-      if (plateOverlays[name]) {
+      if (plateOverlays[name] || machineOverlays[name]) {
         const [original, overlay] = await Promise.all([raw(), fetchWgmModel(name)]);
-        if (original && overlay) return mergePlateOverlay(original, overlay, plateOverlays[name]);
+        if (original && overlay) {
+          const batch = machineOverlays[name];
+          return mergePlateOverlay(original, overlay, batch ? batch.targets : plateOverlays[name], batch?.count);
+        }
       } else {
         const w = await fetchWgmModel(name);
         if (w) return w;
