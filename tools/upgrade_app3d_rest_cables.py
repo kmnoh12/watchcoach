@@ -137,8 +137,8 @@ def shell_parts(group, old, source):
     return size / np.ptp(v, axis=0), [(v, t, False, material, source[finish]["rgb"])]
 
 
-def carabiner(raw, attachments, source):
-    names = CARABINER_LINKS
+def carabiner(raw, attachments, source, *, prefix="carabiner_main"):
+    names = CARABINER_LINKS if prefix == "carabiner_main" else [f"{prefix}_{i}" for i in range(12)]
     by_name = {obj["name"]: obj for obj in attachments}
     if set(by_name) != set(names):
         raise ValueError("carabiner does not have the twelve original track segments")
