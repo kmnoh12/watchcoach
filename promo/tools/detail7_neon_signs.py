@@ -653,34 +653,36 @@ def _nameplate_mat() -> bpy.types.Material:
 
 def _build_materials() -> dict[str, bpy.types.Material]:
     return {
-        # Tuned for Blender AgX: saturated RGB emission rolls off naturally to a creamy
-        # pastel-white core with a vivid hot-magenta / electric-blue outer rim.
+        # Calibrated to 00_TARGET_brightness.jpg under Blender AgX (Medium High Contrast,
+        # exposure +0.22) + Compositor Fog Glow (Threshold 2.4):
+        # Opaque phosphor-coated glass tubes keep vivid saturated pink/blue color without
+        # blowing out to pure white — core ~[255,205,252] pastel pink, rim deeper magenta.
         "pink": _neon_glass_mat(
             "GlassPink",
-            base_rgb=(1.0, 0.16, 0.48),
-            core_rgb=(1.0, 0.14, 0.48),
-            mid_rgb=(1.0, 0.032, 0.36),
-            rim_rgb=(1.0, 0.008, 0.26),
-            core_strength=18.0,
-            rim_strength=8.5,
+            base_rgb=(1.0, 0.08, 0.64),
+            core_rgb=(1.0, 0.025, 0.68),
+            mid_rgb=(1.0, 0.008, 0.62),
+            rim_rgb=(1.0, 0.003, 0.54),
+            core_strength=3.4,
+            rim_strength=1.95,
         ),
         "blue": _neon_glass_mat(
             "GlassBlue",
-            base_rgb=(0.04, 0.30, 1.0),
-            core_rgb=(0.04, 0.34, 1.0),
-            mid_rgb=(0.012, 0.16, 1.0),
-            rim_rgb=(0.004, 0.055, 1.0),
-            core_strength=18.0,
-            rim_strength=9.0,
+            base_rgb=(0.025, 0.28, 1.0),
+            core_rgb=(0.02, 0.32, 1.0),
+            mid_rgb=(0.008, 0.16, 1.0),
+            rim_rgb=(0.003, 0.07, 1.0),
+            core_strength=3.8,
+            rim_strength=2.1,
         ),
         "white": _neon_glass_mat(
             "GlassWhite",
-            base_rgb=(0.94, 0.98, 1.0),
-            core_rgb=(0.98, 0.995, 1.0),
-            mid_rgb=(0.86, 0.94, 1.0),
-            rim_rgb=(0.68, 0.85, 1.0),
-            core_strength=12.5,
-            rim_strength=6.5,
+            base_rgb=(0.94, 0.96, 1.0),
+            core_rgb=(0.96, 0.975, 1.0),
+            mid_rgb=(0.86, 0.91, 1.0),
+            rim_rgb=(0.74, 0.82, 0.96),
+            core_strength=3.2,
+            rim_strength=1.8,
         ),
         # Glossy black block-out paint on bent rear glass return tubes
         "blackout": _noisy_pbr_mat(
@@ -2162,7 +2164,23 @@ def _build_left_wall_sign(coll: bpy.types.Collection, mats: dict[str, bpy.types.
     ob_tx = _finalize_mesh(coll, "Left_Transformer", bm_tx, tx_mats, parent=root)
     ob_cab = _finalize_mesh(coll, "Left_Cables", bm_cables, cable_mats, parent=root)
 
-    # 6) Balanced shadowless soft neon bounce lights (highlights rails, transformer top, blackout glass)
+    # Neutralize legacy baked wall-emission & solid white kettlebell blob created by old
+    # build_left_wall_neon() on `Left wall plaster under neon` (preserves dark charcoal
+    # plaster base color & bump untouched, so ONLY real localized neon bounce lights the wall).
+    legacy_plaster = bpy.data.materials.get("Left wall plaster under neon")
+    if legacy_plaster is not None and legacy_plaster.node_tree is not None:
+        nt = legacy_plaster.node_tree
+        p_bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if p_bsdf is not None:
+            es = p_bsdf.inputs.get("Emission Strength")
+            if es is not None:
+                for lk in list(es.links):
+                    nt.links.remove(lk)
+                es.default_value = 0.0
+
+    # 6) Tight, localized shadowless neon bounce lights matching 00_TARGET_brightness.jpg:
+    #    Dark charcoal wall stays dark away from tubes; soft rose-magenta halo strictly around
+    #    pink letters; hollow kettlebell interior stays dark with faint rim-only white wash.
     u_pink_top = (min(top_us) + max(top_us)) * 0.5
     v_pink_top = (min(top_v_all) + max(top_v_all)) * 0.5
     u_pink_bot = (min(bot_only_u) + max(bot_only_u)) * 0.5
@@ -2170,25 +2188,33 @@ def _build_left_wall_sign(coll: bpy.types.Collection, mats: dict[str, bpy.types.
     ico_us = [p[0] for s in strokes_icon for p in s.pts]
     ico_vs = [p[1] for s in strokes_icon for p in s.pts]
     u_ico = (min(ico_us) + max(ico_us)) * 0.5
-    v_ico = (min(ico_vs) + max(ico_vs)) * 0.5
+    v_ico_top = max(ico_vs) - 0.06
+    v_ico_bot = min(ico_vs) + 0.06
 
     _add_area_light(
         coll, "Left_PinkTopBounce",
-        frame.world(u_pink_top, v_pink_top, 0.24),
+        frame.world(u_pink_top, v_pink_top, 0.13),
         frame.world(u_pink_top, v_pink_top, 0.0),
-        1.25, 0.30, (1.0, 0.05, 0.36), 4.8, cutoff=1.1, specular=0.55, parent=root,
+        1.16, 0.20, (1.0, 0.015, 0.62), 4.8, cutoff=0.58, specular=0.62, parent=root,
     )
     _add_area_light(
         coll, "Left_PinkBotBounce",
-        frame.world(u_pink_bot, v_pink_bot, 0.24),
-        frame.world(u_pink_bot, v_pink_bot - 0.06, 0.0),
-        0.85, 0.30, (1.0, 0.05, 0.36), 3.8, cutoff=1.0, specular=0.55, parent=root,
+        frame.world(u_pink_bot, v_pink_bot, 0.13),
+        frame.world(u_pink_bot, v_pink_bot - 0.04, 0.0),
+        0.76, 0.20, (1.0, 0.015, 0.62), 4.2, cutoff=0.56, specular=0.62, parent=root,
+    )
+    # Subtle rim-only white bounce along upper handle & lower base of kettlebell (center stays dark!)
+    _add_area_light(
+        coll, "Left_WhiteIconRimTop",
+        frame.world(u_ico, v_ico_top, 0.11),
+        frame.world(u_ico, v_ico_top, 0.0),
+        0.34, 0.05, (0.90, 0.94, 1.0), 0.45, cutoff=0.28, specular=0.45, parent=root,
     )
     _add_area_light(
-        coll, "Left_WhiteIconBounce",
-        frame.world(u_ico, v_ico, 0.26),
-        frame.world(u_ico, v_ico, 0.0),
-        0.50, 0.58, (0.88, 0.96, 1.0), 3.6, cutoff=1.0, specular=0.45, parent=root,
+        coll, "Left_WhiteIconRimBot",
+        frame.world(u_ico, v_ico_bot, 0.11),
+        frame.world(u_ico, v_ico_bot, 0.0),
+        0.30, 0.05, (0.90, 0.94, 1.0), 0.35, cutoff=0.26, specular=0.45, parent=root,
     )
 
     return {
@@ -2449,37 +2475,37 @@ def _build_back_wall_sign(coll: bpy.types.Collection, mats: dict[str, bpy.types.
     bic_u_c = (min(bic_us) + max(bic_us)) * 0.5
     bic_v_c = (min(bic_vs) + max(bic_vs)) * 0.5
 
-    # Wall-facing soft neon halos on dark Wall_Back (rich magenta + deep cobalt, no pipe washout)
+    # Tight, localized wall-facing neon halos on dark Wall_Back (00_TARGET_brightness.jpg mood)
     _add_area_light(
         coll, "Back_PinkWallGlowTop",
-        frame.world(top_u_c, top_v_c, 0.19),
+        frame.world(top_u_c, top_v_c, 0.14),
         frame.world(top_u_c, top_v_c, 0.0),
-        0.78, 0.20, (1.0, 0.02, 0.34), 6.2, cutoff=0.75, specular=0.62, parent=root,
+        0.74, 0.18, (1.0, 0.03, 0.60), 3.2, cutoff=0.52, specular=0.62, parent=root,
     )
     _add_area_light(
         coll, "Back_PinkWallGlowBot",
-        frame.world(bot_u_c, bot_v_c, 0.19),
+        frame.world(bot_u_c, bot_v_c, 0.14),
         frame.world(bot_u_c, bot_v_c - 0.03, 0.0),
-        1.20, 0.22, (1.0, 0.02, 0.35), 7.8, cutoff=0.80, specular=0.62, parent=root,
+        1.16, 0.20, (1.0, 0.03, 0.60), 4.0, cutoff=0.56, specular=0.62, parent=root,
     )
     _add_area_light(
         coll, "Back_BlueWallGlow",
-        frame.world(bic_u_c, bic_v_c, 0.19),
+        frame.world(bic_u_c, bic_v_c, 0.14),
         frame.world(bic_u_c, bic_v_c, 0.0),
-        0.48, 0.26, (0.01, 0.16, 1.0), 10.5, cutoff=0.80, specular=0.68, parent=root,
+        0.44, 0.22, (0.012, 0.20, 1.0), 5.2, cutoff=0.54, specular=0.66, parent=root,
     )
-    # Gentle room-facing ambient spill so nearby metal/ceiling catches subtle magenta+blue tint
+    # Very gentle room-facing ambient spill (minimal spill onto overhead yellow pipe)
     _add_area_light(
         coll, "Back_RoomSpillPink",
-        frame.world(bot_u_c - 0.10, (top_v_c + bot_v_c) * 0.5, 0.12),
+        frame.world(bot_u_c - 0.10, (top_v_c + bot_v_c) * 0.5, 0.10),
         frame.world(bot_u_c - 0.10, (top_v_c + bot_v_c) * 0.5, 1.20),
-        1.05, 0.38, (1.0, 0.03, 0.36), 4.5, cutoff=1.8, specular=0.35, parent=root,
+        0.95, 0.30, (1.0, 0.02, 0.60), 1.0, cutoff=0.95, specular=0.35, parent=root,
     )
     _add_area_light(
         coll, "Back_RoomSpillBlue",
-        frame.world(bic_u_c, bic_v_c, 0.12),
+        frame.world(bic_u_c, bic_v_c, 0.10),
         frame.world(bic_u_c, bic_v_c, 1.20),
-        0.46, 0.28, (0.015, 0.18, 1.0), 5.8, cutoff=1.6, specular=0.40, parent=root,
+        0.40, 0.22, (0.01, 0.20, 1.0), 1.2, cutoff=0.95, specular=0.40, parent=root,
     )
 
     return {
