@@ -1,4 +1,4 @@
-"""Check this batch from the actual phone WGC2/WGM2 bytes and the preceding bundle."""
+"""Check tower overlays from the actual phone WGC2/WGM2 bytes and preceding bundle."""
 
 import argparse
 from collections import Counter
@@ -11,11 +11,12 @@ from scipy.spatial.transform import Rotation
 import check_app3d_stage1 as wire
 from body_fit import fit_body_part
 from upgrade_app3d_pull_stations import (
-    HERE, PASSAGES, assemble, avatar_at_key_times, check_passages, load, load_source, verify_skin, world,
+    HERE, PASSAGES, PIN_ROLES, assemble, avatar_at_key_times, check_passages, load, load_source, verify_skin, world,
 )
 
 
-def check(view, baseline):
+def check(view, baseline, *, targets_file="pull_station_targets.json", report_file="pull_station_fit.json",
+          source_loader=load_source, build_model=assemble):
     data, old, human = view/"data", baseline/"data", view/"human_v5"
     avatar = load(human/"base.json")
     assert avatar["vertices"] == 1401 and (human/"watch.json").is_file()
@@ -25,8 +26,8 @@ def check(view, baseline):
     assert final[8:len(stock)] == stock[8:]
     catalog = wire.read_parts(data/"parts.bin")
     before, manifest = load(old/"wgm_manifest.json"), load(data/"wgm_manifest.json")
-    targets = load(HERE/"pull_station_targets.json")
-    fit = load(data/"pull_station_fit.json")
+    targets = load(HERE/targets_file)
+    fit = load(data/report_file)
     assert set(fit) == set(targets)
     passed = {k for k, v in fit.items() if "fits" in v}
     assert set(manifest["clips"]) == set(before["clips"]) | passed
@@ -40,11 +41,11 @@ def check(view, baseline):
     changes = {p.as_posix() for p in new_files
                if p not in old_files or (view/p).read_bytes() != (baseline/p).read_bytes()}
     expected = {f"data/{key}.wgm" for key in passed} | {
-        "data/parts.bin", "data/wgm_manifest.json", "data/pull_station_fit.json",
+        "data/parts.bin", "data/wgm_manifest.json", f"data/{report_file}",
     }
     assert changes - {"v5_bundle_report.json"} == expected, changes ^ expected
 
-    source = load_source()
+    source = source_loader()
     report = {}
     groups = {}
     for key, mapping in targets.items():
@@ -56,12 +57,12 @@ def check(view, baseline):
         acts, decoded = wire.read_clip(data/f"{key}.wgm", catalog)
         assert np.array_equal(acts, np.asarray(raw["acts"], "<f4"))
         clock, skin = avatar_at_key_times(human/f"{key}.bin", acts)
-        plan, fits = assemble(key, raw, mapping, source, skin, avatar)
+        plan, fits = build_model(key, raw, mapping, source, skin, avatar)
         assert fits == fit[key]["fits"]
         slots = {str(e["index"]): e["name"] for e in plan}
         assert manifest["machineOverlays"][key] == dict(targets=slots, count=len(decoded))
         assert len(plan) == len(decoded) == fit[key]["records"]
-        obstacles = [(name, world(objects[idx]), "pin" in group)
+        obstacles = [(name, world(objects[idx]), group.rsplit("__", 1)[0] in PIN_ROLES)
                      for name, (idx, group) in mapping.items()
                      if group.rsplit("__", 1)[0] in PASSAGES]
         real = []
@@ -122,8 +123,16 @@ if __name__ == "__main__":
     parser.add_argument("view", type=Path)
     parser.add_argument("baseline", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--upper", action="store_true", help="check the upper-station batch")
     args = parser.parse_args()
-    log = json.dumps(check(args.view, args.baseline), indent=2) + "\n"
+    if args.upper:
+        import upgrade_app3d_upper_stations as upper
+
+        report = check(args.view, args.baseline, targets_file=upper.TARGETS, report_file=upper.REPORT,
+                       source_loader=upper.load_source, build_model=upper.build_model)
+    else:
+        report = check(args.view, args.baseline)
+    log = json.dumps(report, indent=2) + "\n"
     if args.report:
         args.report.write_text(log)
     else:

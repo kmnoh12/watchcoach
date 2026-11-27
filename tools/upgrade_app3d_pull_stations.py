@@ -23,7 +23,8 @@ from selector_tower import cylinder, drilled_slider
 
 HERE = Path(__file__).resolve().parent / "viewer3d"
 PLATE_SIZE = np.array([.34, .28, .075])
-PASSAGES = {"weight_guide", "selector_rod", "link_rod", "selector_pin", "fastening_pin"}
+PIN_ROLES = {"selector_pin", "fastening_pin", "weight_selector"}
+PASSAGES = {"weight_guide", "selector_rod", "link_rod"} | PIN_ROLES
 
 
 def load(path):
@@ -278,7 +279,7 @@ def _nine_mesh(vertices, half, target):
     return v
 
 
-def assemble(key, raw, mapping, source, human, base):
+def assemble(key, raw, mapping, source, human, base, *, fit_layers=fitted_layers):
     objects = raw["objects"]
     groups = {}
     for name, (idx, group) in mapping.items():
@@ -303,7 +304,7 @@ def assemble(key, raw, mapping, source, human, base):
 
     plates = sorted((n for n, g in groups.items() if g.endswith("stack_plate")),
                     key=lambda n: -objects[mapping[n][0]]["m"][0][14])
-    obstacles = [(name, world(objects[mapping[name][0]]), "pin" in role)
+    obstacles = [(name, world(objects[mapping[name][0]]), role in PIN_ROLES)
                  for name, role in groups.items() if role in PASSAGES]
     for name, (index, _) in mapping.items():
         obj, role = objects[index], groups[name]
@@ -360,20 +361,21 @@ def assemble(key, raw, mapping, source, human, base):
                 color = colors["silver"] if mat == MAT_SILVER else [.16, .18, .22]
                 emit(name, vv, p["t"], mat, color, scale=size/np.ptp(vv, axis=0),
                      shift=center @ matrix[:3, :3])
-    fits = fitted_layers(raw, mapping, source, human, base, emit)
+    fits = fit_layers(raw, mapping, source, human, base, emit)
     return entries, fits
 
 
-def append_batch(view):
+def append_batch(view, *, targets_file="pull_station_targets.json", report_file="pull_station_fit.json",
+                 source_loader=load_source, build_model=assemble):
     data, humans = view/"data", view/"human_v5"
     base = load(humans/"base.json")
     if base["vertices"] != 1401:
-        raise ValueError("Pull stations require the final new-hand body bundle")
+        raise ValueError("Tower stations require the final new-hand body bundle")
     manifest = load(data/"wgm_manifest.json")
-    targets = load(HERE/"pull_station_targets.json")
+    targets = load(HERE/targets_file)
     if set(targets) & set(manifest["clips"]):
-        raise ValueError("Pull stations must be appended to the preceding catalogue once")
-    source = load_source()
+        raise ValueError("Tower stations must be appended to the preceding catalogue once")
+    source = source_loader()
     stock = (data/"parts.bin").read_bytes()
     indices = {p: i for i, p in enumerate(catalog_records(stock))}
     count = struct.unpack_from("<I", stock, 4)[0]
@@ -382,7 +384,7 @@ def append_batch(view):
         raw = load(data/f"{key}.json")
         try:
             clock, human = avatar_at_key_times(humans/f"{key}.bin", raw["acts"])
-            entries, fits = assemble(key, raw, mapping, source, human, base)
+            entries, fits = build_model(key, raw, mapping, source, human, base)
             verify_skin(entries, clock, human, raw["acts"], np.asarray(base["triangles"]).reshape(-1, 3))
         except ValueError as exc:
             report[key] = {"unchanged": str(exc)}
@@ -403,13 +405,13 @@ def append_batch(view):
         report[key] = dict(fits=fits, records=len(entries), triangles=triangles)
         print(f"{key}: {len(entries)} records, {triangles} triangles", flush=True)
     if not updates:
-        raise ValueError("No pull-station overlays passed")
+        raise ValueError("No tower-station overlays passed")
     for key, blob in updates.items():
         (data/f"{key}.wgm").write_bytes(blob)
     (data/"parts.bin").write_bytes(struct.pack("<4sI", b"WGC2", count+len(extra)) + stock[8:] + b"".join(extra))
     manifest["clips"] = sorted(set(manifest["clips"]) | set(updates))
     (data/"wgm_manifest.json").write_text(json.dumps(manifest, separators=(",", ":")))
-    (data/"pull_station_fit.json").write_text(json.dumps(report, indent=2)+"\n")
+    (data/report_file).write_text(json.dumps(report, indent=2)+"\n")
 
 
 if __name__ == "__main__":
