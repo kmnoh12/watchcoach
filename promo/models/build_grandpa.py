@@ -97,22 +97,22 @@ def reshape_grandpa(arm_obj, body_obj):
             g_upper = SF.gauss(z, 1.36, 0.095)
             x *= 1.0 - 0.11 * g_upper * body_mask
 
-            # Lean straight male waist with slight side rounding for potbelly
+            # Lean straight male waist with natural elderly potbelly rounding
             g_waist = SF.gauss(z, 1.13, 0.070)
             x *= 1.0 - 0.04 * g_waist * body_mask
-            g_pot_side = SF.gauss(z, 1.04, 0.085)
-            x *= 1.0 + 0.075 * g_pot_side * body_mask
+            g_pot_side = SF.gauss(z, 1.04, 0.090)
+            x *= 1.0 + 0.045 * g_pot_side * body_mask
 
-            # Flatten young male pecs slightly for frail 70s chest + distinct potbelly (올챙이배)
+            # Flatten young male pecs slightly for frail 70s chest + natural potbelly
             front_mask = SF.smoothstep(-0.090, -0.150, y)
             if front_mask > 0.0:
                 g_pec = SF.gauss(z, 1.33, 0.060) * SF.gauss(ax, 0.07, 0.07)
-                y += 0.012 * g_pec * front_mask * body_mask
+                y += 0.010 * g_pec * front_mask * body_mask
 
-                g_bz = SF.gauss(z, 1.045, 0.095)
-                g_bx = SF.gauss(ax, 0.0, 0.128)
-                y -= 0.072 * g_bz * g_bx * front_mask * body_mask
-                z -= 0.014 * SF.gauss(z, 0.985, 0.052) * g_bx * front_mask * body_mask
+                g_bz = SF.gauss(z, 1.045, 0.105)
+                g_bx = SF.gauss(ax, 0.0, 0.135)
+                y -= 0.044 * g_bz * g_bx * front_mask * body_mask
+                z -= 0.006 * SF.gauss(z, 0.99, 0.055) * g_bx * front_mask * body_mask
 
             # Lean elderly male hips & flat glutes
             g_hip_x = SF.gauss(z, 0.905, 0.092)
@@ -150,9 +150,9 @@ def reshape_grandpa(arm_obj, body_obj):
                 t_proj = max(0.0, min(1.0, (p - bh).dot(seg) / max(seg.length_squared, 1e-6)))
                 axis_pt = bh + seg * t_proj
                 axis_pt_shifted = Vector((axis_pt.x - side * shoulder_inward_x, axis_pt.y, axis_pt.z))
-                slim = 0.25
+                slim = 0.22
                 if dom_b.startswith("lowerarm_"):
-                    slim = 0.25 - (0.25 - hand_slim) * SF.smoothstep(0.55, 0.95, t_proj)
+                    slim = 0.22 - (0.22 - hand_slim) * SF.smoothstep(0.55, 0.95, t_proj)
                 cur = Vector((x, y, z))
                 cur = axis_pt_shifted + (cur - axis_pt_shifted) * (1.0 - slim * min(1.0, arm_limb_w))
                 x, y, z = cur.x, cur.y, cur.z
@@ -178,8 +178,8 @@ def reshape_grandpa(arm_obj, body_obj):
                 t_z = max(0.0, min(1.0, (th_h.z - z) / max(th_h.z - th_t.z, 1e-6)))
                 cx = th_h.x + (th_t.x - th_h.x) * t_z
                 cy = th_h.y + (th_t.y - th_h.y) * t_z
-                x = cx + (x - cx) * (1.0 - 0.14 * g_thigh * w_leg)
-                y = cy + (y - cy) * (1.0 - 0.14 * g_thigh * w_leg)
+                x = cx + (x - cx) * (1.0 - 0.11 * g_thigh * w_leg)
+                y = cy + (y - cy) * (1.0 - 0.11 * g_thigh * w_leg)
 
             if 0.16 <= z <= 0.46:
                 cf_h, cf_t = bone_segs["calf_" + dom_leg]
@@ -187,8 +187,8 @@ def reshape_grandpa(arm_obj, body_obj):
                 t_z = max(0.0, min(1.0, (cf_h.z - z) / max(cf_h.z - cf_t.z, 1e-6)))
                 cx = cf_h.x + (cf_t.x - cf_h.x) * t_z
                 cy = cf_h.y + (cf_t.y - cf_h.y) * t_z
-                x = cx + (x - cx) * (1.0 - 0.18 * g_calf * w_leg)
-                y = cy + (y - cy) * (1.0 - 0.18 * g_calf * w_leg)
+                x = cx + (x - cx) * (1.0 - 0.15 * g_calf * w_leg)
+                y = cy + (y - cy) * (1.0 - 0.15 * g_calf * w_leg)
 
             g_ankle = SF.gauss(z, 0.13, 0.055)
             if g_ankle > 0.05:
