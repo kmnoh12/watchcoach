@@ -169,6 +169,138 @@ function attachWatch(m, tpl) {
   group.visible = humanOn; m.group.add(group); m.watch = { group, tpl };
 }
 
+const LEGACY = new URLSearchParams(location.search).get("legacy") === "1";
+let wgmClips = new Set(), wgmPartsPromise = null;
+async function loadWgmManifest() {
+  if (LEGACY) return;
+  try {
+    const r = await fetch("data/wgm_manifest.json");
+    if (!r.ok) return;
+    const m = await r.json();
+    if (m && m.version === 2 && Array.isArray(m.clips)) wgmClips = new Set(m.clips);
+  } catch {}
+}
+function fetchWgmParts() {
+  if (!wgmPartsPromise) wgmPartsPromise = (async () => {
+    const r = await fetch("data/parts.bin");
+    if (!r.ok) throw Error("WGC2 parts.bin missing");
+    const a = await r.arrayBuffer(), d = new DataView(a);
+    if (a.byteLength < 8 || d.getUint32(0, true) !== 0x32434757) throw Error("invalid WGC2 catalog");
+    const count = d.getUint32(4, true), parts = new Array(count);
+    let off = 8;
+    for (let p = 0; p < count; p++) {
+      const nv = d.getUint16(off, true), nt = d.getUint16(off + 2, true), flags = d.getUint8(off + 4);
+      const mn0 = d.getFloat32(off + 8, true), mn1 = d.getFloat32(off + 12, true), mn2 = d.getFloat32(off + 16, true);
+      const sc0 = d.getFloat32(off + 20, true), sc1 = d.getFloat32(off + 24, true), sc2 = d.getFloat32(off + 28, true);
+      off += 32;
+      const pos = new Float32Array(nv * 3);
+      for (let i = 0; i < nv; i++) {
+        pos[i * 3]     = mn0 + d.getUint16(off, true) * sc0;
+        pos[i * 3 + 1] = mn1 + d.getUint16(off + 2, true) * sc1;
+        pos[i * 3 + 2] = mn2 + d.getUint16(off + 4, true) * sc2;
+        off += 6;
+      }
+      const idx = new Uint16Array(nt * 3);
+      for (let i = 0; i < nt * 3; i++, off += 2) idx[i] = d.getUint16(off, true);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      g.setIndex(new THREE.BufferAttribute(idx, 1));
+      const smooth = !!(flags & 1);
+      const out = smooth ? g : g.toNonIndexed();
+      out.computeVertexNormals();
+      parts[p] = { geom: out, smooth };
+    }
+    return parts;
+  })();
+  return wgmPartsPromise;
+}
+async function fetchWgmModel(name) {
+  const [r, parts] = await Promise.all([fetch(`data/${encodeURIComponent(name)}.wgm`), fetchWgmParts()]);
+  if (!r.ok) return null;
+  const a = await r.arrayBuffer(), d = new DataView(a);
+  if (a.byteLength < 8 || d.getUint32(0, true) !== 0x324D4757) throw Error("invalid WGM2 clip");
+  const nActs = d.getUint16(4, true), nObjs = d.getUint16(6, true);
+  let off = 8;
+  const acts = new Array(nActs);
+  for (let i = 0; i < nActs; i++, off += 4) acts[i] = d.getFloat32(off, true);
+  validatePhases(acts);
+  const parsed = new Array(nObjs);
+  for (let o = 0; o < nObjs; o++) {
+    const pid = d.getUint16(off, true);
+    const cr = d.getUint8(off + 2) / 255, cg = d.getUint8(off + 3) / 255, cb = d.getUint8(off + 4) / 255;
+    const mat = d.getUint8(off + 5), flags = d.getUint8(off + 6), nf = d.getUint16(off + 8, true);
+    off += 10;
+    let px = d.getFloat32(off, true), py = d.getFloat32(off + 4, true), pz = d.getFloat32(off + 8, true);
+    let qx = d.getFloat32(off + 12, true), qy = d.getFloat32(off + 16, true), qz = d.getFloat32(off + 20, true), qw = d.getFloat32(off + 24, true);
+    let sx = d.getFloat32(off + 28, true), sy = d.getFloat32(off + 32, true), sz = d.getFloat32(off + 36, true);
+    off += 40;
+    const steps = new Array(nf);
+    steps[0] = { p: new THREE.Vector3(px, py, pz), q: new THREE.Quaternion(qx, qy, qz, qw).normalize(), s: new THREE.Vector3(sx, sy, sz) };
+    if (nf > 1) {
+      const dpOff = off; off += (nf - 1) * 6;
+      const constScale = !!(flags & 1), constRot = !!(flags & 2);
+      const dqOff = constRot ? 0 : off; if (!constRot) off += (nf - 1) * 8;
+      const dsOff = constScale ? 0 : off; if (!constScale) off += (nf - 1) * 6;
+      for (let f = 1; f < nf; f++) {
+        const k = f - 1;
+        px += d.getInt16(dpOff + k * 6, true) * 1e-4;
+        py += d.getInt16(dpOff + k * 6 + 2, true) * 1e-4;
+        pz += d.getInt16(dpOff + k * 6 + 4, true) * 1e-4;
+        if (!constRot) {
+          qx += d.getInt16(dqOff + k * 8, true) / 32767;
+          qy += d.getInt16(dqOff + k * 8 + 2, true) / 32767;
+          qz += d.getInt16(dqOff + k * 8 + 4, true) / 32767;
+          qw += d.getInt16(dqOff + k * 8 + 6, true) / 32767;
+        }
+        if (!constScale) {
+          sx += d.getInt16(dsOff + k * 6, true) * 1e-4;
+          sy += d.getInt16(dsOff + k * 6 + 2, true) * 1e-4;
+          sz += d.getInt16(dsOff + k * 6 + 4, true) * 1e-4;
+        }
+        steps[f] = { p: new THREE.Vector3(px, py, pz), q: new THREE.Quaternion(qx, qy, qz, qw).normalize(), s: new THREE.Vector3(sx, sy, sz) };
+      }
+    }
+    parsed[o] = { geom: parts[pid].geom, smooth: parts[pid].smooth, color: [cr, cg, cb], mat, steps };
+  }
+  return { acts, parsed, format: "wgm2" };
+}
+
+function makePresetMaterial(preset, rgb, smooth) {
+  const color = new THREE.Color(rgb[0], rgb[1], rgb[2]);
+  if (!preset) return new THREE.MeshLambertMaterial({ color, flatShading: !smooth });
+  switch (preset) {
+    case 1: return new THREE.MeshStandardMaterial({ color, roughness: 0.52, metalness: 0.28, flatShading: !smooth });
+    case 2: return new THREE.MeshStandardMaterial({ color, roughness: 0.36, metalness: 0.42, flatShading: !smooth });
+    case 3: return new THREE.MeshStandardMaterial({ color, roughness: 0.22, metalness: 0.58, flatShading: !smooth });
+    case 4: return new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.05, flatShading: !smooth });
+    case 5: return new THREE.MeshStandardMaterial({ color, roughness: 0.14, metalness: 0.10, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide });
+    case 6: return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.04, flatShading: !smooth });
+    case 7: return new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.45, flatShading: !smooth });
+    default: return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25, flatShading: !smooth });
+  }
+}
+
+function mergeStaticNonIndexed(items) {
+  let totalVerts = 0;
+  const baked = items.map(({ geom, matrix }) => {
+    const g = (geom.index ? geom.toNonIndexed() : geom.clone());
+    g.applyMatrix4(matrix);
+    totalVerts += g.attributes.position.count;
+    return g;
+  });
+  const pos = new Float32Array(totalVerts * 3), norm = new Float32Array(totalVerts * 3);
+  let off = 0;
+  for (const g of baked) {
+    const p = g.attributes.position.array, n = g.attributes.normal.array;
+    pos.set(p, off); norm.set(n, off); off += p.length;
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.BufferAttribute(norm, 3));
+  return out;
+}
+
 function parse(d) {
   validatePhases(d.acts);
   const objs = d.objects.map(o => {
@@ -178,12 +310,16 @@ function parse(d) {
     g.setIndex(o.tris);
     const ng = g.toNonIndexed(); ng.computeVertexNormals();
     const steps = o.m.map(a => { const m = new THREE.Matrix4().fromArray(a); const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s); return { p, q, s }; });
-    return { geom: ng, color: o.color, steps };
+    return { geom: ng, smooth: false, color: o.color, mat: 0, steps };
   });
   return { ...d, parsed: objs };
 }
 
 async function fetchModel(name) {
+  if (!LEGACY && wgmClips.has(name)) {
+    const w = await fetchWgmModel(name);
+    if (w) return w;
+  }
   const r = await fetch(`data/${name}.json`);
   if (!r.ok) return null;
   return parse(await r.json());
@@ -191,11 +327,30 @@ async function fetchModel(name) {
 
 function buildGroup(name, d) {
   const group = new THREE.Group();
-  const objs = d.parsed.map(o => {
-    const mat = new THREE.MeshLambertMaterial({ color: new THREE.Color(...o.color), flatShading: true });
-    const mesh = new THREE.Mesh(o.geom, mat); mesh.matrixAutoUpdate = false; group.add(mesh);
-    return { mesh, steps: o.steps };
-  });
+  const objs = [];
+  const staticBuckets = new Map();
+  for (const o of d.parsed) {
+    if (d.format === "wgm2" && o.steps.length === 1) {
+      const key = `${o.mat}|${Math.round(o.color[0]*255)},${Math.round(o.color[1]*255)},${Math.round(o.color[2]*255)}|${o.smooth?1:0}`;
+      if (!staticBuckets.has(key)) staticBuckets.set(key, { mat: o.mat, color: o.color, smooth: o.smooth, items: [] });
+      const m = new THREE.Matrix4().compose(o.steps[0].p, o.steps[0].q, o.steps[0].s);
+      staticBuckets.get(key).items.push({ geom: o.geom, matrix: m });
+    } else {
+      const mat = makePresetMaterial(o.mat, o.color, o.smooth);
+      const mesh = new THREE.Mesh(o.geom, mat);
+      if (o.mat === 5) mesh.renderOrder = 2;
+      mesh.matrixAutoUpdate = false;
+      group.add(mesh);
+      objs.push({ mesh, steps: o.steps });
+    }
+  }
+  for (const b of staticBuckets.values()) {
+    const geom = mergeStaticNonIndexed(b.items);
+    const mat = makePresetMaterial(b.mat, b.color, b.smooth);
+    const mesh = new THREE.Mesh(geom, mat);
+    if (b.mat === 5) mesh.renderOrder = 2;
+    group.add(mesh);
+  }
   return { name, group, objs, n: d.acts.length, acts: d.acts, faces: d.faces };
 }
 
@@ -415,7 +570,8 @@ async function start() {
     .catch(() => {});
   const [map] = await Promise.all([
     fetch("exercise_models.json").then(r => r.json()),
-    loadHumanList()
+    loadHumanList(),
+    loadWgmManifest()
   ]);
   await show(map[EX] || [], cameraReady);
   resize(); playRep();
