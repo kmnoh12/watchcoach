@@ -1,0 +1,86 @@
+{
+  "lying_dumbbell_pullover": {
+    "top": [
+      14,
+      "seat_pad__003"
+    ]
+  },
+  "one_arm_dumbbell_row": {
+    "bench_pad": [
+      7,
+      "seat_pad__015"
+    ]
+  },
+  "close_grip_bench_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      20,
+      "seat_pad__007"
+    ]
+  },
+  "decline_barbell_bench_press": {
+    "back_pad": [
+      7,
+      "back_pad__006"
+    ]
+  },
+  "flat_bench_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      20,
+      "seat_pad__007"
+    ]
+  },
+  "guillotine_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      20,
+      "seat_pad__007"
+    ]
+  },
+  "hip_thrust_barbell": {
+    "bench_top": [
+      5,
+      "seat_pad__003"
+    ],
+    "hip_bar_pad": [
+      9,
+      "hip_pad__001"
+    ]
+  },
+  "incline_barbell_bench_press": {
+    "back_pad": [
+      8,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      21,
+      "seat_pad__011"
+    ]
+  },
+  "jm_press": {
+    "back_pad": [
+      0,
+      "back_pad__005"
+    ],
+    "seat_pad": [
+      20,
+      "seat_pad__007"
+    ]
+  },
+  "bulgarian_split_squat": {
+    "top": [
+      5,
+      "seat_pad__003"
+    ]
+  }
+}
