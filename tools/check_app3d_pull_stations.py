@@ -87,18 +87,22 @@ def check(view, baseline, *, targets_file="pull_station_targets.json", report_fi
                 lookup = entry["group"], row["mat"]
                 assert groups.setdefault(lookup, row["pid"]) == row["pid"]
             if entry["name"] in pads and entry["mat"] in (4, 6) and entry["smooth"]:
-                pads[entry["name"]].append(row["world"][0])
+                pads[entry["name"]].append((row["world"][0], t))
             counts["moving" if row["nf"] > 1 else "static"] += 1
             real.append(dict(name=entry["name"], verts=v, pos=row["pos"], quats=row["quat"], sc=row["scale"]))
         verify_skin(real, clock, skin, acts, faces)
         clearances = {}
         for name, surfaces in pads.items():
-            surface = np.vstack(surfaces)
+            surface = np.vstack([v for v, _ in surfaces])
             spec = fits[name]
             normal, across = np.array(spec["normal"]), np.array(spec["across"])
             center = np.array(spec["origin"]) + spec["offset"]
-            target = fit_body_part(skin, avatar, spec["role"], center, surface, normal, across)
-            gap = (.0035-np.dot(target-center, normal))*1000
+            if spec.get("gap_method") == "vertical_surface":
+                from pull_pad_fit import vertical_gap
+                gap = 1000 * vertical_gap(skin, avatar, spec["role"], surfaces)
+            else:
+                target = fit_body_part(skin, avatar, spec["role"], center, surface, normal, across)
+                gap = (.0035-np.dot(target-center, normal))*1000
             assert 2 <= gap <= 5, (name, gap)
             clearances[name] = gap
 

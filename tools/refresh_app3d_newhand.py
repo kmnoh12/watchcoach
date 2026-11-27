@@ -60,6 +60,7 @@ def main():
     # Accessory benches share clips with the cable stations: append after the towers.
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_bench_pads.py"), str(stage), "--batch", "4"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_pull_stations.py"), str(stage)], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_pull_pads.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_upper_stations.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_lower_towers.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_press_stations.py"), str(stage)], check=True)

@@ -117,7 +117,7 @@ def check_passages(cast, faces, pos, obstacles):
                 raise ValueError(f"{name}: original pin exceeds the casting socket")
 
 
-def fitted_layers(raw, mapping, source, human, base, emit):
+def fitted_layers(raw, mapping, source, human, base, emit, *, curved_contact=False):
     """Adjust only panels that have attachment hardware in the original station."""
     objects = {o["name"]: o for o in raw["objects"]}
     fits = {}
@@ -131,17 +131,29 @@ def fitted_layers(raw, mapping, source, human, base, emit):
         surface = np.vstack([p[0] for p in pieces]) @ matrix + position
         target = fit_body_part(human, base, role, position, surface, normal, across)
         distance = np.dot(target - position, normal) / np.dot(rail, normal)
+        if curved_contact:
+            from pull_pad_fit import vertical_gap
+            assert abs(abs(normal[2])-1) < 1e-6 and np.allclose(rail, [0, 0, 1])
+            layers = [(v @ matrix + target, t) for v, t, *_ in pieces]
+            # Refine the anatomy solver's plane fit on the actual triangulated surface.
+            # Under vertical translation the directional gap changes one-for-one.
+            gap_at_target = vertical_gap(human, base, role, layers)
+            distance = np.clip(distance + (.0035-gap_at_target)/normal[2], -limit, limit)
+            gap = gap_at_target + normal[2]*(distance - (target-position)[2])
         shift = rail * distance
         if abs(distance) > limit or not sweep.clear(surface + shift):
             raise ValueError(f"{name}: no 2–5 mm fit within the mounted adjustment range")
-        residual = fit_body_part(human, base, role, position + shift, surface + shift, normal, across)
-        gap = .0035 - np.dot(residual - position - shift, normal)
+        if not curved_contact:
+            residual = fit_body_part(human, base, role, position + shift, surface + shift, normal, across)
+            gap = .0035 - np.dot(residual - position - shift, normal)
         if not .002 <= gap <= .005:
             raise ValueError(f"{name}: clearance on the actual adjustment axis is {gap*1000:.1f} mm")
         for v, t, mat, color, smooth in pieces:
             emit(name, v, t, mat, color, shift=shift, smooth=smooth, contact=True)
         fits[name] = dict(role=role, axis=rail.tolist(), normal=normal.tolist(), across=across.tolist(),
                           origin=position.tolist(), offset=shift.tolist(), gap_mm=gap*1000)
+        if curved_contact:
+            fits[name]["gap_method"] = "vertical_surface"
         return shift
 
     def hardware(name, shape, center, scale, rotation, mat, color):
@@ -361,7 +373,10 @@ def assemble(key, raw, mapping, source, human, base, *, fit_layers=fitted_layers
                 color = colors["silver"] if mat == MAT_SILVER else [.16, .18, .22]
                 emit(name, vv, p["t"], mat, color, scale=size/np.ptp(vv, axis=0),
                      shift=center @ matrix[:3, :3])
-    fits = fit_layers(raw, mapping, source, human, base, emit)
+    if key in {"lever_pulldown~m=" + v for v in ("pin", "pin_single", "plate", "plate_single")} and fit_layers is fitted_layers:
+        fits = fitted_layers(raw, mapping, source, human, base, emit, curved_contact=True)
+    else:
+        fits = fit_layers(raw, mapping, source, human, base, emit)
     return entries, fits
 
 

@@ -1,0 +1,114 @@
+{
+  "seated_cable_row~m=fix3": {
+    "seat.001": [
+      38,
+      "seat_pad__020"
+    ]
+  },
+  "seated_cable_row_neutral15": {
+    "seat.001": [
+      45,
+      "seat_pad__020"
+    ]
+  },
+  "single_arm_cable_seated_row": {
+    "bench": [
+      0,
+      "seat_pad__024"
+    ],
+    "knee_roller": [
+      21,
+      "leg_roller__007"
+    ],
+    "knee_roller.001": [
+      22,
+      "leg_roller__007"
+    ]
+  },
+  "chest_supported_tbar": {
+    "chest_pad": [
+      4,
+      "chest_pad__002"
+    ]
+  },
+  "high_row_plate": {
+    "chest_support": [
+      4,
+      "chest_pad__004"
+    ],
+    "seat": [
+      64,
+      "seat_pad__008"
+    ],
+    "thigh_roller": [
+      70,
+      "leg_roller__001"
+    ],
+    "thigh_roller.001": [
+      71,
+      "leg_roller__001"
+    ]
+  },
+  "high_row_plate~m=single": {
+    "chest_support": [
+      4,
+      "chest_pad__004"
+    ],
+    "seat": [
+      53,
+      "seat_pad__008"
+    ],
+    "thigh_roller": [
+      59,
+      "leg_roller__001"
+    ],
+    "thigh_roller.001": [
+      60,
+      "leg_roller__001"
+    ]
+  },
+  "lever_pulldown~m=plate": {
+    "seat": [
+      46,
+      "seat_pad__014"
+    ],
+    "seat_post": [
+      48,
+      "seat_post__001"
+    ],
+    "seat_sleeve": [
+      49,
+      "seat_socket__001"
+    ],
+    "thigh_roller": [
+      52,
+      "leg_roller__001"
+    ],
+    "thigh_roller.001": [
+      53,
+      "leg_roller__001"
+    ]
+  },
+  "lever_pulldown~m=plate_single": {
+    "seat": [
+      32,
+      "seat_pad__014"
+    ],
+    "seat_post": [
+      34,
+      "seat_post__001"
+    ],
+    "seat_sleeve": [
+      35,
+      "seat_socket__001"
+    ],
+    "thigh_roller": [
+      38,
+      "leg_roller__001"
+    ],
+    "thigh_roller.001": [
+      39,
+      "leg_roller__001"
+    ]
+  }
+}
