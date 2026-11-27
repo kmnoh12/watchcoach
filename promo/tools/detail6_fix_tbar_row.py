@@ -38,7 +38,7 @@ from mathutils import Matrix, Vector
 
 ROOT_NAME = "P_tbar_row_machine"
 TAG = "detail6_fix_tbar_row"
-TAG_VER = "v1"
+TAG_VER = "v2"
 OBTAG = "detail6_tbar_fix"
 
 # Target coordinates in P_tbar_row_machine local space (at Stroke L = Stroke R = 0)
@@ -231,6 +231,19 @@ def apply() -> dict:
             "before": [[round(x, 3) for x in mount_before[0]], [round(x, 3) for x in mount_before[1]]],
             "after": [[round(x, 3) for x in b] for b in _bbox_root(root, mount)],
         }
+
+        # 2b. Flip incline_footrest / incline_footrest.001 slope direction (+18 deg -> -18 deg)
+        for fnm in ("incline_footrest", "incline_footrest.001"):
+            fob = _kid(root, fnm)
+            fb = _bbox_root(root, fob)
+            fob.rotation_mode = "XYZ"
+            fob.rotation_euler.x = -0.314159265
+            _upd()
+            fob[OBTAG] = f"{TAG_VER}:footrest slope flipped"
+            changes[fnm] = {
+                "before": [[round(x, 3) for x in fb[0]], [round(x, 3) for x in fb[1]]],
+                "after": [[round(x, 3) for x in b] for b in _bbox_root(root, fob)],
+            }
 
         # 3. Both lever arms (L: side=-1, suffix=""; R: side=+1, suffix=".001")
         for side, sfx, plate_name in (
