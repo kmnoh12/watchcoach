@@ -50,7 +50,7 @@ def slots(v, t, m):
 
 def casting(wide, thin=False, *,
             guides=((-0.130, 0.022, 0.022), (0, 0.022, 0.022), (0.130, 0.022, 0.022)),
-            socket=None, socket_z=0.0):
+            socket=None, socket_z=0.0, front_relief=None):
     # Start with the scene's through-bored casting, KEEP both mouth bevels. The
     # scene only models the front/back socket: drill three vertical passages for
     # the phone's fixed twin guides and central lift rod. No decimation.
@@ -74,16 +74,25 @@ def casting(wide, thin=False, *,
     me.update()
     obj = bpy.data.objects.new("cable fit", me)
     bpy.context.collection.objects.link(obj)
+    tools = []
     for x, rx, ry in guides:
         bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=ry, depth=0.12, location=(x, 0, 0))
         drill = bpy.context.object
         if rx != ry:
             for vertex in drill.data.vertices:
                 vertex.co.x *= rx / ry
-        mod = obj.modifiers.new("App guide bore", "BOOLEAN")
+        tools.append(drill)
+    if front_relief is not None:
+        low, high = map(np.asarray, front_relief)
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(low + high) / 2)
+        notch = bpy.context.object
+        notch.scale = high - low
+        tools.append(notch)
+    for tool in tools:
+        mod = obj.modifiers.new("App shaft or pin clearance", "BOOLEAN")
         mod.operation = "DIFFERENCE"
         mod.solver = "EXACT"
-        mod.object = drill
+        mod.object = tool
     dg = bpy.context.evaluated_depsgraph_get()
     ev = obj.evaluated_get(dg)
     me = ev.to_mesh()
