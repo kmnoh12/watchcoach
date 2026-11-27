@@ -75,6 +75,7 @@ def main():
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_arm_press_pads.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_pull_tower_pads.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_pull_tower.py"), str(stage)], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_pull_rack.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_adjust_bench.py"), str(stage), "--smith"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_bench_pads.py"), str(stage), "--batch", "5"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_smith.py"), str(stage)], check=True)

@@ -1,0 +1,680 @@
+{
+  "hanging_windshield_wiper": {
+    "base": [
+      0,
+      "base_beam__003"
+    ],
+    "base.001": [
+      1,
+      "base_beam__003"
+    ],
+    "brace": [
+      2,
+      "frame_brace__001"
+    ],
+    "brace.001": [
+      3,
+      "frame_brace__001"
+    ],
+    "foot_cap": [
+      4,
+      "rubber_foot__001"
+    ],
+    "foot_cap.001": [
+      5,
+      "rubber_foot__001"
+    ],
+    "pullup_bar": [
+      6,
+      "pullup_bar__003"
+    ],
+    "rear_cross": [
+      7,
+      "frame_crossbeam__006"
+    ],
+    "top_arm": [
+      8,
+      "lever_arm__006"
+    ],
+    "top_arm.001": [
+      9,
+      "lever_arm__006"
+    ],
+    "top_cross": [
+      10,
+      "frame_crossbeam__006"
+    ],
+    "upright": [
+      11,
+      "frame_post__002"
+    ],
+    "upright.001": [
+      12,
+      "frame_post__002"
+    ]
+  },
+  "inverted_row": {
+    "brace": [
+      0,
+      "frame_brace__001"
+    ],
+    "brace.001": [
+      1,
+      "frame_brace__001"
+    ],
+    "foot": [
+      2,
+      "frame_foot__001"
+    ],
+    "foot.001": [
+      3,
+      "frame_foot__001"
+    ],
+    "row_bar": [
+      12,
+      "row_bar__001"
+    ],
+    "upright": [
+      13,
+      "frame_post__010"
+    ],
+    "upright.001": [
+      14,
+      "frame_post__010"
+    ]
+  },
+  "neutral_grip_pull_up_bar": {
+    "anchor_plate.004": [
+      0,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.005": [
+      1,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.006": [
+      2,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.007": [
+      3,
+      "floor_anchor__001"
+    ],
+    "bar_mount.004": [
+      4,
+      "handle_mount__003"
+    ],
+    "bar_mount.005": [
+      5,
+      "handle_mount__003"
+    ],
+    "bar_mount.006": [
+      6,
+      "handle_mount__003"
+    ],
+    "bar_mount.007": [
+      7,
+      "handle_mount__003"
+    ],
+    "floor_bolt.008": [
+      8,
+      "fastener__002"
+    ],
+    "floor_bolt.009": [
+      9,
+      "fastener__002"
+    ],
+    "floor_bolt.010": [
+      10,
+      "fastener__002"
+    ],
+    "floor_bolt.011": [
+      11,
+      "fastener__002"
+    ],
+    "floor_bolt.012": [
+      12,
+      "fastener__002"
+    ],
+    "floor_bolt.013": [
+      13,
+      "fastener__002"
+    ],
+    "floor_bolt.014": [
+      14,
+      "fastener__002"
+    ],
+    "floor_bolt.015": [
+      15,
+      "fastener__002"
+    ],
+    "front_pullup_bar.001": [
+      16,
+      "pullup_bar__001"
+    ],
+    "neutral_grip": [
+      17,
+      "hand_grip__011"
+    ],
+    "neutral_grip.001": [
+      18,
+      "hand_grip__011"
+    ],
+    "neutral_support": [
+      19,
+      "handle_support__010"
+    ],
+    "neutral_support.001": [
+      20,
+      "handle_support__010"
+    ],
+    "rear_pullup_bar.001": [
+      21,
+      "pullup_bar__001"
+    ],
+    "top_gusset.002": [
+      22,
+      "frame_gusset__001"
+    ],
+    "top_gusset.003": [
+      23,
+      "frame_gusset__001"
+    ],
+    "top_side.002": [
+      24,
+      "top_beam__003"
+    ],
+    "top_side.003": [
+      25,
+      "top_beam__003"
+    ],
+    "upright.004": [
+      26,
+      "frame_post__002"
+    ],
+    "upright.005": [
+      27,
+      "frame_post__002"
+    ],
+    "upright.006": [
+      28,
+      "frame_post__002"
+    ],
+    "upright.007": [
+      29,
+      "frame_post__002"
+    ]
+  },
+  "pullup_bar": {
+    "anchor_plate": [
+      0,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.001": [
+      1,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.002": [
+      2,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.003": [
+      3,
+      "floor_anchor__001"
+    ],
+    "bar_mount": [
+      4,
+      "handle_mount__003"
+    ],
+    "bar_mount.001": [
+      5,
+      "handle_mount__003"
+    ],
+    "bar_mount.002": [
+      6,
+      "handle_mount__003"
+    ],
+    "bar_mount.003": [
+      7,
+      "handle_mount__003"
+    ],
+    "floor_bolt": [
+      8,
+      "fastener__002"
+    ],
+    "floor_bolt.001": [
+      9,
+      "fastener__002"
+    ],
+    "floor_bolt.002": [
+      10,
+      "fastener__002"
+    ],
+    "floor_bolt.003": [
+      11,
+      "fastener__002"
+    ],
+    "floor_bolt.004": [
+      12,
+      "fastener__002"
+    ],
+    "floor_bolt.005": [
+      13,
+      "fastener__002"
+    ],
+    "floor_bolt.006": [
+      14,
+      "fastener__002"
+    ],
+    "floor_bolt.007": [
+      15,
+      "fastener__002"
+    ],
+    "front_pullup_bar": [
+      16,
+      "pullup_bar__001"
+    ],
+    "rear_pullup_bar": [
+      17,
+      "pullup_bar__001"
+    ],
+    "top_gusset": [
+      18,
+      "frame_gusset__002"
+    ],
+    "top_gusset.001": [
+      19,
+      "frame_gusset__002"
+    ],
+    "top_side": [
+      20,
+      "top_beam__002"
+    ],
+    "top_side.001": [
+      21,
+      "top_beam__002"
+    ],
+    "upright": [
+      22,
+      "frame_post__003"
+    ],
+    "upright.001": [
+      23,
+      "frame_post__003"
+    ],
+    "upright.002": [
+      24,
+      "frame_post__003"
+    ],
+    "upright.003": [
+      25,
+      "frame_post__003"
+    ]
+  },
+  "pullup_dip_tower": {
+    "arm_brace": [
+      0,
+      "frame_brace__002"
+    ],
+    "arm_brace.001": [
+      1,
+      "frame_brace__002"
+    ],
+    "arm_support": [
+      2,
+      "frame_stay__002"
+    ],
+    "arm_support.001": [
+      3,
+      "frame_stay__002"
+    ],
+    "crossmember.004": [
+      5,
+      "frame_crossbeam__004"
+    ],
+    "crossmember.005": [
+      6,
+      "frame_crossbeam__004"
+    ],
+    "crossmember.006": [
+      7,
+      "frame_crossbeam__004"
+    ],
+    "dip_handle": [
+      8,
+      "dip_handle__002"
+    ],
+    "dip_handle.001": [
+      9,
+      "dip_handle__002"
+    ],
+    "foot.021": [
+      10,
+      "frame_foot__002"
+    ],
+    "foot.022": [
+      11,
+      "frame_foot__002"
+    ],
+    "foot_cap.008": [
+      12,
+      "rubber_foot__001"
+    ],
+    "foot_cap.009": [
+      13,
+      "rubber_foot__001"
+    ],
+    "foot_cap.010": [
+      14,
+      "rubber_foot__001"
+    ],
+    "foot_cap.011": [
+      15,
+      "rubber_foot__001"
+    ],
+    "lower_brace": [
+      18,
+      "frame_brace__002"
+    ],
+    "lower_brace.001": [
+      19,
+      "frame_brace__002"
+    ],
+    "pullup_bar.002": [
+      20,
+      "pullup_bar__004"
+    ],
+    "step.002": [
+      21,
+      "step_platform__001"
+    ],
+    "step.003": [
+      22,
+      "step_platform__001"
+    ],
+    "step_support": [
+      23,
+      "footplate_support__001"
+    ],
+    "step_support.001": [
+      24,
+      "footplate_support__001"
+    ],
+    "top_arm.002": [
+      25,
+      "lever_arm__003"
+    ],
+    "top_arm.003": [
+      26,
+      "lever_arm__003"
+    ],
+    "top_brace": [
+      27,
+      "frame_brace__002"
+    ],
+    "top_brace.001": [
+      28,
+      "frame_brace__002"
+    ],
+    "upright.010": [
+      29,
+      "frame_post__003"
+    ],
+    "upright.011": [
+      30,
+      "frame_post__003"
+    ],
+    "vkr_grip": [
+      31,
+      "support_handle__004"
+    ],
+    "vkr_grip.001": [
+      32,
+      "support_handle__004"
+    ],
+    "wide_grip.002": [
+      33,
+      "hand_grip__002"
+    ],
+    "wide_grip.003": [
+      34,
+      "hand_grip__002"
+    ]
+  },
+  "weighted_dip_tower": {
+    "arm_brace": [
+      0,
+      "frame_brace__002"
+    ],
+    "arm_brace.001": [
+      1,
+      "frame_brace__002"
+    ],
+    "arm_support": [
+      2,
+      "frame_stay__002"
+    ],
+    "arm_support.001": [
+      3,
+      "frame_stay__002"
+    ],
+    "crossmember": [
+      5,
+      "frame_crossbeam__004"
+    ],
+    "crossmember.001": [
+      6,
+      "frame_crossbeam__004"
+    ],
+    "crossmember.002": [
+      7,
+      "frame_crossbeam__004"
+    ],
+    "dip_handle": [
+      8,
+      "dip_handle__002"
+    ],
+    "dip_handle.001": [
+      9,
+      "dip_handle__002"
+    ],
+    "foot": [
+      10,
+      "frame_foot__002"
+    ],
+    "foot.001": [
+      11,
+      "frame_foot__002"
+    ],
+    "foot_cap": [
+      12,
+      "rubber_foot__001"
+    ],
+    "foot_cap.001": [
+      13,
+      "rubber_foot__001"
+    ],
+    "foot_cap.002": [
+      14,
+      "rubber_foot__001"
+    ],
+    "foot_cap.003": [
+      15,
+      "rubber_foot__001"
+    ],
+    "lower_brace": [
+      18,
+      "frame_brace__002"
+    ],
+    "lower_brace.001": [
+      19,
+      "frame_brace__002"
+    ],
+    "pullup_bar": [
+      28,
+      "pullup_bar__004"
+    ],
+    "step": [
+      29,
+      "step_platform__001"
+    ],
+    "step.001": [
+      30,
+      "step_platform__001"
+    ],
+    "step_support": [
+      31,
+      "footplate_support__001"
+    ],
+    "step_support.001": [
+      32,
+      "footplate_support__001"
+    ],
+    "top_arm": [
+      33,
+      "lever_arm__003"
+    ],
+    "top_arm.001": [
+      34,
+      "lever_arm__003"
+    ],
+    "top_brace": [
+      35,
+      "frame_brace__002"
+    ],
+    "top_brace.001": [
+      36,
+      "frame_brace__002"
+    ],
+    "upright": [
+      37,
+      "frame_post__003"
+    ],
+    "upright.001": [
+      38,
+      "frame_post__003"
+    ],
+    "vkr_grip": [
+      39,
+      "support_handle__004"
+    ],
+    "vkr_grip.001": [
+      40,
+      "support_handle__004"
+    ],
+    "wide_grip": [
+      41,
+      "hand_grip__002"
+    ],
+    "wide_grip.001": [
+      42,
+      "hand_grip__002"
+    ]
+  },
+  "weighted_pull_up_bar": {
+    "anchor_plate": [
+      0,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.001": [
+      1,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.002": [
+      2,
+      "floor_anchor__001"
+    ],
+    "anchor_plate.003": [
+      3,
+      "floor_anchor__001"
+    ],
+    "bar_mount": [
+      4,
+      "handle_mount__003"
+    ],
+    "bar_mount.001": [
+      5,
+      "handle_mount__003"
+    ],
+    "bar_mount.002": [
+      6,
+      "handle_mount__003"
+    ],
+    "bar_mount.003": [
+      7,
+      "handle_mount__003"
+    ],
+    "floor_bolt": [
+      8,
+      "fastener__002"
+    ],
+    "floor_bolt.001": [
+      9,
+      "fastener__002"
+    ],
+    "floor_bolt.002": [
+      10,
+      "fastener__002"
+    ],
+    "floor_bolt.003": [
+      11,
+      "fastener__002"
+    ],
+    "floor_bolt.004": [
+      12,
+      "fastener__002"
+    ],
+    "floor_bolt.005": [
+      13,
+      "fastener__002"
+    ],
+    "floor_bolt.006": [
+      14,
+      "fastener__002"
+    ],
+    "floor_bolt.007": [
+      15,
+      "fastener__002"
+    ],
+    "front_pullup_bar": [
+      16,
+      "pullup_bar__001"
+    ],
+    "rear_pullup_bar": [
+      25,
+      "pullup_bar__001"
+    ],
+    "top_gusset": [
+      26,
+      "frame_gusset__002"
+    ],
+    "top_gusset.001": [
+      27,
+      "frame_gusset__002"
+    ],
+    "top_side": [
+      28,
+      "top_beam__002"
+    ],
+    "top_side.001": [
+      29,
+      "top_beam__002"
+    ],
+    "upright": [
+      30,
+      "frame_post__003"
+    ],
+    "upright.001": [
+      31,
+      "frame_post__003"
+    ],
+    "upright.002": [
+      32,
+      "frame_post__003"
+    ],
+    "upright.003": [
+      33,
+      "frame_post__003"
+    ]
+  }
+}
