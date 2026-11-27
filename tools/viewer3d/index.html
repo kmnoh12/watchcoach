@@ -265,6 +265,26 @@ async function fetchWgmModel(name) {
   return { acts, parsed, format: "wgm2" };
 }
 
+const SELECTOR_WINDOW = 8;
+const isTransparentPreset = preset => preset === 5 || preset === SELECTOR_WINDOW;
+
+function selectorWindowMaterial(color) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.21, metalness: 0, opacity: 0.27, transparent: true, depthWrite: false });
+  // One front-facing layer. Approximate the gym's soft strip light in reflection space:
+  // its glint travels across the pane as the camera orbits, without a transmission pass or texture.
+  mat.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
+      vec3 eye = normalize(vViewPosition);
+      float grazing = smoothstep(0.0, 0.88, 1.0 - clamp(dot(normal, eye), 0.0, 1.0));
+      vec3 ray = inverseTransformDirection(reflect(-eye, normal), viewMatrix);
+      float strip = 1.0 - smoothstep(0.025, 0.18, abs(ray.z - 0.33 * ray.x - 0.11));
+      diffuseColor.a = min(0.56, opacity + 0.24 * grazing + 0.08 * strip);
+      outgoingLight += vec3(0.085 * grazing + strip * (0.22 + 0.20 * grazing));
+      #include <opaque_fragment>`);
+  };
+  return mat;
+}
+
 function makePresetMaterial(preset, rgb, smooth) {
   const color = new THREE.Color(rgb[0], rgb[1], rgb[2]);
   if (!preset) return new THREE.MeshLambertMaterial({ color, flatShading: !smooth });
@@ -277,6 +297,7 @@ function makePresetMaterial(preset, rgb, smooth) {
     case 5: return new THREE.MeshStandardMaterial({ color, roughness: 0.19, metalness: 0.02, transparent: true, opacity: 0.18, depthWrite: false });
     case 6: return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.04, flatShading: !smooth });
     case 7: return new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.45, flatShading: !smooth });
+    case SELECTOR_WINDOW: return selectorWindowMaterial(color);
     default: return new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25, flatShading: !smooth });
   }
 }
@@ -332,7 +353,7 @@ function buildGroup(name, d) {
   const staticBuckets = new Map(), movingBuckets = new Map(), instances = [];
   function addSingle(o) {
     const mesh = new THREE.Mesh(o.geom, makePresetMaterial(o.mat, o.color, o.smooth));
-    if (o.mat === 5) mesh.renderOrder = 2;
+    if (isTransparentPreset(o.mat)) mesh.renderOrder = 2;
     mesh.matrixAutoUpdate = false;
     group.add(mesh);
     objs.push({ mesh, steps: o.steps });
@@ -343,7 +364,7 @@ function buildGroup(name, d) {
       if (!staticBuckets.has(key)) staticBuckets.set(key, { mat: o.mat, color: o.color, smooth: o.smooth, items: [] });
       const m = new THREE.Matrix4().compose(o.steps[0].p, o.steps[0].q, o.steps[0].s);
       staticBuckets.get(key).items.push({ geom: o.geom, matrix: m });
-    } else if (d.format === "wgm2" && o.mat !== 5 && o.steps.every(k => k.s.x > 0 && k.s.y > 0 && k.s.z > 0)) {
+    } else if (d.format === "wgm2" && !isTransparentPreset(o.mat) && o.steps.every(k => k.s.x > 0 && k.s.y > 0 && k.s.z > 0)) {
       // Share the draw, not the track: each plate / rope link keeps its original motion.
       const key = [o.geom.uuid, o.mat, ...o.color].join('|');
       if (!movingBuckets.has(key)) movingBuckets.set(key, []);
@@ -363,7 +384,7 @@ function buildGroup(name, d) {
     const geom = mergeStaticNonIndexed(b.items);
     const mat = makePresetMaterial(b.mat, b.color, b.smooth);
     const mesh = new THREE.Mesh(geom, mat);
-    if (b.mat === 5) mesh.renderOrder = 2;
+    if (isTransparentPreset(b.mat)) mesh.renderOrder = 2;
     group.add(mesh);
   }
   return { name, group, objs, instances, n: d.acts.length, acts: d.acts, faces: d.faces };

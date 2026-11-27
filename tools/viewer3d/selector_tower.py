@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from part_catalog import SubPart, _ensure_outward, _merge_meshes, make_box, make_revolved_profile
-from part_registry import MAT_ACCENT, MAT_ACRYLIC, MAT_CHROME, MAT_FRAME, MAT_RUBBER
+from part_registry import MAT_ACCENT, MAT_CHROME, MAT_FRAME, MAT_RUBBER, MAT_SELECTOR_WINDOW
 
 # Linear RGB, not sRGB swatches. Chrome is reserved for pins/rods and small fasteners.
 COAT = (.042, .042, .042)
@@ -151,7 +151,7 @@ class Kit(list):
             # Two 4 mm neutral leaves inset behind the posts, 72 mm open selector slot.
             pw=inside-.036
             self.put('window',block((pw,.004,h-.172-.132)), (s*(.036+pw/2),front,(h-.172+.132)/2),
-                     (.37,.37,.37),MAT_ACRYLIC)
+                     (.37,.37,.37),MAT_SELECTOR_WINDOW)
             for frac in (.06,.5,.94):
                 z=.132+frac*(h-.172-.132)
                 self.put('window_clip',block((.036,.014,.038)),(s*(inside-.013),front-.004,z))

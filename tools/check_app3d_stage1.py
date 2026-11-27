@@ -14,7 +14,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 import upgrade_app3d_machines as build
-from part_registry import MAT_ACRYLIC, classify_object
+from part_registry import MAT_ACRYLIC, MAT_SELECTOR_WINDOW, classify_object
 
 
 def read(f, fmt):
@@ -110,9 +110,9 @@ def check(directory):
                 surface = max(surface, err)
         assert n_grips and grip < .00020 and surface < .0005, (key, grip, surface)
         windows = sorted(by['window'], key=lambda w: w['pos'][0,0]); left, right = windows
-        assert sum(r['mat']==MAT_ACRYLIC for r in rows) == 2
+        assert sum(r['mat'] in (MAT_ACRYLIC, MAT_SELECTOR_WINDOW) for r in rows) == 2
         for w in windows:
-            assert w['mat']==MAT_ACRYLIC and len(set(w['rgb']))==1 and abs(np.ptp(w['world'][0,:,1])-.004)<1e-6
+            assert w['mat']==MAT_SELECTOR_WINDOW and len(set(w['rgb']))==1 and abs(np.ptp(w['world'][0,:,1])-.004)<1e-6
         assert abs(right['world'][0,:,0].min()-left['world'][0,:,0].max()-.072)<1e-6
         plate = by['cast_plate']; assert len(plate)==28 and len({r['pid'] for r in plate})==1
         pin = by['selector_knob'][0]; z = pin['pos'][:,2]

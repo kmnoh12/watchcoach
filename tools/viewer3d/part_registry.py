@@ -20,6 +20,7 @@ MAT_PAD = 4       # matte vinyl/leather cushion (roughness 0.72, metalness 0.05)
 MAT_ACRYLIC = 5   # smoked translucent shroud (transparent, opacity 0.28, depthWrite: false)
 MAT_RUBBER = 6    # matte dark rubber/cable/grip (roughness 0.85, metalness 0.04)
 MAT_ACCENT = 7    # anodized accent pins/hubs (roughness 0.32, metalness 0.45)
+MAT_SELECTOR_WINDOW = 8  # twin neutral acrylic leaves, distinct from older tinted shrouds
 
 MAT_NAMES = {
     MAT_LEGACY: "legacy",
@@ -30,6 +31,7 @@ MAT_NAMES = {
     MAT_ACRYLIC: "acrylic",
     MAT_RUBBER: "rubber",
     MAT_ACCENT: "accent",
+    MAT_SELECTOR_WINDOW: "selector_window",
 }
 
 # Exact regex from tools/build_v5_hand_viewer_copy.py:grip_objects()
