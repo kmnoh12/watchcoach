@@ -125,9 +125,24 @@ def extract():
     return out
 
 
+def extract_mount():
+    # One original silver crossover crosspiece. Keep its complete bevel rings.
+    v, t, m = mesh("Ddetail6_SM_CC_Frame", CC)
+    v -= [-1.05, 0.574, 2.255]
+    mask = np.zeros(len(v), dtype=bool)
+    mask[np.linalg.norm(v - [0.19, 0.024, 0.009], axis=1).argmin()] = True
+    while not np.array_equal(mask[t].any(1), mask[t].all(1)):
+        mask[t[mask[t].any(1)]] = True
+    v, t, m = select(v, t, m, mask)
+    assert set(m) == {0} and len(t) == 44
+    assert np.allclose(np.ptp(v, axis=0), [0.396, 0.048, 0.034], atol=1e-5)
+    return slots(v, t, m)
+
+
 if __name__ == "__main__":
-    data = extract()
-    output = HERE / "scene_cable_source.json"
+    mount = "--mount" in sys.argv
+    data = {"pulley_bracket": extract_mount()} if mount else extract()
+    output = HERE / ("scene_cable_mount_source.json" if mount else "scene_cable_source.json")
     encoded = json.dumps(data, separators=(",", ":")) + chr(10)
     if "--check" in sys.argv:
         assert output.read_text() == encoded

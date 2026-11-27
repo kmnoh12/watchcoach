@@ -20,10 +20,11 @@ def bounds(raw):
     return (raw.min(axis=1) + raw.max(axis=1)) / 2
 
 
-def check(view):
+def check(view, *, batch_03=False):
     d = view / "data"
     hdir = view / "human_v5"
-    targets = json.loads((HERE / "cable_tower_targets.json").read_text())
+    target_file = "cable_tower_03_targets.json" if batch_03 else "cable_tower_targets.json"
+    targets = json.loads((HERE / target_file).read_text())
     manifest = json.loads((d / "wgm_manifest.json").read_text())
     base = json.loads((hdir / "base.json").read_text())
     faces = np.asarray(base["triangles"]).reshape(-1, 3)
@@ -70,10 +71,11 @@ def check(view):
             matrices = wire.build.strip_fake_animation(obj["m"])
             nf = len(matrices)
             original = np.asarray(matrices).reshape(-1, 4, 4)
+            rotations = Rotation.from_matrix(original[:, :3, :3].transpose(0, 2, 1))
             expected = original[:, 3, :3].copy()
             assert nf in (1, len(acts))
             if role == "pulley_fork":
-                expected += [0, -0.03, 0.09]
+                expected += rotations.apply([0, -0.03, 0.09])
             for layer, r in enumerate(got):
                 assert (
                     r["nf"] == nf
@@ -88,7 +90,7 @@ def check(view):
                 target = expected
                 if role.endswith("stack_plate") and layer:
                     depth = np.ptp(np.asarray(obj["verts"]).reshape(-1, 3)[:, 1])
-                    target = expected + [0, (0.28 - depth) / 2, 0]
+                    target = expected + rotations.apply([0, (0.28 - depth) / 2, 0])
                 mm = 1000 * np.linalg.norm(r["pos"] - target, axis=1).max()
                 max_mm = max(max_mm, mm)
                 assert mm < 0.1
@@ -107,6 +109,11 @@ def check(view):
                 tested.add(r["pid"])
             (moving if nf > 1 else static)[role] += 1
             old_t += len(obj["tris"]) // 3
+            if role in ("pulley_bracket", "pulley_support"):
+                original_bounds = wire.original(obj)[0]
+                fitted_bounds = got[0]["world"][0]
+                assert np.allclose(original_bounds.min(0), fitted_bounds.min(0), atol=0.0001)
+                assert np.allclose(original_bounds.max(0), fitted_bounds.max(0), atol=0.0001)
             if role.endswith("stack_plate"):
                 assert np.allclose(bounds(got[0]["world"]), expected, atol=0.0001)
                 # Vertical open channels in the actual decoded casting around the two guide axes and rod.
@@ -115,7 +122,7 @@ def check(view):
                 bodies = [
                     o
                     for o in raw["objects"]
-                    if o["name"].split(".")[0] in ("guide", "selector_rod", "selector_pin")
+                    if o["name"].split(".")[0] in ("guide", "stack_guide", "selector_rod", "selector_pin")
                 ]
                 for part in bodies:
                     pn = part["name"].split(".")[0]
@@ -166,8 +173,9 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("view", type=Path)
     p.add_argument("--report", type=Path)
+    p.add_argument("--batch-03", action="store_true")
     a = p.parse_args()
-    r = check(a.view)
+    r = check(a.view, batch_03=a.batch_03)
     if a.report:
         a.report.write_text(json.dumps(r, indent=2) + chr(10))
     print(
