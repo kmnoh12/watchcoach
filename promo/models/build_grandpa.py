@@ -45,7 +45,7 @@ def reshape_grandpa(arm_obj, body_obj):
     bones = arm_obj.data.bones
     bone_segs = {b.name: (b.head_local.copy(), b.tail_local.copy()) for b in bones}
 
-    target_straight_h = 1.700   # 170 cm straight -> ~165 cm stooped
+    target_straight_h = 1.670   # 167 cm straight -> ~162 cm stooped
     shoulder_inward_x = 0.015   # slimmer than young male, clearly broader than grandma (0.032)
     hand_slim = 0.10
 
@@ -285,12 +285,12 @@ def reshape_grandpa(arm_obj, body_obj):
 
     SF.apply_pose_as_rest_pose(arm_obj, body_obj)
 
-    # Fine-tune to exact 1.650 m standing height
+    # Fine-tune to exact 1.620 m standing height
     zs = [v.co.z for v in mesh.vertices]
     cur_h = max(zs) - min(zs)
     print(f"[grandpa] post-stoop height before fine-tune = {cur_h:.4f} m")
-    if abs(cur_h - 1.650) > 0.004:
-        adj = 1.650 / cur_h
+    if abs(cur_h - 1.620) > 0.004:
+        adj = 1.620 / cur_h
         for v in mesh.vertices:
             v.co *= adj
         mesh.update()
@@ -504,11 +504,11 @@ def render_grandpa_review():
     ground = bpy.context.active_object
     ground.data.materials.append(SF.make_flat_material("Ground", (0.20, 0.22, 0.26, 1.0)))
 
-    # Reference height bars: 1.50m, 1.57m, 1.65m, 1.75m
+    # Reference height bars: 1.50m, 1.57m, 1.62m, 1.75m
     for h_val, col in (
         (1.50, (0.72, 0.56, 0.86, 1.0)),
         (1.57, (0.94, 0.56, 0.44, 1.0)),
-        (1.65, (0.52, 0.72, 0.90, 1.0)),
+        (1.62, (0.52, 0.72, 0.90, 1.0)),
         (1.75, (0.38, 0.84, 0.88, 1.0)),
     ):
         bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 0.60, h_val))
