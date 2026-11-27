@@ -93,6 +93,8 @@ def main():
                     str(stage), "--handweights-02"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_bench.py"),
                     str(stage), "--handweights-03"], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_bench.py"),
+                    str(stage), "--special"], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_cable_rest.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_pull_rest.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_rest_mat.py"), str(stage)], check=True)

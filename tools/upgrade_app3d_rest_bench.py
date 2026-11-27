@@ -12,7 +12,7 @@ from upgrade_app3d_adjust_bench_rest import BAR_GROUPS, exterior
 from upgrade_app3d_machines import decompose_frames, strip_fake_animation
 from upgrade_app3d_rest_bars import assemble as assemble_bar, parts as bar_parts
 from fixed_pad_contact import penetration
-from part_registry import MAT_FRAME, MAT_SILVER
+from part_registry import MAT_FRAME, MAT_RUBBER, MAT_SILVER
 
 TARGETS = "rest_bench_targets.json"
 SOURCE = "scene_rest_bench_source.json"
@@ -23,19 +23,34 @@ HANDWEIGHT_TARGETS_02 = "rest_handweights_targets_02.json"
 HANDWEIGHT_REPORT_02 = "rest_handweights_fit_02.json"
 HANDWEIGHT_TARGETS_03 = "rest_handweights_targets_03.json"
 HANDWEIGHT_REPORT_03 = "rest_handweights_fit_03.json"
+SPECIAL_TARGETS = "rest_special_bench_targets.json"
+SPECIAL_REPORT = "rest_special_bench_fit.json"
 
 
 def exterior_part(group, source, centered, triangles):
     role = group.split("__")[0]
+    if role == "support_handle":
+        # Keep the fitted hand-contact profile while applying the scene's rubber finish.
+        vertices = (centered / np.ptp(centered, axis=0)).round(6) + 0.0
+        return vertices, triangles, source["support_handle"]["rgb"], MAT_RUBBER, True
     if role == "cast_handle":
         # Keep the fitted arch and both feet in their original positions.
         vertices = (centered / np.ptp(centered, axis=0)).round(6) + 0.0
         return vertices, triangles, source[role]["rgb"], MAT_FRAME, True
-    scene_role = {"dumbbell_neck": "dumbbell_cap", "pad_mount": "frame_post",
+    scene_role = {"dumbbell_neck": "dumbbell_cap",
+                  "handle_mount": "frame_post", "pad_mount": "frame_post",
+                  "rack_cradle": "frame_post",
                   "seat_post": "frame_post", "seat_support": "base_beam"}.get(role, role)
     v, t, rgb, mat, smooth = exterior(scene_role, source, centered, triangles)
     if role == "frame_brace":
         mat = MAT_SILVER
+    if role == "end_cap":
+        # Fit the scene cap inside the polygonal roller socket, preserving axial length.
+        rim = centered[:, :2] / np.ptp(centered[:, :2], axis=0)
+        planes = ConvexHull(rim).equations
+        reach = np.einsum("vi,pi->vp", v[:, :2], planes[:, :2]).max(axis=0)
+        v[:, :2] *= min(1.0, (-planes[:, 2] / reach).min())
+        mat, smooth = MAT_SILVER, True
     if group == "dumbbell_head__002":
         # The contoured dumbbell has local X as its axle and the wide hex axis along Y.
         v = v[:, [2, 1, 0]] * [1, 1, -1]
@@ -103,11 +118,18 @@ def assemble(view, key, raw, mapping, source, frames, base, bars, *, handweights
     return rows + bar_rows, {**audit, **bar_audit}
 
 
-def upgrade(view, *, handweights=False, handweights_02=False, handweights_03=False):
+def upgrade(view, *, handweights=False, handweights_02=False, handweights_03=False, special=False):
     source_file = "scene_adjust_bench_rest_source.json"
     targets_file, report_file = HANDWEIGHT_TARGETS, HANDWEIGHT_REPORT
     shared, bars = {}, {}
-    if handweights_03:
+    if special:
+        targets_file, source_file, report_file = SPECIAL_TARGETS, SOURCE, SPECIAL_REPORT
+        shared = load(HERE / "scene_adjust_bench_rest_source.json")
+        shared["rubber_foot"] = load(HERE / "scene_fixed_bench_rest_source.json")["rubber_foot"]
+        lower = load(HERE / "scene_lower_iso_source.json")
+        shared["support_handle"] = lower["hand_grip"]
+        shared["end_cap"] = lower["roller_end_cap"]
+    elif handweights_03:
         targets_file, report_file = HANDWEIGHT_TARGETS_03, HANDWEIGHT_REPORT_03
         shared = load(HERE / "scene_handweights_source.json")
     elif handweights_02:
@@ -135,6 +157,7 @@ if __name__ == "__main__":
     batches.add_argument("--handweights", action="store_true", help="apply the first dumbbell batch")
     batches.add_argument("--handweights-02", action="store_true", help="apply the second dumbbell batch")
     batches.add_argument("--handweights-03", action="store_true", help="apply the dumbbell and kettlebell batch")
+    batches.add_argument("--special", action="store_true", help="apply the supported row, decline and preacher bench batch")
     args = parser.parse_args()
     upgrade(args.viewer, handweights=args.handweights, handweights_02=args.handweights_02,
-            handweights_03=args.handweights_03)
+            handweights_03=args.handweights_03, special=args.special)
