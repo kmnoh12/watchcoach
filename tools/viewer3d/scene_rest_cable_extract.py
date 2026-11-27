@@ -52,10 +52,12 @@ def named_mesh(name, *, axes=(1, 2, 3)):
         ev.to_mesh_clear()
 
 
-def straight_profile(name, *, along_y=False):
+def straight_profile(name, *, along_y=False, clear_animation=False):
     """Evaluate the source curve's bevel on a straight run with the app's axial track."""
     obj = bpy.data.objects[name]
     curve = obj.data.copy()
+    if clear_animation:
+        curve.animation_data_clear()
     curve.splines.clear()
     curve.use_fill_caps = False
     spline = curve.splines.new("POLY")

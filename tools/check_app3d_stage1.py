@@ -12,6 +12,7 @@ import sys
 import zlib
 
 import numpy as np
+from scipy.spatial import ConvexHull
 from scipy.spatial.transform import Rotation
 
 import upgrade_app3d_machines as build
@@ -74,6 +75,16 @@ def original(obj):
     return np.asarray(obj['verts']).reshape(-1,3) @ m[:,:3,:3] + m[:,None,3,:3]
 
 
+def envelope_error(a, b):
+    """Largest outward deviation in either direction for convex contact meshes."""
+    error = 0.
+    for ref, candidate in ((a, b), (b, a)):
+        for shape, points in zip(ref, candidate):
+            planes = ConvexHull(shape).equations
+            error = max(error, np.max(np.einsum('vi,pi->vp', points, planes[:, :3]) + planes[:, 3]))
+    return error
+
+
 def check(directory):
     data, humans = directory/'data', directory/'human_v5'
     manifest = json.loads((data/'wgm_manifest.json').read_text())
@@ -84,7 +95,7 @@ def check(directory):
     base = json.loads((humans/'base.json').read_text()); assert base['vertices'] == 1401
     human_faces = np.asarray(base['triangles']).reshape(-1,3)
     thigh_faces, _ = contact_region(base, 'thigh_roller')
-    failures = []
+    failures = []; part_ids = {}
     for key in build.STAGE1:
         raw = json.loads((data/f'{key}.json').read_text()); hb = humans/f'{key}.bin'
         human = build.load_wgp2_human_frames(hb); audit = []
@@ -97,7 +108,11 @@ def check(directory):
         assert len(acts) == len(human) and len(rows) == len(audit)
         by = defaultdict(list); shared = []; grip = surface = 0.; n_grips = 0
         for e, row in zip(audit, rows):
-            assert row['pid'] == e['part_id']; by[e['name']].append(row)
+            assert part_ids.setdefault(e['part_id'], row['pid']) == row['pid']
+            v, faces = parts[row['pid']]
+            assert np.array_equal(faces.ravel(), np.ravel(e['tris']))
+            assert np.allclose(v, e['verts'], atol=(np.ptp(e['verts'], axis=0) / 65535 + 1e-7).max(), rtol=0)
+            by[e['name']].append(row)
             if e['role'] == 'STATION': shared.append((e['name'], row['pid'], row['rgb'], row['mat']))
             if e['role'] == 'BODY_FIT':
                 assert row['nf'] == 1
@@ -112,8 +127,13 @@ def check(directory):
             name = o['name']; spec = classify_object(name, o['color'])
             if spec.role == 'LOCKED_GRIP':
                 row, = by[name]; n_grips += 1
-                assert np.array_equal(row['faces'].ravel(), o['tris'])
-                grip = max(grip, np.linalg.norm(row['world']-original(o), axis=2).max())
+                ref = original(o)
+                assert len(row['world']) == len(ref)
+                if np.array_equal(row['faces'].ravel(), o['tris']):
+                    diff = np.linalg.norm(row['world']-ref, axis=2).max()
+                else:
+                    diff = envelope_error(row['world'], ref)
+                grip = max(grip, diff)
             if spec.role == 'SURFACE_LOCKED':
                 ref = original(o)[0]; m = np.array(o['m'][0]).reshape(4,4)
                 if spec.catalog_id == 'pad_contoured_seat':

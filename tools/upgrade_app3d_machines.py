@@ -234,7 +234,7 @@ def fit_lat_rollers(ex_id, objs, human, base):
     return vertical, sweep, True
 
 
-def fit_lat_station(objs, packer, n, fits):
+def fit_lat_station(objs, n, fits):
     by_name = {}
     for obj in objs:
         by_name.setdefault(normalize_base_name(obj['name']), []).append(obj)
@@ -276,7 +276,7 @@ def fit_lat_station(objs, packer, n, fits):
         sp = part.part
         pos = root + part.at + (lift if part.lift else np.zeros((1,3)))
         entries.append(dict(name=part.name, role='BODY_FIT' if part.name.startswith('adjuster_') else 'STATION', catalog_id=part.name,
-                            part_id=packer.add(sp.verts, sp.tris, sp.smooth), verts=sp.verts, tris=sp.tris,
+                            verts=sp.verts, tris=sp.tris,
                             color=lower_red if part.name == 'anchor' else sp.color,
                             mat=sp.mat_preset, smooth=sp.smooth, pos=pos,
                             quats=np.tile(Rotation.from_rotvec([part.pitch,0,0]).as_quat(), (len(pos),1)), sc=np.ones_like(pos)))
@@ -311,6 +311,7 @@ def upgrade_machine(
     human_faces: np.ndarray | None = None,
     audit: list | None = None,
     *, human_base: dict | None = None,
+    lat_exterior: bool = True,
 ) -> tuple[bytes, dict]:
     objs = raw_data["objects"]
     acts = raw_data["acts"]
@@ -327,7 +328,7 @@ def upgrade_machine(
         else:
             other_objs.append((o, spec))
 
-    upgraded_entries: list[dict] = []  # {name, role, part_id, verts, tris, color, mat, smooth, pos, quats, sc}
+    upgraded_entries: list[dict] = []
     fake_anim_stripped = 0
     max_grip_diff_mm = 0.0
     max_surface_diff_mm = 0.0
@@ -339,7 +340,7 @@ def upgrade_machine(
         lower_red = palette()['lower_red']
         assert human_frames is not None and len(human_frames) == len(acts) and human_faces is not None, f'[{ex_id}] missing matching human frames/faces'
         fits, sweep, roller_clear = fit_lat_rollers(ex_id, objs, human_frames, human_base)
-        upgraded_entries, cable_eye = fit_lat_station(objs, packer, len(acts), fits)
+        upgraded_entries, cable_eye = fit_lat_station(objs, len(acts), fits)
         blocked = [] if roller_clear else ['thigh_roller']
         for e in upgraded_entries:
             if e['role'] == 'BODY_FIT':
@@ -440,12 +441,10 @@ def upgrade_machine(
                     sp.color = STEEL
                 if spec.base_name in LAT_RED_FRAME and sp.mat_preset == MAT_FRAME:
                     sp.color = lower_red
-            pid = packer.add(sp.verts, sp.tris, sp.smooth)
             upgraded_entries.append({
                 "name": o["name"] + sp.name_suffix,
                 "role": spec.role,
                 "catalog_id": spec.catalog_id or "original",
-                "part_id": pid,
                 "verts": sp.verts,
                 "tris": sp.tris,
                 "color": sp.color,
@@ -482,12 +481,10 @@ def upgrade_machine(
         rx = max(float(w_half[0]) - tube_r, 0.008)
         rz = max(float(w_half[2]) - tube_r, 0.014)
         sp = build_carabiner_ring(rx, rz, tube_r=tube_r)
-        pid = packer.add(sp.verts, sp.tris, sp.smooth)
         upgraded_entries.append({
             "name": "carabiner_main",
             "role": "CLEANUP",
             "catalog_id": "carabiner_merged",
-            "part_id": pid,
             "verts": sp.verts,
             "tris": sp.tris,
             "color": sp.color,
@@ -497,6 +494,21 @@ def upgrade_machine(
             "quats": ring_quats,
             "sc": ring_sc,
         })
+
+    exterior_exception = None
+    if pilot and lat_exterior:
+        from scipy.spatial import QhullError
+
+        from upgrade_app3d_lat_exterior import fit_exterior
+
+        try:
+            replacements = fit_exterior(ex_id, raw_data, upgraded_entries, human_frames, human_faces)
+        except (ValueError, QhullError) as error:
+            exterior_exception = str(error).splitlines()[0]
+            print(f"{ex_id}: keeping stage-one exterior: {exterior_exception}")
+        else:
+            upgraded_entries = [part for entry in upgraded_entries
+                                for part in replacements.get(entry['name'], (entry,))]
 
     # Gate 2: Full-frame human-machine AABB clearance check for newly added/expanded SHELL parts (e.g. acrylic shroud)
     new_human_penetration_mm = 0.0
@@ -518,6 +530,8 @@ def upgrade_machine(
             f"[{ex_id}] Acrylic/shroud overlaps human AABB by {new_human_penetration_mm:.1f} mm!"
         )
 
+    for entry in upgraded_entries:
+        entry['part_id'] = packer.add(entry['verts'], entry['tris'], entry['smooth'])
     blob, total_tris, groups = pack_clip(ex_id, acts, upgraded_entries)
     orig_tris = sum(len(o["tris"]) // 3 for o in objs)
     stats = {
@@ -533,6 +547,7 @@ def upgrade_machine(
         "max_surface_diff_mm": round(max_surface_diff_mm, 4),
         "new_human_pen_mm": round(new_human_penetration_mm, 4),
         "blocked_body_fit": sorted(set(blocked)) if pilot else [],
+        "lat_exterior_exception": exterior_exception,
     }
     if audit is not None:
         audit.extend(upgraded_entries)
