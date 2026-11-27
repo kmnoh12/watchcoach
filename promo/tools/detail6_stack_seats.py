@@ -270,26 +270,45 @@ def _fix_seated_cable_row(coll):
     mats = _get_sm_mats("SCR")
     touched = []
 
-    # 2a. Update P_row_handle location[1] driver: -0.2+0.3*v -> -0.70+0.29*v
+    # 2a. Reorder left(-Y) -> right(+Y toward weight stack):
+    #     3 (backrest) -> 4 (seat) -> 2 (footplate) -> 1 (cable exit + handle facing -Y)
+    #     Keep orientations of 3, 4, 2 untouched; only translate Y.
+    y_shifts = [
+        (-0.380, ("chest", "chest_post")),
+        (-0.500, ("seat.008", "seat_post.005")),
+        (+0.870, (
+            "foot_plate", "footboard_mount",
+            "foot_rib", "foot_rib.001", "foot_rib.002", "foot_rib.003", "foot_rib.004",
+        )),
+    ]
+    for dy, names in y_shifts:
+        for nm in names:
+            ob = bpy.data.objects[nm]
+            _save_and_restore_xform(ob)
+            ob.location.y += dy
+            touched.append(nm)
+
+    # 2b. Flip P_row_handle 180 deg around Z to face -Y (toward user), level with exit pulley z=0.760
     rh = bpy.data.objects["P_row_handle"]
     _save_and_restore_xform(rh)
-    _set_driver_expr(rh, "location", 1, "-0.70+0.29*v")
-    rh.location.y = -0.70
-    # Step HandleHardware 4 mm forward of v_handle apex -> zero coplanar face contact
+    rh.rotation_mode = "XYZ"
+    rh.rotation_euler = (0.0, 0.0, math.pi)
+    rh.location = Vector((0.0, 0.260, 0.720))
+    _set_driver_expr(rh, "location", 1, "0.26-0.45*v")
+    # Step HandleHardware 4 mm forward (local -Y = root +Y toward pulley) -> zero coplanar face contact
     hh = bpy.data.objects.get("Ddetail6_SM_SCR_HandleHardware")
     if hh is not None:
         hh.location.y = -0.004
     touched.append(rh.name)
 
-    # 2b. Update Row cable points[1].co[1] driver: -.38+.30*v -> -.88+.29*v
-    #     and start point points[0] to front exit pulley (0.0, -0.940, 0.740)
+    # 2c. Update Row cable: from exit pulley (0, +0.580, 0.760) horizontally to flipped handle apex (0, +0.440-0.45*v, 0.760)
     rc = bpy.data.objects["Row cable"]
-    _set_driver_expr(rc.data, "splines[0].points[1].co", 1, "-0.88+0.29*v")
-    rc.data.splines[0].points[0].co = (0.0, -0.940, 0.740, 1.0)
-    rc.data.splines[0].points[1].co = (0.0, -0.880, 0.860, 1.0)
+    _set_driver_expr(rc.data, "splines[0].points[1].co", 1, "0.44-0.45*v")
+    rc.data.splines[0].points[0].co = (0.0, 0.580, 0.760, 1.0)
+    rc.data.splines[0].points[1].co = (0.0, 0.440, 0.760, 1.0)
     touched.append(rc.name)
 
-    # 2c. Update Coated load cable.009 to clean orthogonal outer-right path to front pulley column (0, -0.940, 0.740)
+    # 2d. Update Coated load cable.009: compact tower-front routing to exit pulley (0, +0.580, 0.760)
     lc = bpy.data.objects["Coated load cable.009"]
     sp = lc.data.splines[0]
     pts = [(0.0, 0.950, 0.9733)]
@@ -297,33 +316,33 @@ def _fix_seated_cable_row(coll):
         t = (math.pi * 0.56) * i / 14.0
         pts.append((0.0, 0.892 + 0.058 * math.cos(t), 1.500 + 0.058 * math.sin(t)))
     pts.extend([
-        (0.258,  0.775, 1.485),  # 1) outer-right upper redirection pulley
-        (0.258,  0.775, 0.145),  # 2) outer-right lower pulley
-        (0.268, -0.940, 0.145),  # 3) front-right low pulley (18 mm outside foot_plate x=0.250!)
-        (0.000, -0.940, 0.145),  # 4) front-center low pulley (186 mm in front of foot_plate!)
-        (0.000, -0.940, 0.740),  # 5) front-center exit pulley rising to handle height!
+        (0.258, 0.775, 1.485),  # 1) outer-right upper redirection pulley
+        (0.258, 0.775, 0.145),  # 2) outer-right lower pulley at tower side
+        (0.258, 0.580, 0.145),  # 3) tower-front right low corner pulley
+        (0.000, 0.580, 0.145),  # 4) tower-front center low pulley
+        (0.000, 0.580, 0.760),  # 5) tower-front exit pulley facing -Y toward user
     ])
     assert len(pts) == len(sp.points), f"SCR cable expected {len(sp.points)}, got {len(pts)}"
     for pt, xyz in zip(sp.points, pts):
         pt.co = (*xyz, 1.0)
     touched.append(lc.name)
 
-    # 2d. Rebuild Ddetail6_SM_SCR_Frame & Ddetail6_SM_SCR_Pulleys with extended base spine & front pulley upright
+    # 2e. Rebuild Ddetail6_SM_SCR_Frame & Ddetail6_SM_SCR_Pulleys for 3-4-2-1 layout
     _remove_obj_if_exists("Ddetail6_SM_SCR_Frame")
     _remove_obj_if_exists("Ddetail6_SM_SCR_Pulleys")
 
     bm_fr = bmesh.new()  # mat 0=silver, 1=steel, 2=grip, 3=frame
     bm_pl = bmesh.new()
 
-    # Grounded dark-satin base spine extended cleanly forward to y=-1.006 (y = [-1.006, +0.780], len=1.786)
-    lp._add_box(bm_fr, (0.0, -0.113, 0.043), (0.084, 1.786, 0.082), mat_idx=0, bevel=0.005, segments=2)
-    lp._add_tube_cap(bm_fr, (0.0, -1.006, 0.043), "Y", -1.0, 0.084, 0.082, depth=0.010, mat_idx=2)
+    # Grounded dark-satin base spine y = [-0.900, +0.780] (len=1.680, center=-0.060)
+    lp._add_box(bm_fr, (0.0, -0.060, 0.043), (0.084, 1.680, 0.082), mat_idx=0, bevel=0.005, segments=2)
+    lp._add_tube_cap(bm_fr, (0.0, -0.900, 0.043), "Y", -1.0, 0.084, 0.082, depth=0.010, mat_idx=2)
     # Rubber floor pads flush at floor_z = -0.0120 (world z=0.0000)
-    for py in (-0.910, -0.450, 0.050, 0.620):
+    for py in (-0.800, -0.450, 0.250, 0.620):
         lp._add_box(bm_fr, (0.0, py, floor_z + 0.009), (0.094, 0.130, 0.018), mat_idx=2, bevel=0.002, segments=1)
-    # 4 welded L-shaped floor anchor flanges (2 at front base sides, 2 flanking tower housing.009, flush at floor_z!)
+    # 4 welded L-shaped floor anchor flanges (rear backrest end & flanking tower)
     for sx in (-1.0, 1.0):
-        sm._add_anchor_flange(bm_fr, sx * 0.042, sx, -0.890, floor_z, 0.066, 0, 1)
+        sm._add_anchor_flange(bm_fr, sx * 0.042, sx, -0.780, floor_z, 0.066, 0, 1)
         sm._add_anchor_flange(bm_fr, sx * 0.240, sx,  0.860, floor_z, 0.098, 0, 1)
 
     # Split head-sheave hanger brackets flanking P_Head sheave.009 (z=1.500)
@@ -339,27 +358,26 @@ def _fix_seated_cable_row(coll):
     lp._add_box(bm_fr, (0.258, 0.775, 0.102), (0.028, 0.036, 0.056), mat_idx=0, bevel=0.002, segments=1)
     sm._add_guarded_sheave(bm_pl, (0.258, 0.775, 0.145), radius=0.028, axis="X", mat_guard=0, mat_wheel=2, mat_steel=1)
 
-    # 3) Front-right low corner pulley (mounted on transverse base outrigger at y=-0.940, z=0.064; post wy=0.022 clear of Y-cheeks!)
-    lp._add_box(bm_fr, (0.145, -0.940, 0.064), (0.268, 0.040, 0.030), mat_idx=0, bevel=0.002, segments=1)
-    lp._add_box(bm_fr, (0.268, -0.940, 0.100), (0.028, 0.022, 0.052), mat_idx=0, bevel=0.002, segments=1)
-    sm._add_guarded_sheave(bm_pl, (0.268, -0.940, 0.145), radius=0.028, axis="Y", mat_guard=0, mat_wheel=2, mat_steel=1)
+    # 3) Tower-front right low corner pulley (y=+0.580, right in front of tower)
+    lp._add_box(bm_fr, (0.140, 0.580, 0.064), (0.258, 0.040, 0.030), mat_idx=0, bevel=0.002, segments=1)
+    lp._add_box(bm_fr, (0.258, 0.580, 0.100), (0.028, 0.022, 0.052), mat_idx=0, bevel=0.002, segments=1)
+    sm._add_guarded_sheave(bm_pl, (0.258, 0.580, 0.145), radius=0.028, axis="Y", mat_guard=0, mat_wheel=2, mat_steel=1)
 
-    # 4 & 5) Front cable-guide upright rising cleanly from top of base spine (z=0.078 -> 0.797) at y=-0.980
-    #        (6 mm clear behind front tube cap y=-1.006, 20 mm clear in front of vertical cable y=-0.940!)
-    lp._add_box(bm_fr, (0.0, -0.940, 0.100), (0.034, 0.022, 0.050), mat_idx=0, bevel=0.002, segments=1)
-    sm._add_guarded_sheave(bm_pl, (0.0, -0.940, 0.145), radius=0.028, axis="Y", mat_guard=0, mat_wheel=2, mat_steel=1)
-    lp._add_box(bm_fr, (0.0, -0.980, 0.438), (0.050, 0.040, 0.718), mat_idx=0, bevel=0.004, segments=2)
-    lp._add_tube_cap(bm_fr, (0.0, -0.980, 0.797), "Z", 1.0, 0.050, 0.040, depth=0.009, mat_idx=2)
-    # Upper pulley mounting fork arms at x = +/- 0.026 (x_inner=0.022 -> 4.5 mm clear outside sheave cheek 0.0175!)
+    # 4 & 5) Cable-exit upright in front of weight stack at y=+0.620 (facing -Y toward user)
+    lp._add_box(bm_fr, (0.0, 0.580, 0.100), (0.034, 0.022, 0.050), mat_idx=0, bevel=0.002, segments=1)
+    sm._add_guarded_sheave(bm_pl, (0.0, 0.580, 0.145), radius=0.028, axis="Y", mat_guard=0, mat_wheel=2, mat_steel=1)
+    lp._add_box(bm_fr, (0.0, 0.620, 0.448), (0.050, 0.040, 0.738), mat_idx=0, bevel=0.004, segments=2)
+    lp._add_tube_cap(bm_fr, (0.0, 0.620, 0.817), "Z", 1.0, 0.050, 0.040, depth=0.009, mat_idx=2)
+    # Upper exit pulley mounting fork arms facing -Y (x = +/- 0.026)
     for sx in (-1.0, 1.0):
-        lp._add_box(bm_fr, (sx * 0.026, -0.958, 0.740), (0.008, 0.052, 0.042), mat_idx=0, bevel=0.0015, segments=1)
-    sm._add_guarded_sheave(bm_pl, (0.0, -0.940, 0.740), radius=0.028, axis="X", mat_guard=0, mat_wheel=2, mat_steel=1)
+        lp._add_box(bm_fr, (sx * 0.026, 0.598, 0.760), (0.008, 0.052, 0.042), mat_idx=0, bevel=0.0015, segments=1)
+    sm._add_guarded_sheave(bm_pl, (0.0, 0.580, 0.760), radius=0.028, axis="X", mat_guard=0, mat_wheel=2, mat_steel=1)
 
-    # Seat & chest post mounting plate bolts
+    # Seat & backrest post mounting plate bolts at new Y positions
     for sx in (-1.0, 1.0):
-        lp._add_hex_bolt(bm_fr, (sx * 0.062, 0.050, 0.350), "X",
+        lp._add_hex_bolt(bm_fr, (sx * 0.062, -0.450, 0.350), "X",
                          head_r=0.007, head_h=0.0055, washer_r=0.0105, washer_h=0.0026, sign=sx, mat_idx=1)
-        lp._add_hex_bolt(bm_fr, (sx * 0.062, -0.360, 0.560), "X",
+        lp._add_hex_bolt(bm_fr, (sx * 0.062, -0.740, 0.560), "X",
                          head_r=0.007, head_h=0.0055, washer_r=0.0105, washer_h=0.0026, sign=sx, mat_idx=1)
 
     f_ob = sm._finalize_sm_mesh(
