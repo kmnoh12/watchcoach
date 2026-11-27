@@ -48,7 +48,9 @@ def slots(v, t, m):
     return result
 
 
-def casting(wide, thin=False):
+def casting(wide, thin=False, *,
+            guides=((-0.130, 0.022, 0.022), (0, 0.022, 0.022), (0.130, 0.022, 0.022)),
+            socket=None):
     # Start with the scene's through-bored casting, KEEP both mouth bevels. The
     # scene only models the front/back socket: drill three vertical passages for
     # the phone's fixed twin guides and central lift rod. No decimation.
@@ -57,7 +59,8 @@ def casting(wide, thin=False):
     t = np.asarray(s["tri"])
     old = np.asarray(s["verts"], float)
     # The 45 mm plates still need passage for the same 35 mm-high selector pin.
-    socket = [0.0235, 0.0305] if thin else [0.023, 0.022]
+    if socket is None:
+        socket = (0.0235, 0.0305) if thin else (0.023, 0.022)
     for i in range(16, 80):
         direction = old[i, [0, 2]]
         direction /= np.linalg.norm(direction)
@@ -70,9 +73,12 @@ def casting(wide, thin=False):
     me.update()
     obj = bpy.data.objects.new("cable fit", me)
     bpy.context.collection.objects.link(obj)
-    for x in [-0.130, 0, 0.130]:
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.022, depth=0.12, location=(x, 0, 0))
+    for x, rx, ry in guides:
+        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=ry, depth=0.12, location=(x, 0, 0))
         drill = bpy.context.object
+        if rx != ry:
+            for vertex in drill.data.vertices:
+                vertex.co.x *= rx / ry
         mod = obj.modifiers.new("App guide bore", "BOOLEAN")
         mod.operation = "DIFFERENCE"
         mod.solver = "EXACT"
