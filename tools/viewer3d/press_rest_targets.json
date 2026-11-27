@@ -1,0 +1,1184 @@
+{
+  "dip_machine": {
+    "arch_foot": [
+      0,
+      "frame_foot__002"
+    ],
+    "arch_foot.001": [
+      1,
+      "frame_foot__002"
+    ],
+    "arch_post": [
+      2,
+      "frame_post__003"
+    ],
+    "arch_post.001": [
+      3,
+      "frame_post__003"
+    ],
+    "arch_shoulder": [
+      4,
+      "arch_joint__001"
+    ],
+    "arch_shoulder.001": [
+      5,
+      "arch_joint__001"
+    ],
+    "arch_top": [
+      6,
+      "top_beam__002"
+    ],
+    "back_post": [
+      8,
+      "pad_post__005"
+    ],
+    "back_top": [
+      9,
+      "top_beam__002"
+    ],
+    "back_yoke": [
+      10,
+      "pad_yoke__001"
+    ],
+    "base_front": [
+      11,
+      "base_beam__002"
+    ],
+    "base_rail": [
+      12,
+      "base_runner__001"
+    ],
+    "base_rear": [
+      13,
+      "base_beam__002"
+    ],
+    "handle_collar.001": [
+      14,
+      "handle_collar__001"
+    ],
+    "handle_end.001": [
+      15,
+      "handle_end_cap__001"
+    ],
+    "handle_grip.001": [
+      16,
+      "hand_grip__008"
+    ],
+    "horn.001": [
+      17,
+      "loading_horn__002"
+    ],
+    "horn_arm.001": [
+      18,
+      "load_arm__001"
+    ],
+    "horn_end.001": [
+      19,
+      "horn_end_cap__002"
+    ],
+    "lever_arm.001": [
+      20,
+      "lever_arm__003"
+    ],
+    "lever_arm2.001": [
+      21,
+      "lever_arm__003"
+    ],
+    "lever_arm3.001": [
+      22,
+      "lever_arm__003"
+    ],
+    "handle_collar": [
+      26,
+      "handle_collar__001"
+    ],
+    "handle_end": [
+      27,
+      "handle_end_cap__001"
+    ],
+    "handle_grip": [
+      28,
+      "hand_grip__008"
+    ],
+    "horn": [
+      29,
+      "loading_horn__002"
+    ],
+    "horn_arm": [
+      30,
+      "load_arm__001"
+    ],
+    "horn_end": [
+      31,
+      "horn_end_cap__002"
+    ],
+    "lever_arm": [
+      32,
+      "lever_arm__003"
+    ],
+    "lever_arm2": [
+      33,
+      "lever_arm__003"
+    ],
+    "lever_arm3": [
+      34,
+      "lever_arm__003"
+    ],
+    "panel_base": [
+      38,
+      "panel_mount__001"
+    ],
+    "panel_foot": [
+      39,
+      "frame_foot__002"
+    ],
+    "panel_foot.001": [
+      40,
+      "frame_foot__002"
+    ],
+    "pivot_cap": [
+      45,
+      "pivot_cover__001"
+    ],
+    "pivot_cap.001": [
+      46,
+      "pivot_cover__001"
+    ],
+    "rubber_foot": [
+      47,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      48,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.002": [
+      49,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.003": [
+      50,
+      "rubber_foot__001"
+    ]
+  },
+  "lateral_raise_machine": {
+    "base_rail": [
+      0,
+      "base_runner__002"
+    ],
+    "base_rail.001": [
+      1,
+      "base_runner__002"
+    ],
+    "cable": [
+      8,
+      "cable_segment__001"
+    ],
+    "cable.001": [
+      9,
+      "cable_segment__001"
+    ],
+    "cable.002": [
+      10,
+      "cable_segment__001"
+    ],
+    "cable.003": [
+      11,
+      "cable_segment__001"
+    ],
+    "cable.004": [
+      12,
+      "cable_segment__001"
+    ],
+    "cable.005": [
+      13,
+      "cable_segment__001"
+    ],
+    "cable.006": [
+      14,
+      "cable_segment__001"
+    ],
+    "cable.007": [
+      15,
+      "cable_segment__001"
+    ],
+    "cable.008": [
+      16,
+      "cable_segment__001"
+    ],
+    "cable.009": [
+      17,
+      "cable_segment__001"
+    ],
+    "grip": [
+      19,
+      "hand_grip__002"
+    ],
+    "grip_end": [
+      20,
+      "handle_end_cap__003"
+    ],
+    "handle_link": [
+      21,
+      "handle_support__006"
+    ],
+    "lever": [
+      22,
+      "lever_arm__008"
+    ],
+    "lever.001": [
+      23,
+      "lever_arm__008"
+    ],
+    "grip.001": [
+      25,
+      "hand_grip__002"
+    ],
+    "grip_end.001": [
+      26,
+      "handle_end_cap__003"
+    ],
+    "handle_link.001": [
+      27,
+      "handle_support__006"
+    ],
+    "lever.002": [
+      28,
+      "lever_arm__008"
+    ],
+    "lever.003": [
+      29,
+      "lever_arm__008"
+    ],
+    "platform": [
+      37,
+      "footplate__001"
+    ],
+    "rail": [
+      38,
+      "frame_rail__005"
+    ],
+    "rear_brace": [
+      45,
+      "frame_brace__001"
+    ],
+    "rear_brace.001": [
+      46,
+      "frame_brace__001"
+    ],
+    "rear_crossfoot": [
+      47,
+      "base_crossfoot__007"
+    ],
+    "rubber_foot": [
+      50,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      51,
+      "rubber_foot__001"
+    ],
+    "tower_base": [
+      56,
+      "base_beam__002"
+    ],
+    "tower_post": [
+      58,
+      "tower_post__004"
+    ],
+    "tower_post.001": [
+      59,
+      "tower_post__004"
+    ]
+  },
+  "lateral_raise_machine~m=single": {
+    "base_rail": [
+      0,
+      "base_runner__002"
+    ],
+    "base_rail.001": [
+      1,
+      "base_runner__002"
+    ],
+    "cable": [
+      5,
+      "cable_segment__001"
+    ],
+    "cable.001": [
+      6,
+      "cable_segment__001"
+    ],
+    "cable.002": [
+      7,
+      "cable_segment__001"
+    ],
+    "cable.003": [
+      8,
+      "cable_segment__001"
+    ],
+    "cable.004": [
+      9,
+      "cable_segment__001"
+    ],
+    "grip": [
+      11,
+      "hand_grip__002"
+    ],
+    "grip_end": [
+      12,
+      "handle_end_cap__003"
+    ],
+    "handle_link": [
+      13,
+      "handle_support__006"
+    ],
+    "lever": [
+      14,
+      "lever_arm__008"
+    ],
+    "lever.001": [
+      15,
+      "lever_arm__008"
+    ],
+    "platform": [
+      23,
+      "footplate__001"
+    ],
+    "rail": [
+      24,
+      "frame_rail__005"
+    ],
+    "rear_brace": [
+      31,
+      "frame_brace__001"
+    ],
+    "rear_brace.001": [
+      32,
+      "frame_brace__001"
+    ],
+    "rear_crossfoot": [
+      33,
+      "base_crossfoot__007"
+    ],
+    "rubber_foot": [
+      35,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      36,
+      "rubber_foot__001"
+    ],
+    "tower_base": [
+      41,
+      "base_beam__002"
+    ],
+    "tower_post": [
+      43,
+      "tower_post__004"
+    ],
+    "tower_post.001": [
+      44,
+      "tower_post__004"
+    ]
+  },
+  "pec_deck~m=fly": {
+    "back_brace": [
+      1,
+      "frame_brace__003"
+    ],
+    "back_support": [
+      2,
+      "pad_support__003"
+    ],
+    "base_rail": [
+      3,
+      "base_runner__004"
+    ],
+    "cable": [
+      4,
+      "cable_segment__001"
+    ],
+    "cable.001": [
+      5,
+      "cable_segment__001"
+    ],
+    "cable.002": [
+      6,
+      "cable_segment__001"
+    ],
+    "cable.003": [
+      7,
+      "cable_segment__001"
+    ],
+    "cross_foot": [
+      8,
+      "base_crossfoot__004"
+    ],
+    "cross_foot.001": [
+      9,
+      "base_crossfoot__004"
+    ],
+    "front_foot_rest": [
+      10,
+      "footplate__004"
+    ],
+    "instruction_panel": [
+      13,
+      "sign_panel__001"
+    ],
+    "overhead_bridge": [
+      14,
+      "frame_bridge__001"
+    ],
+    "fly_arm": [
+      15,
+      "lever_arm__010"
+    ],
+    "hbar_stem": [
+      17,
+      "handle_stem__001"
+    ],
+    "horizontal_grip": [
+      18,
+      "hand_grip__003"
+    ],
+    "pivot_cap": [
+      19,
+      "pivot_cover__002"
+    ],
+    "vbar_stem": [
+      22,
+      "handle_stem__001"
+    ],
+    "vertical_grip": [
+      23,
+      "hand_grip__002"
+    ],
+    "fly_arm.001": [
+      24,
+      "lever_arm__010"
+    ],
+    "hbar_stem.001": [
+      26,
+      "handle_stem__001"
+    ],
+    "horizontal_grip.001": [
+      27,
+      "hand_grip__003"
+    ],
+    "pivot_cap.001": [
+      28,
+      "pivot_cover__002"
+    ],
+    "vbar_stem.001": [
+      31,
+      "handle_stem__001"
+    ],
+    "vertical_grip.001": [
+      32,
+      "hand_grip__002"
+    ],
+    "panel_mount": [
+      39,
+      "panel_mount__001"
+    ],
+    "rear_stabilizer": [
+      46,
+      "base_crossfoot__003"
+    ],
+    "rear_stabilizer.001": [
+      47,
+      "base_crossfoot__003"
+    ],
+    "rubber_foot": [
+      53,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      54,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.002": [
+      55,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.003": [
+      56,
+      "rubber_foot__001"
+    ],
+    "tower_foot": [
+      63,
+      "frame_foot__005"
+    ],
+    "tower_foot.001": [
+      64,
+      "frame_foot__005"
+    ],
+    "tower_rubber": [
+      65,
+      "rubber_foot__001"
+    ],
+    "tower_rubber.001": [
+      66,
+      "rubber_foot__001"
+    ],
+    "tower_side": [
+      67,
+      "tower_side_member__005"
+    ],
+    "tower_side.001": [
+      68,
+      "tower_side_member__005"
+    ],
+    "tower_top_rail": [
+      69,
+      "frame_rail__007"
+    ],
+    "tower_top_rail.001": [
+      70,
+      "frame_rail__007"
+    ],
+    "tower_top_return": [
+      71,
+      "top_beam__005"
+    ],
+    "tower_top_return.001": [
+      72,
+      "top_beam__005"
+    ]
+  },
+  "pec_deck~m=reverse": {
+    "back_brace": [
+      1,
+      "frame_brace__003"
+    ],
+    "back_support": [
+      2,
+      "pad_support__003"
+    ],
+    "base_rail": [
+      3,
+      "base_runner__004"
+    ],
+    "cable": [
+      4,
+      "cable_segment__001"
+    ],
+    "cable.001": [
+      5,
+      "cable_segment__001"
+    ],
+    "cable.002": [
+      6,
+      "cable_segment__001"
+    ],
+    "cable.003": [
+      7,
+      "cable_segment__001"
+    ],
+    "cross_foot": [
+      8,
+      "base_crossfoot__004"
+    ],
+    "cross_foot.001": [
+      9,
+      "base_crossfoot__004"
+    ],
+    "front_foot_rest": [
+      10,
+      "footplate__004"
+    ],
+    "instruction_panel": [
+      13,
+      "sign_panel__001"
+    ],
+    "overhead_bridge": [
+      14,
+      "frame_bridge__001"
+    ],
+    "fly_arm": [
+      15,
+      "lever_arm__010"
+    ],
+    "hbar_stem": [
+      17,
+      "handle_stem__001"
+    ],
+    "horizontal_grip": [
+      18,
+      "hand_grip__003"
+    ],
+    "pivot_cap": [
+      19,
+      "pivot_cover__002"
+    ],
+    "vbar_stem": [
+      22,
+      "handle_stem__001"
+    ],
+    "vertical_grip": [
+      23,
+      "hand_grip__002"
+    ],
+    "fly_arm.001": [
+      24,
+      "lever_arm__010"
+    ],
+    "hbar_stem.001": [
+      26,
+      "handle_stem__001"
+    ],
+    "horizontal_grip.001": [
+      27,
+      "hand_grip__003"
+    ],
+    "pivot_cap.001": [
+      28,
+      "pivot_cover__002"
+    ],
+    "vbar_stem.001": [
+      31,
+      "handle_stem__001"
+    ],
+    "vertical_grip.001": [
+      32,
+      "hand_grip__002"
+    ],
+    "panel_mount": [
+      39,
+      "panel_mount__001"
+    ],
+    "rear_stabilizer": [
+      48,
+      "base_crossfoot__003"
+    ],
+    "rear_stabilizer.001": [
+      49,
+      "base_crossfoot__003"
+    ],
+    "rubber_foot": [
+      55,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      56,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.002": [
+      57,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.003": [
+      58,
+      "rubber_foot__001"
+    ],
+    "tower_foot": [
+      65,
+      "frame_foot__005"
+    ],
+    "tower_foot.001": [
+      66,
+      "frame_foot__005"
+    ],
+    "tower_rubber": [
+      67,
+      "rubber_foot__001"
+    ],
+    "tower_rubber.001": [
+      68,
+      "rubber_foot__001"
+    ],
+    "tower_side": [
+      69,
+      "tower_side_member__005"
+    ],
+    "tower_side.001": [
+      70,
+      "tower_side_member__005"
+    ],
+    "tower_top_rail": [
+      71,
+      "frame_rail__007"
+    ],
+    "tower_top_rail.001": [
+      72,
+      "frame_rail__007"
+    ],
+    "tower_top_return": [
+      73,
+      "top_beam__005"
+    ],
+    "tower_top_return.001": [
+      74,
+      "top_beam__005"
+    ]
+  },
+  "pec_deck~m=reverse_single": {
+    "back_brace": [
+      1,
+      "frame_brace__003"
+    ],
+    "back_support": [
+      2,
+      "pad_support__003"
+    ],
+    "base_rail": [
+      3,
+      "base_runner__004"
+    ],
+    "cable": [
+      4,
+      "cable_segment__001"
+    ],
+    "cable.001": [
+      5,
+      "cable_segment__001"
+    ],
+    "cable.002": [
+      6,
+      "cable_segment__001"
+    ],
+    "cross_foot": [
+      7,
+      "base_crossfoot__004"
+    ],
+    "cross_foot.001": [
+      8,
+      "base_crossfoot__004"
+    ],
+    "front_foot_rest": [
+      9,
+      "footplate__004"
+    ],
+    "instruction_panel": [
+      12,
+      "sign_panel__001"
+    ],
+    "overhead_bridge": [
+      13,
+      "frame_bridge__001"
+    ],
+    "fly_arm": [
+      14,
+      "lever_arm__010"
+    ],
+    "hbar_stem": [
+      16,
+      "handle_stem__001"
+    ],
+    "horizontal_grip": [
+      17,
+      "hand_grip__003"
+    ],
+    "pivot_cap": [
+      18,
+      "pivot_cover__002"
+    ],
+    "vbar_stem": [
+      21,
+      "handle_stem__001"
+    ],
+    "vertical_grip": [
+      22,
+      "hand_grip__002"
+    ],
+    "panel_mount": [
+      29,
+      "panel_mount__001"
+    ],
+    "rear_stabilizer": [
+      36,
+      "base_crossfoot__003"
+    ],
+    "rear_stabilizer.001": [
+      37,
+      "base_crossfoot__003"
+    ],
+    "rubber_foot": [
+      43,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      44,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.002": [
+      45,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.003": [
+      46,
+      "rubber_foot__001"
+    ],
+    "tower_foot": [
+      53,
+      "frame_foot__005"
+    ],
+    "tower_foot.001": [
+      54,
+      "frame_foot__005"
+    ],
+    "tower_rubber": [
+      55,
+      "rubber_foot__001"
+    ],
+    "tower_rubber.001": [
+      56,
+      "rubber_foot__001"
+    ],
+    "tower_side": [
+      57,
+      "tower_side_member__005"
+    ],
+    "tower_side.001": [
+      58,
+      "tower_side_member__005"
+    ],
+    "tower_top_rail": [
+      59,
+      "frame_rail__007"
+    ],
+    "tower_top_rail.001": [
+      60,
+      "frame_rail__007"
+    ],
+    "tower_top_return": [
+      61,
+      "top_beam__005"
+    ],
+    "tower_top_return.001": [
+      62,
+      "top_beam__005"
+    ]
+  },
+  "preacher_machine": {
+    "base_rail": [
+      0,
+      "base_runner__005"
+    ],
+    "base_rail.001": [
+      1,
+      "base_runner__005"
+    ],
+    "cable": [
+      6,
+      "cable_segment__001"
+    ],
+    "cable.001": [
+      7,
+      "cable_segment__001"
+    ],
+    "cable.002": [
+      8,
+      "cable_segment__001"
+    ],
+    "crossfoot": [
+      9,
+      "base_crossfoot__004"
+    ],
+    "crossfoot.001": [
+      10,
+      "base_crossfoot__004"
+    ],
+    "instruction_panel": [
+      13,
+      "sign_panel__001"
+    ],
+    "curl_arm": [
+      14,
+      "lever_arm__007"
+    ],
+    "curl_arm.001": [
+      15,
+      "lever_arm__007"
+    ],
+    "grip": [
+      17,
+      "hand_grip__001"
+    ],
+    "grip.001": [
+      18,
+      "hand_grip__001"
+    ],
+    "handle_neck": [
+      19,
+      "handle_support__006"
+    ],
+    "handle_neck.001": [
+      20,
+      "handle_support__006"
+    ],
+    "rubber_foot": [
+      30,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      31,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.002": [
+      32,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.003": [
+      33,
+      "rubber_foot__001"
+    ],
+    "spine": [
+      38,
+      "frame_spine__002"
+    ],
+    "tower_base": [
+      40,
+      "base_beam__002"
+    ],
+    "tower_outrigger": [
+      42,
+      "frame_stay__003"
+    ],
+    "tower_upright": [
+      43,
+      "tower_post__002"
+    ],
+    "tower_upright.001": [
+      44,
+      "tower_post__002"
+    ]
+  },
+  "shoulder_press_machine": {
+    "back_support": [
+      3,
+      "pad_support__003"
+    ],
+    "brace.005": [
+      6,
+      "frame_brace__001"
+    ],
+    "brace.006": [
+      7,
+      "frame_brace__001"
+    ],
+    "foot.006": [
+      8,
+      "frame_foot__009"
+    ],
+    "foot.007": [
+      9,
+      "frame_foot__009"
+    ],
+    "front_cross.001": [
+      10,
+      "frame_crossbeam__001"
+    ],
+    "arm_gusset": [
+      13,
+      "frame_gusset__001"
+    ],
+    "forward_press_arm": [
+      14,
+      "lever_arm__009"
+    ],
+    "grip.003": [
+      15,
+      "hand_grip__001"
+    ],
+    "handle_bend": [
+      16,
+      "handle_branch__003"
+    ],
+    "load_branch": [
+      17,
+      "load_arm__003"
+    ],
+    "load_sleeve": [
+      18,
+      "bar_sleeve__003"
+    ],
+    "upper_press_arm": [
+      21,
+      "lever_arm__007"
+    ],
+    "arm_gusset.001": [
+      22,
+      "frame_gusset__001"
+    ],
+    "forward_press_arm.001": [
+      23,
+      "lever_arm__009"
+    ],
+    "grip.004": [
+      24,
+      "hand_grip__001"
+    ],
+    "handle_bend.001": [
+      25,
+      "handle_branch__003"
+    ],
+    "load_branch.001": [
+      26,
+      "load_arm__003"
+    ],
+    "load_sleeve.001": [
+      27,
+      "bar_sleeve__003"
+    ],
+    "upper_press_arm.001": [
+      30,
+      "lever_arm__007"
+    ],
+    "rear_cross.001": [
+      31,
+      "frame_crossbeam__001"
+    ],
+    "rubber_foot": [
+      32,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.001": [
+      33,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.002": [
+      34,
+      "rubber_foot__001"
+    ],
+    "rubber_foot.003": [
+      35,
+      "rubber_foot__001"
+    ],
+    "seat_spine": [
+      40,
+      "frame_spine__003"
+    ],
+    "top_cross": [
+      46,
+      "frame_crossbeam__001"
+    ],
+    "upright": [
+      47,
+      "frame_post__004"
+    ],
+    "upright.001": [
+      48,
+      "frame_post__004"
+    ]
+  },
+  "viking_press": {
+    "a_frame_brace": [
+      0,
+      "frame_brace__008"
+    ],
+    "a_frame_brace.001": [
+      1,
+      "frame_brace__008"
+    ],
+    "base_runner": [
+      2,
+      "base_runner__002"
+    ],
+    "base_runner.001": [
+      3,
+      "base_runner__002"
+    ],
+    "height_pin": [
+      6,
+      "adjustment_pin__001"
+    ],
+    "collar.002": [
+      8,
+      "bar_collar__007"
+    ],
+    "collar.003": [
+      9,
+      "bar_collar__007"
+    ],
+    "handle_stem": [
+      10,
+      "handle_support__006"
+    ],
+    "handle_stem.001": [
+      11,
+      "handle_support__006"
+    ],
+    "loading_sleeve": [
+      16,
+      "bar_sleeve__003"
+    ],
+    "loading_sleeve.001": [
+      17,
+      "bar_sleeve__003"
+    ],
+    "moving_yoke": [
+      18,
+      "lever_yoke__003"
+    ],
+    "press_arm": [
+      21,
+      "lever_arm__006"
+    ],
+    "press_arm.001": [
+      22,
+      "lever_arm__006"
+    ],
+    "shoulder_grip": [
+      23,
+      "hand_grip__002"
+    ],
+    "shoulder_grip.001": [
+      24,
+      "hand_grip__002"
+    ],
+    "sleeve_stop": [
+      25,
+      "sleeve_shoulder__004"
+    ],
+    "sleeve_stop.001": [
+      26,
+      "sleeve_shoulder__004"
+    ],
+    "rear_crossmember": [
+      27,
+      "frame_crossbeam__006"
+    ],
+    "rear_crossmember.001": [
+      28,
+      "frame_crossbeam__006"
+    ],
+    "rear_upright": [
+      29,
+      "frame_post__006"
+    ],
+    "rear_upright.001": [
+      30,
+      "frame_post__006"
+    ],
+    "rest_base": [
+      31,
+      "base_beam__001"
+    ],
+    "rest_inner": [
+      34,
+      "rest_insert__001"
+    ],
+    "rest_post": [
+      35,
+      "frame_post__006"
+    ],
+    "runner_end": [
+      36,
+      "end_cap__003"
+    ],
+    "runner_end.001": [
+      37,
+      "end_cap__003"
+    ],
+    "runner_end.002": [
+      38,
+      "end_cap__003"
+    ],
+    "runner_end.003": [
+      39,
+      "end_cap__003"
+    ]
+  }
+}
