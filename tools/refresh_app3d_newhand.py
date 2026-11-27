@@ -47,7 +47,7 @@ def main():
     # the shared machine catalogue against the final hand-adjusted grips before replacing anything.
     shutil.copyfile(REPO / "tools/viewer3d/index.html", stage / "index.html")
     subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_machines.py"),
-                    "--viewer-dir", str(stage), "--stage1"], check=True)
+                    "--viewer-dir", str(stage), "--stage1", "--plates"], check=True)
     report = json.loads((old / "v5_bundle_report.json").read_text())
     manifest = json.loads((stage / "human_v5/manifest.json").read_text())
     manifest["revision"] = report["revision"] + "+newhand"

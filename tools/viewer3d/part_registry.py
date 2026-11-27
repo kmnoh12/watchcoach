@@ -22,6 +22,7 @@ MAT_RUBBER = 6    # matte dark rubber/cable/grip (roughness 0.85, metalness 0.04
 MAT_ACCENT = 7    # anodized accent pins/hubs (roughness 0.32, metalness 0.45)
 MAT_SELECTOR_WINDOW = 8  # twin neutral acrylic leaves, distinct from older tinted shrouds
 MAT_LAT_STACK_LABEL = 9  # alpha-cutout atlas on two planar WGM2 sub-parts
+MAT_PLATE_FACE = 10  # original gym freeweight atlas, UVs stored in WGC2
 
 MAT_NAMES = {
     MAT_LEGACY: "legacy",
@@ -33,6 +34,7 @@ MAT_NAMES = {
     MAT_RUBBER: "rubber",
     MAT_ACCENT: "accent",
     MAT_SELECTOR_WINDOW: "selector_window",
+    MAT_PLATE_FACE: "plate_face",
     MAT_LAT_STACK_LABEL: "lat_stack_label",
 }
 

@@ -96,4 +96,15 @@ if (label === 'app asset' && source.includes('function addLatStackUV(')) check('
     assert.deepEqual(Array.from(geom.attributes.uv.array),[0,v0,1,v0,1,v0+.5,0,v0+.5]);
   }
 });
+if (label === 'app asset' && source.includes('function mergePlateOverlay(')) check('plate overlay replaces only named slots on the same timeline',()=>{
+  const ctx=vm.createContext({parse:d=>({...d,parsed:d.objects.map(o=>({...o}))})});
+  vm.runInContext(fn('mergePlateOverlay'),ctx);
+  const raw={acts:[0,.3,1],objects:[{name:'grip'},{name:'plate'},{name:'footplate'}]};
+  const overlay={acts:raw.acts.map(Math.fround),parsed:[{mat:10},{mat:3}]};
+  const got=ctx.mergePlateOverlay(raw,overlay,{1:'plate'});
+  assert.deepEqual(Array.from(got.parsed,o=>o.name??o.mat),['grip','footplate',10,3]);
+  assert.equal(got.parsed[0].legacy,true);assert.equal(got.acts,raw.acts);assert.equal(raw.objects.length,3);
+  for (const [targets,clip] of [[{0:'plate'},overlay],[{1:'plate'},{...overlay,acts:[0,.4,1]}],[{1:'plate'},{...overlay,parsed:[]}]])
+    assert.throws(()=>ctx.mergePlateOverlay(raw,clip,targets),/stale plate overlay/);
+});
 }

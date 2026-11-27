@@ -29,7 +29,7 @@ def array(f, dtype, shape):
     return np.frombuffer(f.read(n * np.dtype(dtype).itemsize), dtype=dtype).reshape(shape)
 
 
-def read_parts(path):
+def read_parts(path, *, uvs=None):
     f = io.BytesIO(path.read_bytes()); magic, count = read(f, '<4sI')
     assert magic == b'WGC2'
     parts = []
@@ -38,6 +38,9 @@ def read_parts(path):
         lo, scale = array(f, '<f4', (2, 3)).astype(float)
         v = lo + array(f, '<u2', (nv, 3))*scale
         triangles = array(f, '<u2', (nt, 3)); assert triangles.max() < nv
+        uv = array(f, '<u2', (nv, 2)) if _flags & 2 else None
+        if uvs is not None:
+            uvs.append(uv)
         parts.append((v, triangles))
     assert not f.read(1)
     return parts
@@ -61,7 +64,7 @@ def read_clip(path, parts):
         v, faces = parts[pid]
         linear = Rotation.from_quat(quat).as_matrix()*scale[:,None,:]
         world = v @ linear.transpose(0,2,1) + pos[:,None,:]
-        rows.append(dict(pid=pid, rgb=(r,g,b), mat=mat, nf=nf, pos=pos, scale=scale, faces=faces, world=world))
+        rows.append(dict(pid=pid, rgb=(r,g,b), mat=mat, nf=nf, pos=pos, quat=quat, scale=scale, faces=faces, world=world))
     assert not f.read(1)
     return acts, rows
 
@@ -73,7 +76,8 @@ def original(obj):
 
 def check(directory):
     data, humans = directory/'data', directory/'human_v5'
-    assert set(json.loads((data/'wgm_manifest.json').read_text())['clips']) == set(build.STAGE1)
+    manifest = json.loads((data/'wgm_manifest.json').read_text())
+    assert set(manifest['clips']) - set(manifest.get('plateOverlays', {})) == set(build.STAGE1)
     assert (data/'lat_stack_labels.svg').read_text() == atlas()[0]
     assert load_numbers(13) == ('2.5', '6') and load_numbers(-14) == ('137.5', '303')
     parts = read_parts(data/'parts.bin'); names = build.PartCatalogPacker(); common = None

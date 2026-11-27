@@ -110,11 +110,17 @@ class PartCatalogPacker:
         self._blobs: list[bytes] = []
         self._stats: list[tuple[int, int, bool]] = []
 
-    def add(self, verts: np.ndarray, tris: np.ndarray, smooth: bool) -> int:
+    def add(self, verts: np.ndarray, tris: np.ndarray, smooth: bool, uv=None) -> int:
         v = np.asarray(verts, dtype=np.float64).reshape(-1, 3)
         t = np.asarray(tris, dtype=np.int32).reshape(-1)
         assert len(v) <= 65535 and len(t) // 3 <= 65535, f"Mesh too large: v={len(v)}, t={len(t)//3}"
         key_bytes = np.round(v, 4).astype("<f4").tobytes() + t.astype("<u2").tobytes() + bytes([1 if smooth else 0])
+        uv_bytes = b""
+        if uv is not None:
+            uv = np.asarray(uv)
+            assert uv.shape == (len(v), 2) and np.all((uv >= 0) & (uv <= 1))
+            uv_bytes = np.rint(uv * 65535).astype("<u2").tobytes()
+            key_bytes += uv_bytes
         h = hashlib.sha1(key_bytes).hexdigest()[:20]
         if h in self._map:
             return self._map[h]
@@ -128,9 +134,9 @@ class PartCatalogPacker:
         sc = np.maximum((mx - mn) / 65535.0, 1e-9)
         q = np.rint((v - mn) / sc).clip(0, 65535).astype("<u2")
         idx = t.astype("<u2")
-        flags = 1 if smooth else 0
+        flags = int(smooth) | (2 if uv_bytes else 0)
         hdr = struct.pack("<HHB3x6f", nv, nt, flags, *mn.tolist(), *sc.tolist())
-        self._blobs.append(hdr + q.tobytes() + idx.tobytes())
+        self._blobs.append(hdr + q.tobytes() + idx.tobytes() + uv_bytes)
         self._stats.append((nv, nt, smooth))
         return pid
 
@@ -512,6 +518,28 @@ def upgrade_machine(
             f"[{ex_id}] Acrylic/shroud overlaps human AABB by {new_human_penetration_mm:.1f} mm!"
         )
 
+    blob, total_tris, groups = pack_clip(ex_id, acts, upgraded_entries)
+    orig_tris = sum(len(o["tris"]) // 3 for o in objs)
+    stats = {
+        "id": ex_id,
+        "orig_objs": len(objs),
+        "new_objs": len(upgraded_entries),
+        "merged_draw_calls": groups,
+        "orig_tris": orig_tris,
+        "new_tris": total_tris,
+        "fake_anim_stripped": fake_anim_stripped,
+        "carabiner_merged_from": carabiner_merged_count,
+        "max_grip_diff_mm": round(max_grip_diff_mm, 4),
+        "max_surface_diff_mm": round(max_surface_diff_mm, 4),
+        "new_human_pen_mm": round(new_human_penetration_mm, 4),
+        "blocked_body_fit": sorted(set(blocked)) if pilot else [],
+    }
+    if audit is not None:
+        audit.extend(upgraded_entries)
+    return blob, stats
+
+
+def pack_clip(ex_id, acts, upgraded_entries):
     # Pack WGM2 binary clip
     buf = bytearray(struct.pack("<4sHH", b"WGM2", len(acts), len(upgraded_entries)))
     buf += np.asarray(acts, dtype="<f4").tobytes()
@@ -548,30 +576,14 @@ def upgrade_machine(
                 assert np.max(np.abs(ds_raw)) <= 32767, f"[{ex_id}] {e['name']} scale delta overflow!"
                 buf += ds_raw.astype("<i2").tobytes()
 
-    orig_tris = sum(len(o["tris"]) // 3 for o in objs)
-    stats = {
-        "id": ex_id,
-        "orig_objs": len(objs),
-        "new_objs": len(upgraded_entries),
-        "merged_draw_calls": len(static_groups) + len(anim_groups),
-        "orig_tris": orig_tris,
-        "new_tris": total_tris,
-        "fake_anim_stripped": fake_anim_stripped,
-        "carabiner_merged_from": carabiner_merged_count,
-        "max_grip_diff_mm": round(max_grip_diff_mm, 4),
-        "max_surface_diff_mm": round(max_surface_diff_mm, 4),
-        "new_human_pen_mm": round(new_human_penetration_mm, 4),
-        "blocked_body_fit": sorted(set(blocked)) if pilot else [],
-    }
-    if audit is not None:
-        audit.extend(upgraded_entries)
-    return bytes(buf), stats
+    return bytes(buf), total_tris, len(static_groups) + len(anim_groups)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--viewer-dir", type=Path, default=REPO / "phone/src/main/assets/viewer3d")
     parser.add_argument("--stage1", action="store_true", help="Build precisely the seven verified lat variants")
+    parser.add_argument("--plates", action="store_true", help="Append role-mapped plate overlays to --stage1")
     parser.add_argument("--prefix", help="Upgrade all JSON models whose stem starts with this prefix")
     parser.add_argument("--ids", help="Comma-separated model stems to upgrade")
     parser.add_argument("--all", action="store_true", help="Upgrade all JSON models in data/")
@@ -627,6 +639,14 @@ def main() -> None:
         st["wgm_zip_kb"] = round(w_zip / 1024, 1)
         rows.append(st)
 
+    overlays = {}
+    if args.plates:
+        if not args.stage1:
+            parser.error("--plates requires --stage1 to preserve the existing catalogue")
+        from scene_plates import build_overlays
+        overlays, overlay_blobs = build_overlays(data_dir, packer, pack_clip)
+        assert not clip_blobs.keys() & overlay_blobs.keys()
+        clip_blobs.update(overlay_blobs)
     parts_bytes = packer.build_bytes()
     parts_zip = len(zlib.compress(parts_bytes, level=6))
 
@@ -642,10 +662,17 @@ def main() -> None:
         "parts": "parts.bin",
         "clips": sorted(clip_blobs.keys()),
     }
+    if overlays:
+        manifest['plateOverlays'] = overlays
     (data_dir / "wgm_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, separators=(",", ":"))
     )
 
+    if overlays:
+        texture_size = (data_dir/'plate_faces.webp').stat().st_size
+        print(f"Built {len(clip_blobs)} clips, {packer.count} shared parts ({len(parts_bytes)} B), "
+              f"plate overlays {sum(map(len, overlay_blobs.values()))} B, shared atlas {texture_size} B; originals retained.")
+        return
     total_new_raw = len(parts_bytes) + new_raw_sum
     total_new_zip = parts_zip + new_zip_sum
 
