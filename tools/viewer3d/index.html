@@ -408,7 +408,7 @@ function plyoWoodMaterial(color) {
   return mat;
 }
 
-function makePresetMaterial(preset, rgb, smooth) {
+function makePresetMaterial(preset, rgb, smooth, texture) {
   const color = new THREE.Color(rgb[0], rgb[1], rgb[2]);
   if (!preset) return new THREE.MeshLambertMaterial({ color, flatShading: !smooth });
   switch (preset) {
@@ -420,7 +420,7 @@ function makePresetMaterial(preset, rgb, smooth) {
     case 5: return new THREE.MeshStandardMaterial({ color, roughness: 0.19, metalness: 0.02, transparent: true, opacity: 0.18, depthWrite: false });
     case 6: return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.04, flatShading: !smooth });
     case 7: return new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.45, flatShading: !smooth });
-    case PLATE_FACE: return new THREE.MeshStandardMaterial({ map: plateMap, roughness: 0.55, metalness: 0 });
+    case PLATE_FACE: return new THREE.MeshStandardMaterial({ map: texture || plateMap, roughness: 0.55, metalness: 0 });
     case BAR_KNURL: return barKnurlMaterial(color);
     case PLYO_WOOD: return plyoWoodMaterial(color);
     case SELECTOR_WINDOW: return selectorWindowMaterial(color);
@@ -508,7 +508,7 @@ function buildGroup(d) {
   const staticBuckets = new Map(), movingBuckets = new Map(), instances = [];
   const mergedGeometries = [];
   function addSingle(o) {
-    const mesh = new THREE.Mesh(o.geom, makePresetMaterial(o.mat, o.color, o.smooth));
+    const mesh = new THREE.Mesh(o.geom, makePresetMaterial(o.mat, o.color, o.smooth, o.texture));
     if (isTransparentPreset(o.mat)) mesh.renderOrder = 2;
     mesh.matrixAutoUpdate = false;
     group.add(mesh);
@@ -517,8 +517,8 @@ function buildGroup(d) {
   for (const o of d.parsed) {
     if (o.legacy || (o.mat === BAR_KNURL && o.steps.length === 1)) { addSingle(o); continue; }
     if (d.format === "wgm2" && o.steps.length === 1) {
-      const key = `${o.mat}|${Math.round(o.color[0]*255)},${Math.round(o.color[1]*255)},${Math.round(o.color[2]*255)}|${o.smooth?1:0}`;
-      if (!staticBuckets.has(key)) staticBuckets.set(key, { mat: o.mat, color: o.color, smooth: o.smooth, items: [] });
+      const key = `${o.mat}|${Math.round(o.color[0]*255)},${Math.round(o.color[1]*255)},${Math.round(o.color[2]*255)}|${o.smooth?1:0}|${o.texture?.uuid || ''}`;
+      if (!staticBuckets.has(key)) staticBuckets.set(key, { mat: o.mat, color: o.color, smooth: o.smooth, texture: o.texture, items: [] });
       const m = new THREE.Matrix4().compose(o.steps[0].p, o.steps[0].q, o.steps[0].s);
       staticBuckets.get(key).items.push({ geom: o.geom, matrix: m });
     } else if (d.format === "wgm2" && !isTransparentPreset(o.mat) && o.steps.every(k => k.s.x > 0 && k.s.y > 0 && k.s.z > 0)) {
@@ -531,7 +531,7 @@ function buildGroup(d) {
   for (const bucket of movingBuckets.values()) {
     const first = bucket[0];
     if (bucket.length === 1) { addSingle(first); continue; }
-    const mesh = new THREE.InstancedMesh(first.geom, makePresetMaterial(first.mat, first.color, first.smooth), bucket.length);
+    const mesh = new THREE.InstancedMesh(first.geom, makePresetMaterial(first.mat, first.color, first.smooth, first.texture), bucket.length);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     group.add(mesh);
     instances.push(mesh);
@@ -540,7 +540,7 @@ function buildGroup(d) {
   for (const b of staticBuckets.values()) {
     const geom = mergeStaticNonIndexed(b.items, b.mat === LAT_STACK_LABEL || b.mat === PLATE_FACE);
     mergedGeometries.push(geom);
-    const mat = makePresetMaterial(b.mat, b.color, b.smooth);
+    const mat = makePresetMaterial(b.mat, b.color, b.smooth, b.texture);
     const mesh = new THREE.Mesh(geom, mat);
     if (isTransparentPreset(b.mat)) mesh.renderOrder = 2;
     group.add(mesh);
@@ -731,6 +731,68 @@ function plateSteps(steps, localZ, direction) {
   }));
 }
 
+// Atlas cells use WebGL's bottom-left origin. The first cell on the bottom
+// row is the 5 kg bumper; the other three bottom cells are cast iron.
+const bumperPlateCells = { 20: 5, 15: 6, 10: 7, 5: 0 };
+const ironPlateCells = { 20: 1, 10: 2, 5: 3 };
+const relabeledPlateMaps = new Map();
+
+function relabeledPlateMap(iron, kg) {
+  const key = `${iron}:${kg}`;
+  if (relabeledPlateMaps.has(key)) return relabeledPlateMaps.get(key);
+  const { image } = plateMap, size = image.width / 4;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  // Use the red bumper or 20 kg iron tile, including its paint, rim and print.
+  const sourceOffset = iron ? size : 0;
+  ctx.drawImage(image, sourceOffset, sourceOffset, size, size, 0, 0, size, size);
+  const centers = iron ? [30, 150, 270].map(angle => {
+    const a = angle * Math.PI / 180;
+    return [.5 + .35 * Math.cos(a), .5 + .35 * Math.sin(a)];
+  }) : [[.5, .19]];
+  const face = ctx.getImageData(0, 0, size, size);
+  for (const [x, y] of centers) {
+    const minX = Math.max(0, Math.floor((x - .21) * size));
+    const maxX = Math.min(size, Math.ceil((x + .21) * size));
+    for (let row = Math.floor((y - .072) * size); row < (y + .072) * size; row++) {
+      for (let col = minX; col < maxX; col++) {
+        const i = 4 * (row * size + col);
+        const radius = Math.hypot(col / size - .5, row / size - .5);
+        if (iron && radius < .153) continue;
+        const rim = iron && radius > .457;
+        const background = iron ? (rim ? [52, 53, 57] : [30, 31, 34]) : [172, 22, 24];
+        // Erase the old digits without erasing the darker rim and grip art.
+        if (face.data[i + 1] > background[1] + 5) face.data.set(background, i);
+      }
+    }
+  }
+  ctx.putImageData(face, 0, 0);
+  ctx.fillStyle = iron ? '#5c5e62' : '#eeecec';
+  ctx.font = `600 ${Math.round(size * (iron ? .098 : .138))}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const [x, y] of centers) ctx.fillText(iron ? `${kg}KG` : `${kg} KG`, x * size, y * size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = plateMap.colorSpace;
+  relabeledPlateMaps.set(key, texture);
+  return texture;
+}
+
+function finishPlateFace(geom, kg) {
+  const uv = geom.getAttribute('uv');
+  const col = Math.floor(uv.getX(0) * 4), row = Math.floor(uv.getY(0) * 2);
+  const iron = row === 0 && col !== 0;
+  const target = (iron ? ironPlateCells : bumperPlateCells)[kg];
+  if (target === col + 4 * row) return;
+  for (let i = 0; i < uv.count; i++) {
+    const u = uv.getX(i) * 4 - col, v = uv.getY(i) * 2 - row;
+    if (target === undefined) uv.setXY(i, u, v);
+    else uv.setXY(i, (u + target % 4) / 4, (v + Math.floor(target / 4)) / 2);
+  }
+  return target === undefined ? relabeledPlateMap(iron, kg) : undefined;
+}
+
 function fitDiscGeometry(part, radius, bore, axialScale, hub) {
   const geom = part.geom.clone();
   const a = geom.getAttribute('position');
@@ -836,7 +898,7 @@ function plateLoadPlan(name, d, raw, parts) {
     const floorStart = totalBarKg && loaded.length === 2 && inner.row.box.min.z <= .012 &&
       Math.abs(inner.row.box.min.z) <= .025 && Math.abs(out.z) < .035;
     const bore = Math.max(sleeve.diameter / 2 + .001, .020);
-    groups.push({ existing, base, sign, run, delta, floorStart, bore, sleeve, direction });
+    groups.push({ existing, source, base, sign, run, delta, floorStart, bore, sleeve, direction });
   }
   const floorStart = groups.every(g => g.floorStart);
   // Reserve the outer sleeve for the fixed stand through the full plate travel.
@@ -862,23 +924,27 @@ function plateLoadPlan(name, d, raw, parts) {
         (g.run - reservedRun - collarWidth - gap * specs.length - .003) / nominalThickness));
       if (specs.length && fit < .55) return fallback;
       for (const check of checks) {
-        const { existing, base, sign, delta, bore, placed } = check;
+        const { existing, source, base, sign, delta, bore, placed } = check;
         let edge = delta;
         const geometry = new Map();
         for (const spec of specs) {
           const width = spec.thick * fit;
           const radius = spec.diameter / 2;
-          let meshes = geometry.get(spec.kg);
-          if (!meshes) {
+          let finish = geometry.get(spec.kg);
+          if (!finish) {
             const axialScale = existing ? width / boxSize(geometryBox(existing[1].geom)).z : 1;
-            meshes = existing ? [fitDiscGeometry(existing[0], radius, bore, axialScale, false),
-              fitDiscGeometry(existing[1], radius, bore, axialScale, true)] : [ringGeometry(bore, radius, width)];
-            geometry.set(spec.kg, meshes);
+            const face = existing ? fitDiscGeometry(source, radius, bore, axialScale, false) : ringGeometry(bore, radius, width);
+            const hub = existing && fitDiscGeometry(existing[1], radius, bore, axialScale, true);
+            const texture = existing ? finishPlateFace(face, spec.kg) : undefined;
+            finish = { face, hub, texture };
+            geometry.set(spec.kg, finish);
           }
           const steps = plateSteps(base, edge + width / 2, sign);
-          live.push({ geom: meshes[0], mat: 4, smooth: true, color: [.075, .079, .086], steps, ownedGeometry: true });
-          if (meshes[1]) live.push({ geom: meshes[1], mat: 3, smooth: true, color: [.29, .31, .34], steps, ownedGeometry: true });
-          placed.push({ kg: spec.kg, width, radius, steps, geom: meshes[0], offset: edge + width / 2 });
+          live.push({ geom: finish.face, mat: source.mat, smooth: source.smooth, color: source.color,
+            texture: finish.texture, steps, ownedGeometry: true });
+          if (finish.hub) live.push({ geom: finish.hub, mat: existing[1].mat, smooth: existing[1].smooth,
+            color: existing[1].color, steps, ownedGeometry: true });
+          placed.push({ kg: spec.kg, width, radius, steps, geom: finish.face, offset: edge + width / 2 });
           edge += width + gap;
         }
         if (specs.length) {
