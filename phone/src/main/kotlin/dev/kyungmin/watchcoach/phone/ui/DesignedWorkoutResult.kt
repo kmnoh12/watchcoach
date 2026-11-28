@@ -196,10 +196,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                     Spacer(Modifier.height(12.dp))
                     read?.let { data ->
                         ResultNumbers(data)
-                        Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0B2A2D)).padding(13.dp, 11.dp)) {
-                            Text(data.verdict, color = ResultMint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                            Text(data.comparison, color = ResultMuted, fontSize = 12.sp)
-                        }
+                        MuscleProgressCard(data)
                         data.exercises.forEach { ExerciseResultCard(it) }
                         Spacer(Modifier.height(12.dp))
                     } ?: Text(if (readFailed) "운동 기록 불러오기 실패" else "운동 기록 불러오는 중", color = ResultMuted)
@@ -258,7 +255,7 @@ internal fun DesignedWorkoutResult(result: ResultUi, back: () -> Unit, done: () 
                         }
                     } else data.exercises.forEach { ExerciseResultCard(it, export = true) }
                     Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(if (detailed) data.vitals else data.verdict, color = ResultMuted, fontSize = 10.sp, modifier = Modifier.weight(1f))
+                        Text(if (detailed) data.vitals else data.muscleLines.joinToString("\n"), color = ResultMuted, fontSize = 10.sp, modifier = Modifier.weight(1f))
                         Text("WatchCoach", color = ResultBone, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
@@ -303,6 +300,18 @@ private fun PullHint(modifier: Modifier, visible: Float) {
 internal fun ResultButton(label: String, mint: Boolean, modifier: Modifier = Modifier, font: Int = 15, action: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(ResultCameraRadius.dp)).background(if (mint) ResultMint else ResultRaised).tapClickable(action).padding(horizontal = 12.dp, vertical = 13.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (mint) Color(0xFF04140E) else ResultBone, fontSize = font.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+internal fun MuscleProgressCard(data: ResultPresentation) {
+    Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        .background(Color(0xFF0B2A2D)).padding(13.dp, 11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text("부위별 유효 세트 · 같은 루틴 우선", color = ResultMuted, fontSize = 12.sp)
+        data.muscleLines.ifEmpty { listOf("부위 비교 자료 없음") }.forEach { line ->
+            Text(line, color = ResultMint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+        if (data.recordCount > 0) Text("최고 기록 ${data.recordCount}개", color = ResultMuted, fontSize = 12.sp)
     }
 }
 

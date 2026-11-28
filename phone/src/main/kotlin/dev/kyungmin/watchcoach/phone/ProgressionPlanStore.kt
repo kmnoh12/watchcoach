@@ -111,20 +111,21 @@ internal class ProgressionPlanStore(private val context: Context) {
                 LoggedSet(set.weightKg, set.performedReps ?: 0, set.targetReps, set.setType == "WARMUP", set.completed,
                     set.performedReps != null, row?.getString("position")?.substringBefore(":")?.let { "$it:${set.setType}:${set.gripType}" }.orEmpty(),
                     maxOf(row?.optInt("upper") ?: 0, ProgressionDefaults.upper(set.pattern) ?: 10, set.targetReps),
-                    row?.let { if (it.isNull("bodyWeight")) null else it.getDouble("bodyWeight") }, load(set.exerciseId, set.exerciseName, set.pattern, set.equipment, sets.map { it.weightKg }), eligible, set.completedDurationMs, set.durationSeconds, set.targetDurationSeconds)
+                    row?.let { if (it.isNull("bodyWeight")) null else it.getDouble("bodyWeight") }, progressionLoad(set.exerciseId, set.exerciseName, set.pattern, set.equipment, sets.map { it.weightKg }), eligible, set.completedDurationMs, set.durationSeconds, set.targetDurationSeconds)
             }, snapshot.sessionId, snapshot.startedAtMs, snapshot.routineId, index, sets.first().equipment)
         }
     }
 
-    private fun load(item: RoutineExercise) = load(item.exercise.id, item.exercise.name, item.exercise.pattern, item.exercise.equipment, item.sets.map { it.weightKg })
-    private fun load(id: String, name: String, pattern: String, equipment: String, weights: List<Double?>): ProgressionLoad = when {
-        pattern in setOf("plank", "time", "duration") -> ProgressionLoad.TIME
-        id.contains("assisted") || name.contains("어시스트") || name.contains("어시스티드") -> ProgressionLoad.ASSISTANCE
-        id == "weighted_dip" || id == "weighted_pull_up" -> ProgressionLoad.WEIGHTED_BODYWEIGHT
-        equipment == "맨몸" && weights.all { (it ?: 0.0) == 0.0 } -> ProgressionLoad.BODYWEIGHT
-        equipment == "맨몸" -> ProgressionLoad.WEIGHTED_BODYWEIGHT
-        else -> ProgressionLoad.EXTERNAL
-    }
+    private fun load(item: RoutineExercise) = progressionLoad(item.exercise.id, item.exercise.name, item.exercise.pattern, item.exercise.equipment, item.sets.map { it.weightKg })
     private fun JSONObject.nullableDouble(key: String): Double? = if (isNull(key)) null else getDouble(key)
     companion object { private val lock = Any() }
+}
+
+internal fun progressionLoad(id: String, name: String, pattern: String, equipment: String, weights: List<Double?>): ProgressionLoad = when {
+    pattern in setOf("plank", "time", "duration") -> ProgressionLoad.TIME
+    id.contains("assisted") || name.contains("어시스트") || name.contains("어시스티드") -> ProgressionLoad.ASSISTANCE
+    id == "weighted_dip" || id == "weighted_pull_up" -> ProgressionLoad.WEIGHTED_BODYWEIGHT
+    equipment == "맨몸" && weights.all { (it ?: 0.0) == 0.0 } -> ProgressionLoad.BODYWEIGHT
+    equipment == "맨몸" -> ProgressionLoad.WEIGHTED_BODYWEIGHT
+    else -> ProgressionLoad.EXTERNAL
 }

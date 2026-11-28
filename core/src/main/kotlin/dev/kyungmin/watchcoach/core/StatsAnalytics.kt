@@ -26,25 +26,26 @@ object StatsAnalytics {
         }
     }
 
+    fun muscleGroup(part: String): String = when (part) {
+        "전면어깨", "측면어깨", "후면어깨" -> "어깨"
+        "이두", "삼두" -> "팔"
+        "승모" -> "등"
+        else -> part
+    }
+
     /** Volume uses the exercise's catalog category. Whole-body lifts split by normalized muscle weights. */
     fun volumeByGroup(logs: List<ExerciseLog>, bodyOf: (String) -> String?, weightsOf: (String) -> Map<String, Double>?,
                       today: Long, days: Int, previous: Boolean = false): List<Double> {
         val totals = GROUPS.associateWith { 0.0 }.toMutableMap()
-        fun group(part: String): String = when (part) {
-            "전면어깨", "측면어깨", "후면어깨" -> "어깨"
-            "이두", "삼두" -> "팔"
-            "승모" -> "등"
-            else -> part
-        }
         for (log in logs.filter { inPeriod(it.epochDay, today, days, previous) }) {
             val body = bodyOf(log.exerciseId) ?: continue
             val shares = if (body == "전신") weightsOf(log.exerciseId).orEmpty()
-                .filter { group(it.key) in GROUPS && it.value > 0 }
+                .filter { muscleGroup(it.key) in GROUPS && it.value > 0 }
                 else mapOf(body to 1.0)
             val sum = shares.values.sum()
             if (sum <= 0) continue
             for ((part, weight) in shares) {
-                val key = group(part)
+                val key = muscleGroup(part)
                 if (key in totals) totals[key] = totals.getValue(key) + log.volumeKg * weight / sum
             }
         }

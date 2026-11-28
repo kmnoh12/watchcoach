@@ -25,13 +25,24 @@ internal fun resultTempo(metrics: List<ObservedMotionMetrics>): ResultTempo? {
     return ResultTempo("%.1f초".format(Locale.KOREA, average / 1000.0), trend,
         change?.takeIf { trend != 0 }?.let { "후반 %+d%%".format(Locale.KOREA, Math.round(it * 100).toInt()) })
 }
+internal fun MuscleProgressRow.summaryLine(): String = buildString {
+    append(group)
+    if (previousSets != null) append(" 세트 ${resultNumber(previousSets)}→${resultNumber(sets)}")
+    else append(" ${resultNumber(sets)}세트 · " + if (first) "첫 기록" else "이전 기록 불명확")
+    if (intensityPercent != null) {
+        val value = resultNumber(if (kotlin.math.abs(intensityPercent) < 0.05) 0.0 else intensityPercent)
+        append(" · 강도 " + (if (intensityPercent > 0 && value != "0") "+" else "") + value + "%")
+        if (compared < exercises) append(" ($compared/${exercises}종목)")
+    } else if (!first && exercises > newExercises) append(" · 강도 비교 불가")
+    if (newExercises > 0) append(" · 새 종목 ${newExercises}개")
+}
+
 internal data class ResultPresentation(val title: String, val date: String, val photoDate: String, val minutes: Int,
     val volume: String, val exercises: List<ResultExercise>, val vitals: String, val recordCount: Int,
-    val avgHeart: String = "—", val maxHeart: String = "—", val kcal: String = "—", val heartPoints: List<Pair<Long, Int>> = emptyList()) {
+    val avgHeart: String = "—", val maxHeart: String = "—", val kcal: String = "—", val heartPoints: List<Pair<Long, Int>> = emptyList(),
+    val muscleLines: List<String> = emptyList()) {
     val setCount get() = exercises.sumOf { it.sets.size }
-    val rising get() = exercises.count { it.direction == 1 }
-    val verdict get() = "지난번보다 ${rising}종목 상승"
-    val comparison get() = "유지 ${exercises.count { it.direction == 0 }} · 하락 ${exercises.count { it.direction == -1 }} · 최고 기록 $recordCount"
+    val photoSummary get() = muscleLines.firstOrNull() ?: "부위 비교 자료 없음"
 }
 
 /** Presentation only: finished snapshots and the existing comparison/record rules remain authoritative. */
@@ -97,9 +108,12 @@ internal fun loadResultPresentation(context: Context, sessionId: String): Result
         val profile = WorkoutWearingStore(context).frozenBodyProfile(sessionId, fallback).getOrThrow()
         (WorkoutEnergyStore(context).estimate(evidence, profile).opt("active_kcal") as? Number)?.toInt()
     }.getOrNull()
+    val wearing = WorkoutWearingStore(context)
+    val muscleLines = muscleProgress(current, records, WorkoutData.catalog.associateBy { it.id },
+        frozenWeightOf = { wearing.frozenBodyProfile(it, null).getOrNull()?.weightKg }).map { it.summaryLine() }
     return ResultPresentation(evidence.title, date.format(DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE · a h:mm", Locale.KOREA)),
         date.format(DateTimeFormatter.ofPattern("MM.dd EEE", Locale.US)).uppercase(Locale.US), evidence.minutes,
         WorkoutComparison.totals(current.plannedSets.filter { it.completed }).volumeKgReps?.let(::resultNumber) ?: "—", exercises,
         "평균 심박 ${heart.average?.toInt() ?: "—"} · 최고 ${heart.maximum ?: "—"} · ${kcal?.let { "약 ${it}kcal" } ?: "—kcal"}", hits.size,
-        heart.average?.toInt()?.toString() ?: "—", heart.maximum?.toString() ?: "—", kcal?.toString() ?: "—", heart.points.map { it.receivedAtMs to it.bpm })
+        heart.average?.toInt()?.toString() ?: "—", heart.maximum?.toString() ?: "—", kcal?.toString() ?: "—", heart.points.map { it.receivedAtMs to it.bpm }, muscleLines)
 }

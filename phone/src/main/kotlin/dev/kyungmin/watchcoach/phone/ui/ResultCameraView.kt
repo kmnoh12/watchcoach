@@ -616,7 +616,7 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
             }
             val headWidth=maxOf(width("${data.photoDate} · ${data.title}",2.8f),
                 width("${data.minutes}",11.8f)+width("분",4.6f)+.5f*u,
-                width("${data.volume}kg · ${data.setCount}세트",3.1f),width(data.verdict,2.8f)+3.6f*u)
+                width("${data.volume}kg · ${data.setCount}세트",3.1f),width(data.photoSummary,2.8f)+3.6f*u)
             val markWidth=width("WATCHCOACH",2.6f)
             val listWidth=data.exercises.maxOfOrNull { width("${it.name} · ${it.sets.size}세트",3.1f) } ?: 0f
             return listOf(RectF(safe.left+4.2f*u,safe.top+4*u,safe.left+4.2f*u+headWidth,safe.top+32.58f*u),
@@ -639,9 +639,9 @@ internal class ResultCameraView(context: Context, private val owner: LifecycleOw
         text(c, "분", x+numWidth+.5f*u, y+10.8f*u, 4.6f*u, ink(colors[0]), true, opacity = opacity)
         text(c, "${data.volume}kg · ${data.setCount}세트", x, y+17.72f*u, 3.1f*u, ink(colors[0]), true, opacity = opacity)
         paint.textSize = 2.8f*u; paint.typeface = Typeface.DEFAULT_BOLD
-        val badge = RectF(x, y+23.66f*u, x+paint.measureText(data.verdict)+3.6f*u, y+28.58f*u)
+        val badge = RectF(x, y+23.66f*u, x+paint.measureText(data.photoSummary)+3.6f*u, y+28.58f*u)
         paint.color = Color.rgb(99,214,222); paint.alpha = (255*opacity).toInt(); c.drawRoundRect(badge, u, u, paint)
-        text(c, data.verdict, x+1.8f*u, badge.top+.5f*u, 2.8f*u, Color.rgb(11,11,10), true, opacity = opacity)
+        text(c, data.photoSummary, x+1.8f*u, badge.top+.5f*u, 2.8f*u, Color.rgb(11,11,10), true, opacity = opacity)
         text(c, "WATCHCOACH", safe.right-3.6f*u, y+.2f*u, 2.6f*u, ink(colors[1]), true, true, opacity*.85f)
         val line = 3.1f*u*1.55f
         data.exercises.forEachIndexed { i,e ->

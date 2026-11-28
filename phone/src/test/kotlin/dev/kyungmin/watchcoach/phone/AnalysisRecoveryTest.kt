@@ -175,7 +175,7 @@ class AnalysisRecoveryTest {
 
     @Test fun countRowsDistinguishUnknownZeroAndManualEntry() {
         val unknown = SetAnalysisUi("external_rotation", "외회전", 0, null, 0, null, 0.0)
-        assertEquals(listOf("미측정", "0회", "확인 필요"), unknown.repMetricRows().map { it.second })
+        assertEquals(listOf("미측정", "0회", "미측정"), unknown.repMetricRows().map { it.second })
         assertEquals("수동 입력 필요", unknown.copy(trackingMode = "MANUAL_REQUIRED").repMetricRows().last().second)
     }
 

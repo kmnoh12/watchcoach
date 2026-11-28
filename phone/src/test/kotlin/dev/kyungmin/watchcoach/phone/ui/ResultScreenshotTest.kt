@@ -50,6 +50,7 @@ class ResultScreenshotTest {
         "평균 심박 128 · 최고 156 · 약 310kcal", 1,
         "128", "156", "310",
         (0 until 120).map { i -> (i * 30_000L) to (112 + (22 * Math.sin(i / 14.0)).toInt() + (i / 8) + (i % 7)) },
+        muscleLines = listOf("등 세트 6→7 · 강도 +2%", "팔 세트 7→7.2 · 강도 +1.5%"),
     )
 
     @Test
@@ -65,10 +66,7 @@ class ResultScreenshotTest {
                 Text("등·이두 완료", color = ResultBone, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
                 ResultNumbers(data)
-                Column(Modifier.padding(top = 8.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF0B2A2D)).padding(13.dp, 11.dp)) {
-                    Text(data.verdict, color = ResultMint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text(data.comparison, color = ResultMuted, fontSize = 12.sp)
-                }
+                MuscleProgressCard(data)
                 data.exercises.forEachIndexed { i, e -> ExerciseResultCard(e, initiallyExpanded = i == 0) }
             }
         }
