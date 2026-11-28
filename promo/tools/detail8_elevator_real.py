@@ -12,8 +12,8 @@ Preserves:
   - `D4elev_DoorPlaneProbe` planar reflection probe (aligned to the new door plane)
   - Corridor floor props (`Elev_Extinguisher`, `Elev_XBanner_Golf`, `Elev_XBanner_Mart`)
 
-All replaced elevator wall/frame/door/fixture objects are reversibly hidden (`d8elev_orig_hide`)
-so `revert()` cleanly restores the prior state. 100% idempotent.
+All replaced elevator wall/frame/door/fixture objects and their orphan data/materials are
+deleted cleanly (no hidden originals left behind). 100% idempotent.
 
 Usage:
   1) Generate textures (system Python 3 with Pillow + numpy):
@@ -174,9 +174,8 @@ def _gen_granite_tiles():
 def _gen_door_etch_tiles():
     """Seamless 4x4 checkerboard tile (40mm x 40mm real world) matching 02_door_closeup.jpg.
 
-    Alternating 10mm squares:
-      - Even cells: satin etched stainless
-      - Odd cells: 3 crisp horizontal mirror-polished dashes (≡) on a satin ground
+    Bright hairline satin stainless ground with subtle, low-contrast horizontal 3-dash (≡)
+    etched squares (no dark grid lines, no harsh mirror flash).
     Saved as RGB PNGs so Metal/OpenGL GPU texture uploads have zero single-channel errors.
     """
     import numpy as np
@@ -187,45 +186,49 @@ def _gen_door_etch_tiles():
     cs = N // cells  # 128 px per 10mm cell
     rng = np.random.default_rng(7788)
 
-    grain_row = rng.normal(0.0, 1.0, (N, N // 8))
-    grain_img = Image.fromarray(np.clip(128 + grain_row * 16, 0, 255).astype(np.uint8)).resize((N, N), Image.BILINEAR)
-    grain = (np.asarray(grain_img, dtype=np.float64) - 128.0) / 128.0
+    # Fine vertical hairline brushing (real Korean stainless elevator door finish)
+    hair_raw = rng.normal(0.0, 1.0, (N // 16, N))
+    hair_img = Image.fromarray(np.clip(128 + hair_raw * 20, 0, 255).astype(np.uint8)).resize((N, N), Image.BILINEAR)
+    hairline = (np.asarray(hair_img, dtype=np.float64) - 128.0) / 128.0
 
-    mirror_mask = np.zeros((N, N), dtype=np.float64)
-    cell_border = np.zeros((N, N), dtype=np.float64)
+    # Subtle etching mask: 1.0 on the 3 horizontal dashes (≡), 0.0 on satin ground
+    bar_mask = np.zeros((N, N), dtype=np.float64)
+    cell_tint = np.zeros((N, N), dtype=np.float64)
 
-    # 3 crisp horizontal mirror bars per cell (exact proportion of 02_door_closeup)
     x0, x1 = 18, 110
-    bar_ys = [(22, 37), (56, 71), (90, 105)]
+    bar_ys = [(23, 37), (57, 71), (91, 105)]
 
     for r in range(cells):
         for c in range(cells):
             ry, cx = r * cs, c * cs
-            cell_border[ry:ry + 3, cx:cx + cs] = 1.0
-            cell_border[ry:ry + cs, cx:cx + 3] = 1.0
             if (r + c) % 2 == 1:
                 for y0, y1 in bar_ys:
-                    mirror_mask[ry + y0:ry + y1, cx + x0:cx + x1] = 1.0
+                    bar_mask[ry + y0:ry + y1, cx + x0:cx + x1] = 1.0
             else:
-                mirror_mask[ry + 12:ry + cs - 12, cx + 12:cx + cs - 12] = 0.12
+                # Very faint satin sheen on alternating solid squares (no dark grid border)
+                cell_tint[ry + 10:ry + cs - 10, cx + 10:cx + cs - 10] = 1.0
 
-    mirror_s = np.asarray(
-        Image.fromarray((mirror_mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius=0.9)),
+    bar_s = np.asarray(
+        Image.fromarray((bar_mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius=1.4)),
+        dtype=np.float64,
+    ) / 255.0
+    cell_s = np.asarray(
+        Image.fromarray((cell_tint * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius=2.0)),
         dtype=np.float64,
     ) / 255.0
 
-    # Base Color: satin etched stainless (0.69) vs mirror bars (0.87)
-    col_val = 0.69 + mirror_s * 0.18 - cell_border * 0.035 + grain * 0.022
-    col_rgb = np.stack([col_val * 0.99, col_val * 1.00, col_val * 1.01], axis=-1)
+    # Base Color: bright light-medium silver stainless (0.785), ≡ bars only +0.032 brighter (subtle!)
+    col_val = 0.785 + bar_s * 0.032 + cell_s * 0.008 + hairline * 0.014
+    col_rgb = np.stack([col_val * 0.996, col_val * 0.996, col_val * 0.990], axis=-1)
     Image.fromarray(np.clip(col_rgb * 255, 0, 255).astype(np.uint8)).save(TEX_DIR / TEX_DOOR_COLOR, "PNG")
 
-    # Roughness (Non-Color RGB): satin = 0.38, mirror ≡ bars = 0.04
-    rough = np.clip(0.38 - mirror_s * 0.34 + cell_border * 0.04 + grain * 0.02, 0.04, 0.48)
+    # Roughness (Non-Color RGB): satin = 0.31, ≡ bars = 0.205 (soft, understated reflection delta ~0.10)
+    rough = np.clip(0.31 - bar_s * 0.105 - cell_s * 0.015 + hairline * 0.016, 0.16, 0.38)
     rough_rgb = np.repeat((rough * 255).astype(np.uint8)[..., None], 3, axis=2)
     Image.fromarray(rough_rgb).save(TEX_DIR / TEX_DOOR_ROUGH, "PNG")
 
-    # Bump (Non-Color RGB): satin recessed (0.42), mirror bars raised (0.82)
-    bump = np.clip(0.42 + mirror_s * 0.40 - cell_border * 0.08 + grain * 0.03, 0.0, 1.0)
+    # Bump (Non-Color RGB): very gentle acid-etched micro-relief + fine hairline
+    bump = np.clip(0.48 + bar_s * 0.09 + hairline * 0.025, 0.0, 1.0)
     bump_rgb = np.repeat((bump * 255).astype(np.uint8)[..., None], 3, axis=2)
     Image.fromarray(bump_rgb).save(TEX_DIR / TEX_DOOR_BUMP, "PNG")
 
@@ -760,7 +763,7 @@ def gen_textures():
 # =====================================================================================
 # 2. Blender Scene Construction (Hallway-local metres, parented to Sangga_Hallway_Ext)
 # =====================================================================================
-HIDE_EXACT = (
+REMOVE_EXACT = (
     "ElevWall_Left", "ElevWall_Right",
     "ElevGranite_L", "ElevGranite_R", "ElevGranite_Top",
     "ElevFrame_L", "ElevFrame_R", "ElevFrame_Top",
@@ -779,45 +782,79 @@ HIDE_EXACT = (
 )
 
 
-def _tag_hide(ob):
-    if "d8elev_orig_hide" not in ob:
-        ob["d8elev_orig_hide"] = [int(ob.hide_viewport), int(ob.hide_render)]
-    ob["detail8_pkg"] = KEY
-    ob.hide_viewport = True
-    ob.hide_render = True
-
-
-def _hide_tree(ob):
-    _tag_hide(ob)
-    for ch in ob.children:
-        _hide_tree(ch)
-
-
-def revert():
+def _remove_tree(ob) -> tuple[int, set, set]:
+    """Delete an object and all its descendants cleanly (never leave hidden replaced originals)."""
     import bpy
-    for ob in list(bpy.data.objects):
-        if ob.get("detail8_pkg") == KEY and "d8elev_orig_hide" in ob:
-            hv, hr = ob["d8elev_orig_hide"]
-            ob.hide_viewport = bool(hv)
-            ob.hide_render = bool(hr)
-            del ob["d8elev_orig_hide"]
-            del ob["detail8_pkg"]
+    removed = 0
+    cand_mats = set()
+    cand_data = set()
+    for ch in list(ob.children):
+        r, ms, ds = _remove_tree(ch)
+        removed += r
+        cand_mats |= ms
+        cand_data |= ds
+    if hasattr(ob, "material_slots"):
+        for sl in ob.material_slots:
+            if sl.material is not None:
+                cand_mats.add(sl.material)
+    if ob.data is not None:
+        cand_data.add(ob.data)
+    bpy.data.objects.remove(ob, do_unlink=True)
+    return removed + 1, cand_mats, cand_data
+
+
+def _purge_orphans(cand_data: set, cand_mats: set):
+    import bpy
+    cand_imgs = set()
+    for m in list(cand_mats):
+        try:
+            if m.users == 0:
+                if m.node_tree:
+                    for n in m.node_tree.nodes:
+                        if n.type == "TEX_IMAGE" and n.image is not None:
+                            cand_imgs.add(n.image)
+                bpy.data.materials.remove(m)
+        except ReferenceError:
+            pass
+    for d in list(cand_data):
+        try:
+            if d.users != 0:
+                continue
+            if isinstance(d, bpy.types.Mesh):
+                bpy.data.meshes.remove(d)
+            elif isinstance(d, bpy.types.Curve):
+                bpy.data.curves.remove(d)
+            elif isinstance(d, bpy.types.Light):
+                bpy.data.lights.remove(d)
+            elif isinstance(d, bpy.types.LightProbe):
+                bpy.data.lightprobes.remove(d)
+        except ReferenceError:
+            pass
+    for im in list(cand_imgs):
+        try:
+            if im.users == 0:
+                bpy.data.images.remove(im)
+        except ReferenceError:
+            pass
+
+
+def _cleanup_detail8():
+    """Remove existing DETAIL8_elevator_real objects/materials so apply() is 100% idempotent."""
+    import bpy
     coll = bpy.data.collections.get(COLL)
+    cand_data, cand_mats = set(), set()
     if coll:
-        for ob in list(coll.objects):
-            data = ob.data
-            bpy.data.objects.remove(ob, do_unlink=True)
-            if data and data.users == 0:
-                if isinstance(data, bpy.types.Mesh):
-                    bpy.data.meshes.remove(data)
-                elif isinstance(data, bpy.types.Curve):
-                    bpy.data.curves.remove(data)
-                elif isinstance(data, bpy.types.LightProbe):
-                    bpy.data.lightprobes.remove(data)
+        for name in [o.name for o in coll.objects]:
+            ob = bpy.data.objects.get(name)
+            if ob is not None:
+                _, ms, ds = _remove_tree(ob)
+                cand_mats |= ms
+                cand_data |= ds
         bpy.data.collections.remove(coll)
     for m in list(bpy.data.materials):
         if m.name.startswith(PFX) and m.users == 0:
-            bpy.data.materials.remove(m)
+            cand_mats.add(m)
+    _purge_orphans(cand_data, cand_mats)
 
 
 def _load_img(fname: str, non_color: bool = False):
@@ -942,14 +979,22 @@ def _mat_mirror_stainless(name: str, metallic: float = 0.94, rough_lo: float = 0
     return m
 
 
-def _mat_etched_door(name: str):
-    """Checkerboard 3-bar etched stainless steel door material (02_door_closeup.jpg) using real-world UV."""
+def _mat_etched_door(name: str, hall_ref):
+    """Bright hairline satin stainless door with understated 3-dash (≡) checkerboard etching.
+
+    Calibrated to 02_door_closeup.jpg & 01_front.jpg:
+      - Light-medium neutral silver hairline ground (Metallic 0.60 so EEVEE keeps a bright
+        brushed-metal body instead of dropping to dark charcoal)
+      - Subtle roughness delta (~0.31 satin vs ~0.205 ≡ bars, slightly glossier on lower half
+        of the door so gentle reflections catch there as in 02_door_closeup)
+      - Soft micro-bump (0.008) so stickers stay clean focal points
+    """
     m, nt, b = _new_mat(name)
     L = nt.links.new
-    b.inputs["Metallic"].default_value = 0.88
-    b.inputs["Specular IOR Level"].default_value = 0.55
+    b.inputs["Metallic"].default_value = 0.60
+    b.inputs["Specular IOR Level"].default_value = 0.45
 
-    tc = nt.nodes.new("ShaderNodeTexCoord")
+    tc_uv = nt.nodes.new("ShaderNodeTexCoord")
     t_col = nt.nodes.new("ShaderNodeTexImage")
     t_col.image = _load_img(TEX_DOOR_COLOR)
     t_rgh = nt.nodes.new("ShaderNodeTexImage")
@@ -957,19 +1002,59 @@ def _mat_etched_door(name: str):
     t_bmp = nt.nodes.new("ShaderNodeTexImage")
     t_bmp.image = _load_img(TEX_DOOR_BUMP, non_color=True)
     for t in (t_col, t_rgh, t_bmp):
-        L(tc.outputs["UV"], t.inputs["Vector"])
+        L(tc_uv.outputs["UV"], t.inputs["Vector"])
     nt.nodes.active = t_col
 
     L(t_col.outputs["Color"], b.inputs["Base Color"])
-    L(t_rgh.outputs["Color"], b.inputs["Roughness"])
+
+    # Gentle vertical roughness bias: lower half of door slightly glossier (-0.04) like photo 02,
+    # eye-level around stickers calm and soft (+0.015)
+    tc_h = nt.nodes.new("ShaderNodeTexCoord")
+    tc_h.object = hall_ref
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    L(tc_h.outputs["Object"], sep.inputs["Vector"])
+    z_map = nt.nodes.new("ShaderNodeMapRange")
+    z_map.inputs["From Min"].default_value = 0.35
+    z_map.inputs["From Max"].default_value = 1.45
+    z_map.inputs["To Min"].default_value = -0.042
+    z_map.inputs["To Max"].default_value = 0.015
+    z_map.clamp = True
+    L(sep.outputs["Z"], z_map.inputs["Value"])
+
+    # Fine vertical hairline brushing micro-variation along height
+    mp_hl = nt.nodes.new("ShaderNodeMapping")
+    mp_hl.inputs["Scale"].default_value = (700.0, 700.0, 1.8)
+    L(tc_h.outputs["Object"], mp_hl.inputs["Vector"])
+    nz_hl = nt.nodes.new("ShaderNodeTexNoise")
+    nz_hl.inputs["Scale"].default_value = 1.0
+    nz_hl.inputs["Detail"].default_value = 3.0
+    L(mp_hl.outputs["Vector"], nz_hl.inputs["Vector"])
+    hl_map = nt.nodes.new("ShaderNodeMapRange")
+    hl_map.inputs["From Min"].default_value = 0.30
+    hl_map.inputs["From Max"].default_value = 0.70
+    hl_map.inputs["To Min"].default_value = -0.014
+    hl_map.inputs["To Max"].default_value = 0.014
+    L(nz_hl.outputs["Fac"], hl_map.inputs["Value"])
+
+    r_add1 = nt.nodes.new("ShaderNodeMath")
+    r_add1.operation = "ADD"
+    L(t_rgh.outputs["Color"], r_add1.inputs[0])
+    L(z_map.outputs["Result"], r_add1.inputs[1])
+
+    r_add2 = nt.nodes.new("ShaderNodeMath")
+    r_add2.operation = "ADD"
+    r_add2.use_clamp = True
+    L(r_add1.outputs["Value"], r_add2.inputs[0])
+    L(hl_map.outputs["Result"], r_add2.inputs[1])
+    L(r_add2.outputs["Value"], b.inputs["Roughness"])
 
     bp = nt.nodes.new("ShaderNodeBump")
-    bp.inputs["Strength"].default_value = 0.04
-    bp.inputs["Distance"].default_value = 0.0003
+    bp.inputs["Strength"].default_value = 0.008
+    bp.inputs["Distance"].default_value = 0.0002
     L(t_bmp.outputs["Color"], bp.inputs["Height"])
     L(bp.outputs["Normal"], b.inputs["Normal"])
 
-    m.diffuse_color = (0.72, 0.73, 0.74, 1.0)
+    m.diffuse_color = (0.76, 0.76, 0.75, 1.0)
     return m
 
 
@@ -1401,7 +1486,7 @@ def apply() -> dict:
     if any(not (TEX_DIR / f).exists() for f in needed):
         gen_textures()
 
-    revert()
+    _cleanup_detail8()
 
     ext = bpy.data.objects["Sangga_Hallway_Ext"]
     hall = bpy.data.objects["Sangga_Hallway"]
@@ -1409,12 +1494,17 @@ def apply() -> dict:
     coll = bpy.data.collections.new(COLL)
     set_c.children.link(coll)
 
-    hidden = []
-    for name in HIDE_EXACT:
+    # Delete superseded old elevator objects & orphan data/materials (never keep hidden originals)
+    removed_count = 0
+    cand_mats, cand_data = set(), set()
+    for name in REMOVE_EXACT:
         ob = bpy.data.objects.get(name)
         if ob is not None:
-            _hide_tree(ob)
-            hidden.append(name)
+            r, ms, ds = _remove_tree(ob)
+            removed_count += r
+            cand_mats |= ms
+            cand_data |= ds
+    _purge_orphans(cand_data, cand_mats)
 
     # ---- Materials ----
     m_light_stone = _mat_stone(PFX + "LightGranite", TEX_LIGHT_GRANITE, 0.24, 0.34, 0.06,
@@ -1424,7 +1514,7 @@ def apply() -> dict:
     m_grout = _mat_simple(PFX + "StoneGrout", (0.14, 0.15, 0.16), rough=0.82, metal=0.0)
     m_mirror_ss = _mat_mirror_stainless(PFX + "MirrorStainless", metallic=0.90, rough_lo=0.035, rough_hi=0.08)
     m_jamb_ss = _mat_mirror_stainless(PFX + "JambStainless", metallic=0.88, rough_lo=0.04, rough_hi=0.08)
-    m_door_etch = _mat_etched_door(PFX + "DoorEtched")
+    m_door_etch = _mat_etched_door(PFX + "DoorEtched", hall)
     m_dark_seam = _mat_simple(PFX + "DarkSeam", (0.02, 0.02, 0.025), rough=0.75, metal=0.0)
     m_ind_body = _mat_simple(PFX + "IndicatorBody", (0.015, 0.015, 0.018), rough=0.08, metal=0.05)
     m_ind_face = _mat_textured_card(PFX + "IndicatorFace", TEX_INDICATOR, rough=0.06,
@@ -1673,21 +1763,22 @@ def apply() -> dict:
         "collection": COLL,
         "objects_added": len(coll.objects),
         "triangles_added": tris,
-        "existing_hidden": len(hidden),
+        "old_objects_deleted": removed_count,
     }
 
 
 def _main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:]
+    if "--gen-door-textures" in argv:
+        TEX_DIR.mkdir(parents=True, exist_ok=True)
+        _gen_door_etch_tiles()
+        print(f"Generated door etch textures in {TEX_DIR}")
+        return
     if "--gen-textures" in argv:
         gen_textures()
         return
-    if "--revert" in argv:
-        revert()
-        print("D8ELEV REVERTED", flush=True)
-    else:
-        info = apply()
-        print("D8ELEV APPLY", info, flush=True)
+    info = apply()
+    print("D8ELEV APPLY", info, flush=True)
     if "--save" in argv:
         import bpy
         out = argv[argv.index("--save") + 1]
