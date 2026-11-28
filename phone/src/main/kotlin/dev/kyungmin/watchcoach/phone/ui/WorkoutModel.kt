@@ -43,6 +43,7 @@ data class ExerciseUi(
     val hold: Boolean = false,
     /** This exercise shows and takes weights in pounds; storage stays in kilograms. */
     val usePounds: Boolean = false,
+    val viewerLoadKg: Double? = null,
 )
 
 /** What last time looked like and what to try next, for one exercise. */

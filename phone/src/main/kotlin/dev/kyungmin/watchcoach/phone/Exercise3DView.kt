@@ -19,12 +19,14 @@ import kotlin.math.abs
  */
 @SuppressLint("SetJavaScriptEnabled", "ViewConstructor")
 class Exercise3DView(
-    context: Context, exerciseId: String, page: String? = null, background: Int = Color.rgb(52, 50, 46),
+    context: Context, exerciseId: String, private val page: String? = null, background: Int = Color.rgb(52, 50, 46),
     /** A kept view is reused by its owner across screens: leaving the window only pauses it, [destroyNow] ends it. */
     private val keepAlive: Boolean = false,
+    initialLoadKg: Double? = null,
 ) : FrameLayout(context) {
     private val web = WebView(context)
     private var fatigueJson: String? = null
+    private var loadKg = validLoad(initialLoadKg)
     private var pageReady = false
     private var destroyed = false
 
@@ -38,6 +40,19 @@ class Exercise3DView(
 
     private fun paintFatigue() {
         if (pageReady && !destroyed) fatigueJson?.let { web.evaluateJavascript("window.setFatigue && window.setFatigue($it)", null) }
+    }
+
+    fun setLoad(kg: Double?) {
+        val load = validLoad(kg)
+        if (loadKg == load) return
+        loadKg = load
+        paintLoad()
+    }
+
+    private fun paintLoad() {
+        if (pageReady && !destroyed && page == null) {
+            web.evaluateJavascript("window.setLoad && window.setLoad($loadKg)", null)
+        }
     }
 
     private var downX = 0f
@@ -58,6 +73,7 @@ class Exercise3DView(
                 if (destroyed) return
                 pageReady = true
                 paintFatigue()
+                paintLoad()
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -76,7 +92,8 @@ class Exercise3DView(
             false
         }
         addView(web, LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        web.loadUrl(if (page != null) "https://$HOST/$page" else "https://$HOST/index.html?ex=$exerciseId")
+        val loadQuery = loadKg?.let { "&kg=$it" }.orEmpty()
+        web.loadUrl(if (page != null) "https://$HOST/$page" else "https://$HOST/index.html?ex=$exerciseId$loadQuery")
     }
 
     override fun onAttachedToWindow() {
@@ -106,6 +123,8 @@ class Exercise3DView(
 
     companion object {
         private const val HOST = "app3d.local"
+
+        private fun validLoad(kg: Double?) = kg?.takeIf { it.isFinite() && it >= 0.0 }
 
         private fun mimeOf(path: String) = when (path.substringAfterLast('.', "")) {
             "html" -> "text/html"

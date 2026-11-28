@@ -1678,13 +1678,16 @@ class MainActivity : ComponentActivity() {
                 setContent {
                     workoutVersion.intValue
                     val current = workoutComposeWorkout ?: return@setContent
+                    val model = buildWorkoutModel(current)
                     ActiveWorkoutScreen(
-                        model = buildWorkoutModel(current),
+                        model = model,
                         actions = workoutActions,
                         liveTitle = liveTitle,
                         liveTelemetry = liveTelemetry,
                         animationView = { index ->
-                            current.routine.exercises.getOrNull(index)?.let { exerciseAnimationView(it.exercise, 190) }
+                            current.routine.exercises.getOrNull(index)?.let {
+                                exerciseAnimationView(it.exercise, 190, loadKg = model.exercises.getOrNull(index)?.viewerLoadKg)
+                            }
                                 ?: android.view.View(this@MainActivity)
                         },
                     )
@@ -2096,6 +2099,7 @@ class MainActivity : ComponentActivity() {
                     restSeconds = routineExercise.restSeconds,
                     hold = routineExercise.exercise.kind == ExerciseKind.HOLD,
                     usePounds = usesPounds(workout, routineExercise.exercise.id),
+                    viewerLoadKg = routineExercise.sets.getOrNull(currentSet)?.weightKg,
                     targetReps = routineExercise.sets.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.targetDurationSeconds ?: 30 else it.targetReps },
                     performedReps = routineExercise.sets.filter { it.completed }.sumOf { if (routineExercise.exercise.kind == ExerciseKind.HOLD) it.durationSeconds ?: 0 else it.performedReps ?: 0 },
                     completedWorkSets = routineExercise.sets.completedWorkSetCount(),
@@ -3042,12 +3046,13 @@ class MainActivity : ComponentActivity() {
         exercise: ExerciseDefinition,
         heightDp: Int,
         compact: Boolean = false,
+        loadKg: Double? = null,
     ): View {
         // Lists only ever get the light preview; a live 3D view per row is what made scrolling break.
         if (compact && ExercisePreviews.has(this, exercise.id)) return ExercisePreviewView(this, exercise.id)
         if (!compact && Exercise3DView.has(this, exercise.id)) {
             val radiusDp = if (compact) 12 else 10 // same as the sticky viewer clip (KShape.Panel, 10dp)
-            return Exercise3DView(this, exercise.id).apply {
+            return Exercise3DView(this, exercise.id, initialLoadKg = loadKg).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(heightDp))
                 background = rounded(Color.rgb(52, 50, 46), radiusDp)
                 outlineProvider = android.view.ViewOutlineProvider.BACKGROUND

@@ -21,12 +21,13 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const baseOf = n => n.split("~")[0];
 // ---------- scene ----------
 const stage = document.getElementById("stage");
-const SNAP = new URLSearchParams(location.search).get("snap");   // ?snap=<act>: hand one still frame to the parent page (review sheets, thumbnail capture)
+const params = new URLSearchParams(location.search);
+const SNAP = params.get("snap");   // ?snap=<act>: hand one still frame to the parent page (review sheets, thumbnail capture)
 const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer: !!SNAP });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 stage.prepend(renderer.domElement);
 const scene = new THREE.Scene();
-const EX = new URLSearchParams(location.search).get("ex");
+const EX = params.get("ex");
 scene.background = new THREE.Color(0x34322e);
 const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 100);
 camera.up.set(0, 0, 1);
@@ -50,6 +51,16 @@ const cache = {};      // name -> parsed data
 let shown = [];        // [{name, group, objs:[{mesh, steps:[{p,q,s}]}], n}]
 let current = null;    // {kind, id, models}
 let act = 0;
+function validLoad(kg) { return Number.isFinite(kg) && kg >= 0 ? kg : null; }
+const urlKg = params.get("kg");
+let loadKg = urlKg?.trim() ? validLoad(Number(urlKg)) : null;
+window.setLoad = kg => {
+  const next = validLoad(kg);
+  if (next === loadKg) return;
+  loadKg = next;
+  for (const m of shown) applyEquipmentLoad(m, next);
+  setAct(act);
+};
 // ---------- seated avatar (poses measured by the human fit tests; three samples blended along act) ----------
 let humanList = new Set(); const humanOn = true;
 const humanCache = {};
@@ -452,7 +463,7 @@ function parse(d) {
     g.setIndex(o.tris);
     const ng = g.toNonIndexed(); ng.computeVertexNormals();
     const steps = o.m.map(a => { const m = new THREE.Matrix4().fromArray(a); const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s); return { p, q, s }; });
-    return { geom: ng, smooth: false, color: o.color, mat: 0, steps };
+    return { geom: ng, smooth: false, color: o.color, mat: 0, steps, source: o };
   });
   return { ...d, parsed: objs };
 }
@@ -466,7 +477,8 @@ function mergePlateOverlay(raw, overlay, targets, count = Object.keys(targets).l
       hidden.some(([i]) => i in targets)) throw Error('stale plate overlay');
   const base = parse({ ...raw, objects: raw.objects.filter((o,i) => !(i in targets || i in covered)) });
   for (const part of base.parsed) part.legacy = true;
-  return { ...base, format: 'wgm2', parsed: [...base.parsed, ...overlay.parsed] };
+  return { ...base, loadSource: raw.objects, overlayParts: overlay.parsed,
+           format: 'wgm2', parsed: [...base.parsed, ...overlay.parsed] };
 }
 
 async function fetchModel(name) {
@@ -490,10 +502,11 @@ async function fetchModel(name) {
   return d && parse(d);
 }
 
-function buildGroup(name, d) {
+function buildGroup(d) {
   const group = new THREE.Group();
   const objs = [];
   const staticBuckets = new Map(), movingBuckets = new Map(), instances = [];
+  const mergedGeometries = [];
   function addSingle(o) {
     const mesh = new THREE.Mesh(o.geom, makePresetMaterial(o.mat, o.color, o.smooth));
     if (isTransparentPreset(o.mat)) mesh.renderOrder = 2;
@@ -526,12 +539,402 @@ function buildGroup(name, d) {
   }
   for (const b of staticBuckets.values()) {
     const geom = mergeStaticNonIndexed(b.items, b.mat === LAT_STACK_LABEL || b.mat === PLATE_FACE);
+    mergedGeometries.push(geom);
     const mat = makePresetMaterial(b.mat, b.color, b.smooth);
     const mesh = new THREE.Mesh(geom, mat);
     if (isTransparentPreset(b.mat)) mesh.renderOrder = 2;
     group.add(mesh);
   }
-  return { name, group, objs, instances, n: d.acts.length, acts: d.acts, faces: d.faces };
+  return { group, objs, instances, mergedGeometries };
+}
+
+// ---------- set load: use the baked equipment only as a reference ----------
+const UP = new THREE.Vector3(0, 0, 1);
+const partBase = part => part.name.replace(/\.\d+$/, '');
+const stackPlate = /^(?:(?:selected|rest|resting|unselected)_(?:plate|weight)(?:_\d+)?|mopt_(?:fixed|selected)_plate_\d+|weight(?:_plate)?|slab)$/;
+const stackPin = /^(?:selector(?:_pin(?:_shaft|_knob)?|_grip)?|pin)$/;
+const stackRod = /^(?:selector_(?:rod|stem|lift_rod)|rod)$/;
+const sleeveName = /^(?:sleeve|horn|loading_sleeve|load_sleeve|horn_sleeve|plate_sleeve|loading_horn(?:_-?1)?|load_horn|plate_horn|pendulum_loading_horn)$/;
+const collarName = /^(?:collar|plate_collar|sleeve_collar|locking_collar|pendulum_plate_collar)$/;
+const freePlate = /^(?:plate|bumper(?:_plate)?|light_plate|weight_plate|loaded_plate(?:_-?1)?|loaded_45lb_plate|light_back_plate|plate_\d+kg|pendulum_loading_plate)$/;
+const barClip = /^(?:smith_|ez_|barbell_|.*_barbell(?:_|$)|(?:flat|close_grip)_bench_press$|(?:conventional|sumo|trap_bar|stiff_leg)_deadlift$|(?:box|front|overhead|zercher)_squat$|(?:drag|reverse|wrist|reverse_wrist)_curl$|bradford_press$|rack_pull$|good_morning$|guillotine_press$|jm_press$|push_press$|thruster$|power_clean$|hang_clean$|snatch$|seal_row$|(?:single_arm_)?landmine_(?:shoulder_)?press$)/;
+const discSpecs = [
+  { kg: 20, diameter: .450, thick: .042 },
+  { kg: 15, diameter: .400, thick: .036 },
+  { kg: 10, diameter: .325, thick: .027 },
+  { kg: 5, diameter: .230, thick: .019 },
+  { kg: 2.5, diameter: .190, thick: .015 },
+];
+const geometryBox = geom => {
+  if (!geom.boundingBox) geom.computeBoundingBox();
+  return geom.boundingBox;
+};
+function rawBounds(o) {
+  const matrix = new THREE.Matrix4().fromArray(o.m[0]);
+  const box = new THREE.Box3(), point = new THREE.Vector3();
+  for (let i = 0; i < o.verts.length; i += 3) box.expandByPoint(point.fromArray(o.verts, i).applyMatrix4(matrix));
+  return box;
+}
+function loadBounds(part) {
+  const { p, q, s } = part.steps[0];
+  return geometryBox(part.geom).clone().applyMatrix4(new THREE.Matrix4().compose(p, q, s));
+}
+const boxCenter = b => b.getCenter(new THREE.Vector3());
+const boxSize = b => b.getSize(new THREE.Vector3());
+const xyDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function staticPart(geom, color, mat, p, q = new THREE.Quaternion()) {
+  return { geom, color, mat, smooth: true, steps: [{ p, q, s: new THREE.Vector3(1, 1, 1) }] };
+}
+function shiftedPart(part, offset, lift = part.steps, zScale = 1, zPivot = 0) {
+  const first = part.steps[0];
+  const rest = first.p.clone().add(offset);
+  rest.z += (first.p.z - zPivot) * (zScale - 1);
+  return { ...part, steps: lift.map(({ p }) => ({
+    p: rest.clone().add(p).sub(lift[0].p), q: first.q,
+    s: first.s.clone().multiply(new THREE.Vector3(1, 1, zScale)),
+  })) };
+}
+
+function stackLoadPlan(d, raw, parts) {
+  // Named JSON plates and pin variants identify each independent tower. The finished
+  // lat catalog has no WGM names, but its 28 castings share one geometry beside the atlas.
+  const atlas = parts.filter(r => r.part.mat === LAT_STACK_LABEL);
+  const named = raw.filter(r => stackPlate.test(r.name));
+  const pins = raw.filter(r => stackPin.test(r.name) && r.source.m.length > 1);
+  if (!atlas.length && (!named.length || !pins.length)) return null;
+  const decks = [];
+  const candidates = atlas.length ? parts.filter(r => {
+    const label = boxCenter(atlas[0].box);
+    const { x, y, z } = r.size;
+    return x > .30 && y > .24 && z > .025 && z < .06 &&
+      Math.abs(r.center.x - label.x) < .04 && r.center.y > label.y && r.center.y - label.y < .20;
+  }) : named;
+  for (const plate of candidates) {
+    const deck = decks.find(d => xyDistance(d[0].center, plate.center) < .022);
+    if (deck) deck.push(plate); else decks.push([plate]);
+  }
+  const remove = new Set(atlas.map(r => r.part));
+  const towers = [];
+  for (const deck of decks) {
+    if (deck.length < 4) return null;
+    const sorted = deck.sort((a, b) => b.center.z - a.center.z);
+    const plates = atlas.length ? sorted : sorted.map(r => parts.find(f =>
+      (f.part.source === r.source || f.center.distanceTo(r.center) < .006 && f.size.distanceTo(r.size) < .028) &&
+      f.size.z < .11));
+    if (plates.some(r => !r) || new Set(plates).size !== sorted.length) return null;
+    const leader = plates.find(r => r.part.steps.length > 1);
+    if (!leader) continue;    // an unused tower on a one-arm exercise stays as baked
+    const { center } = leader;
+    const bottom = plates.at(-1);
+    const distances = plates.slice(1).map((r, i) => plates[i].center.z - r.center.z).sort((a, b) => a - b);
+    const pitch = distances[Math.floor(distances.length / 2)];
+    if (pitch < .020 || pitch > .15 || distances[0] < pitch - .018 ||
+      plates.some(r => r.size.z > pitch + .004)) return null;
+    const track = leader.part.steps;
+    const lowestLift = Math.min(...track.map(t => t.p.z - track[0].p.z));
+    const topZ = Math.max(...plates.map(r => r.center.z + (r.part.steps.length > 1 ? lowestLift : 0)));
+    const linked = parts.filter(r => r.part.steps.length === track.length && r.part.steps.length > 1 &&
+      r.part.steps.every((step, i) => step.p.clone().sub(r.part.steps[0].p)
+        .distanceToSquared(track[i].p.clone().sub(track[0].p)) < .000004));
+    const anchor = plates.filter(r => r.part.steps.length > 1).at(-1);
+    const pinParts = linked.filter(r => {
+      if (atlas.length) return Math.abs(r.center.z - anchor.center.z) < .026 &&
+        Math.abs(r.center.x - center.x) < .065 && r.center.y < anchor.box.min.y &&
+        r.center.y > anchor.box.min.y - .11 && r.size.z < .07;
+      return Math.abs(r.center.x - center.x) < anchor.size.x / 2 + .14 &&
+        Math.abs(r.center.y - center.y) < anchor.size.y / 2 + .14 &&
+        pins.some(p => r.part.source === p.source || r.center.distanceTo(p.center) < .028);
+    });
+    if (!pinParts.length) return null;
+    const pin = pinParts.find(r => !r.part.source || !/knob|grip/.test(partBase(r.part.source))) || pinParts[0];
+    // Some older pin models stop exactly at the casting face. Seat their tip a
+    // few mm into the face while keeping the handle on the same side.
+    const pinBox = new THREE.Box3();
+    for (const r of pinParts) pinBox.union(r.box);
+    const insertion = new THREE.Vector3();
+    for (const axis of ['x', 'y']) {
+      const depth = Math.min(pinBox.max[axis], anchor.box.max[axis]) -
+        Math.max(pinBox.min[axis], anchor.box.min[axis]);
+      if (depth < .003) insertion[axis] = Math.sign(center[axis] - pin.center[axis]) * (.003 - depth);
+    }
+    // Printed baked numbers describe the original plate weights. Their flat overlays
+    // must go with the original castings when the live 5 kg stack replaces them.
+    for (const r of parts) {
+      if (plates.includes(r) || pinParts.includes(r) || sorted.some(p =>
+        r.size.y < .004 && r.size.x > .045 && r.size.x < p.size.x &&
+        r.size.z < p.size.z && Math.abs(r.center.x - p.center.x) < p.size.x * .35 &&
+        Math.abs(r.center.z - p.center.z) < .019 &&
+        Math.min(Math.abs(r.center.y - p.box.min.y), Math.abs(r.center.y - p.box.max.y)) < .014)) remove.add(r.part);
+    }
+    const rod = linked.find(r => r.part.source && stackRod.test(partBase(r.part.source)) &&
+      xyDistance(r.center, center) < .043);
+    const count = Math.max(20, plates.length);
+    // An older tower can only fit 20 castings if the row pitch is reduced.
+    // Keep both ends inside its original envelope, including throughout the lift.
+    const rowPitch = Math.min(pitch, (topZ - bottom.center.z) / (count - 1));
+    if (rowPitch < .014) return null;
+    towers.push({ plates, pitch, rowPitch, count, topZ, lowestLift, track, pinParts, pin, insertion, rod });
+  }
+  if (!towers.length) return null;
+  return {
+    kind: 'stack', remove,
+    build(kg) {
+      const live = [], checks = [];
+      for (const { plates, pitch, rowPitch, count, topZ, lowestLift, track, pinParts, pin, insertion, rod } of towers) {
+        const k = Math.min(count, Math.max(1, Math.round(kg / 5)));
+        const zScale = rowPitch / pitch;
+        const pinZ = topZ - (k - 1) * rowPitch - lowestLift;
+        const rows = [];
+        for (let i = 0; i < count; i++) {
+          const plate = plates[Math.min(i, plates.length - 1)];
+          const z = topZ - i * rowPitch - (i < k ? lowestLift : 0);
+          rows.push(shiftedPart(plate.part, new THREE.Vector3(0, 0, z - plate.center.z),
+            i < k ? track : track.slice(0, 1), zScale, plate.center.z));
+        }
+        live.push(...rows);
+        const pinOffset = insertion.clone().setZ(pinZ - pin.center.z);
+        const movingPins = pinParts.map(r => shiftedPart(r.part, pinOffset, track));
+        live.push(...movingPins);
+        if (rod && rod.box.min.z > pinZ + .006) {
+          const height = rod.box.min.z - pinZ;
+          const { x, y } = rod.center;
+          const geom = new THREE.CylinderGeometry(.011, .011, height, 12).rotateX(Math.PI / 2);
+          const extension = staticPart(geom, [.30, .31, .32], 3, new THREE.Vector3(x, y, pinZ + height / 2));
+          live.push({ ...shiftedPart(extension, new THREE.Vector3(), track), ownedGeometry: true });
+        }
+        checks.push({ k, rows, movingPins, pinParts, track, pitch: rowPitch });
+      }
+      return { live, checks };
+    },
+  };
+}
+
+function rawCylinder(row, useThickness = false) {
+  const source = row.source;
+  const local = new THREE.Box3(), point = new THREE.Vector3();
+  for (let i = 0; i < source.verts.length; i += 3) local.expandByPoint(point.fromArray(source.verts, i));
+  const size = boxSize(local);
+  const dims = [size.x, size.y, size.z].map((extent, i) => ({ i, extent })).sort((a, b) => a.extent - b.extent);
+  const i = (useThickness ? dims[0] : dims[2]).i;
+  const m = new THREE.Matrix4().fromArray(source.m[0]);
+  const vector = j => new THREE.Vector3().setFromMatrixColumn(m, j);
+  const length = dims.find(d => d.i === i).extent * vector(i).length();
+  const diameter = Math.max(...dims.filter(d => d.i !== i).map(d => d.extent * vector(d.i).length()));
+  return { center: boxCenter(local).applyMatrix4(m), axis: vector(i).normalize(), length, diameter };
+}
+
+function plateSteps(steps, localZ, direction) {
+  return steps.map(({ p, q }) => ({
+    p: new THREE.Vector3(0, 0, direction * localZ).applyQuaternion(q).add(p), q,
+    s: new THREE.Vector3(1, 1, 1),
+  }));
+}
+
+function fitDiscGeometry(part, radius, bore, axialScale, hub) {
+  const geom = part.geom.clone();
+  const a = geom.getAttribute('position');
+  const oldR = boxSize(geometryBox(part.geom)).x / 2;
+  for (let v = 0; v < a.count; v++) {
+    const x = a.getX(v), y = a.getY(v), r = Math.hypot(x, y);
+    const next = hub ? THREE.MathUtils.lerp(bore, .05, THREE.MathUtils.clamp((r - .0262) / (.05 - .0262), 0, 1))
+      : THREE.MathUtils.lerp(.05, radius, THREE.MathUtils.clamp((r - .05) / (oldR - .05), 0, 1));
+    a.setXYZ(v, x * next / r, y * next / r, a.getZ(v) * axialScale);
+  }
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  return geom;
+}
+
+function ringGeometry(inner, outer, width) {
+  const profile = [[inner, -.5], [outer - .002, -.5], [outer, -.44], [outer, .44],
+    [outer - .002, .5], [inner, .5], [inner, -.5]].map(([r, h]) => new THREE.Vector2(r, h * width));
+  return new THREE.LatheGeometry(profile, 36).rotateX(Math.PI / 2);
+}
+
+function plateLoadPlan(name, d, raw, parts) {
+  const sleeves = raw.filter(r => sleeveName.test(r.name)).map(row => ({ row, ...rawCylinder(row), plates: [] }));
+  if (!sleeves.length) return null;
+  const overlayNames = plateOverlays[name] || {};
+  const plateSources = Object.keys(overlayNames).map(i => (d.loadSource || d.objects)[i]);
+  // The plate overlay is the prefix of WGM. Every original plate becomes a matched rubber body / metal hub pair.
+  const sourcePairs = new Map(plateSources.map((source, i) => [source, d.overlayParts?.slice(2 * i, 2 * i + 2)]));
+  const possible = raw.filter(r => !/^(?:free|stored|dip)_/.test(r.name) &&
+    (sourcePairs.has(r.source) || freePlate.test(r.name)) && r.source.m.length > 1);
+  for (const row of possible) {
+    const disc = rawCylinder(row, true);
+    if (disc.diameter < .16 || disc.length > .14) continue;
+    const sleeve = sleeves.find(s => {
+      const delta = disc.center.clone().sub(s.center), along = delta.dot(s.axis);
+      return Math.abs(disc.axis.dot(s.axis)) > .98 && Math.abs(along) < s.length / 2 + .025 &&
+        delta.addScaledVector(s.axis, -along).length() < .018;
+    });
+    if (sleeve) sleeve.plates.push({ row, ...disc });
+  }
+  const loaded = sleeves.filter(s => s.plates.length);
+  if (!loaded.length || loaded.length > 2 || loaded.reduce((sum, s) => sum + s.plates.length, 0) !== possible.length) return null;
+  const remove = new Set();
+  const groups = [];
+  for (const sleeve of loaded) {
+    const { plates, axis, length, center } = sleeve;
+    // A long horn and its mounting collar are parts of the machine. Only short,
+    // concentric hardware is replaced, and only when it is on the loading sleeve.
+    const hardware = raw.filter(r => collarName.test(r.name) || /^(?:plate_)?hub$/.test(r.name)).filter(r => {
+      const d = rawCylinder(r, true), delta = d.center.clone().sub(center), along = delta.dot(axis);
+      return d.length < .085 && Math.abs(d.axis.dot(axis)) > .97 && Math.abs(along) < length / 2 + .025 &&
+        delta.addScaledVector(axis, -along).length() < .018;
+    });
+    const first = plates[0];
+    const offsets = plates.map(p => p.center.clone().sub(center).dot(axis));
+    const collar = hardware.find(r => collarName.test(r.name));
+    const direction = collar ? Math.sign(collar.center.clone().sub(first.center).dot(axis)) :
+      -Math.sign(offsets.reduce((sum, x) => sum + x, 0));
+    if (!direction) return null;
+    const ordered = plates.slice().sort((a, b) => direction * a.center.clone().sub(b.center).dot(axis));
+    const inner = ordered[0];
+    const pair = sourcePairs.get(inner.row.source);
+    const existing = pair?.[0]?.mat === PLATE_FACE && pair.length === 2 ? pair : null;
+    if (d.overlayParts && !existing) return null;
+    if (existing) {
+      for (const p of plates) {
+        const pair = sourcePairs.get(p.row.source);
+        if (pair?.[0]?.mat !== PLATE_FACE) return null;
+        pair.forEach(p => remove.add(p));
+      }
+    }
+    for (const p of [...plates.map(p => p.row), ...hardware]) {
+      const matches = parts.filter(f => f.part.source === p.source ||
+        f.center.distanceTo(p.center) < .005 && f.size.distanceTo(p.size) < .016);
+      if (hardware.includes(p) && !matches.length) return null;
+      matches.forEach(r => remove.add(r.part));
+    }
+    const source = existing?.[0] || parts.find(r => r.part.source === inner.row.source)?.part;
+    if (!source) return null;
+    const fallbackAxis = inner.axis.clone().applyQuaternion(source.steps[0].q.clone().invert());
+    const base = source.steps.map(({ p, q, s }) => existing ? { p, q } : ({
+      p: boxCenter(geometryBox(source.geom)).multiply(s).applyQuaternion(q).add(p),
+      q: q.clone().multiply(new THREE.Quaternion().setFromUnitVectors(UP, fallbackAxis)),
+    }));
+    const out = UP.clone().applyQuaternion(base[0].q);
+    const sign = Math.sign(out.dot(axis)) * direction;
+    const across = base[0].p.clone().sub(center);
+    const innerEdge = Math.max(-length / 2, across.dot(axis) * direction - inner.length / 2);
+    const run = length / 2 - innerEdge;
+    const delta = innerEdge - across.dot(axis) * direction;
+    const floorStart = loaded.length === 2 && inner.row.box.min.z <= .012 &&
+      Math.abs(inner.row.box.min.z) <= .025 && Math.abs(out.z) < .035;
+    const bore = Math.max(sleeve.diameter / 2 + .001, .020);
+    groups.push({ existing, base, sign, run, delta, floorStart, bore, sleeve });
+  }
+  const totalBarKg = barClip.test(name) ? 20 : 0;
+  return {
+    kind: 'plates', remove,
+    build(kg) {
+      let remaining = Math.round(Math.max(0, kg - totalBarKg) / groups.length / 2.5) * 2.5;
+      const specs = [];
+      for (const spec of discSpecs) {
+        const count = Math.floor(remaining / spec.kg);
+        if (count > 100) return null;
+        for (let i = 0; i < count; i++) specs.push(spec);
+        remaining -= count * spec.kg;
+      }
+      const live = [], checks = [];
+      const collarWidth = .027, gap = .0015;
+      const nominalThickness = specs.reduce((total, s) => total + s.thick, 0);
+      const fit = Math.min(1, ...groups.map(g => (g.run - collarWidth - gap * specs.length - .003) / nominalThickness));
+      if (specs.length && fit < .55) return null;
+      for (const { existing, base, sign, delta, floorStart, bore, run, sleeve } of groups) {
+        let edge = delta;
+        const placed = [], geometry = new Map();
+        for (const spec of specs) {
+          const width = spec.thick * fit;
+          const radius = spec.diameter / 2;
+          let meshes = geometry.get(spec.kg);
+          if (!meshes) {
+            const axialScale = existing ? width / boxSize(geometryBox(existing[1].geom)).z : 1;
+            meshes = existing ? [fitDiscGeometry(existing[0], radius, bore, axialScale, false),
+              fitDiscGeometry(existing[1], radius, bore, axialScale, true)] : [ringGeometry(bore, radius, width)];
+            geometry.set(spec.kg, meshes);
+          }
+          const steps = plateSteps(base, edge + width / 2, sign);
+          live.push({ geom: meshes[0], mat: 4, smooth: true, color: [.075, .079, .086], steps, ownedGeometry: true });
+          if (meshes[1]) live.push({ geom: meshes[1], mat: 3, smooth: true, color: [.29, .31, .34], steps, ownedGeometry: true });
+          placed.push({ kg: spec.kg, width, radius, steps, geom: meshes[0], offset: edge + width / 2 });
+          edge += width + gap;
+        }
+        let collar, block;
+        if (specs.length) {
+          const steps = plateSteps(base, edge + collarWidth / 2, sign);
+          collar = { geom: ringGeometry(bore, .037, collarWidth), mat: 3, smooth: true,
+            color: [.19, .21, .23], steps, ownedGeometry: true };
+          live.push(collar);
+        }
+        if (floorStart && specs[0]?.kg !== 20) {
+          const support = placed[0], p = support?.steps[0].p ?? plateSteps(base, delta + .04, sign)[0].p;
+          const height = p.z - (support?.radius ?? sleeve.diameter / 2);
+          if (height > .003) {
+            const width = Math.max(.13, (support?.width ?? .10) + .08);
+            const along = UP.clone().applyQuaternion(base[0].q);
+            const rotation = new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(along.y, along.x));
+            block = { ...staticPart(new THREE.BoxGeometry(width, .24, height), [.082, .074, .063], 4,
+              new THREE.Vector3(p.x, p.y, height / 2), rotation), ownedGeometry: true };
+            live.push(block);
+          }
+        }
+        checks.push({ placed, collar, block, run, base, sign, delta, sleeve });
+      }
+      return { live, checks };
+    },
+  };
+}
+
+function equipmentLoadPlan(name, d) {
+  const raw = (d.loadSource || d.objects || []).map(source => ({ source, name: partBase(source) }));
+  const hasStack = d.parsed.some(p => p.mat === LAT_STACK_LABEL) || raw.some(r => stackPin.test(r.name));
+  const hasPlates = raw.some(r => sleeveName.test(r.name)) &&
+    (plateOverlays[name] || raw.some(r => freePlate.test(r.name)));
+  if (!hasStack && !hasPlates) return null;
+  for (const r of raw) {
+    r.box = rawBounds(r.source); r.center = boxCenter(r.box); r.size = boxSize(r.box);
+  }
+  const parts = d.parsed.map(part => {
+    const box = loadBounds(part);
+    return { part, box, center: boxCenter(box), size: boxSize(box) };
+  });
+  return (hasStack && stackLoadPlan(d, raw, parts)) || (hasPlates && plateLoadPlan(name, d, raw, parts)) || null;
+}
+
+function applyEquipmentLoad(m, kg) {
+  if (kg !== null && m.loadPlan === undefined) m.loadPlan = equipmentLoadPlan(m.name, m.data);
+  const result = kg === null ? null : m.loadPlan?.build(kg);
+  if (m.liveEquipment) {
+    m.group.remove(m.liveEquipment.group);
+    m.liveEquipment.group.traverse(o => {
+      if (o.isMesh) o.material.dispose();
+      if (o.isInstancedMesh) o.dispose();
+    });
+    for (const geom of m.liveEquipment.mergedGeometries) geom.dispose();
+    for (const geom of m.liveEquipment.generatedGeometries) geom.dispose();
+    m.liveEquipment = null;
+  }
+  if (result && !m.fixedEquipment) {
+    const parsed = m.data.parsed.filter(p => !m.loadPlan.remove.has(p));
+    m.fixedEquipment = buildGroup({ ...m.data, parsed });
+  }
+  const equipment = result ? m.fixedEquipment : (m.originalEquipment ||= buildGroup(m.data));
+  if (m.equipment !== equipment) {
+    if (m.equipment) m.group.remove(m.equipment.group);
+    m.group.add(equipment.group); m.equipment = equipment;
+  }
+  m.objs = equipment.objs; m.instances = equipment.instances;
+  if (result) {
+    const layer = buildGroup({ ...m.data, parsed: result.live });
+    layer.generatedGeometries = new Set(result.live.filter(p => p.ownedGeometry).map(p => p.geom));
+    m.liveEquipment = layer;
+    m.group.add(layer.group);
+    m.objs = [...equipment.objs, ...layer.objs];
+    m.instances = [...equipment.instances, ...layer.instances];
+  }
 }
 
 const tp = new THREE.Vector3(), tq = new THREE.Quaternion(), ts = new THREE.Vector3();
@@ -691,7 +1094,10 @@ async function show(models, cameraReady) {
   world.clear(); shown = [];
   let x = 0;
   loaded.forEach((n, i) => {
-    const m = buildGroup(n, cache[n]); pose(m, 0);
+    const data = cache[n];
+    const m = { name: n, data, group: new THREE.Group(), acts: data.acts };
+    applyEquipmentLoad(m, loadKg);
+    pose(m, 0);
     const b = new THREE.Box3().setFromObject(m.group);
     if (i > 0) x += 0.4 - b.min.x;     // accessories line up to the right of the main machine
     m.group.position.x = x; x += b.max.x;

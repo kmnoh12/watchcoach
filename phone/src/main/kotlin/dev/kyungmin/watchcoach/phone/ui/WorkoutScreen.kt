@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.kyungmin.watchcoach.phone.Exercise3DView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -511,6 +512,7 @@ private fun ExercisePage(
                         factory = { animationView(exerciseIndex) },
                         modifier = Modifier.fillMaxSize(),
                         onRelease = ::stopAnimatedImages,
+                        update = { (it as? Exercise3DView)?.setLoad(exercise.viewerLoadKg) },
                     )
                     viewerOverlay { 0f }
                 }
@@ -574,6 +576,7 @@ private fun ExercisePage(
                         factory = { animationView(exerciseIndex) },
                         modifier = Modifier.align(Alignment.Center).fillMaxWidth().requiredHeight(imageHeight),
                         onRelease = ::stopAnimatedImages,
+                        update = { (it as? Exercise3DView)?.setLoad(exercise.viewerLoadKg) },
                     )
                     viewerOverlay(collapse)
                 }
