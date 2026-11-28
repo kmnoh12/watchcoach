@@ -109,6 +109,7 @@ def main():
     subprocess.run([sys.executable, str(REPO / "tools/fit_app3d_lower_contacts.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/fit_app3d_lower_mounts.py"), str(stage)], check=True)
     subprocess.run([sys.executable, str(REPO / "tools/fit_app3d_upper_contacts.py"), str(stage)], check=True)
+    subprocess.run([sys.executable, str(REPO / "tools/upgrade_app3d_arm_extension.py"), str(stage)], check=True)
     report = json.loads((old / "v5_bundle_report.json").read_text())
     manifest = json.loads((stage / "human_v5/manifest.json").read_text())
     manifest["revision"] = report["revision"] + "+newhand"

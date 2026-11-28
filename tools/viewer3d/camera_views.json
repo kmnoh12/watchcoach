@@ -769,6 +769,10 @@
   "yaw": 30,
   "elev": 35
  },
+ "machine_triceps_extension": {
+  "yaw": 72,
+  "elev": 8
+ },
  "mag_grip_lat_pulldown": {
   "yaw": 135,
   "elev": 12,

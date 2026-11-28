@@ -30,6 +30,7 @@ RULES = [
     (r'drag_curl|bayesian', 90, 0),
     (r'curl$', 28, 0),
     # --- triceps
+    (r'^machine_triceps_extension$', 72, 8),
     (r'skullcrusher|jm_press|tate_press|lying_extension|dumbbell_triceps_extension', 80, 8),
     (r'close_grip_bench', 35, 12),
     (r'machine_dip|assisted_dip|^chest_dip$|^weighted_dip$', 40, 0),
