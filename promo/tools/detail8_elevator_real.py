@@ -217,18 +217,19 @@ def _gen_door_etch_tiles():
         dtype=np.float64,
     ) / 255.0
 
-    # Base Color: bright light-medium silver stainless (0.785), ≡ bars only +0.032 brighter (subtle!)
-    col_val = 0.785 + bar_s * 0.032 + cell_s * 0.008 + hairline * 0.014
+    # Base Color: mid-gray hairline stainless (0.68), subtle checkerboard (-0.015 solid square),
+    # ≡ bars (+0.065) — calibrated to match real 02_door_closeup mean ~103 & std ~7-9
+    col_val = 0.680 + bar_s * 0.065 - cell_s * 0.014 + hairline * 0.020
     col_rgb = np.stack([col_val * 0.996, col_val * 0.996, col_val * 0.990], axis=-1)
     Image.fromarray(np.clip(col_rgb * 255, 0, 255).astype(np.uint8)).save(TEX_DIR / TEX_DOOR_COLOR, "PNG")
 
-    # Roughness (Non-Color RGB): satin = 0.31, ≡ bars = 0.205 (soft, understated reflection delta ~0.10)
-    rough = np.clip(0.31 - bar_s * 0.105 - cell_s * 0.015 + hairline * 0.016, 0.16, 0.38)
+    # Roughness (Non-Color RGB): satin = 0.29, ≡ bars = 0.135 (clear etched contrast without neon glare)
+    rough = np.clip(0.29 - bar_s * 0.155 + cell_s * 0.015 + hairline * 0.018, 0.11, 0.36)
     rough_rgb = np.repeat((rough * 255).astype(np.uint8)[..., None], 3, axis=2)
     Image.fromarray(rough_rgb).save(TEX_DIR / TEX_DOOR_ROUGH, "PNG")
 
-    # Bump (Non-Color RGB): very gentle acid-etched micro-relief + fine hairline
-    bump = np.clip(0.48 + bar_s * 0.09 + hairline * 0.025, 0.0, 1.0)
+    # Bump (Non-Color RGB): clean etched micro-relief + fine vertical hairline
+    bump = np.clip(0.45 + bar_s * 0.17 + hairline * 0.030, 0.0, 1.0)
     bump_rgb = np.repeat((bump * 255).astype(np.uint8)[..., None], 3, axis=2)
     Image.fromarray(bump_rgb).save(TEX_DIR / TEX_DOOR_BUMP, "PNG")
 
@@ -991,8 +992,8 @@ def _mat_etched_door(name: str, hall_ref):
     """
     m, nt, b = _new_mat(name)
     L = nt.links.new
-    b.inputs["Metallic"].default_value = 0.60
-    b.inputs["Specular IOR Level"].default_value = 0.45
+    b.inputs["Metallic"].default_value = 0.76
+    b.inputs["Specular IOR Level"].default_value = 0.50
 
     tc_uv = nt.nodes.new("ShaderNodeTexCoord")
     t_col = nt.nodes.new("ShaderNodeTexImage")
@@ -1016,8 +1017,8 @@ def _mat_etched_door(name: str, hall_ref):
     z_map = nt.nodes.new("ShaderNodeMapRange")
     z_map.inputs["From Min"].default_value = 0.35
     z_map.inputs["From Max"].default_value = 1.45
-    z_map.inputs["To Min"].default_value = -0.042
-    z_map.inputs["To Max"].default_value = 0.015
+    z_map.inputs["To Min"].default_value = -0.032
+    z_map.inputs["To Max"].default_value = 0.010
     z_map.clamp = True
     L(sep.outputs["Z"], z_map.inputs["Value"])
 
@@ -1049,8 +1050,8 @@ def _mat_etched_door(name: str, hall_ref):
     L(r_add2.outputs["Value"], b.inputs["Roughness"])
 
     bp = nt.nodes.new("ShaderNodeBump")
-    bp.inputs["Strength"].default_value = 0.008
-    bp.inputs["Distance"].default_value = 0.0002
+    bp.inputs["Strength"].default_value = 0.016
+    bp.inputs["Distance"].default_value = 0.00025
     L(t_bmp.outputs["Color"], bp.inputs["Height"])
     L(bp.outputs["Normal"], b.inputs["Normal"])
 
