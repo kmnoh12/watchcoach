@@ -28,6 +28,12 @@ internal class ReturnToPoseRepDetector(
     private var peakNs = 0L
     private var peakTilt = 0.0
     private var peakGyro = 0.0
+    // Online 3D dominant rotation axis (SO(3)-invariant) learned from the set's own gyro covariance.
+    // Projecting gravity perpendicular to this axis cancels cos(flare) shrinkage and out-of-plane
+    // elbow-flare / grip-shift offsets without needing per-variant axes or thresholds.
+    private val gyroCov = DoubleArray(9)
+    private val rotationAxis = DoubleArray(3)
+    private var axisReady = false
 
     val candidateStartNs: Long? get() = startNs.takeIf { it > 0L }
 
@@ -38,6 +44,9 @@ internal class ReturnToPoseRepDetector(
         lastTimestampNs = 0L
         invalidGravitySinceNs = 0L
         waitForBottom = false
+        gyroCov.fill(0.0)
+        rotationAxis.fill(0.0)
+        axisReady = false
         resetCycle()
     }
 
@@ -87,6 +96,31 @@ internal class ReturnToPoseRepDetector(
             invalidGravitySinceNs = 0L
         }
         val reference = baseline!!
+        val gyroRate = norm(gyro)
+        if (!pronationInvariant && dt > 0.0 && dt <= 0.45 && gyroRate > AXIS_GYRO_FLOOR) {
+            val mem = 1.0 - exp(-dt / AXIS_MEMORY_TAU_S)
+            for (r in 0..2) {
+                for (c in 0..2) {
+                    gyroCov[r * 3 + c] = gyroCov[r * 3 + c] * (1.0 - mem) + gyro[r] * gyro[c] * mem
+                }
+            }
+            if (!axisReady) {
+                for (c in 0..2) rotationAxis[c] = gyro[c] / gyroRate
+                axisReady = true
+            } else {
+                repeat(2) {
+                    val nx = gyroCov[0] * rotationAxis[0] + gyroCov[1] * rotationAxis[1] + gyroCov[2] * rotationAxis[2]
+                    val ny = gyroCov[3] * rotationAxis[0] + gyroCov[4] * rotationAxis[1] + gyroCov[5] * rotationAxis[2]
+                    val nz = gyroCov[6] * rotationAxis[0] + gyroCov[7] * rotationAxis[1] + gyroCov[8] * rotationAxis[2]
+                    val nn = sqrt(nx * nx + ny * ny + nz * nz)
+                    if (nn > 1e-9) {
+                        rotationAxis[0] = nx / nn
+                        rotationAxis[1] = ny / nn
+                        rotationAxis[2] = nz / nn
+                    }
+                }
+            }
+        }
         val tilt = if (pronationInvariant) {
             val uY = (filtered[1] / magnitude).coerceIn(-1.0, 1.0)
             val uR = sqrt((1.0 - uY * uY).coerceAtLeast(0.0))
@@ -94,7 +128,27 @@ internal class ReturnToPoseRepDetector(
             val bR = sqrt((1.0 - bY * bY).coerceAtLeast(0.0))
             acos((uY * bY + uR * bR).coerceIn(-1.0, 1.0))
         } else {
-            acos((filtered.indices.sumOf { filtered[it] * reference[it] } / magnitude).coerceIn(-1.0, 1.0))
+            val ux = filtered[0] / magnitude
+            val uy = filtered[1] / magnitude
+            val uz = filtered[2] / magnitude
+            val rawTilt = acos((ux * reference[0] + uy * reference[1] + uz * reference[2]).coerceIn(-1.0, 1.0))
+            if (axisReady) {
+                val ax = rotationAxis[0]; val ay = rotationAxis[1]; val az = rotationAxis[2]
+                val uDot = ux * ax + uy * ay + uz * az
+                val rDot = reference[0] * ax + reference[1] * ay + reference[2] * az
+                val upx = ux - uDot * ax; val upy = uy - uDot * ay; val upz = uz - uDot * az
+                val rpx = reference[0] - rDot * ax; val rpy = reference[1] - rDot * ay; val rpz = reference[2] - rDot * az
+                val upn = sqrt(upx * upx + upy * upy + upz * upz)
+                val rpn = sqrt(rpx * rpx + rpy * rpy + rpz * rpz)
+                if (upn >= MIN_PLANE_PROJECTION && rpn >= MIN_PLANE_PROJECTION) {
+                    val projTilt = acos(((upx * rpx + upy * rpy + upz * rpz) / (upn * rpn)).coerceIn(-1.0, 1.0))
+                    minOf(projTilt, rawTilt * MAX_PROJECTION_GAIN)
+                } else {
+                    rawTilt
+                }
+            } else {
+                rawTilt
+            }
         }
         if (waitForBottom) {
             if (tilt <= RETURN_TILT) waitForBottom = false
@@ -126,5 +180,9 @@ internal class ReturnToPoseRepDetector(
         private const val BASELINE_SAMPLES = 10
         private const val DEPARTURE_TILT = PI / 3
         private const val RETURN_TILT = PI / 9
+        private const val AXIS_GYRO_FLOOR = 0.25
+        private const val AXIS_MEMORY_TAU_S = 3.0
+        private const val MIN_PLANE_PROJECTION = 0.40
+        private const val MAX_PROJECTION_GAIN = 2.0
     }
 }
