@@ -752,6 +752,17 @@ function ringGeometry(inner, outer, width) {
   return new THREE.LatheGeometry(profile, 36).rotateX(Math.PI / 2);
 }
 
+const standWidth = .064, standTipGap = .006, standHardwareGap = .012;
+function sleeveStand(sleeve, direction) {
+  const along = sleeve.axis.clone().multiplyScalar(direction);
+  const contact = sleeve.center.clone().addScaledVector(along, sleeve.length / 2 - standTipGap - standWidth / 2);
+  const height = sleeve.row.box.min.z;
+  contact.z = height / 2;
+  const rotation = new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(along.y, along.x));
+  return { ...staticPart(new THREE.BoxGeometry(standWidth, .20, height), [.082, .074, .063], 4,
+    contact, rotation), ownedGeometry: true };
+}
+
 function plateLoadPlan(name, d, raw, parts) {
   const sleeves = raw.filter(r => sleeveName.test(r.name)).map(row => ({ row, ...rawCylinder(row), plates: [] }));
   if (!sleeves.length) return null;
@@ -775,6 +786,7 @@ function plateLoadPlan(name, d, raw, parts) {
   if (!loaded.length || loaded.length > 2 || loaded.reduce((sum, s) => sum + s.plates.length, 0) !== possible.length) return null;
   const remove = new Set();
   const groups = [];
+  const totalBarKg = barClip.test(name) ? 20 : 0;
   for (const sleeve of loaded) {
     const { plates, axis, length, center } = sleeve;
     // A long horn and its mounting collar are parts of the machine. Only short,
@@ -821,31 +833,38 @@ function plateLoadPlan(name, d, raw, parts) {
     const innerEdge = Math.max(-length / 2, across.dot(axis) * direction - inner.length / 2);
     const run = length / 2 - innerEdge;
     const delta = innerEdge - across.dot(axis) * direction;
-    const floorStart = loaded.length === 2 && inner.row.box.min.z <= .012 &&
+    const floorStart = totalBarKg && loaded.length === 2 && inner.row.box.min.z <= .012 &&
       Math.abs(inner.row.box.min.z) <= .025 && Math.abs(out.z) < .035;
     const bore = Math.max(sleeve.diameter / 2 + .001, .020);
-    groups.push({ existing, base, sign, run, delta, floorStart, bore, sleeve });
+    groups.push({ existing, base, sign, run, delta, floorStart, bore, sleeve, direction });
   }
-  const totalBarKg = barClip.test(name) ? 20 : 0;
+  const floorStart = groups.every(g => g.floorStart);
+  // Reserve the outer sleeve for the fixed stand through the full plate travel.
+  const reservedRun = floorStart ? standWidth + standTipGap + standHardwareGap : 0;
   return {
     kind: 'plates', remove,
     build(kg) {
+      const checks = groups.map(g => ({ ...g, placed: [],
+        block: floorStart ? sleeveStand(g.sleeve, g.direction) : null }));
+      const live = checks.flatMap(c => c.block ? [c.block] : []);
+      const fallback = floorStart ? { live, checks, keepOriginal: true } : null;
       let remaining = Math.round(Math.max(0, kg - totalBarKg) / groups.length / 2.5) * 2.5;
       const specs = [];
       for (const spec of discSpecs) {
         const count = Math.floor(remaining / spec.kg);
-        if (count > 100) return null;
+        if (count > 100) return fallback;
         for (let i = 0; i < count; i++) specs.push(spec);
         remaining -= count * spec.kg;
       }
-      const live = [], checks = [];
       const collarWidth = .027, gap = .0015;
       const nominalThickness = specs.reduce((total, s) => total + s.thick, 0);
-      const fit = Math.min(1, ...groups.map(g => (g.run - collarWidth - gap * specs.length - .003) / nominalThickness));
-      if (specs.length && fit < .55) return null;
-      for (const { existing, base, sign, delta, floorStart, bore, run, sleeve } of groups) {
+      const fit = Math.min(1, ...groups.map(g =>
+        (g.run - reservedRun - collarWidth - gap * specs.length - .003) / nominalThickness));
+      if (specs.length && fit < .55) return fallback;
+      for (const check of checks) {
+        const { existing, base, sign, delta, bore, placed } = check;
         let edge = delta;
-        const placed = [], geometry = new Map();
+        const geometry = new Map();
         for (const spec of specs) {
           const width = spec.thick * fit;
           const radius = spec.diameter / 2;
@@ -862,26 +881,12 @@ function plateLoadPlan(name, d, raw, parts) {
           placed.push({ kg: spec.kg, width, radius, steps, geom: meshes[0], offset: edge + width / 2 });
           edge += width + gap;
         }
-        let collar, block;
         if (specs.length) {
           const steps = plateSteps(base, edge + collarWidth / 2, sign);
-          collar = { geom: ringGeometry(bore, .037, collarWidth), mat: 3, smooth: true,
+          check.collar = { geom: ringGeometry(bore, .037, collarWidth), mat: 3, smooth: true,
             color: [.19, .21, .23], steps, ownedGeometry: true };
-          live.push(collar);
+          live.push(check.collar);
         }
-        if (floorStart && specs[0]?.kg !== 20) {
-          const support = placed[0], p = support?.steps[0].p ?? plateSteps(base, delta + .04, sign)[0].p;
-          const height = p.z - (support?.radius ?? sleeve.diameter / 2);
-          if (height > .003) {
-            const width = Math.max(.13, (support?.width ?? .10) + .08);
-            const along = UP.clone().applyQuaternion(base[0].q);
-            const rotation = new THREE.Quaternion().setFromAxisAngle(UP, Math.atan2(along.y, along.x));
-            block = { ...staticPart(new THREE.BoxGeometry(width, .24, height), [.082, .074, .063], 4,
-              new THREE.Vector3(p.x, p.y, height / 2), rotation), ownedGeometry: true };
-            live.push(block);
-          }
-        }
-        checks.push({ placed, collar, block, run, base, sign, delta, sleeve });
       }
       return { live, checks };
     },
@@ -917,11 +922,12 @@ function applyEquipmentLoad(m, kg) {
     for (const geom of m.liveEquipment.generatedGeometries) geom.dispose();
     m.liveEquipment = null;
   }
-  if (result && !m.fixedEquipment) {
+  const replaceLoad = result && !result.keepOriginal;
+  if (replaceLoad && !m.fixedEquipment) {
     const parsed = m.data.parsed.filter(p => !m.loadPlan.remove.has(p));
     m.fixedEquipment = buildGroup({ ...m.data, parsed });
   }
-  const equipment = result ? m.fixedEquipment : (m.originalEquipment ||= buildGroup(m.data));
+  const equipment = replaceLoad ? m.fixedEquipment : (m.originalEquipment ||= buildGroup(m.data));
   if (m.equipment !== equipment) {
     if (m.equipment) m.group.remove(m.equipment.group);
     m.group.add(equipment.group); m.equipment = equipment;
