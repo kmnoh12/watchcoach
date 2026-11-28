@@ -15,7 +15,7 @@ sys.path.insert(0, str(TOOLS))
 from detail_gym_floor import FW_X, FW_Y, FW_TOP
 from detail4_floor_rubber import WEAR_PATHS, _wear_capsule_mask
 
-GAP = 0.00100
+GAP = 0.00150
 RADIUS = 0.00075
 MAP = TOOLS.parent / "parts/detail8_floor_tiles/pressed_epdm.png"
 TARGETS = ("RubberFloorTiles", "Dgym_floor_FreeWeight_Tiles", "Platform_Base")
