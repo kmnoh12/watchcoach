@@ -50,15 +50,17 @@ addEventListener("resize", resize); resize();
 // ---------- models ----------
 const cache = {};      // name -> parsed data
 let shown = [];        // [{name, group, objs:[{mesh, steps:[{p,q,s}]}], n}]
-let current = null;    // {kind, id, models}
+let exerciseModels, activeExercise = EX, defaultView;
 let act = 0;
 function validLoad(kg) { return Number.isFinite(kg) && kg >= 0 ? kg : null; }
 const urlKg = params.get("kg");
 let loadKg = urlKg?.trim() ? validLoad(Number(urlKg)) : null;
 let loadTimer, loadRevision = 0, tickedRevision = -1;
+let transition;
 function commitLoad(animate) {
   clearTimeout(loadTimer);
   loadRevision++;
+  if (transition) return;
   for (const m of shown) applyEquipmentLoad(m, loadKg, animate);
   for (const m of shown) pose(m, act); // Also updates a paused rep; never restart its clock or camera.
 }
@@ -124,8 +126,6 @@ async function fetchHuman(machine) {
   const h = { acts, base, vertices, minimum, scale, quantized, format:"v5-point-cache" };
   const g = new THREE.BufferGeometry(), pos = new THREE.BufferAttribute(humanFrame(h,0).slice(),3);
   pos.setUsage(THREE.DynamicDrawUsage); g.setAttribute("position",pos); g.setIndex(new THREE.BufferAttribute(base.tris,1)); h.geom=g;
-  document.documentElement.dataset.modelRevision = v5Manifest.revision;
-  document.documentElement.dataset.modelKey = machine;
   return (humanCache[machine]=h);
 }
 function validatePhases(acts) {
@@ -376,8 +376,8 @@ function selectorWindowMaterial(color) {
       float grazing = smoothstep(0.0, 0.88, 1.0 - clamp(dot(normal, eye), 0.0, 1.0));
       vec3 ray = inverseTransformDirection(reflect(-eye, normal), viewMatrix);
       float strip = 1.0 - smoothstep(0.025, 0.18, abs(ray.z - 0.33 * ray.x - 0.11));
-      diffuseColor.a = min(0.56, opacity + 0.24 * grazing + 0.08 * strip);
-      outgoingLight += vec3(0.085 * grazing + strip * (0.22 + 0.20 * grazing));
+      diffuseColor.a = min(0.56, 0.27 + 0.24 * grazing + 0.08 * strip) * opacity / 0.27;
+      outgoingLight += (opacity / 0.27) * vec3(0.085 * grazing + strip * (0.22 + 0.20 * grazing));
       #include <opaque_fragment>`);
   };
   return mat;
@@ -566,7 +566,7 @@ function buildGroup(d) {
     if (isTransparentPreset(b.mat)) mesh.renderOrder = 2;
     group.add(mesh);
   }
-  return { group, objs, instances, mergedGeometries };
+  return { group, objs, instances, mergedGeometries, parts:d.parsed };
 }
 
 // ---------- set load: use the baked equipment only as a reference ----------
@@ -1146,24 +1146,23 @@ function setAct(a) { act = a; for (const m of shown) { pose(m, a); poseHuman(m, 
 
 const flatBox = new THREE.Box3();
 function isFlat(mesh) { return flatBox.setFromObject(mesh).getSize(new THREE.Vector3()).z < 0.08; }
-let framedPerson = false;   // true when the person alone sets the frame: then the camera can sit closer
-function bounds(spec = {}) {
-  const full = new THREE.Box3(), person = new THREE.Box3(), keep = act;
+function bounds(models, keep, spec) {
+  const full = new THREE.Box3(), person = new THREE.Box3();
   for (const a of [0, .25, .5, .75, 1]) {   // frame the whole rep, not only the start pose
-    for (const m of shown) { pose(m, a); poseHuman(m, a); if (m.human) m.human.geom.computeBoundingBox(); }   // bounds are cached per geometry: refresh for every sampled pose
-    world.updateMatrixWorld(true);
-    for (const m of shown) {
+    for (const m of models) { pose(m, a); poseHuman(m, a); if (m.human) m.human.geom.computeBoundingBox(); }   // bounds are cached per geometry: refresh for every sampled pose
+    models.forEach(m => m.group.updateMatrixWorld(true));
+    for (const m of models) {
       m.group.traverseVisible(o => { if (o.isMesh && !(o === m.humanMesh) && !isFlat(o)) full.expandByObject(o); });   // a floor mat is not part of the subject
       if (m.humanMesh) { person.expandByObject(m.humanMesh); full.expandByObject(m.humanMesh); }
     }
   }
-  for (const m of shown) { pose(m, keep); poseHuman(m, keep); }
-  if (person.isEmpty()) return full;
+  for (const m of models) { pose(m, keep); poseHuman(m, keep); }
+  if (person.isEmpty()) return {box:full, framedPerson:false};
   // The person is the subject. A machine that dwarfs them is cropped to the area around the person instead of shrinking them.
   const fullSize = full.getSize(new THREE.Vector3()).length(), personSize = person.getSize(new THREE.Vector3()).length();
-  framedPerson = spec.focus === "person" || fullSize > personSize * FRAME_MACHINE_RATIO;
-  if (!framedPerson) return full;
-  return person.clone().expandByVector(person.getSize(new THREE.Vector3()).multiplyScalar(spec.pad ?? FRAME_PERSON_PAD));
+  const framedPerson = spec.focus === "person" || fullSize > personSize * FRAME_MACHINE_RATIO;
+  const box = framedPerson ? person.expandByVector(person.getSize(new THREE.Vector3()).multiplyScalar(spec.pad ?? FRAME_PERSON_PAD)) : full;
+  return {box, framedPerson};
 }
 
 // ---------- first view: read the frame-zero mesh, never alter the human pose ----------
@@ -1201,14 +1200,14 @@ function facingOf(h) {
   const result = { front, heading: heading.normalize(), lying };
   viewFrames.set(h, result); return result;
 }
-function machineBehindPenalty(d, human) {
-  const c = shown[0] && shown[0].machineCenter; if (!c || !human) return 0;
+function machineBehindPenalty(d, human, models) {
+  const c = models[0]?.machineCenter; if (!c || !human) return 0;
   const P = humanFrame(human.human, 0), centre = new THREE.Vector3();
   for (let v = 0; v < P.length; v += 3) centre.add(new THREE.Vector3(P[v], P[v + 1], P[v + 2]));
   centre.divideScalar(P.length / 3); human.mesh.localToWorld(centre);
   return d.x * (c.x - centre.x) + d.y * (c.y - centre.y);
 }
-function qViewDir(human, spec = {}, view = null) {
+function qViewDir(human, spec, view, models, keep) {
   const facing = human && facingOf(human.human); if (!facing) return null;
   const sideDir = (sign, turn = 0) => {
     // Lying: 40 degrees from the body's side, toward its head; upright: 40 from front.
@@ -1225,10 +1224,9 @@ function qViewDir(human, spec = {}, view = null) {
     }
     return d.setZ(Math.tan(elevation)).normalize();
   };
-  if (!view) { const a = sideDir(1), b = sideDir(-1); return machineBehindPenalty(b, human) < machineBehindPenalty(a, human) ? b : a; }
   // Try both sides and a few small turns; keep the view where the machine hides the person least.
-  const points = personPoints(), blockers = [];
-  for (const m of shown) m.group.traverseVisible(o => { if (o.isMesh && o !== human.mesh) blockers.push(o); });
+  const points = personPoints(models[0], keep), blockers = [];
+  for (const m of models) m.group.traverseVisible(o => { if (o.isMesh && o !== human.mesh) blockers.push(o); });
   const ray = new THREE.Raycaster(); let best = null;
   const turns = spec.lockYaw ? [0] : [0, 20, -20, 40, -40];
   for (const sign of [1, -1]) for (const turn of turns) {
@@ -1240,20 +1238,20 @@ function qViewDir(human, spec = {}, view = null) {
       ray.set(eye, to.normalize()); ray.far = len - 0.03;
       if (ray.intersectObjects(blockers, false).length) hidden++;
     }
-    const score = hidden / points.length * 100 + Math.abs(turn) * 0.05 + Math.max(0, machineBehindPenalty(d, human)) * 0.01;
+    const score = hidden / points.length * 100 + Math.abs(turn) * 0.05 + Math.max(0, machineBehindPenalty(d, human, models)) * 0.01;
     if (!best || score < best.score) best = { score, d };
   }
   return best.d;
 }
 // World-space samples of the person at the start, middle and end of the rep, to test what a camera can see.
-function personPoints() {
-  const m = shown[0], out = [], keep = act;
+function personPoints(m, keep) {
+  const out = [];
   for (const a of [0, .5, 1]) {
-    pose(m, a); poseHuman(m, a); world.updateMatrixWorld(true);
+    pose(m, a); poseHuman(m, a); m.group.updateMatrixWorld(true);
     const P = m.humanMesh.geometry.attributes.position.array;
     for (let v = 0; v < P.length; v += 3 * 40) out.push(m.humanMesh.localToWorld(new THREE.Vector3(P[v], P[v + 1], P[v + 2])));
   }
-  pose(m, keep); poseHuman(m, keep); world.updateMatrixWorld(true);
+  pose(m, keep); poseHuman(m, keep); m.group.updateMatrixWorld(true);
   return out;
 }
 
@@ -1262,7 +1260,7 @@ function humanForModel(name) {
   return key && humanList.has(key) ? fetchHuman(key) : null;
 }
 
-async function show(models, cameraReady) {
+async function prepareModels(models) {
   const [equipment, earlyHuman, watch] = await Promise.all([
     Promise.all(models.map(async name => {
       cache[name] = cache[name] || await fetchModel(name);
@@ -1273,8 +1271,7 @@ async function show(models, cameraReady) {
   ]);
   const loaded = equipment.filter(name => cache[name]);
   const h = loaded.length === 1 ? (models.length === 1 ? earlyHuman : await humanForModel(loaded[0])) : null;
-  await cameraReady;
-  world.clear(); shown = [];
+  const prepared = [];
   let x = 0;
   loaded.forEach((n, i) => {
     const data = cache[n];
@@ -1285,20 +1282,49 @@ async function show(models, cameraReady) {
     if (i > 0) x += 0.4 - b.min.x;     // accessories line up to the right of the main machine
     m.group.position.x = x; x += b.max.x;
     m.machineCenter = m.group.localToWorld(b.getCenter(new THREE.Vector3()));   // rest-pose centre in world space, for the first view
-    world.add(m.group); shown.push(m);
+    prepared.push(m);
   });
   if (h) {
-    const mesh = new THREE.Mesh(h.geom, new THREE.MeshLambertMaterial({ color: 0x63d6de, flatShading: true }));
-    mesh.frustumCulled = false; mesh.visible = humanOn; shown[0].human = h; shown[0].humanMesh = mesh; shown[0].group.add(mesh);
-    if (watch && h.vertices * 3 === h.geom.attributes.position.array.length && watch.anchors.every(id => id < h.vertices)) attachWatch(shown[0], watch);
+    const model = prepared[0];
+    const human = {...h, geom:h.geom.clone()};
+    const mesh = new THREE.Mesh(human.geom, new THREE.MeshLambertMaterial({ color: 0x63d6de, flatShading: true }));
+    mesh.frustumCulled = false; mesh.visible = humanOn;
+    model.human = human; model.humanMesh = mesh; model.group.add(mesh);
+    if (watch && watch.anchors.every(id => id < h.vertices)) attachWatch(model, watch);
   }
-  setAct(act);
-  setView();
+  return prepared;
+}
+
+function showModels(id, models) {
+  world.clear(); shown = models; activeExercise = id;
+  for (const m of models) world.add(m.group);
+  if (models[0]?.human) {
+    document.documentElement.dataset.modelRevision = v5Manifest.revision;
+    document.documentElement.dataset.modelKey = models[0].name;
+  }
+}
+
+function disposeModel(m) {
+  const equipment = [m.originalEquipment, m.fixedEquipment].filter(Boolean);
+  const materials = new Set(), geometry = new Set([m.human?.geom]);
+  for (const {group, mergedGeometries} of equipment) {
+    for (const g of mergedGeometries) geometry.add(g);
+    group.traverse(o => { if (o.isMesh) materials.add(o.material); });
+  }
+  for (const o of [m.humanMesh, m.watch?.group, m.loadRig?.group, m.loadRig?.stands]) {
+    o?.traverse(mesh => {
+      if (!mesh.isMesh) return;
+      materials.add(mesh.material);
+    });
+  }
+  for (const material of materials) material.dispose();
+  for (const geom of geometry) geom?.dispose();
 }
 
 let camViews = {};   // exercise id -> { yaw, elev } from camera_views.json
-function camSpec() {
-  const q = new URLSearchParams(location.search), spec = { ...(camViews[EX] || {}) };   // ?yaw=&elev= override for trying angles
+function camSpec(id, overrides) {
+  const q = params, spec = { ...(camViews[id] || {}) };   // ?yaw=&elev= override for trying angles
+  if (!overrides) return spec;
   if (q.has("yaw")) spec.yaw = +q.get("yaw");
   if (q.has("elev")) spec.elev = +q.get("elev");
   if (q.has("zoom")) spec.zoom = +q.get("zoom");
@@ -1306,16 +1332,408 @@ function camSpec() {
   if (q.has("lockYaw")) spec.lockYaw = q.get("lockYaw") !== "0";
   return spec;
 }
-function setView() {
-  if (!shown.length) return;
-  const spec = camSpec();
-  const b = bounds(spec), c = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3()).length();
-  const cableFront = shown.some(m => /^(cable_|functional_|lat_pulldown|high_pulley)/.test(m.name));   // handles are on the -Y side of cable stations
-  const human = shown.length === 1 && shown[0].humanMesh ? { mesh: shown[0].humanMesh, human: shown[0].human } : null;   // the person decides the first view when there is a fit for this machine
+function exerciseView(id, models, a, overrides = false) {
+  if (!models.length) return null;
+  const spec = camSpec(id,overrides);
+  const {box, framedPerson} = bounds(models, a, spec);
+  const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+  const cableFront = models.some(m => /^(cable_|functional_|lat_pulldown|high_pulley)/.test(m.name));   // handles are on the -Y side of cable stations
+  const human = models.length === 1 && models[0].humanMesh ? { mesh: models[0].humanMesh, human: models[0].human } : null;   // the person decides the first view when there is a fit for this machine
   const distance = size * (framedPerson ? 1.12 : 1.25) / (spec.zoom || 1);
-  const dir = qViewDir(human, spec, { center: c, distance }) || [0.9, cableFront ? -0.8 : 0.8, 0.45];
-  camera.position.copy(c).add(new THREE.Vector3(...dir).normalize().multiplyScalar(distance));
-  controls.target.copy(c); controls.update();
+  const dir = qViewDir(human, spec, { center: c, distance }, models, a) || [0.9, cableFront ? -0.8 : 0.8, 0.45];
+  return { target:c, offset:new THREE.Vector3(...dir).normalize().multiplyScalar(distance) };
+}
+function setView(view) {
+  if (!view) return;
+  controls.target.copy(view.target);
+  camera.position.copy(view.target).add(view.offset);
+  controls.update();
+}
+
+// ---------- exercise transition: recover a joint hierarchy from the baked surface ----------
+// Bind heads and parent order from V5_CommonRig in promo/cast/src_v5_rig.blend.
+// Both existing point-cache bundles use these bone names.
+const transitionBind = {
+  "pelvis":[null,[0.0,-0.04,0.97]],
+  "spine_01":["pelvis",[0.0,-0.05,1.07]],
+  "spine_02":["spine_01",[0.0,-0.06,1.2]],
+  "spine_03":["spine_02",[0.0,-0.07,1.33]],
+  "clavicle_l":["spine_03",[0.0336,-0.07,1.4]],
+  "upperarm_l":["clavicle_l",[0.155232,-0.05,1.38]],
+  "lowerarm_l":["upperarm_l",[0.342427,-0.07,1.1]],
+  "hand_l":["lowerarm_l",[0.47,-0.19,0.89]],
+  "index_01_l":["hand_l",[0.508083,-0.235043,0.847917]],
+  "index_02_l":["index_01_l",[0.5174,-0.248767,0.820833]],
+  "index_03_l":["index_02_l",[0.526933,-0.26214,0.79375]],
+  "middle_01_l":["hand_l",[0.488583,-0.229518,0.83925]],
+  "middle_02_l":["middle_01_l",[0.498767,-0.24537,0.81]],
+  "middle_03_l":["middle_02_l",[0.508733,-0.259644,0.78075]],
+  "pinky_01_l":["hand_l",[0.447958,-0.214341,0.821917]],
+  "pinky_02_l":["pinky_01_l",[0.455975,-0.232424,0.80025]],
+  "pinky_03_l":["pinky_02_l",[0.463775,-0.243296,0.778583]],
+  "ring_01_l":["hand_l",[0.469083,-0.222802,0.830583]],
+  "ring_02_l":["ring_01_l",[0.478833,-0.240005,0.8035]],
+  "ring_03_l":["ring_02_l",[0.488583,-0.25346,0.776417]],
+  "thumb_01_l":["hand_l",[0.502667,-0.211665,0.909667]],
+  "thumb_02_l":["thumb_01_l",[0.51675,-0.23175,0.898833]],
+  "thumb_03_l":["thumb_02_l",[0.533,-0.249625,0.885833]],
+  "clavicle_r":["spine_03",[-0.0336,-0.07,1.4]],
+  "upperarm_r":["clavicle_r",[-0.155232,-0.05,1.38]],
+  "lowerarm_r":["upperarm_r",[-0.342427,-0.07,1.1]],
+  "hand_r":["lowerarm_r",[-0.47,-0.19,0.89]],
+  "index_01_r":["hand_r",[-0.508083,-0.235043,0.847917]],
+  "index_02_r":["index_01_r",[-0.5174,-0.248767,0.820833]],
+  "index_03_r":["index_02_r",[-0.526933,-0.26214,0.79375]],
+  "middle_01_r":["hand_r",[-0.488583,-0.229518,0.83925]],
+  "middle_02_r":["middle_01_r",[-0.498767,-0.24537,0.81]],
+  "middle_03_r":["middle_02_r",[-0.508733,-0.259644,0.78075]],
+  "pinky_01_r":["hand_r",[-0.447958,-0.214341,0.821917]],
+  "pinky_02_r":["pinky_01_r",[-0.455975,-0.232424,0.80025]],
+  "pinky_03_r":["pinky_02_r",[-0.463775,-0.243296,0.778583]],
+  "ring_01_r":["hand_r",[-0.469083,-0.222802,0.830583]],
+  "ring_02_r":["ring_01_r",[-0.478833,-0.240005,0.8035]],
+  "ring_03_r":["ring_02_r",[-0.488583,-0.25346,0.776417]],
+  "thumb_01_r":["hand_r",[-0.502667,-0.211665,0.909667]],
+  "thumb_02_r":["thumb_01_r",[-0.51675,-0.23175,0.898833]],
+  "thumb_03_r":["thumb_02_r",[-0.533,-0.249625,0.885833]],
+  "neck_01":["spine_03",[0.0,-0.06,1.45]],
+  "head":["neck_01",[0.0,-0.07,1.52]],
+  "thigh_l":["pelvis",[0.1,-0.06,0.95]],
+  "calf_l":["thigh_l",[0.21,-0.04,0.49]],
+  "foot_l":["calf_l",[0.260001,-0.04,0.1]],
+  "ball_l":["foot_l",[0.290001,-0.14,0.04]],
+  "thigh_r":["pelvis",[-0.1,-0.06,0.95]],
+  "calf_r":["thigh_r",[-0.21,-0.04,0.49]],
+  "foot_r":["calf_r",[-0.260001,-0.04,0.1]],
+  "ball_r":["foot_r",[-0.290001,-0.14,0.04]]
+};
+const morphRigs = new WeakMap();
+function morphRig(base) {
+  if (morphRigs.has(base)) return morphRigs.get(base);
+  const names = Object.keys(transitionBind);
+  const weights = names.map(() => []);
+  const skin = base.joints.map(i => names.indexOf(base.names[i]));
+  for (let i = 0; i < skin.length; i++) {
+    if (base.weights[i] > 0) weights[skin[i]].push([i >> 2, base.weights[i]]);
+  }
+  const bones = names.map((name, i) => {
+    const [parent, head] = transitionBind[name];
+    // Pelvis, upper spine and neck have few exclusive verts. Fit from a wider patch there.
+    const patchNames = {pelvis:["pelvis","spine_01"], spine_03:["spine_02","spine_03"],
+      neck_01:["neck_01","head"]}[name] || [name];
+    const pairs = patchNames.flatMap(n => weights[names.indexOf(n)]);
+    const samples = pairs.length >= 3 ? pairs.map(([v,w]) => [3*v, w**6]) : [];
+    const center = new THREE.Vector3(), point = new THREE.Vector3();
+    let total = 0;
+    for (const [offset,w] of samples) {
+      center.addScaledVector(point.fromArray(base.points, offset), w);
+      total += w;
+    }
+    if (total) center.divideScalar(total);
+    return { name, parent: names.indexOf(parent), head:new THREE.Vector3(...head), center, total, samples };
+  });
+  const legs = ["l","r"].map(side => ["thigh","calf","foot","ball"].map(bone => names.indexOf(bone+"_"+side)));
+  const hands = ["hand_l","hand_r"].map(n => names.indexOf(n));
+  const rig = { bones, skin, legs, hands, base, poses:new WeakMap() };
+  morphRigs.set(base, rig);
+  return rig;
+}
+
+// Unit quaternion from the largest eigenvector of Horn's symmetric 4x4 matrix.
+// Jacobi rotations also handle near-180-degree turns, where identity-seeded power iteration can stall.
+function bestRotation(s) {
+  const [xx,xy,xz,yx,yy,yz,zx,zy,zz] = s;
+  const a = [
+    [xx+yy+zz, yz-zy, zx-xz, xy-yx],
+    [yz-zy, xx-yy-zz, xy+yx, zx+xz],
+    [zx-xz, xy+yx, yy-xx-zz, yz+zy],
+    [xy-yx, zx+xz, yz+zy, zz-xx-yy]
+  ];
+  const v = a.map((row,i) => row.map((_,j) => +(i === j)));
+  for (let n = 0; n < 32; n++) {
+    let p = 0, q = 1;
+    for (let i = 0; i < 4; i++) for (let j = i+1; j < 4; j++) {
+      if (Math.abs(a[i][j]) > Math.abs(a[p][q])) { p = i; q = j; }
+    }
+    const x = a[p][q];
+    if (Math.abs(x) < 1e-12) break;
+    const angle = .5 * Math.atan2(2*x, a[q][q]-a[p][p]), c = Math.cos(angle), sn = Math.sin(angle);
+    const pp = a[p][p], qq = a[q][q];
+    a[p][p] = c*c*pp - 2*c*sn*x + sn*sn*qq;
+    a[q][q] = sn*sn*pp + 2*c*sn*x + c*c*qq;
+    a[p][q] = a[q][p] = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i !== p && i !== q) {
+        const ip = a[i][p], iq = a[i][q];
+        a[p][i] = a[i][p] = c*ip-sn*iq;
+        a[q][i] = a[i][q] = sn*ip+c*iq;
+      }
+      const vp = v[i][p], vq = v[i][q];
+      v[i][p] = c*vp-sn*vq; v[i][q] = sn*vp+c*vq;
+    }
+  }
+  let k = 0;
+  for (let i = 1; i < 4; i++) if (a[i][i] > a[k][k]) k = i;
+  return new THREE.Quaternion(v[1][k],v[2][k],v[3][k],v[0][k]).normalize();
+}
+
+function localPose(rig, worldPose) {
+  return worldPose.map(({p,q}, i) => {
+    const parent = worldPose[rig.bones[i].parent];
+    if (!parent) return {p:p.clone(), q:q.clone()};
+    const inv = parent.q.clone().invert();
+    return {p:p.clone().sub(parent.p).applyQuaternion(inv), q:inv.multiply(q)};
+  });
+}
+
+function worldPose(rig, local, out) {
+  for (let i = 0; i < local.length; i++) {
+    const {p,q} = local[i], node = out[i], parent = out[rig.bones[i].parent];
+    node.p.copy(p); node.q.copy(q);
+    if (parent) {
+      node.p.applyQuaternion(parent.q).add(parent.p);
+      node.q.premultiply(parent.q);
+    }
+  }
+  return out;
+}
+const poseNodes = rig => rig.bones.map(() => ({p:new THREE.Vector3(), q:new THREE.Quaternion()}));
+
+function fitMorphPose(rig, points) {
+  const fitted = poseNodes(rig), center = new THREE.Vector3(), v = new THREE.Vector3();
+  for (let i = 0; i < fitted.length; i++) {
+    const bone = rig.bones[i], {p,q} = fitted[i], parent = fitted[bone.parent];
+    center.set(0,0,0);
+    if (!bone.total) {
+      const offset = bone.head.clone().sub(rig.bones[bone.parent].head);
+      p.copy(offset.applyQuaternion(parent.q)).add(parent.p); q.copy(parent.q);
+      continue;
+    }
+    for (const [o,w] of bone.samples) center.addScaledVector(v.fromArray(points,o), w);
+    center.divideScalar(bone.total);
+    const s = new Array(9).fill(0), rest = rig.base.points, r = bone.center;
+    for (const [o,w] of bone.samples) {
+      const x = (rest[o]-r.x)*w, y = (rest[o+1]-r.y)*w, z = (rest[o+2]-r.z)*w;
+      const u = points[o]-center.x, t = points[o+1]-center.y, f = points[o+2]-center.z;
+      s[0]+=x*u; s[1]+=x*t; s[2]+=x*f;
+      s[3]+=y*u; s[4]+=y*t; s[5]+=y*f;
+      s[6]+=z*u; s[7]+=z*t; s[8]+=z*f;
+    }
+    q.copy(bestRotation(s));
+    p.copy(bone.head).sub(r).applyQuaternion(q).add(center);
+  }
+  return fitted;
+}
+
+// Keep the original baked surface in each joint's space. Blending articulated
+// poses then reapplying those offsets preserves details such as fitted fingers.
+function morphPose(rig, nodes, points) {
+  const offsets = new Float32Array(rig.skin.length*3), out = new THREE.Vector3();
+  const inverses = nodes.map(({q}) => q.clone().invert());
+  let floor = Infinity;
+  for (let j = 0; j < rig.skin.length; j++) {
+    if (!rig.base.weights[j]) continue;
+    const i = rig.skin[j], o = 3*(j >> 2);
+    if (j % 4 === 0) floor = Math.min(floor, points[o+2]);
+    out.fromArray(points,o).sub(nodes[i].p).applyQuaternion(inverses[i]).toArray(offsets,3*j);
+  }
+  return {local:localPose(rig,nodes), nodes, offsets, floor, points};
+}
+
+function clipMorphPose(rig, model, a) {
+  const start = model.human.acts[0];
+  if (a === start && rig.poses.has(model.human.quantized)) return rig.poses.get(model.human.quantized);
+  const points = model.human.geom.attributes.position.array.slice();
+  const pose = morphPose(rig, fitMorphPose(rig, points), points);
+  if (a === start) rig.poses.set(model.human.quantized, pose);
+  return pose;
+}
+
+function standingMorphPose(rig, anchor, yaw) {
+  const local = rig.bones.map(({name,head,parent}) => {
+    const p = parent < 0 ? new THREE.Vector3(anchor.x,anchor.y,head.z) : head.clone().sub(rig.bones[parent].head);
+    const q = new THREE.Quaternion(), sign = name.endsWith("_l") ? 1 : -1;
+    if (parent < 0) q.setFromAxisAngle(UP, yaw);
+    if (name.startsWith("upperarm_")) q.setFromAxisAngle(new THREE.Vector3(0,1,0), sign*.50);
+    if (name.startsWith("thigh_")) q.setFromAxisAngle(new THREE.Vector3(0,1,0), -sign*.14);
+    if (name.startsWith("foot_")) q.setFromAxisAngle(new THREE.Vector3(0,1,0), sign*.14);
+    return {p,q};
+  });
+  const nodes = worldPose(rig,local,poseNodes(rig));
+  const bind = poseNodes(rig);
+  bind.forEach(({p},i) => p.copy(rig.bones[i].head));
+  const rest = morphPose(rig,bind,rig.base.points);
+  const pose = {...rest, local, nodes};
+  const points = new Float32Array(rig.base.points.length);
+  skinMorph(rig, pose, pose, nodes, 0, points);
+  pose.points = points;
+  pose.floor = meshFloor(points);
+  return pose;
+}
+
+function skinMorph(rig, from, to, nodes, t, points) {
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), p = new THREE.Vector3();
+  for (let v = 0; v < points.length/3; v++) {
+    p.set(0,0,0);
+    let total = 0;
+    for (let j = 4*v; j < 4*v+4; j++) {
+      const w = rig.base.weights[j];
+      if (!w) continue;
+      const bone = nodes[rig.skin[j]];
+      a.fromArray(from.offsets,3*j).lerp(b.fromArray(to.offsets,3*j),t);
+      p.addScaledVector(a.applyQuaternion(bone.q).add(bone.p),w);
+      total += w;
+    }
+    p.divideScalar(total).toArray(points,3*v);
+  }
+}
+
+function meshFloor(points) {
+  let z = Infinity;
+  for (let i = 2; i < points.length; i += 3) z = Math.min(z, points[i]);
+  return z;
+}
+function posture(pose) {
+  const [hips,,,chest] = pose.nodes;
+  const up = chest.p.clone().sub(hips.p).normalize();
+  const height = hips.p.z - pose.floor;
+  // A low horizontal torso can be a deadlift hinge. A higher horizontal torso
+  // with the face up is a recline and needs a seated turning point.
+  const front = new THREE.Vector3(0,-1,0).applyQuaternion(chest.q);
+  if (Math.abs(up.z) < .58 && (Math.abs(front.z) > .66 || height < .39)) return front.z > .3 && height > .39 ? "reclined" : "floor";
+  return height > .83 && up.z > .72 ? "standing" : "low";
+}
+function poseHeading(pose) {
+  const front = new THREE.Vector3(0,-1,0).applyQuaternion(pose.nodes[0].q);
+  if (Math.hypot(front.x,front.y) < .35) {
+    front.set(0,0,-Math.sign(front.z)).applyQuaternion(pose.nodes[0].q);
+  }
+  return Math.atan2(front.x,-front.y);
+}
+function shortestAngle(a,b) { return Math.atan2(Math.sin(b-a),Math.cos(b-a)); }
+
+function benchSeatPose(rig, lying, neutral, yaw) {
+  // Sit over the bench with the original thighs, knees and feet before the
+  // upper body reclines. Use the standing pose's relaxed arms while sitting.
+  const local = lying.local.map(({p,q},i) => ({
+    p:p.clone(), q:(i > 0 && !/^(thigh|calf|foot|ball)_/.test(rig.bones[i].name)
+      ? neutral.local[i].q : q).clone()
+  }));
+  for (let i = 1; i < local.length; i++) {
+    const name = rig.bones[i].name;
+    if (/^(upperarm|lowerarm|hand)_/.test(name)) {
+      local[i].q.slerp(lying.local[i].q,name.startsWith("upperarm_") ? .37 : .56);
+    }
+  }
+  local[1].q.copy(lying.nodes[0].q).invert().multiply(new THREE.Quaternion().setFromAxisAngle(UP,yaw));
+  const nodes = worldPose(rig,local,poseNodes(rig));
+  const points = new Float32Array(rig.base.points.length);
+  skinMorph(rig, neutral, neutral, nodes, 0, points);
+  return {...neutral, local, nodes, points, floor:meshFloor(points)};
+}
+
+function releaseGripPose(rig, source, neutral) {
+  const local = source.local.map(({p,q},i) => {
+    const name = rig.bones[i].name;
+    const open = /^(index|middle|pinky|ring|thumb)_/.test(name);
+    const arm = /^(upperarm|lowerarm|hand)_/.test(name);
+    return {p:p.clone(), q:q.clone().slerp(neutral.local[i].q,open ? .6 : arm ? .25 : 0)};
+  });
+  const nodes = worldPose(rig,local,poseNodes(rig));
+  const points = new Float32Array(rig.base.points.length);
+  skinMorph(rig,source,source,nodes,0,points);
+  return {...source, local, nodes, points, floor:meshFloor(points)};
+}
+
+function makeMorphRoute(rig, from, to, sourceName, hasA, keepDumbbells) {
+  const a = posture(from), b = posture(to);
+  const yawA = poseHeading(from), yawB = poseHeading(to);
+  const neutral = (pose,yaw,clearance=0) => {
+    const center = pose.nodes[0].p.clone().addScaledVector(new THREE.Vector3(Math.sin(yaw),-Math.cos(yaw),0),-clearance);
+    return standingMorphPose(rig,center,yaw);
+  };
+  const poses = [from], times = [0];
+  const add = (at,pose) => { times.push(at); poses.push(pose); };
+  const mountA = a === "low" || a === "reclined";
+  const mountB = b === "low" || b === "reclined";
+  if (hasA && !keepDumbbells && (mountA || a === "floor")) {
+    add(.10,releaseGripPose(rig,from,neutral(from,yawA)));
+  }
+  if (a === "reclined") add(.235,benchSeatPose(rig,from,neutral(from,yawA),yawA));
+  const bigFloorChange = a === "floor" && b === "floor"
+    && from.nodes[3].q.angleTo(to.nodes[3].q) > 1.05;
+  if (mountA || (a === "floor" && mountB) || bigFloorChange) {
+    const exit = a === "reclined" ? -.16 : sourceName.startsWith("lat_pulldown") ? .29 : -.14;
+    add(a === "reclined" ? .43 : .37,neutral(from,yawA,exit));
+  }
+  const walkOut = a === "low" && b === "standing" && sourceName.startsWith("chest_press");
+  if (walkOut) add(.62,neutral(from,yawA,-.84));
+  if (b === "low") add(mountA ? .62 : .50,neutral(to,yawB,.17));
+  if (b === "reclined") add(mountA || a === "floor" ? .745 : .63,benchSeatPose(rig,to,neutral(to,yawB),yawB));
+  if (b === "reclined") add(.88,releaseGripPose(rig,to,neutral(to,yawB)));
+  add(.985,to);
+  return {rig, poses, times, a, b, walkOut, local:poseNodes(rig), world:poseNodes(rig)};
+}
+
+// Keep an ankle near its contact point, with staggered steps for a change of
+// stance. Resolve the two-link leg in its interpolated knee plane.
+function placeMorphFeet(rig, nodes, a, b, t, stepHeight) {
+  const target = new THREE.Vector3(), axis = new THREE.Vector3(), bend = new THREE.Vector3();
+  const thigh = new THREE.Vector3(), shin = new THREE.Vector3(), delta = new THREE.Vector3();
+  const turn = new THREE.Quaternion();
+  for (const [side,[h,k,f,toe]] of rig.legs.entries()) {
+    const start = a.nodes[f].p, end = b.nodes[f].p;
+    if (start.z-a.floor > .18 || end.z-b.floor > .18) continue;
+    const hip = nodes[h], knee = nodes[k], foot = nodes[f];
+    const step = Math.hypot(end.x-start.x,end.y-start.y) > .085;
+    const u = step ? ramp(t,side === 0 ? .06 : .28,side === 0 ? .71 : .94) : t;
+    target.lerpVectors(start,end,smooth(u));
+    if (step) target.z += stepHeight*Math.sin(Math.PI*u)**2;
+    thigh.subVectors(knee.p,hip.p); shin.subVectors(foot.p,knee.p);
+    const l1 = thigh.length(), l2 = shin.length();
+    axis.subVectors(target,hip.p);
+    const reach = axis.length();
+    if (reach < 1e-5 || l1 < 1e-5 || l2 < 1e-5) continue;
+    axis.divideScalar(reach);
+    const d = Math.min(l1+l2-1e-6,Math.max(Math.abs(l1-l2)+1e-6,reach));
+    const x = (l1*l1-l2*l2+d*d)/(2*d);
+    bend.copy(thigh).addScaledVector(axis,-thigh.dot(axis));
+    if (bend.lengthSq() < 1e-8) continue;
+    bend.setLength(Math.sqrt(Math.max(0,l1*l1-x*x)));
+    target.copy(hip.p).addScaledVector(axis,d);
+    knee.p.copy(hip.p).addScaledVector(axis,x).add(bend);
+    hip.q.premultiply(turn.setFromUnitVectors(thigh.normalize(),delta.subVectors(knee.p,hip.p).normalize()));
+    knee.q.premultiply(turn.setFromUnitVectors(shin.normalize(),delta.subVectors(target,knee.p).normalize()));
+    nodes[toe].p.add(delta.subVectors(target,foot.p));
+    foot.p.copy(target);
+  }
+}
+
+function drawMorph(route, t, attribute) {
+  const {rig,poses,times,local,world:nodes} = route;
+  const end = times.findIndex(x => x >= t);
+  const start = Math.max(0,(end < 0 ? poses.length-1 : Math.max(1,end))-1);
+  const a = poses[start], b = poses[start+1];
+  // Ease into each change of support, carrying a little speed through the waypoint.
+  const u = unit((t-times[start])/(times[start+1]-times[start]));
+  const k = .18*u + .82*smooth(u);
+  for (let i = 0; i < local.length; i++) {
+    local[i].p.lerpVectors(a.local[i].p,b.local[i].p,k);
+    local[i].q.slerpQuaternions(a.local[i].q,b.local[i].q,k);
+  }
+  worldPose(rig,local,nodes);
+  const P = attribute.array;
+  if (t === 0 || t >= times.at(-1)) P.set(poses[t === 0 ? 0 : poses.length-1].points);
+  else {
+    const stepHeight = route.walkOut && times[start+1] === .62 ? .18 : .038;
+    placeMorphFeet(rig,nodes,a,b,k,stepHeight);
+    skinMorph(rig,a,b,nodes,k,P);
+    // Prevent the interpolation from sinking below the two clips' contact floor.
+    const correction = Math.max(0,mix(a.floor,b.floor,k)-meshFloor(P));
+    for (let i = 2; i < P.length; i += 3) P[i] += correction;
+    for (const node of nodes) node.p.z += correction;
+  }
+  attribute.needsUpdate = true;
 }
 
 // ---------- rep playback ----------
@@ -1327,21 +1745,398 @@ function repMeta() { return shown[0]?.repMeta; }
 function repMs() { return repMeta()?.playback_ms || (shown.length===1 && ALT_MIRROR.has(shown[0].name) ? REP*2 : REP); }
 const fullRep = [0,1];
 function repRange() { return repMeta()?.playback_range || fullRep; }
-function playRep() { setAct(repRange()[0]); anim = { t0: performance.now() }; }
+function playRep(now = performance.now()) { setAct(repRange()[0]); anim = { t0:now }; }
 
-renderer.setAnimationLoop(now => {
-  for (let i=0; i<shown.length; i++) {
-    const m=shown[i]; if (!m.loadRig?.moving) continue;
+const MORPH_MS = 2000;
+let pendingExercise;
+
+function transitionEquipment(model, phase) {
+  const cursor = {}, matrix = new THREE.Matrix4();
+  return model.equipment.parts.map(part => {
+    const n = part.steps.length;
+    const steps = n === 1 ? {i:0,j:0,t:0} : n === model.acts?.length ? phaseBracket(model.acts,phase,cursor)
+      : phaseBracket(part.steps.map((_,i) => i/(n-1)),phase,cursor);
+    const {i,j,t} = steps, a = part.steps[i], b = part.steps[j];
+    const p = a.p.clone().lerp(b.p,t), q = a.q.clone().slerp(b.q,t), s = a.s.clone().lerp(b.s,t);
+    const box = geometryBox(part.geom).clone().applyMatrix4(matrix.compose(p,q,s));
+    const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3());
+    const dumbbell = model.name.includes("dumbbell") && n > 1 && size.length() < .45;
+    const role = size.z > 1.28 && size.z < 2.8 && Math.max(size.x,size.y) < .7 && Math.min(size.x,size.y) > .038 ? "tower"
+      : size.z > .014 && size.z < .09 && size.x > .21 && size.x < .55 && size.y > .10 && size.y < .35 && center.z > .12 ? "stack"
+      : null;
+    const prop = dumbbell || n > 1 && /^(flat_bench_press|(?:conventional|sumo|trap_bar|stiff_leg)_deadlift)$/.test(model.name);
+    const overheadGrip = model.name.startsWith("lat_pulldown") && n > 1
+      && box.min.z > 1.30 && box.max.z < 1.98 && box.min.y < -.23;
+    const key = part.source ? partBase(part.source) + ":" + part.geom.attributes.position.count : part.geom.uuid;
+    return {part,p,q,s,box,size,center,key,role,prop,dumbbell,overheadGrip};
+  });
+}
+
+function commonEquipment(a,b) {
+  if (a.dumbbell !== b.dumbbell) return Infinity;
+  const distance = a.center.distanceTo(b.center);
+  if (a.key === b.key && a.part.mat === b.part.mat && a.part.texture === b.part.texture && distance < (a.dumbbell ? .85 : 1.05)) {
+    if (a.dumbbell && Math.sign(a.center.x) !== Math.sign(b.center.x)) return Infinity;
+    if (!a.part.source || !b.part.source || a.part.source.verts.every((v,i) => Math.abs(v-b.part.source.verts[i]) < 1e-5)) return distance;
+  }
+  if (!a.role || a.role !== b.role || distance > 1.2) return Infinity;
+  const size = Math.min(a.size.length(),b.size.length());
+  return (a.size.distanceTo(b.size) < size*.46 ? 2+distance + a.size.distanceTo(b.size)*3 : Infinity);
+}
+
+function wristRelative(row, hand) {
+  const inv = hand.q.clone().invert();
+  return {p:row.p.clone().sub(hand.p).applyQuaternion(inv), q:inv.multiply(row.q)};
+}
+
+function equipmentTimeline(from,to,route,phaseA,phaseB) {
+  const a = transitionEquipment(from,phaseA), b = transitionEquipment(to,phaseB);
+  const left = new Set(a), right = new Set(b), pairs = [], group = new THREE.Group();
+  const make = row => {
+    const {part,p,q,s} = row;
+    const material = makePresetMaterial(part.mat,part.color,part.smooth,part.texture);
+    const mesh = new THREE.Mesh(part.geom,material);
+    mesh.position.copy(p); mesh.quaternion.copy(q); mesh.scale.copy(s);
+    if (isTransparentPreset(part.mat)) mesh.renderOrder = 2;
+    group.add(mesh);
+    return {row,mesh,opacity:material.opacity,transparent:material.transparent,depthWrite:material.depthWrite};
+  };
+  const lifts = model => [model.loadRig?.group,model.loadRig?.stands].filter(g => g?.visible).map(g => ({
+    group:g, z:g.position.z, materials:g.children.filter(o => o.isMesh).map(o => [o.material,o.material.opacity,o.material.transparent,o.material.depthWrite])
+  }));
+  const loadingA = lifts(from), loadingB = lifts(to);
+  const start = route.poses[0], end = route.poses.at(-1), hands = route.rig.hands;
+  const nearestWrist = (row,pose) => row.center.distanceToSquared(pose.nodes[hands[0]].p) < row.center.distanceToSquared(pose.nodes[hands[1]].p) ? hands[0] : hands[1];
+  const candidates = [];
+  for (const x of a) for (const y of b) {
+    const score = commonEquipment(x,y);
+    if (Number.isFinite(score)) candidates.push({x,y,score});
+  }
+  candidates.sort((a,b) => a.score-b.score);
+  for (const {x,y,score} of candidates) {
+    if (!left.has(x) || !right.has(y)) continue;
+    const hand = x.dumbbell ? nearestWrist(x,start) : null;
+    if (hand !== null && hand !== nearestWrist(y,end)) continue;
+    left.delete(x); right.delete(y);
+    pairs.push({a:make(x), b:score >= 2 ? make(y) : null, target:y, hand,
+      colorA:new THREE.Color(...x.part.color), colorB:new THREE.Color(...y.part.color),
+      localA:hand !== null ? wristRelative(x,start.nodes[hand]) : null,
+      localB:hand !== null ? wristRelative(y,end.nodes[hand]) : null});
+  }
+  const side = (rows,pose) => [...rows].map(row => {
+    const hand = row.dumbbell ? nearestWrist(row,pose) : null;
+    return {...make(row), hand, local:hand === null ? null : wristRelative(row,pose.nodes[hand])};
+  });
+  const outgoing = side(left,start), incoming = side(right,end);
+  const mountedA = route.a === "reclined" || route.a === "low";
+  const mountedB = route.b === "reclined" || route.b === "low";
+  from.equipment.group.visible = to.equipment.group.visible = false;
+  world.add(group);
+
+  const shift = new THREE.Vector3(), pivot = new THREE.Vector3(), scale = new THREE.Vector3();
+  const opacity = (m,alpha,base,transparent,depthWrite) => {
+    const translucent = alpha < 1 || transparent;
+    if (m.transparent !== translucent) m.needsUpdate = true;
+    m.opacity = base*alpha; m.transparent = translucent; m.depthWrite = alpha === 1 && depthWrite;
+  };
+  const fade = (item,alpha) => {
+    item.mesh.visible = alpha > .001;
+    opacity(item.mesh.material,alpha,item.opacity,item.transparent,item.depthWrite);
+  };
+  const wrist = (mesh,hand,localP,localQ) => {
+    const node = route.world[hand];
+    mesh.position.copy(localP).applyQuaternion(node.q).add(node.p);
+    mesh.quaternion.copy(node.q).multiply(localQ);
+  };
+  const shiftGroup = (groups,alpha,z) => {
+    for (const item of groups) {
+      item.group.visible = alpha > .001;
+      item.group.position.z = item.z+z;
+      for (const [m,base,transparent,depthWrite] of item.materials) opacity(m,alpha,base,transparent,depthWrite);
+    }
+  };
+  const benchBarLift = .22;
+  const barA = route.a === "reclined", barB = route.b === "reclined";
+  const frontA = new THREE.Vector3(0,-1,0).applyAxisAngle(UP,poseHeading(start));
+  const parkedBar = pairs.some(p => p.a.row.prop && p.target.prop && p.hand === null) && (barA || barB);
+  // Move a reused bench bar clear of the character before lifting and
+  // transferring it. Only lower it into its final grip after the back is down.
+  const barStep = t => {
+    const park = smooth(ramp(t,.10,.34)), transfer = smooth(ramp(t,.83,.94));
+    const raise = smooth(ramp(t,.34,.72)), lower = smooth(ramp(t,.91,.985));
+    return {k:transfer, y:.70*park*(1-transfer), z:.50*raise*(1-transfer)+.29*transfer*(1-lower)};
+  };
+  return {
+    count:pairs.length,
+    boxes:[...a,...b].map(row => row.box).filter(box => box.max.z-box.min.z > .12),
+    draw(t) {
+      const offA = route.walkOut ? .62 : mountedA ? (barA ? .43 : .37) : .12;
+      const showB = mountedB ? (mountedA ? .60 : .43) : (route.b === "floor" ? .60 : .79);
+      const swap = smooth(ramp(t,offA,Math.max(offA+.10,showB)));
+      const bar = parkedBar ? barStep(t) : null;
+      const liftA = .26*smooth(ramp(t,.10,.26));
+      const liftB = .26*(1-smooth(ramp(t,.64,.82)));
+      for (const item of outgoing) {
+        const {row,mesh,hand,local} = item;
+        const off = row.dumbbell ? .055 : row.prop ? .10 : offA;
+        const f = smooth(ramp(t,off,off+(row.dumbbell ? .16 : row.prop && barA ? .07 : .14)));
+        fade(item,1-f);
+        if (hand !== null) wrist(mesh,hand,local.p,local.q);
+        else if (row.prop && bar) mesh.position.copy(row.p).addScaledVector(frontA,bar.y).setZ(row.p.z+bar.z);
+        else if (row.prop && barA) mesh.position.copy(row.p).addScaledVector(frontA,.44*f);
+        else mesh.position.z = row.p.z-.14*f;
+        if (row.overheadGrip) mesh.position.z += liftA;
+      }
+      for (const item of incoming) {
+        const {row,mesh,hand,local} = item;
+        const benchBar = row.prop && route.b === "reclined";
+        const on = benchBar ? (bar ? .74 : .70) : row.dumbbell ? .77 : showB-.16;
+        const f = smooth(ramp(t,on,on+.18));
+        fade(item,f);
+        if (hand !== null) wrist(mesh,hand,local.p,local.q);
+        else if (benchBar && bar) {
+          // New collars/plates ride the returning shaft while materializing.
+          const reference = pairs.find(p => p.a.row.prop && p.target.prop);
+          const deltaZA = reference.a.row.p.z-reference.target.p.z;
+          const deltaYA = reference.a.row.p.y-reference.target.p.y;
+          mesh.position.copy(row.p).addScaledVector(frontA,bar.y);
+          mesh.position.y += deltaYA*(1-bar.k);
+          mesh.position.z += deltaZA*(1-bar.k)+bar.z;
+        } else mesh.position.z = row.p.z + (benchBar ? benchBarLift*(1-smooth(ramp(t,.88,.985))) : -.14*(1-f));
+        if (row.overheadGrip) mesh.position.z += liftB;
+      }
+      for (const pair of pairs) {
+        const {a,b,target,hand,localA,localB} = pair, mesh = a.mesh;
+        const ridesBar = bar && a.row.prop && target.prop && hand === null;
+        const k = ridesBar ? bar.k : hand === null ? swap : t;
+        if (hand !== null) {
+          shift.lerpVectors(localA.p,localB.p,k);
+          wrist(mesh,hand,shift,tq.slerpQuaternions(localA.q,localB.q,k));
+        } else if (b) {
+          pivot.lerpVectors(a.row.center,target.center,k);
+          scale.lerpVectors(a.row.size,target.size,k);
+          for (const item of [a,b]) {
+            const {row,mesh} = item;
+            const height = scale.z / row.size.z;
+            mesh.scale.copy(row.s);
+            mesh.position.copy(row.p).add(pivot).sub(row.center);
+            mesh.position.z += (height-1)*(row.p.z-row.center.z);
+            mesh.scale.z *= height;
+          }
+          fade(a,1-k); fade(b,k);
+        } else {
+          mesh.position.lerpVectors(a.row.p,target.p,k);
+          if (ridesBar) { mesh.position.addScaledVector(frontA,bar.y); mesh.position.z += bar.z; }
+          mesh.position.z += mix(a.row.overheadGrip ? liftA : 0,target.overheadGrip ? liftB : 0,k);
+          mesh.quaternion.slerpQuaternions(a.row.q,target.q,k);
+        }
+        if (!b) {
+          mesh.scale.lerpVectors(a.row.s,target.s,k);
+          mesh.material.color.lerpColors(pair.colorA,pair.colorB,k);
+        }
+      }
+      const oldLoad = 1-smooth(ramp(t,offA,offA+.14)), newLoad = smooth(ramp(t,showB-.18,showB));
+      shiftGroup(loadingA,oldLoad,-.14*(1-oldLoad)); shiftGroup(loadingB,newLoad,-.14*(1-newLoad));
+    },
+    finish() {
+      if (!group.parent) return;
+      world.remove(group);
+      group.traverse(o => { if (o.isMesh) o.material.dispose(); });
+      shiftGroup(loadingB,1,0);
+      to.equipment.group.visible = true;
+    }
+  };
+}
+
+function viewOrbit(view) {
+  const {x,y,z} = view.offset;
+  return {target:view.target, azimuth:Math.atan2(y,x), elevation:Math.atan2(z,Math.hypot(x,y)), radius:view.offset.length()};
+}
+
+function orbitDirection(a,b,k,out) {
+  const yaw = a.azimuth + shortestAngle(a.azimuth,b.azimuth)*k, pitch = mix(a.elevation,b.elevation,k);
+  return out.set(Math.cos(yaw)*Math.cos(pitch),Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch));
+}
+
+function orbitClearance(a,b,boxes) {
+  const ray = new THREE.Ray(), hit = new THREE.Vector3(), eye = new THREE.Vector3();
+  const margin = .12;
+  let retreat = 0;
+  for (let i = 1; i < 20; i++) {
+    const k = i/20, radius = mix(a.radius,b.radius,k);
+    ray.origin.lerpVectors(a.target,b.target,k);
+    orbitDirection(a,b,k,ray.direction);
+    ray.at(radius,eye);
+    for (const box of boxes) if (box.distanceToPoint(eye) < margin && ray.intersectBox(box,hit)) {
+      const reverse = new THREE.Ray(eye.clone().addScaledVector(ray.direction,5),ray.direction.clone().negate());
+      if (reverse.intersectBox(box,hit)) retreat = Math.max(retreat,hit.distanceTo(ray.origin)+margin-radius);
+    }
+  }
+  return retreat;
+}
+
+function morphCamera(state, t, points) {
+  const {fromView:a, toView:b, target, offset, right, up, sample, retreat, close} = state;
+  const k = smooth(close ? ramp(t,.13,1) : t);
+  const pullBack = smooth(ramp(t,0,.17))*smooth(ramp(1-t,0,.33));
+  const radius = mix(a.radius,b.radius,k)+retreat*pullBack;
+  target.lerpVectors(a.target,b.target,k);
+  orbitDirection(a,b,k,offset);
+  right.crossVectors(UP,offset).normalize();
+  up.crossVectors(offset,right);
+  const frustum = .92*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5));
+  let needed = radius;
+  for (let i = 0; i < points.length; i += 3) {
+    sample.fromArray(points,i).sub(target);
+    const fit = Math.max(Math.abs(sample.dot(up)),Math.abs(sample.dot(right))/camera.aspect)/frustum;
+    needed = Math.max(needed,sample.dot(offset)+fit);
+  }
+  const reframe = smooth(ramp(t,0,.18))*smooth(ramp(1-t,0,.16));
+  offset.multiplyScalar(mix(radius,needed,reframe));
+  setView(state);
+}
+
+function restingModel(model, a) {
+  pose(model,a); poseHuman(model,a);
+}
+
+function requestExercise(id) {
+  const name = exerciseModels?.[id]?.[0];
+  if (!window.__ready || !shown[0]?.human || !humanList.has(name) || exerciseModels[id].length !== 1) {
+    return Promise.resolve(false);
+  }
+  if (pendingExercise?.id === id) return pendingExercise.promise;
+  if (pendingExercise) {
+    pendingExercise.resolve(false);
+    if (pendingExercise.model) disposeModel(pendingExercise.model);
+    pendingExercise = null;
+  }
+  if (id === transition?.id) return transition.promise;
+  if (!transition && id === activeExercise) {
+    if (!anim) playRep();
+    return Promise.resolve(false);
+  }
+  const request = {id};
+  request.promise = new Promise(resolve => { request.resolve = resolve; });
+  pendingExercise = request;
+  prepareModels(exerciseModels[id]).then(models => {
+    const model = models[0];
+    if (!model?.human) {
+      models.forEach(disposeModel);
+      throw Error("Transition target has no character");
+    }
+    if (pendingExercise !== request) { disposeModel(model); return; }
+    request.model = model;
+    request.view = exerciseView(id, models, model.human.acts[0]);
+    request.loadRevision = loadRevision;
+  }).catch(error => {
+    if (pendingExercise !== request) return;
+    console.warn("Couldn't prepare exercise transition", error);
+    pendingExercise = null;
+    if (request.model) disposeModel(request.model);
+    request.resolve(false);
+    if (!anim && !transition) playRep();
+  });
+  return request.promise;
+}
+
+function beginExerciseMorph(now) {
+  const request = pendingExercise;
+  if (!request?.model) return;
+  const from = shown[0], to = request.model;
+  pendingExercise = null;
+  if (request.loadRevision !== loadRevision) {
+    applyEquipmentLoad(to,loadKg);
+    request.view = exerciseView(request.id,[to],to.human.acts[0]);
+    request.loadRevision = loadRevision;
+  }
+  const rig = morphRig(from.human.base);
+  const startA = clipMorphPose(rig,from,act);
+  const first = to.human.acts[0], startB = clipMorphPose(rig,to,first);
+  const entry = to.repMeta?.playback_range?.[0] ?? 0;
+  // Some exercises intentionally omit their setup in the ordinary repeat loop.
+  // Land on their stored frame zero, then bridge to the unchanged loop entry.
+  const bridge = entry > first ? 160 : 0;
+  const hasA = from.equipment.parts.length > 0;
+  const keepDumbbells = from.name.includes("dumbbell") && to.name.includes("dumbbell");
+  const route = makeMorphRoute(rig,startA,startB,from.name,hasA,keepDumbbells);
+  const equipment = equipmentTimeline(from,to,route,act,first);
+  const resumeControls = controls.enabled;
+  const damping = controls.enableDamping;
+  const fromView = viewOrbit({target:controls.target.clone(),offset:camera.position.clone().sub(controls.target)});
+  const toView = viewOrbit(request.view), normalRadius = defaultView.offset.length();
+  const close = fromView.radius < normalRadius*.79;
+  const retreat = Math.max(close ? normalRadius*.90-fromView.radius : 0, orbitClearance(fromView,toView,equipment.boxes));
+  controls.enabled = false;
+  controls.enableDamping = false;
+  controls.update(); // Clear remaining orbit inertia before the authored camera flight.
+  to.humanMesh.visible = false;
+  if (to.watch) to.watch.group.visible = false;
+  world.add(to.group);
+  transition = { ...request, from, to, equipment, entry, first, bridge, t0:now,
+    route, resumeControls, damping, fromView, toView, close, retreat,
+    target:new THREE.Vector3(), offset:new THREE.Vector3(),
+    right:new THREE.Vector3(), up:new THREE.Vector3(), sample:new THREE.Vector3() };
+  advanceExerciseMorph(now);
+}
+
+function advanceExerciseMorph(now) {
+  const s = transition;
+  const elapsed = now - s.t0;
+  const t = unit(elapsed / (MORPH_MS-s.bridge));
+  if (elapsed >= MORPH_MS) {
+    s.equipment.finish();
+    s.to.humanMesh.visible = humanOn;
+    if (s.to.watch) s.to.watch.group.visible = humanOn;
+    showModels(s.id,[s.to]);
+    defaultView = s.view;
+    setView(defaultView);
+    controls.enableDamping = s.damping;
+    controls.enabled = s.resumeControls;
+    transition = null;
+    disposeModel(s.from);
+    if (s.loadRevision !== loadRevision) applyEquipmentLoad(s.to,loadKg);
+    playRep(now);
+    s.resolve(true);
+    return;
+  }
+  const attribute = s.from.human.geom.attributes.position;
+  if (t < 1 || !s.bridge) drawMorph(s.route,t,attribute);
+  else {
+    const a = mix(s.first,s.entry,smooth(unit((elapsed-MORPH_MS+s.bridge)/s.bridge)));
+    if (s.to.equipment.group.visible === false) s.equipment.finish();
+    restingModel(s.to,a);
+    attribute.array.set(s.to.human.geom.attributes.position.array);
+    attribute.needsUpdate = true;
+  }
+  if (s.from.watch) placeWatch(s.from.watch,attribute.array);
+  if (t < 1 || !s.bridge) s.equipment.draw(t);
+  morphCamera(s,t,attribute.array);
+}
+
+function advanceViewer(now) {
+  if (transition) { advanceExerciseMorph(now); return; }
+  for (const m of shown) {
+    if (!m.loadRig?.moving) continue;
     advanceLoad(m.loadRig, now);
     if (!anim) m.loadRig.pose(act);
   }
   if (anim) {
-    const t = (now - anim.t0) / repMs();
+    const t = Math.max(0,(now - anim.t0) / repMs());
     const [start,end] = repRange();
-    if (t >= 1) { setAct(start); if (looping) anim.t0=now; else anim=null; }
-    else setAct(start+(end-start)*(repMeta()?.playback_mode==="cycle" ? t : (t<.5 ? ease(t*2) : ease((1-t)*2))));
+    if (t >= 1) {
+      setAct(start);
+      if (!looping || pendingExercise) anim = null;
+      else anim.t0 = now;
+    } else setAct(start+(end-start)*(repMeta()?.playback_mode==="cycle" ? t : (t<.5 ? ease(t*2) : ease((1-t)*2))));
   }
   if (shown.length === 1 && ALT_MIRROR.has(shown[0].name)) shown[0].group.scale.x = anim && (now - anim.t0) / repMs() >= .5 ? -1 : 1;
+  if (!anim && pendingExercise) beginExerciseMorph(now);
+}
+
+window.transitionTo = requestExercise;
+renderer.setAnimationLoop(now => {
+  advanceViewer(now);
   controls.update(); renderer.render(scene, camera);
 });
 
@@ -1355,10 +2150,19 @@ async function start() {
     loadHumanList(),
     loadWgmManifest()
   ]);
-  await show(map[EX] || [], cameraReady);
-  resize(); playRep();
+  exerciseModels = map;
+  const [models] = await Promise.all([prepareModels(map[EX] || []), cameraReady]);
+  showModels(EX,models);
+  defaultView = exerciseView(EX,models,act);
+  setView(params.has("yaw") || params.has("elev") || params.has("zoom") || params.has("lockYaw") || params.has("focus")
+    ? exerciseView(EX,models,act,true) : defaultView);
+  resize();
+  if (!params.has("next") || SNAP) playRep();
   renderer.render(scene, camera);
   window.__ready = true;
+  if (params.has("next") && !SNAP) {
+    requestExercise(params.get("next")).then(ok => { if (!ok && !anim && !transition && !pendingExercise) playRep(); });
+  }
   if (SNAP) {   // still frames for review sheets and thumbnail capture; __snap(a) draws the rep at progress a
     window.__snap = (a, type = "image/png") => { anim = null; looping = false; setAct(a); controls.update(); renderer.render(scene, camera); return renderer.domElement.toDataURL(type, 0.9); };
     parent.postMessage({ id: EX, png: window.__snap(+SNAP, "image/jpeg") }, "*");
