@@ -44,6 +44,24 @@ def turn(skin, centre, rotation, to):
     return np.einsum('fvi,fji->fvj', skin - centre[:, None], rotation) + to[:, None]
 
 
+def straddle_preacher_post(base, skin, deg=10.0):
+    """Open both legs slightly around the vertical hip axes so thighs clear the center pad post."""
+    rest = np.reshape(base['rest'], (-1, 3))
+    wp = weights(base, ['pelvis'])
+    posed = skin.copy()
+    for side, sign in [('l', 1), ('r', -1)]:
+        wt = weights(base, ['thigh_' + side])
+        wleg = weights(base, [b + '_' + side for b in ('thigh', 'calf', 'foot', 'ball')
+                              if b + '_' + side in base['bone_names']])
+        pure = wt >= wt.max() - .005
+        r, t = rigid(rest[pure], skin[:, pure])
+        hip_rest = rest[(wp > .1) & (wt > .1)].mean(0)
+        hip = np.einsum('i,fij->fj', hip_rest, r) + t
+        rot = Rotation.from_euler('z', sign * deg, degrees=True).as_matrix()
+        posed += (((skin - hip[:, None]) @ rot.T + hip[:, None]) - skin) * wleg[None, :, None]
+    return posed
+
+
 def rest_hand(base, skin, delta):
     (s, e, w), (upper, lower, hand) = arm(base, skin, 'l')
     en, ru, rl = reach(s, e, w, w + delta)
@@ -190,8 +208,9 @@ def apply(view, keys=KEYS):
         skin = load_wgp2_human_frames(hp).astype(float)
         times = np.frombuffer(hp.read_bytes(), '<f4', len(skin), 40)
         if key == PREACHER:
-            # Rest the inactive hand on the OUTSIDE top corner, not beneath the cushion.
-            posed = rest_hand(base, skin, np.array([.10, .07, .189]))
+            # Rest the inactive hand on the OUTSIDE top corner, not beneath the cushion,
+            # and open the knees slightly so both thighs straddle the center pad post cleanly.
+            posed = straddle_preacher_post(base, rest_hand(base, skin, np.array([.10, .07, .189])))
         else:
             path = data/(key+'.json')
             raw = json.loads(path.read_text())

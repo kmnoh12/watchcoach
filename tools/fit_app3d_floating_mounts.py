@@ -45,6 +45,23 @@ def seat_hip_thrust_rests(parts, objects):
                 name=name, color=color, verts=verts.ravel().tolist(),
                 tris=tris.tolist(), m=[pose.T.ravel().tolist()],
             ))
+        # Seat each side's static storage horn on a vertical post rising from the floor rail.
+        post_name = f"free_horn_post{suffix}"
+        if post_name not in objects:
+            horn_pose, = objects["free_horn" + suffix]["m"]
+            base = np.array([rail_pose[12], horn_pose[13], .040])
+            height = (horn_pose[14] + .022) - base[2]
+            half_width = .022
+            verts, tris = make_chamfered_box(
+                np.array([-half_width, -half_width, 0.]),
+                np.array([half_width, half_width, height]),
+                bevel=.002,
+            )
+            pose = compose_matrix(base, np.array([0., 0., 0., 1.]), np.ones(3))
+            parts.append(dict(
+                name=post_name, color=color, verts=verts.ravel().tolist(),
+                tris=tris.tolist(), m=[pose.T.ravel().tolist()],
+            ))
 
 
 def seat_pec_deck_panel(objects):

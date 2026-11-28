@@ -23,7 +23,20 @@ OTHER = (
 )
 HAMMER_L = ("handle", "dumbbell_head", "dumbbell_head.001")
 HAMMER_R = ("handle.001", "dumbbell_head.002", "dumbbell_head.003")
-CLIPS = {"curtsy_lunge", "dumbbell_squat", "lateral_lunge", "incline_hammer_curl"}
+SINGLE_ROW_R = (
+    "contoured_chrome_grip",
+    "neck",
+    "neck.001",
+    "rubber_hex_head",
+    "rubber_hex_head.001",
+)
+CLIPS = {
+    "curtsy_lunge",
+    "dumbbell_squat",
+    "lateral_lunge",
+    "incline_hammer_curl",
+    "single_arm_chest_supported_dumbbell_row",
+}
 
 
 def normalize(a):
@@ -160,10 +173,55 @@ def _correct_incline_hammer_curl(machine, acts, tr, skin, grips):
     return {}
 
 
+def _correct_single_arm_row(machine, acts, tr, skin):
+    """Open the pulling right arm and dumbbell 5 deg around the bench axis clear of the ribs."""
+    from build_v5_hand_viewer_copy import rigid
+
+    objects = {o["name"]: o for o in machine["objects"]}
+    needed = set(SINGLE_ROW_R)
+    if (
+        not needed <= set(objects)
+        or not np.array_equal(acts, machine["acts"])
+        or any(len(objects[n]["m"]) != len(acts) for n in needed)
+    ):
+        raise ValueError("single_arm_chest_supported_dumbbell_row: unexpected dumbbell assembly")
+
+    cols = [
+        j
+        for j, n in enumerate(tr.names)
+        if n.endswith("_r")
+        and n.split("_")[0]
+        in ("upperarm", "lowerarm", "hand", "thumb", "index", "middle", "ring", "pinky")
+    ]
+    weight = tr.u[:, cols].sum(1)
+    pure = tr.u[:, tr.names.index("upperarm_r")] > 0.999
+    ur, ut = rigid(tr.n[pure], skin[:, pure])
+    shoulder = tr.heads["upperarm_r"] @ ur + ut
+    axis = np.array([0.0, 1.0, 1.0]) / np.sqrt(2.0)
+    rot = Rotation.from_rotvec(axis * np.deg2rad(5.0)).as_matrix()
+    before = skin.copy()
+    skin += (
+        (before - shoulder[:, None]) @ rot.T + shoulder[:, None] - before
+    ) * weight[None, :, None]
+    for name in SINGLE_ROW_R:
+        mats = np.asarray(objects[name]["m"], float).reshape(-1, 4, 4)
+        mats[:, 3, :3] = (mats[:, 3, :3] - shoulder) @ rot.T + shoulder
+        mats[:, :3, :3] = mats[:, :3, :3] @ rot.T
+        objects[name]["m"] = mats.reshape(-1, 16).tolist()
+
+    if not np.isfinite(skin).all() or not all(
+        np.isfinite(objects[n]["m"]).all() for n in needed
+    ):
+        raise ValueError("single_arm_chest_supported_dumbbell_row: non-finite corrected pose")
+    return {}
+
+
 def correct(key, machine, acts, tr, skin, q, t, grips):
     """Mutate only the selected pose and equipment tracks. Return separate support metadata."""
     if key == "incline_hammer_curl":
         return _correct_incline_hammer_curl(machine, acts, tr, skin, grips)
+    if key == "single_arm_chest_supported_dumbbell_row":
+        return _correct_single_arm_row(machine, acts, tr, skin)
     goblet = key == "lateral_lunge"
     objects = {o["name"]: o for o in machine["objects"]}
     if (
