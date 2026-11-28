@@ -269,7 +269,7 @@ object ExerciseMotionCatalog {
         binding("cross_body_hammer_curl", "크로스바디 해머 컬", MotionFamily.FLEXION_EXTENSION, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
 
         // 삼두 — approved 2026-10-19 catalog
-        binding("reverse_grip_pushdown", "케이블 리버스그립 푸시다운", MotionFamily.TRANSLATION_PRESS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
+        binding("reverse_grip_pushdown", "케이블 리버스그립 푸시다운", MotionFamily.FLEXION_EXTENSION, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("single_arm_cable_pushdown", "원암 케이블 푸시다운", MotionFamily.TRANSLATION_PRESS_RETURN, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("skullcrusher_barbell", "스컬크러셔(바벨)", MotionFamily.FLEXION_EXTENSION, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),
         binding("skullcrusher_dumbbell", "스컬크러셔(덤벨)", MotionFamily.FLEXION_EXTENSION, CapabilityTier.B_AUTO_COUNT_LIMITED_METRICS),

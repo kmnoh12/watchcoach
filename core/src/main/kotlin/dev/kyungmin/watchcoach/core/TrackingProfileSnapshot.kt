@@ -50,8 +50,9 @@ object TrackingProfileSnapshot {
             val historicalPress = migratedPress &&
                 p.family == MotionFamily.PRESS_RETURN && p.signal == TrackingSignal.COMBINED_MOTION ||
                 historicalVerticalFromCycle
-            // Straight-bar sets captured before sharing the rope engine retain translation counting.
-            val historicalStraightBar = p.exerciseId == "cable_pushdown" && generic.family == MotionFamily.FLEXION_EXTENSION &&
+            // Straight-bar and reverse-grip sets captured before sharing the pose engine retain translation counting.
+            val historicalStraightBar = p.exerciseId in setOf("cable_pushdown", "reverse_grip_pushdown") &&
+                generic.family == MotionFamily.FLEXION_EXTENSION &&
                 p.family == MotionFamily.TRANSLATION_PRESS_RETURN && p.signal == TrackingSignal.DYNAMIC_ACCELERATION
             // Recordings made before these exercises moved to the cycle-axis engine replay with their frozen engine.
             val historicalCycle = generic.family == MotionFamily.CYCLE_AXIS_RETURN &&

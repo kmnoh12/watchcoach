@@ -27,10 +27,10 @@ class ExerciseRoutingConsistencyTest {
     }
 
     @Test fun fixedWristPushdownsUseTranslationWhileOverheadExtensionsUseRotation() {
-        listOf("reverse_grip_pushdown", "single_arm_cable_pushdown").forEach {
+        listOf("single_arm_cable_pushdown").forEach {
             assertEquals(MotionFamily.TRANSLATION_PRESS_RETURN, ExerciseTrackingProfiles.resolve(it).family, it)
         }
-        listOf("cable_pushdown", "cable_overhead_extension", "rope_overhead_extension", "rope_extension", "ez_lying_extension").forEach {
+        listOf("cable_pushdown", "reverse_grip_pushdown", "cable_overhead_extension", "rope_overhead_extension", "rope_extension", "ez_lying_extension").forEach {
             assertEquals(MotionFamily.FLEXION_EXTENSION, ExerciseTrackingProfiles.resolve(it).family, it)
         }
     }
@@ -45,6 +45,7 @@ class ExerciseRoutingConsistencyTest {
         val rope = boundaries("rope_extension")
         assertEquals(10, rope.size)
         assertEquals(rope, boundaries("cable_pushdown"))
+        assertEquals(rope, boundaries("reverse_grip_pushdown"))
     }
 
     @Test fun seatedMachineArmExtensionReusesElbowExtensionCounting() {

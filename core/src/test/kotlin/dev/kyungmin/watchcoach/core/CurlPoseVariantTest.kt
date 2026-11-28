@@ -106,6 +106,27 @@ class CurlPoseVariantTest {
         assertEquals(10, count("cable_pushdown", combined))
     }
 
+    @Test fun underhandAndNeutralForearmRotationsCountIdentically() {
+        val forearmAxis = doubleArrayOf(1.0, 0.0, 0.0)
+        for (exerciseId in listOf("cable_pushdown", "reverse_grip_pushdown", "rope_extension", "rope_hammer_curl")) {
+            for (flare in listOf(-30.0, 0.0, 30.0)) {
+                val base = variantSamples(reps = 8, amplitudeDeg = 75.0, flareDeg = flare, gripDeg = 0.0)
+                for (rotDeg in listOf(90.0, 135.0, 180.0, -90.0, -135.0)) {
+                    val rad = rotDeg * PI / 180.0
+                    val rotated = base.map { s ->
+                        val a = rotateVec(doubleArrayOf(s.accelerationX.toDouble(), s.accelerationY.toDouble(), s.accelerationZ.toDouble()), forearmAxis, rad)
+                        val g = rotateVec(doubleArrayOf(s.gyroscopeX.toDouble(), s.gyroscopeY.toDouble(), s.gyroscopeZ.toDouble()), forearmAxis, rad)
+                        s.copy(
+                            accelerationX = a[0].toFloat(), accelerationY = a[1].toFloat(), accelerationZ = a[2].toFloat(),
+                            gyroscopeX = g[0].toFloat(), gyroscopeY = g[1].toFloat(), gyroscopeZ = g[2].toFloat(),
+                        )
+                    }
+                    assertEquals(8, count(exerciseId, rotated), "$exerciseId flare=$flare forearmRot=$rotDeg")
+                }
+            }
+        }
+    }
+
     @Test fun horizontalGyroShakeWithoutGravityChangeStillCountsZero() {
         val d = ProfiledMotionRepDetector(ExerciseTrackingProfiles.resolve("cable_pushdown"))
         d.beginCounting()
