@@ -21,7 +21,9 @@ OTHER = (
     "dumbbell_head.002",
     "dumbbell_head.003",
 )
-CLIPS = {"curtsy_lunge", "dumbbell_squat", "lateral_lunge"}
+HAMMER_L = ("handle", "dumbbell_head", "dumbbell_head.001")
+HAMMER_R = ("handle.001", "dumbbell_head.002", "dumbbell_head.003")
+CLIPS = {"curtsy_lunge", "dumbbell_squat", "lateral_lunge", "incline_hammer_curl"}
 
 
 def normalize(a):
@@ -82,8 +84,86 @@ def reach(shoulder, elbow, wrist, target):
     )
 
 
+def _correct_incline_hammer_curl(machine, acts, tr, skin, grips):
+    """Restore left-right arm symmetry and open both shoulders slightly clear of seat and thighs."""
+    from scipy.spatial import cKDTree
+    from build_v5_hand_viewer_copy import rigid
+
+    objects = {o["name"]: o for o in machine["objects"]}
+    needed = set(HAMMER_L + HAMMER_R)
+    if (
+        not needed <= set(objects)
+        or not np.array_equal(acts, machine["acts"])
+        or any(len(objects[n]["m"]) != len(acts) for n in needed)
+    ):
+        raise ValueError("incline_hammer_curl: unexpected dumbbell assembly or key times")
+    if {s: g["part"] for s, g in grips.items()} != {"l": HAMMER_L[0], "r": HAMMER_R[0]}:
+        raise ValueError("incline_hammer_curl: expected both fitted hands")
+
+    def arm_weight(side):
+        cols = [
+            j
+            for j, n in enumerate(tr.names)
+            if n.endswith("_" + side)
+            and n.split("_")[0]
+            in ("upperarm", "lowerarm", "hand", "thumb", "index", "middle", "ring", "pinky")
+        ]
+        return tr.u[:, cols].sum(1)
+
+    wl, wr = arm_weight("l"), arm_weight("r")
+    l_ids = np.flatnonzero(wl > 0)
+    dists, r_match = cKDTree(tr.n).query(tr.n[l_ids] * np.array([-1.0, 1.0, 1.0]))
+    if dists.max() > 1e-4:
+        raise ValueError(f"incline_hammer_curl: asymmetric rest arm ({dists.max():.6f})")
+
+    # The legacy source clip shifted both hammer handles by -34 mm in X, pulling the left arm
+    # inward through the bench seat and thigh while leaving the right arm's motion clean.
+    alpha = wl[l_ids][None, :, None]
+    skin[:, l_ids] = (
+        skin[:, l_ids] * (1.0 - alpha)
+        + (skin[:, r_match] * np.array([-1.0, 1.0, 1.0])) * alpha
+    )
+    mirror_x = np.diag([-1.0, 1.0, 1.0])
+    for l_name, r_name in zip(HAMMER_L, HAMMER_R):
+        mats = np.asarray(objects[r_name]["m"], float).reshape(-1, 4, 4)
+        mirrored = mats.copy()
+        mirrored[:, 3, :3] *= np.array([-1.0, 1.0, 1.0])
+        mirrored[:, :3, :3] = mirror_x @ mats[:, :3, :3] @ mirror_x
+        objects[l_name]["m"] = mirrored.reshape(-1, 16).tolist()
+    grips["l"]["pad_mm"] = {k: list(v) for k, v in grips["r"]["pad_mm"].items()}
+
+    # Open both arms symmetrically around the shoulders (3 deg abduction, 1.5 deg external
+    # rotation) so both dumbbells clear the seat and outer thighs throughout the curl.
+    sym = skin.copy()
+    for side, group, weight, sign in (
+        ("l", HAMMER_L, wl, 1),
+        ("r", HAMMER_R, wr, -1),
+    ):
+        upper = "upperarm_" + side
+        pure = tr.u[:, tr.names.index(upper)] > 0.999
+        ur, ut = rigid(tr.n[pure], sym[:, pure])
+        shoulder = tr.heads[upper] @ ur + ut
+        rot = Rotation.from_euler("yz", [-sign * 3.0, sign * 1.5], degrees=True).as_matrix()
+        skin += (
+            (sym - shoulder[:, None]) @ rot.T + shoulder[:, None] - sym
+        ) * weight[None, :, None]
+        for name in group:
+            mats = np.asarray(objects[name]["m"], float).reshape(-1, 4, 4)
+            mats[:, 3, :3] = (mats[:, 3, :3] - shoulder) @ rot.T + shoulder
+            mats[:, :3, :3] = mats[:, :3, :3] @ rot.T
+            objects[name]["m"] = mats.reshape(-1, 16).tolist()
+
+    if not np.isfinite(skin).all() or not all(
+        np.isfinite(objects[n]["m"]).all() for n in needed
+    ):
+        raise ValueError("incline_hammer_curl: non-finite corrected pose")
+    return {}
+
+
 def correct(key, machine, acts, tr, skin, q, t, grips):
     """Mutate only the selected pose and equipment tracks. Return separate support metadata."""
+    if key == "incline_hammer_curl":
+        return _correct_incline_hammer_curl(machine, acts, tr, skin, grips)
     goblet = key == "lateral_lunge"
     objects = {o["name"]: o for o in machine["objects"]}
     if (
