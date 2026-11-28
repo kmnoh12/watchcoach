@@ -32,11 +32,12 @@ def main():
     img.colorspace_settings.name = old.colorspace_settings.name if old else "sRGB"
     if not img.packed_file:
         img.pack()
+    was = f"{old.size[0]}x{old.size[1]} {old.name}" if old else "none"
     for n in texs:
         n.image = img
     if old and old != img and old.users == 0:
         bpy.data.images.remove(old)
-    print(f"MURAL_OK {img.size[0]}x{img.size[1]} (was {old.size[0]}x{old.size[1]} {old.name})" if old else "MURAL_OK")
+    print(f"MURAL_OK {img.size[0]}x{img.size[1]} (was {was})")
     if "--save" in sys.argv:
         bpy.ops.wm.save_mainfile()
         print("MURAL_SAVED")
