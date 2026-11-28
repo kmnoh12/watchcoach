@@ -601,6 +601,9 @@ def export_gym_world():
     for o in bpy.data.objects:
         if o in to_remove or o.type != "MESH":
             continue
+        # Hidden template/source objects sit at the origin; they are not part of the rendered gym.
+        if o.hide_render or any(c.hide_render for c in o.users_collection):
+            continue
         nl = o.name.lower()
         if any(k in nl for k in skip_keywords):
             continue
@@ -665,6 +668,7 @@ def export_gym_world():
         export_cameras=False,
         export_lights=False,
         export_animations=False,
+        use_renderable=True,
     )
 
     posing_meta = []
