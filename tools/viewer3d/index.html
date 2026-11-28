@@ -564,7 +564,26 @@ const discSpecs = [
   { kg: 10, diameter: .325, thick: .027 },
   { kg: 5, diameter: .230, thick: .019 },
   { kg: 2.5, diameter: .190, thick: .015 },
+  { kg: 1.25, diameter: .160, thick: .012 },
+  { kg: 1, diameter: .150, thick: .010 },
 ];
+// One side's plates: the exact 0.25 kg-rounded load with the fewest plates (heaviest first), or the
+// closest lighter load when no exact mix exists (e.g. 0.75 kg). null when absurdly heavy.
+function platesFor(sideKg) {
+  const units = Math.round(sideKg / .25);
+  if (units > 4000) return null;
+  const step = discSpecs.map(s => Math.round(s.kg / .25));
+  const best = new Array(units + 1).fill(Infinity), pick = new Array(units + 1).fill(-1);
+  best[0] = 0;
+  for (let u = 1; u <= units; u++) step.forEach((w, i) => {
+    if (w <= u && best[u - w] + 1 < best[u]) { best[u] = best[u - w] + 1; pick[u] = i; }
+  });
+  let u = units;
+  while (u > 0 && best[u] === Infinity) u--;
+  const out = [];
+  for (; u > 0; u -= step[pick[u]]) out.push(discSpecs[pick[u]]);
+  return out.sort((a, b) => b.kg - a.kg);
+}
 const geometryBox = geom => {
   if (!geom.boundingBox) geom.computeBoundingBox();
   return geom.boundingBox;
@@ -910,14 +929,8 @@ function plateLoadPlan(name, d, raw, parts) {
         block: floorStart ? sleeveStand(g.sleeve, g.direction) : null }));
       const live = checks.flatMap(c => c.block ? [c.block] : []);
       const fallback = floorStart ? { live, checks, keepOriginal: true } : null;
-      let remaining = Math.round(Math.max(0, kg - totalBarKg) / groups.length / 2.5) * 2.5;
-      const specs = [];
-      for (const spec of discSpecs) {
-        const count = Math.floor(remaining / spec.kg);
-        if (count > 100) return fallback;
-        for (let i = 0; i < count; i++) specs.push(spec);
-        remaining -= count * spec.kg;
-      }
+      const specs = platesFor(Math.max(0, kg - totalBarKg) / groups.length);
+      if (!specs) return fallback;
       const collarWidth = .027, gap = .0015;
       const nominalThickness = specs.reduce((total, s) => total + s.thick, 0);
       const fit = Math.min(1, ...groups.map(g =>
