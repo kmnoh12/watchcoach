@@ -85,4 +85,23 @@ class PressReturnCountPhaseTest {
         assertTrue(PhoneRepAnalyzer.replayMayConfirm(1, 12))
         assertTrue(PhoneRepAnalyzer.replayMayConfirm(0, 3))
     }
+
+    @Test fun loweringAChestPressWatchCountNeedsAtLeastOneConsecutivePair() {
+        fun events(vararg endsMs: Long) = endsMs.mapIndexed { i, ms ->
+            val end = ms * 1_000_000L
+            RepEvent(i + 1, end - 1_000_000_000L, end - 500_000_000L, end, 1000, null, null, 0.2, 0.4, 0.90)
+        }
+        val chest = ExerciseTrackingProfiles.resolve("machine_chest_press_plate")
+        val sparse = events(7_000, 23_000)
+        assertFalse(PhoneRepAnalyzer.replayMayConfirm(chest, 11, sparse))
+        assertFalse(PhoneRepAnalyzer.replayMayConfirm(chest, 11, events(7_000)))
+        assertTrue(PhoneRepAnalyzer.replayMayConfirm(chest, 11, events(7_000, 7_000 + chest.maximumRepMs)))
+        assertFalse(PhoneRepAnalyzer.replayMayConfirm(chest, 11, events(7_000, 7_001 + chest.maximumRepMs)))
+        assertTrue(PhoneRepAnalyzer.replayMayConfirm(chest, 11, events(2_000, 18_000, 20_500)))
+        assertTrue(PhoneRepAnalyzer.replayMayConfirm(chest, null, sparse))
+        assertTrue(PhoneRepAnalyzer.replayMayConfirm(chest, 0, sparse))
+        assertTrue(PhoneRepAnalyzer.replayMayConfirm(chest, 2, sparse))
+        assertFalse(PhoneRepAnalyzer.replayMayConfirm(chest, 4, events(2_000, 4_000)))
+        assertTrue(PhoneRepAnalyzer.replayMayConfirm(ExerciseTrackingProfiles.resolve("machine_dip"), 11, sparse))
+    }
 }

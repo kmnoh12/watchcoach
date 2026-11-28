@@ -101,6 +101,15 @@ object PhoneRepAnalyzer {
         return kotlin.math.abs(replayReps - watchReps) >= maxOf(4, kotlin.math.ceil(0.4 * larger).toInt())
     }
 
+    internal fun replayMayConfirm(profile: ExerciseTrackingProfile, watchReps: Int?, events: List<RepEvent>): Boolean {
+        if (!replayMayConfirm(watchReps, events.size)) return false
+        if (!profile.isSeatedChestPress || watchReps == null || watchReps <= events.size) return true
+        // Isolated returns can have good signal quality even when most of a set was missed.
+        // Require at least one consecutive pair before *lowering* a watch count, not to report the raw replay.
+        val maxGapNs = profile.maximumRepMs * 1_000_000L
+        return (1 until events.size).any { i -> events[i].endTimestampNs - events[i - 1].endTimestampNs in 1L..maxGapNs }
+    }
+
     fun analyze(
         document: SensorCaptureDocument,
         profile: ExerciseTrackingProfile,
@@ -168,7 +177,7 @@ object PhoneRepAnalyzer {
         val result = SetAnalysisResult(
             watchDetectedReps = watchDetectedReps,
             phoneReanalyzedReps = events.size,
-            confirmedReps = events.size.takeIf { confidence >= 0.72 && it > 0 && replayMayConfirm(watchDetectedReps, it) },
+            confirmedReps = events.size.takeIf { confidence >= 0.72 && it > 0 && replayMayConfirm(profile, watchDetectedReps, events) },
             repSource = RepSource.CUSTOM_IMU,
             averageRepDurationMs = avgDuration,
             tempoVariance = tempoVariance,

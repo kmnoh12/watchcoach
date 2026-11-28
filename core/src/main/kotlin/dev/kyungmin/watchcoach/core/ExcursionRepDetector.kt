@@ -25,6 +25,7 @@ internal class ExcursionRepDetector(
     private data class Point(val t: Long, val g: DoubleArray, val a: DoubleArray)
 
     private val isPress = profile.family == MotionFamily.PRESS_RETURN
+    private val isSeatedChestPress = profile.isSeatedChestPress
     private val isPull = profile.family == MotionFamily.PULL_RETURN
     private val isPressOrPull = isPress || isPull
     /** Pulldowns: the handle returns upward, so a rep ends when the hand is back up (not upright rows, which pull up). */
@@ -265,7 +266,15 @@ internal class ExcursionRepDetector(
             }
             val best = peaks.maxOfOrNull { ac[it] }
             val first = if (best == null) null else peaks.firstOrNull { ac[it] >= 0.85 * best }
-            if (first != null) period = first * dt
+            if (first != null) {
+                // Alternating deep/shallow returns can produce a stronger peak every *two* reps.
+                // Prefer a single cycle only if the running estimate agrees and the signal has its own peak there.
+                val halfway = first / 2
+                val half = if (isSeatedChestPress && forearmOriented && abs(first * dt * 0.5 - period) <= PERIOD_TOLERANCE * period) {
+                    peaks.filter { abs(it - halfway) <= halfway * PERIOD_TOLERANCE }.maxByOrNull { ac[it] }
+                } else null
+                period = (half ?: first) * dt
+            }
         }
 
         val scanStart = if (primeEndNs == Long.MIN_VALUE || history.first().t > primeEndNs) 0 else primeAnchor + 1
@@ -323,7 +332,12 @@ internal class ExcursionRepDetector(
                 val rawTurn = history[highIndex].t
                 val end = history[i].t
                 val minSepNs = (max(minSepS, period * sepFrac) * 1e9).toLong()
-                if (start < rawTurn && rawTurn < end &&
+                // A first machine press starts by pushing the handle away. A sideways settle can
+                // otherwise look like a full return before the first push, especially without priming.
+                val openingPush = !isSeatedChestPress || !forearmOriented || deliveredNs != Long.MIN_VALUE ||
+                    (handwardX * history[highIndex].a[0] < 0 &&
+                        (lowIndex..highIndex).any { handwardX * history[it].a[0] >= threshold * FIRST_PUSH_FRACTION })
+                if (openingPush && start < rawTurn && rawTurn < end &&
                     end > primeEndNs &&
                     end - start >= profile.minimumRepMs * 1_000_000L &&
                     end - start <= profile.maximumRepMs * 1_000_000L &&
@@ -354,6 +368,9 @@ internal class ExcursionRepDetector(
     }
 
     private companion object {
+        const val PERIOD_TOLERANCE = 0.15
+        const val FIRST_PUSH_FRACTION = 0.20
+
         /** The principal motion axis must lie mostly along the forearm before its direction is trusted. */
         const val FOREARM_AXIS_MIN_X = 0.5
 

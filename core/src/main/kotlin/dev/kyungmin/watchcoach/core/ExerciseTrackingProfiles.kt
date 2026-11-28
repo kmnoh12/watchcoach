@@ -40,6 +40,10 @@ data class ExerciseTrackingProfile(
     val calibrationProfileVersion: Int? = null,
 )
 
+/** Seated chest presses with replay evidence; do not infer the same wrist motion for dips or inclines. */
+internal val ExerciseTrackingProfile.isSeatedChestPress: Boolean
+    get() = family == MotionFamily.PRESS_RETURN && (exerciseId == "chest_press" || exerciseId == "machine_chest_press_plate")
+
 /**
  * Resolves an exercise to a shared motion-family template. Exercise entries own
  * identity/capability only; detector thresholds live in MotionFamilyTemplates.
