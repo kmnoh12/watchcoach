@@ -35,6 +35,7 @@ enum class CameraPoseFamily(
     // 45 degrees: a pure side view points the forearm along the camera axis, which hides the wrist and flattens its depth.
     EXTERNAL_ROTATION_OBLIQUE(true, 0.0, 0.0 to -90.0, widthScale = kotlin.math.cos(Math.toRadians(CameraOrientationPolicy.OBLIQUE))),
     PREACHER_SIDE(false, 10.0, 45.0 to 40.0),
+    PADDED_EXTENSION_SIDE(false, 10.0, 60.0 to 190.0),
     INCLINE_ARMS_DOWN_SIDE(false, 45.0, 0.0 to 0.0),
     INCLINE_PRESS_SIDE(false, 45.0, 180.0 to 180.0),
     // Wide grip overhead, seen from behind: arms go up and out.
@@ -101,6 +102,7 @@ object CameraPoseGuide {
                 "cable_overhead_extension", "rope_overhead_extension" -> CameraPoseFamily.CABLE_OVERHEAD_EXTENSION_SIDE
                 "dumbbell_triceps_extension" -> CameraPoseFamily.OVERHEAD_EXTENSION_SIDE
                 "ez_lying_extension" -> CameraPoseFamily.LYING_EXTENSION_SIDE
+                "machine_triceps_extension" -> CameraPoseFamily.PADDED_EXTENSION_SIDE
                 else -> CameraPoseFamily.STAND_ELBOW_BENT_SIDE
             }
             MeasurementRecipe.EXTERNAL_ROTATION -> CameraPoseFamily.EXTERNAL_ROTATION_OBLIQUE

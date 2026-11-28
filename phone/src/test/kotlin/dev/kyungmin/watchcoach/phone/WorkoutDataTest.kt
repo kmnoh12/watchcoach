@@ -36,7 +36,7 @@ class WorkoutDataTest {
     @Test
     fun `exercise catalog is normalized and category ready`() {
         val ids = WorkoutData.catalog.map { it.id }
-        assertEquals(250, ids.size)
+        assertEquals(251, ids.size)
         assertFalse(ids.contains("cable_rear_delt_fly"))
         assertEquals(ids.size, ids.distinct().size)
         WorkoutData.catalog.forEach { exercise ->
@@ -48,6 +48,21 @@ class WorkoutDataTest {
         assertTrue(WorkoutData.catalog.all { it.bodyCategory.isNotBlank() && it.equipment.isNotBlank() })
         assertFalse(WorkoutData.catalog.any { it.name == "풀 업" })
         assertTrue(WorkoutData.catalog.any { it.name == "풀업" })
+    }
+
+    @Test
+    fun `pin machine triceps extension is searchable by its placard and uses machine weight steps`() {
+        val entry = WorkoutData.catalog.single { it.id == "machine_triceps_extension" }
+        assertEquals("머신 트라이셉스 익스텐션(핀식)", entry.name)
+        assertEquals("삼두", entry.bodyCategory)
+        assertEquals("삼두", entry.muscles)
+        assertEquals("머신", entry.equipment)
+        assertEquals("triceps_extension", entry.pattern)
+        for (query in listOf(entry.name, "암 익스텐션", "ARM EXTENSION")) {
+            assertEquals(listOf(entry), WorkoutData.catalog.filter { it.matchesSearch(query) })
+        }
+        assertEquals(5.0, ProgressionDefaults.increment(entry.equipment).kg)
+        assertEquals(2.5, ProgressionDefaults.increment(entry.equipment, listOf(10.0, 12.5)).kg)
     }
 
     @Test

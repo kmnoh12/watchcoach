@@ -144,7 +144,7 @@ fun ExerciseBrowser(
     }
     val filtered = shown.filter { entry ->
         val item = entry.exercise
-        (query.isBlank() || item.name.contains(query, ignoreCase = true)) &&
+        item.matchesSearch(query) &&
             (body == "전체" || entry.body == body) &&
             (equipment == "전체" || item.equipment == equipment) &&
             when (mode) {

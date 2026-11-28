@@ -138,6 +138,7 @@ data class CameraCaptureGuide(val id: String, val direction: String, val framing
             MeasurementRecipe.TRICEPS_EXTENSION -> when (id) {
                 "cable_overhead_extension", "rope_overhead_extension", "dumbbell_triceps_extension" -> "팔을 머리 위로 들고 팔꿈치를 굽힌 채 시작"
                 "ez_lying_extension" -> "누워서 팔꿈치를 굽힌 채 시작"
+                "machine_triceps_extension" -> "위팔은 패드에, 손잡이는 얼굴 앞에"
                 else -> "팔꿈치를 굽혀 옆구리에 붙이고 시작"
             }
             MeasurementRecipe.EXTERNAL_ROTATION -> "팔꿈치를 90°로 굽혀 옆구리에 붙이고 시작"

@@ -131,6 +131,7 @@ object ExerciseMotionCatalog {
         binding("rope_overhead_extension", "케이블 로프 오버헤드 익스텐션", MotionFamily.FLEXION_EXTENSION),
         binding("dumbbell_triceps_extension", "덤벨 트라이셉스 익스텐션", MotionFamily.CYCLE_AXIS_RETURN),
         binding("ez_lying_extension", "이지바 라이잉 트라이셉 익스텐션", MotionFamily.FLEXION_EXTENSION),
+        binding("machine_triceps_extension", "머신 트라이셉스 익스텐션(핀식)", MotionFamily.FLEXION_EXTENSION),
         binding("external_rotation", "케이블 외회전", MotionFamily.FOREARM_ROTATION, CapabilityTier.C_PERSONALIZED_AUTO_COUNT_BETA),
         binding("single_arm_cable_external_rotation", "원암 케이블 익스터널 로테이션", MotionFamily.FOREARM_ROTATION, CapabilityTier.C_PERSONALIZED_AUTO_COUNT_BETA),
         binding("crossover_reverse_fly", "크로스오버 리버스 플라이", MotionFamily.MULTI_AXIS_RETURN),

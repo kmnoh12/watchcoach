@@ -78,8 +78,8 @@ class StartWristOrientationTest {
 
     @Test fun allCatalogExercisesStayCandidatesDeferredOrManualRatherThanAutomaticallyConfirmed() {
         val groups = ExerciseMotionCatalog.explicitBindings.groupingBy { StartWristOrientationPolicy.candidate(it.exerciseId) }.eachCount()
-        assertEquals(250, ExerciseMotionCatalog.explicitBindings.size)
-        assertEquals(201, groups[StartWristCandidate.DEFERRED])
+        assertEquals(251, ExerciseMotionCatalog.explicitBindings.size)
+        assertEquals(202, groups[StartWristCandidate.DEFERRED])
         assertEquals(44, groups[StartWristCandidate.MANUAL])
         assertEquals(2, groups[StartWristCandidate.HORIZONTAL_PALM_UP])
         assertEquals(1, groups[StartWristCandidate.HORIZONTAL_KNUCKLES_UP])

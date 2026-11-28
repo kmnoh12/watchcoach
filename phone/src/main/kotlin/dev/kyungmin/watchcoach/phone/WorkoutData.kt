@@ -83,7 +83,14 @@ data class ExerciseDefinition(
     /** Exercises of the same family (all lat pulldown grips) are folded into one row in the library. */
     val family: String = "",
     val kind: dev.kyungmin.watchcoach.core.ExerciseKind = dev.kyungmin.watchcoach.core.HoldExercise.kind(id),
-)
+) {
+    fun matchesSearch(query: String): Boolean = query.isBlank() || name.contains(query, ignoreCase = true) ||
+        (id == "machine_triceps_extension" && armExtensionAliases.any { it.contains(query, ignoreCase = true) })
+
+    private companion object {
+        val armExtensionAliases = listOf("머신 암 익스텐션", "암익스텐션", "사이벡스 암 익스텐션", "Cybex Arm Extension")
+    }
+}
 
 data class RoutineExercise(
     val exercise: ExerciseDefinition,
@@ -134,6 +141,7 @@ object WorkoutData {
         "decline_machine_bench_press_plate" to "chest_press",
         "cable_overhead_extension" to "triceps_extension", "rope_overhead_extension" to "triceps_extension",
         "dumbbell_triceps_extension" to "triceps_extension", "ez_lying_extension" to "triceps_extension",
+        "machine_triceps_extension" to "triceps_extension",
         "smith_seated_shoulder_press" to "shoulder_press",
         "smith_shoulder_press" to "shoulder_press", "machine_shoulder_press" to "shoulder_press", "dumbbell_shoulder_press" to "shoulder_press",
         "dumbbell_lateral_raise" to "lateral_raise", "one_arm_cable_lateral" to "lateral_raise",
@@ -588,6 +596,7 @@ object WorkoutData {
         exercise("rope_extension", "케이블 로프 트라이셉 푸시다운", "삼두", "삼두", "케이블", true),
         exercise("rope_overhead_extension", "케이블 로프 오버헤드 트라이셉 익스텐션", "삼두", "삼두", "케이블"),
         exercise("dumbbell_triceps_extension", "덤벨 트라이셉스 익스텐션", "삼두", "삼두", "덤벨", true),
+        exercise("machine_triceps_extension", "머신 트라이셉스 익스텐션(핀식)", "삼두", "삼두", "머신"),
         exercise("ez_lying_extension", "이지바 라잉 트라이셉스 익스텐션", "삼두", "삼두", "바벨"),
         exercise("external_rotation", "케이블 익스터널 로테이션", "어깨", "어깨", "케이블"),
         exercise("single_arm_cable_external_rotation", "원암 케이블 익스터널 로테이션", "어깨", "어깨", "케이블"),

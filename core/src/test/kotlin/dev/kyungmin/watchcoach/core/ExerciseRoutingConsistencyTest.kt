@@ -47,6 +47,17 @@ class ExerciseRoutingConsistencyTest {
         assertEquals(rope, boundaries("cable_pushdown"))
     }
 
+    @Test fun seatedMachineArmExtensionReusesElbowExtensionCounting() {
+        val id = "machine_triceps_extension"
+        val machine = ExerciseTrackingProfiles.resolve(id)
+        val reference = ExerciseTrackingProfiles.resolve("ez_lying_extension")
+        assertEquals(MotionFamily.FLEXION_EXTENSION, machine.family)
+        assertEquals(CountMode.AUTO_LIMITED_METRICS, machine.countMode)
+        assertEquals(reference.copy(exerciseId = id, label = machine.label), machine)
+        assertEquals(MeasurementRecipe.TRICEPS_EXTENSION, ExerciseMeasurementContracts.resolve(id).recipe)
+        assertEquals(CameraPoseFamily.PADDED_EXTENSION_SIDE, CameraPoseGuide.familyFor(id))
+    }
+
     @Test fun legacyRopePushdownIdStillResolvesToAWorkingEngineAndHistoryProfile() {
         val legacy = ExerciseTrackingProfiles.resolve("rope_pushdown")
         val canonical = ExerciseTrackingProfiles.resolve("rope_extension")
@@ -74,8 +85,8 @@ class ExerciseRoutingConsistencyTest {
     }
 
     @Test fun catalogCountsStayStableAfterLegacyRopePushdownRemoval() {
-        assertEquals(250, ExerciseMotionCatalog.explicitBindings.size)
-        assertEquals(250, ExerciseCapabilityMatrix.standardExerciseIds().size)
+        assertEquals(251, ExerciseMotionCatalog.explicitBindings.size)
+        assertEquals(251, ExerciseCapabilityMatrix.standardExerciseIds().size)
         assertTrue("rope_pushdown" !in ExerciseCapabilityMatrix.standardExerciseIds())
         assertTrue("flat_machine_bench_press" in ExerciseCapabilityMatrix.standardExerciseIds())
     }
