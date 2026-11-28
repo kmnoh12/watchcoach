@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  *    remains immune to chest pauses (contraction holds), handles continuous fast tempo and last-rep
  *    stops, and produces strictly monotonic timestamps with zero buzz inversions.
  * 2) UnifiedCueScheduler suppresses predicted return delay only for return-stop rows while preserving
- *    non-row cycle exercises (lateral raises, pull-ups) and other families (machine_fly returnScale=1.27).
+ *    non-row cycle exercises (lateral raises, pull-ups) and other families (machine_fly returnScale=1.22).
  */
 class RowSurgeryRegressionTest {
     private fun ms(v: Long) = v * 1_000_000L
@@ -111,12 +111,12 @@ class RowSurgeryRegressionTest {
         val cycleEvent = ProfiledMotionRepEvent(ms(1000), ms(3000), ms(3000), 2000L, 1.0, 0.0, 0.0, 0.7)
         assertTrue(nonReturnCycle.schedule(cycleEvent, ms(3400)) > 0L)
 
-        // machine_fly (MULTI_AXIS_RETURN with returnScale = 1.27) is completely unchanged.
+        // machine_fly (MULTI_AXIS_RETURN with returnScale = 1.22) keeps its tuned cue schedule.
         val flyScheduler = UnifiedCueScheduler(
             family = MotionFamily.MULTI_AXIS_RETURN,
             returnScale = RepCueDelay.returnScale("machine_fly"),
         )
         val flyEvent = ProfiledMotionRepEvent(ms(100), ms(1000), ms(2000), 1900L, 1.5, 2.0, 0.2, 0.9)
-        assertEquals(513L, flyScheduler.schedule(flyEvent, ms(2000)))
+        assertEquals(450L, flyScheduler.schedule(flyEvent, ms(2000)))
     }
 }

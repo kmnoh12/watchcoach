@@ -54,10 +54,11 @@ object RepCueDelay {
 
     /**
      * Per-exercise stretch of the predicted 90% return so the cue lands near the real stop (the last 10% is a slow tail).
-     * Measured on watch logs: machine_fly needs ~1.27 (see work/analysis-fly-cue-20261118).
+     * Measured on watch logs: machine_fly started at 1.27 (work/analysis-fly-cue-20261118) and was trimmed to 1.22
+     * (~70 ms earlier) so buzz and phone count land just before full open instead of after stopping.
      */
     fun returnScale(exerciseId: String): Double = when (exerciseId) {
-        "machine_fly" -> 1.27
+        "machine_fly" -> 1.22
         else -> 1.0
     }
 
@@ -89,7 +90,7 @@ class UnifiedCueScheduler(
      * Suppresses predicted return delay when the underlying detector already detects and emits at
      * the physical return-end stop (`RowReturnStopDetector` for rowing exercises). Non-row
      * `CYCLE_AXIS_RETURN` exercises (lateral/front raises, straight-arm pulldowns, pull-ups, squats),
-     * `MULTI_AXIS_RETURN` (`machine_fly` with `returnScale = 1.27`), and `PULL_RETURN` stay unchanged.
+     * `MULTI_AXIS_RETURN` (`machine_fly` with `returnScale = 1.22`), and `PULL_RETURN` stay unchanged.
      */
     private val suppressReturnDelay: Boolean = false,
 ) {

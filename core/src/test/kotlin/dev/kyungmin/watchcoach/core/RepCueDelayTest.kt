@@ -120,4 +120,30 @@ class RepCueDelayTest {
         // fallbackRatio(TRANSLATION_PRESS_RETURN) = 0.55 -> pred=1550ms, cue=1475ms < emit=2000ms -> 0ms
         assertEquals(0L, scheduler.schedule(ev, ms(2_000)))
     }
+
+    @Test
+    fun machineFlyReturnScaleTrimsOnlyPecDeckEarlier() {
+        assertEquals(1.22, RepCueDelay.returnScale("machine_fly"))
+        for (other in listOf(
+            "machine_reverse_fly",
+            "single_arm_reverse_pec_deck",
+            "crossover_reverse_fly",
+            "single_arm_cable_reverse_fly",
+            "cable_fly_high",
+            "cable_fly_mid",
+            "cable_fly_low",
+            "incline_dumbbell_fly",
+            "chest_press",
+        )) {
+            assertEquals(1.0, RepCueDelay.returnScale(other), "non-pecdeck $other must stay 1.0")
+        }
+        val oldScaleScheduler = UnifiedCueScheduler(MotionFamily.MULTI_AXIS_RETURN, returnScale = 1.27)
+        val newScaleScheduler = UnifiedCueScheduler(MotionFamily.MULTI_AXIS_RETURN, returnScale = RepCueDelay.returnScale("machine_fly"))
+        val ev = ProfiledMotionRepEvent(ms(100), ms(1_000), ms(2_000), 1_900L, 1.5, 2.0, 0.2, 0.9)
+        val oldDelay = oldScaleScheduler.schedule(ev, ms(2_000))
+        val newDelay = newScaleScheduler.schedule(ev, ms(2_000))
+        assertEquals(513L, oldDelay)
+        assertEquals(450L, newDelay)
+        assertTrue((oldDelay - newDelay) in 50L..100L)
+    }
 }
