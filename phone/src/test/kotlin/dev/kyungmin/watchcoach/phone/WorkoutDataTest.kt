@@ -62,7 +62,7 @@ class WorkoutDataTest {
             assertEquals(listOf(entry), WorkoutData.catalog.filter { it.matchesSearch(query) })
         }
         assertEquals(5.0, ProgressionDefaults.increment(entry.equipment).kg)
-        assertEquals(2.5, ProgressionDefaults.increment(entry.equipment, listOf(10.0, 12.5)).kg)
+        assertEquals(5.0, ProgressionDefaults.increment(entry.equipment, listOf(10.0, 12.5)).kg)
     }
 
     @Test

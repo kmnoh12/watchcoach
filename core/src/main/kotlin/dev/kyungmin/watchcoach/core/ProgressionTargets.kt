@@ -33,15 +33,11 @@ object ProgressionDefaults {
             require(confirmedKg.isFinite() && confirmedKg > 0)
             return IncrementCandidate(confirmedKg, false, confirmed = true)
         }
+        // One rule for every gym: barbell, machine and cable go up 5 kg, dumbbells by the next pair (2 kg).
+        // Pound stacks are recorded on the nearest 5 kg number (see unifiedRecordWeight), so +5 kg = one pin.
         return when (equipment) {
-            "바벨" -> IncrementCandidate(2.0, false)
+            "바벨", "머신", "케이블", "핀 머신" -> IncrementCandidate(5.0, false)
             "덤벨" -> IncrementCandidate(2.0, false)
-            "머신", "케이블", "핀 머신" -> {
-                val steps = observedWeights.filter { it.isFinite() && it >= 0 }.distinct().sorted()
-                val gaps = steps.zipWithNext { a, b -> b - a }
-                val irregular = gaps.size > 1 && gaps.any { kotlin.math.abs(it - gaps.first()) > 0.001 }
-                IncrementCandidate(gaps.minOrNull() ?: 5.0, false, if (irregular) steps else emptyList())
-            }
             else -> IncrementCandidate(null, true)
         }
     }
@@ -50,6 +46,15 @@ object ProgressionDefaults {
     fun roundWeight(weightKg: Double, equipment: String): Double {
         val step = if (equipment in setOf("머신", "케이블", "핀 머신")) 5.0 else if (equipment in setOf("바벨", "덤벨")) 2.0 else 1.0
         return (kotlin.math.floor(weightKg / step + 0.5) * step).coerceAtLeast(step)
+    }
+
+    /**
+     * Old machine/cable records typed from pound stacks (27, 47, 54 kg...) move to the nearest 5 kg number
+     * (60 lb -> 25, 120 lb -> 55), so one pin = one 5 kg step. Barbell and dumbbell records stay as typed.
+     */
+    fun unifiedRecordWeight(weightKg: Double, equipment: String): Double {
+        if (equipment !in setOf("머신", "케이블", "핀 머신") || !weightKg.isFinite() || weightKg <= 0) return weightKg
+        return (kotlin.math.floor(weightKg / 5.0 + 0.5) * 5.0).coerceAtLeast(5.0)
     }
 
     fun nextWeight(weightKg: Double, increment: IncrementCandidate, assistance: Boolean): Double {

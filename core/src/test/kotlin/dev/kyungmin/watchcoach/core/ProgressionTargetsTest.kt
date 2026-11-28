@@ -183,7 +183,7 @@ class ProgressionTargetsTest {
         assertEquals(20.0, next(p, log(p), speed = ProgressionSpeed.FAST, increment = IncrementCandidate(10.0, true))!!.single().weightKg)
         assertEquals(13, next(p, log(p), speed = ProgressionSpeed.FAST, increment = IncrementCandidate(10.0, false))!!.single().targetReps)
     }
-    @Test fun machineDefaultsUseFiveOrObservedStepsAndConfirmedValueWins() {
+    @Test fun machineDefaultsUseFiveAndConfirmedValueWins() {
         for (equipment in listOf("머신", "케이블", "핀 머신")) {
             val p = plan(20.0 to 20).let { it.copy(key = it.key.copy(equipment = equipment)) }
             for (weights in listOf(emptyList(), listOf(20.0, 20.0))) {
@@ -191,25 +191,27 @@ class ProgressionTargetsTest {
                 assertEquals(IncrementCandidate(5.0, false), increment)
                 assertEquals(25.0, next(p, log(p, 1), log(p, 2), increment = increment)!!.single().weightKg)
             }
+            // Recorded gaps no longer change the step: one pin = 5 kg everywhere.
             val observed = ProgressionDefaults.increment(equipment, listOf(40.0, 20.0, 30.0, 32.5, 30.0))
-            assertEquals(IncrementCandidate(2.5, false, listOf(20.0, 30.0, 32.5, 40.0)), observed)
-            assertEquals(30.0, next(p, log(p, 1), log(p, 2), increment = observed)!!.single().weightKg)
+            assertEquals(IncrementCandidate(5.0, false), observed)
+            assertEquals(25.0, next(p, log(p, 1), log(p, 2), increment = observed)!!.single().weightKg)
             val confirmed = ProgressionDefaults.increment(equipment, listOf(20.0, 30.0), confirmedKg = 1.0)
             assertEquals(IncrementCandidate(1.0, false, confirmed = true), confirmed)
             assertEquals(21.0, next(p, log(p, 1), log(p, 2), increment = confirmed)!!.single().weightKg)
         }
         assertEquals(IncrementCandidate(null, true), ProgressionDefaults.increment("unknown", listOf(20.0, 30.0)))
     }
-    @Test fun irregularMachineStagesUseNearestNextInBothDirectionsAndHoldAtUnknownEnds() {
-        val increment = ProgressionDefaults.increment("머신", listOf(54.0, 27.0, 35.0, 45.0, 35.0))
-        assertEquals(35.0, ProgressionDefaults.nextWeight(27.0, increment, false))
-        assertEquals(45.0, ProgressionDefaults.nextWeight(35.0, increment, false))
-        assertEquals(54.0, ProgressionDefaults.nextWeight(45.0, increment, false))
-        assertEquals(54.0, ProgressionDefaults.nextWeight(54.0, increment, false))
-        assertEquals(35.0, ProgressionDefaults.nextWeight(45.0, increment, true))
-        assertEquals(27.0, ProgressionDefaults.nextWeight(27.0, increment, true))
-        val p = plan(35.0 to 20).let { it.copy(key = it.key.copy(equipment = "머신")) }
-        assertEquals(45.0, next(p, log(p, 1), log(p, 2), increment = increment)!!.single().weightKg)
+    @Test fun poundStackRecordsMoveToNearestFiveKgAndOtherEquipmentStays() {
+        // 60..120 lb stacks land on distinct 5 kg numbers, so +5 kg is one pin.
+        val lb = listOf(60, 70, 80, 90, 100, 110, 120).map { it * 0.45359237 }
+        assertEquals(listOf(25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0), lb.map { ProgressionDefaults.unifiedRecordWeight(it, "머신") })
+        assertEquals(25.0, ProgressionDefaults.unifiedRecordWeight(27.0, "머신"))
+        assertEquals(55.0, ProgressionDefaults.unifiedRecordWeight(54.0, "케이블"))
+        assertEquals(45.0, ProgressionDefaults.unifiedRecordWeight(47.0, "핀 머신"))
+        assertEquals(5.0, ProgressionDefaults.unifiedRecordWeight(2.0, "케이블"))
+        assertEquals(12.5, ProgressionDefaults.unifiedRecordWeight(12.5, "덤벨"))
+        assertEquals(72.5, ProgressionDefaults.unifiedRecordWeight(72.5, "바벨"))
+        assertEquals(30.0, ProgressionDefaults.nextWeight(25.0, ProgressionDefaults.increment("머신"), false))
         assertEquals(36.0, ProgressionDefaults.nextWeight(35.0,
             ProgressionDefaults.increment("머신", listOf(27.0, 35.0, 45.0, 54.0), 1.0), false))
         assertEquals(37.5, ProgressionDefaults.nextWeight(35.5,
@@ -218,8 +220,8 @@ class ProgressionTargetsTest {
     @Test fun generatedWeightsSnapAndUniformAndConfirmedStepsRemainSupported() {
         assertEquals(65.0, ProgressionDefaults.roundWeight(63.2, "머신"))
         assertEquals(64.0, ProgressionDefaults.roundWeight(63.2, "덤벨"))
-        assertEquals(IncrementCandidate(2.0, false), ProgressionDefaults.increment("바벨"))
-        assertEquals(IncrementCandidate(10.0, false), ProgressionDefaults.increment("머신", listOf(20.0, 30.0, 40.0)))
+        assertEquals(IncrementCandidate(5.0, false), ProgressionDefaults.increment("바벨"))
+        assertEquals(IncrementCandidate(5.0, false), ProgressionDefaults.increment("머신", listOf(20.0, 30.0, 40.0)))
         assertEquals(65.0, ProgressionDefaults.nextWeight(58.2, IncrementCandidate(5.0, false), false))
         assertEquals(0.0, ProgressionDefaults.nextWeight(2.0, IncrementCandidate(5.0, false), true))
         assertEquals(IncrementCandidate(5.0, false), ProgressionDefaults.increment("머신", listOf(Double.NaN, -1.0)))
@@ -280,11 +282,10 @@ class ProgressionTargetsTest {
         }
         val p = plan(10.0 to 12, pattern = "curl")
         assertEquals(11.0, next(p, log(p, 1), log(p, 2), increment = IncrementCandidate(1.0, false, confirmed = true))!!.single().weightKg)
-        // The smallest recorded gap is 1 kg, but the actual next stage from 10 is 15.
+        // Recorded gaps (1 kg here) no longer shrink the machine step; 10 -> 15 is a big jump, so reps rise first.
         val stages = ProgressionDefaults.increment("머신", listOf(9.0, 10.0, 15.0))
+        assertEquals(IncrementCandidate(5.0, false), stages)
         assertEquals(13, next(p, log(p), increment = stages)!!.single().targetReps)
-        val smallStage = ProgressionDefaults.increment("머신", listOf(10.0, 11.0, 15.0))
-        assertEquals(11.0, next(p, log(p, 1), log(p, 2), increment = smallStage)!!.single().weightKg)
     }
     @Test fun bodyweightAndWarmupsDoNotAcquireAnExpandedCeiling() {
         val p = plan(4.0 to 10, load = ProgressionLoad.BODYWEIGHT)

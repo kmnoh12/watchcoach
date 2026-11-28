@@ -123,7 +123,7 @@ class ProgressionPlanStoreTest {
         ProgressionSettingsStore(context).save(ProgressionSettings(false, ProgressionSpeed.SLOW)).getOrThrow()
         assertEquals(ProgressionSettings(false, ProgressionSpeed.SLOW), ProgressionSettingsStore(context).load().getOrThrow())
         val increments = ProgressionIncrementStore(context)
-        assertEquals(IncrementCandidate(10.0, false), increments.candidate("machine", "머신", listOf(20.0, 30.0, 40.0)).getOrThrow())
+        assertEquals(IncrementCandidate(5.0, false), increments.candidate("machine", "머신", listOf(20.0, 30.0, 40.0)).getOrThrow())
         increments.save("machine", 5.0).getOrThrow()
         assertEquals(IncrementCandidate(5.0, false, confirmed = true), ProgressionIncrementStore(context).candidate("machine", "머신").getOrThrow())
         assertEquals(IncrementCandidate(5.0, false), increments.candidate("other", "머신").getOrThrow())
