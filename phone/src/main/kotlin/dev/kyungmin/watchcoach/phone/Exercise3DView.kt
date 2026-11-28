@@ -3,8 +3,11 @@ package dev.kyungmin.watchcoach.phone
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Rect
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -49,9 +52,13 @@ class Exercise3DView(
         paintLoad()
     }
 
-    private fun paintLoad() {
+    private val visibleRect = Rect()
+    private fun viewerVisible() = !destroyed && web.isShown && web.windowVisibility == VISIBLE &&
+        web.hasWindowFocus() && web.getGlobalVisibleRect(visibleRect)
+
+    private fun paintLoad(animate: Boolean = viewerVisible()) {
         if (pageReady && !destroyed && page == null) {
-            web.evaluateJavascript("window.setLoad && window.setLoad($loadKg)", null)
+            web.evaluateJavascript("window.setLoad && window.setLoad($loadKg, $animate)", null)
         }
     }
 
@@ -68,12 +75,20 @@ class Exercise3DView(
         }
         web.isVerticalScrollBarEnabled = false
         web.isHorizontalScrollBarEnabled = false
+        if (page == null) web.addJavascriptInterface(object {
+            @JavascriptInterface fun tick() {
+                web.post { if (viewerVisible()) web.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK) }
+            }
+        }, "WatchCoachHaptics")
         web.webViewClient = object : WebViewClient() {
+            // The bridged page is an offline viewer, never a navigation surface.
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = page == null
+
             override fun onPageFinished(view: WebView, url: String) {
                 if (destroyed) return
                 pageReady = true
                 paintFatigue()
-                paintLoad()
+                paintLoad(animate = false)
             }
 
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -98,7 +113,10 @@ class Exercise3DView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (keepAlive && !destroyed) web.onResume()
+        if (keepAlive && !destroyed) {
+            web.onResume()
+            paintLoad(animate = false) // A resumed preview must not replay a hidden edit or tick.
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -114,6 +132,7 @@ class Exercise3DView(
     fun destroyNow() {
         if (destroyed) return
         destroyed = true
+        if (page == null) web.removeJavascriptInterface("WatchCoachHaptics")
         web.stopLoading()
         web.webViewClient = WebViewClient()
         web.setOnTouchListener(null)

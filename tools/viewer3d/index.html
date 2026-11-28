@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="frame-src 'none'; object-src 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>워치코치 기구 뷰어</title>
 <style>
@@ -54,13 +55,22 @@ let act = 0;
 function validLoad(kg) { return Number.isFinite(kg) && kg >= 0 ? kg : null; }
 const urlKg = params.get("kg");
 let loadKg = urlKg?.trim() ? validLoad(Number(urlKg)) : null;
-window.setLoad = kg => {
+let loadTimer, loadRevision = 0, tickedRevision = -1;
+function commitLoad(animate) {
+  clearTimeout(loadTimer);
+  loadRevision++;
+  for (const m of shown) applyEquipmentLoad(m, loadKg, animate);
+  for (const m of shown) pose(m, act); // Also updates a paused rep; never restart its clock or camera.
+}
+window.setLoad = (kg, animate = true) => {
   const next = validLoad(kg);
-  if (next === loadKg) return;
+  if (next === loadKg && animate) return;
   loadKg = next;
-  for (const m of shown) applyEquipmentLoad(m, next);
-  setAct(act);
+  clearTimeout(loadTimer);
+  if (!animate || !window.__ready || document.hidden) commitLoad(false);
+  else loadTimer = setTimeout(() => commitLoad(!document.hidden), 350);
 };
+document.addEventListener('visibilitychange', () => { if (document.hidden) commitLoad(false); });
 // ---------- seated avatar (poses measured by the human fit tests; three samples blended along act) ----------
 let humanList = new Set(); const humanOn = true;
 const humanCache = {};
@@ -83,11 +93,15 @@ function fetchHumanBase() {
   return humanBasePromise;
 }
 function humanFrame(h, frame) {
-  if (h.skinFrames.has(frame)) return h.skinFrames.get(frame);
-  const out = new Float32Array(h.vertices * 3), start = frame * out.length;
+  // Interpolation uses two adjacent frames. Even/odd banks cannot evict each other,
+  // including on reversal, and decoding a new phase never allocates another vertex array.
+  const banks = h.banks ||= [null, null], slot = frame % 2;
+  const bank = banks[slot] ||= {frame:-1, out:new Float32Array(h.vertices * 3)};
+  const out = bank.out;
+  if (bank.frame === frame) return out;
+  bank.frame = frame;
+  const start = frame * out.length;
   for (let i = 0; i < out.length; i++) out[i] = h.minimum[i % 3] + h.quantized[start + i] * h.scale[i % 3];
-  h.skinFrames.set(frame, out);
-  if (h.skinFrames.size > 3) h.skinFrames.delete(h.skinFrames.keys().next().value);
   return out;
 }
 async function fetchHuman(machine) {
@@ -107,7 +121,7 @@ async function fetchHuman(machine) {
       acts.some((x,i)=>!Number.isFinite(x)||i>0&&x<=acts[i-1])) throw Error("invalid V5 values");
   const quantized = new Uint16Array(n * vertices * 3), stride = vertices * 3;   // time-delta coded; Uint16 wraps, so the sum is exact
   for (let i=0;i<quantized.length;i++) quantized[i] = d.getUint16(40+n*4+i*2,true) + (i >= stride ? quantized[i-stride] : 0);
-  const h = { acts, base, vertices, minimum, scale, quantized, skinFrames:new Map(), format:"v5-point-cache" };
+  const h = { acts, base, vertices, minimum, scale, quantized, format:"v5-point-cache" };
   const g = new THREE.BufferGeometry(), pos = new THREE.BufferAttribute(humanFrame(h,0).slice(),3);
   pos.setUsage(THREE.DynamicDrawUsage); g.setAttribute("position",pos); g.setIndex(new THREE.BufferAttribute(base.tris,1)); h.geom=g;
   document.documentElement.dataset.modelRevision = v5Manifest.revision;
@@ -121,22 +135,22 @@ function validatePhases(acts) {
   }
   return acts;
 }
-function phaseBracket(acts, a) {
+function phaseBracket(acts, a, out) {
   if (!Number.isFinite(a)) throw Error("invalid animation phase");
   const n = acts.length;
   if (!n) throw Error("empty animation phases");
-  if (n === 1 || a <= acts[0]) return [0, 0, 0];
-  if (a >= acts[n - 1]) return [n - 1, n - 1, 0];
+  if (a <= acts[0] || n === 1) { out.i=out.j=out.t=0; return out; }
+  if (a >= acts[n - 1]) { out.i=out.j=n-1; out.t=0; return out; }
   let lo = 0, hi = n - 1;
   while (hi - lo > 1) {
     const mid = (lo + hi) >> 1;
     if (acts[mid] <= a) lo = mid; else hi = mid;
   }
-  return [lo, hi, (a - acts[lo]) / (acts[hi] - acts[lo])];
+  out.i=lo; out.j=hi; out.t=(a-acts[lo])/(acts[hi]-acts[lo]); return out;
 }
 function poseHuman(m, a) {
   const h = m.human; if (!h) return;
-  const [i, j, t] = phaseBracket(h.acts, a);
+  const {i, j, t} = phaseBracket(h.acts, a, h.cursor ||= {});
   const A = humanFrame(h, i), B = humanFrame(h, j), P = h.geom.attributes.position.array;
   for (let k = 0; k < P.length; k++) P[k] = A[k] + (B[k] - A[k]) * t;
   h.geom.attributes.position.needsUpdate = true;
@@ -160,14 +174,15 @@ function fetchWatch() {
   return watchPromise;
 }
 const wa = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], wt = new THREE.Vector3();
-function anchorBasis(p0, p1, p2) {
-  const e1 = p1.clone().sub(p0).normalize(), e2 = p2.clone().sub(p0);
+const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), e3 = new THREE.Vector3();
+function anchorBasis(p0, p1, p2, matrix = new THREE.Matrix4()) {
+  e1.subVectors(p1,p0).normalize(); e2.subVectors(p2,p0);
   e2.addScaledVector(e1, -e2.dot(e1)).normalize();
-  return new THREE.Matrix4().makeBasis(e1, e2, new THREE.Vector3().crossVectors(e1, e2));
+  return matrix.makeBasis(e1, e2, e3.crossVectors(e1,e2));
 }
 function placeWatch(w, P) {
-  w.tpl.anchors.forEach((id, k) => wa[k].set(P[3 * id], P[3 * id + 1], P[3 * id + 2]));
-  const M = w.group.matrix.copy(anchorBasis(wa[0], wa[1], wa[2])).multiply(w.tpl.restBasis);
+  for (let k=0; k<3; k++) wa[k].fromArray(P, 3*w.tpl.anchors[k]);
+  const M = anchorBasis(wa[0], wa[1], wa[2], w.group.matrix).multiply(w.tpl.restBasis);
   wt.copy(w.tpl.rest[0]).applyMatrix4(M);
   M.setPosition(wa[0].x - wt.x, wa[0].y - wt.y, wa[0].z - wt.z);
 }
@@ -233,12 +248,18 @@ function fetchWgmParts() {
   return wgmPartsPromise;
 }
 const LAT_STACK_LABEL = 9, PLATE_FACE = 10, PLYO_WOOD = 12;
-let plateMapPromise, plateMap;
-async function loadPlateMap() {
-  if (!plateMapPromise) plateMapPromise = new THREE.TextureLoader().loadAsync('data/plate_faces.webp').then(map => {
-    map.colorSpace = THREE.SRGBColorSpace;
-    return map;
-  });
+let plateMapPromise, plateMap, smallPlateMap;
+function loadPlateMap() {
+  if (!plateMapPromise) {
+    const loader = new THREE.TextureLoader();
+    plateMapPromise = Promise.all(['plate_faces', 'plate_faces_extra'].map(name => loader.loadAsync('data/' + name + '.webp')))
+      .then(([base, extra]) => {
+        base.colorSpace = extra.colorSpace = THREE.SRGBColorSpace;
+        // Upload the printed tiles once at load, never read pixels or rasterize fonts in a rep.
+        renderer.initTexture(extra); smallPlateMap = extra;
+        return base;
+      });
+  }
   return plateMapPromise;
 }
 let plyoWoodPromise, plyoWood;
@@ -605,15 +626,6 @@ const xyDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 function staticPart(geom, color, mat, p, q = new THREE.Quaternion()) {
   return { geom, color, mat, smooth: true, steps: [{ p, q, s: new THREE.Vector3(1, 1, 1) }] };
 }
-function shiftedPart(part, offset, lift = part.steps, zScale = 1, zPivot = 0) {
-  const first = part.steps[0];
-  const rest = first.p.clone().add(offset);
-  rest.z += (first.p.z - zPivot) * (zScale - 1);
-  return { ...part, steps: lift.map(({ p }) => ({
-    p: rest.clone().add(p).sub(lift[0].p), q: first.q,
-    s: first.s.clone().multiply(new THREE.Vector3(1, 1, zScale)),
-  })) };
-}
 
 function stackLoadPlan(d, raw, parts) {
   // Named JSON plates and pin variants identify each independent tower. The finished
@@ -693,40 +705,16 @@ function stackLoadPlan(d, raw, parts) {
     // Keep both ends inside its original envelope, including throughout the lift.
     const rowPitch = Math.min(pitch, (topZ - bottom.center.z) / (count - 1));
     if (rowPitch < .014) return null;
-    towers.push({ plates, pitch, rowPitch, count, topZ, lowestLift, track, pinParts, pin, insertion, rod });
+    // Pull straight through the casting face on which the actual grip is mounted.
+    const axis = Math.abs((pin.center.x-center.x)/anchor.size.x) > Math.abs((pin.center.y-center.y)/anchor.size.y) ? 'x' : 'y';
+    const outward = new THREE.Vector3();
+    outward[axis] = Math.sign(pin.center[axis] - center[axis]) || 1;
+    const penetration = outward[axis] > 0 ? anchor.box.max[axis] - pinBox.min[axis] - insertion[axis]
+      : pinBox.max[axis] + insertion[axis] - anchor.box.min[axis];
+    outward.multiplyScalar(Math.max(.085, penetration + .045));
+    towers.push({ plates, pitch, rowPitch, count, topZ, lowestLift, track, pinParts, pin, insertion, rod, outward });
   }
-  if (!towers.length) return null;
-  return {
-    kind: 'stack', remove,
-    build(kg) {
-      const live = [], checks = [];
-      for (const { plates, pitch, rowPitch, count, topZ, lowestLift, track, pinParts, pin, insertion, rod } of towers) {
-        const k = Math.min(count, Math.max(1, Math.round(kg / 5)));
-        const zScale = rowPitch / pitch;
-        const pinZ = topZ - (k - 1) * rowPitch - lowestLift;
-        const rows = [];
-        for (let i = 0; i < count; i++) {
-          const plate = plates[Math.min(i, plates.length - 1)];
-          const z = topZ - i * rowPitch - (i < k ? lowestLift : 0);
-          rows.push(shiftedPart(plate.part, new THREE.Vector3(0, 0, z - plate.center.z),
-            i < k ? track : track.slice(0, 1), zScale, plate.center.z));
-        }
-        live.push(...rows);
-        const pinOffset = insertion.clone().setZ(pinZ - pin.center.z);
-        const movingPins = pinParts.map(r => shiftedPart(r.part, pinOffset, track));
-        live.push(...movingPins);
-        if (rod && rod.box.min.z > pinZ + .006) {
-          const height = rod.box.min.z - pinZ;
-          const { x, y } = rod.center;
-          const geom = new THREE.CylinderGeometry(.011, .011, height, 12).rotateX(Math.PI / 2);
-          const extension = staticPart(geom, [.30, .31, .32], 3, new THREE.Vector3(x, y, pinZ + height / 2));
-          live.push({ ...shiftedPart(extension, new THREE.Vector3(), track), ownedGeometry: true });
-        }
-        checks.push({ k, rows, movingPins, pinParts, track, pitch: rowPitch });
-      }
-      return { live, checks };
-    },
-  };
+  return towers.length ? { kind: 'stack', remove, towers } : null;
 }
 
 function rawCylinder(row, useThickness = false) {
@@ -743,73 +731,24 @@ function rawCylinder(row, useThickness = false) {
   return { center: boxCenter(local).applyMatrix4(m), axis: vector(i).normalize(), length, diameter };
 }
 
-function plateSteps(steps, localZ, direction) {
-  return steps.map(({ p, q }) => ({
-    p: new THREE.Vector3(0, 0, direction * localZ).applyQuaternion(q).add(p), q,
-    s: new THREE.Vector3(1, 1, 1),
-  }));
-}
-
 // Atlas cells use WebGL's bottom-left origin. The first cell on the bottom
 // row is the 5 kg bumper; the other three bottom cells are cast iron.
 const bumperPlateCells = { 20: 5, 15: 6, 10: 7, 5: 0 };
 const ironPlateCells = { 20: 1, 10: 2, 5: 3 };
-const relabeledPlateMaps = new Map();
-
-function relabeledPlateMap(iron, kg) {
-  const key = `${iron}:${kg}`;
-  if (relabeledPlateMaps.has(key)) return relabeledPlateMaps.get(key);
-  const { image } = plateMap, size = image.width / 4;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  // Use the red bumper or 20 kg iron tile, including its paint, rim and print.
-  const sourceOffset = iron ? size : 0;
-  ctx.drawImage(image, sourceOffset, sourceOffset, size, size, 0, 0, size, size);
-  const centers = iron ? [30, 150, 270].map(angle => {
-    const a = angle * Math.PI / 180;
-    return [.5 + .35 * Math.cos(a), .5 + .35 * Math.sin(a)];
-  }) : [[.5, .19]];
-  const face = ctx.getImageData(0, 0, size, size);
-  for (const [x, y] of centers) {
-    const minX = Math.max(0, Math.floor((x - .21) * size));
-    const maxX = Math.min(size, Math.ceil((x + .21) * size));
-    for (let row = Math.floor((y - .072) * size); row < (y + .072) * size; row++) {
-      for (let col = minX; col < maxX; col++) {
-        const i = 4 * (row * size + col);
-        const radius = Math.hypot(col / size - .5, row / size - .5);
-        if (iron && radius < .153) continue;
-        const rim = iron && radius > .457;
-        const background = iron ? (rim ? [52, 53, 57] : [30, 31, 34]) : [172, 22, 24];
-        // Erase the old digits without erasing the darker rim and grip art.
-        if (face.data[i + 1] > background[1] + 5) face.data.set(background, i);
-      }
-    }
-  }
-  ctx.putImageData(face, 0, 0);
-  ctx.fillStyle = iron ? '#5c5e62' : '#eeecec';
-  ctx.font = `600 ${Math.round(size * (iron ? .098 : .138))}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  for (const [x, y] of centers) ctx.fillText(iron ? `${kg}KG` : `${kg} KG`, x * size, y * size);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = plateMap.colorSpace;
-  relabeledPlateMaps.set(key, texture);
-  return texture;
-}
-
+// Same resolution as the base atlas. Seven lossless tiles of the old printed faces.
+const extraBumperCells = { 2.5: 4, 1.25: 5, 1: 6 }, extraIronCells = { 15: 0, 2.5: 1, 1.25: 2, 1: 3 };
 function finishPlateFace(geom, kg) {
   const uv = geom.getAttribute('uv');
   const col = Math.floor(uv.getX(0) * 4), row = Math.floor(uv.getY(0) * 2);
   const iron = row === 0 && col !== 0;
   const target = (iron ? ironPlateCells : bumperPlateCells)[kg];
   if (target === col + 4 * row) return;
+  const cell = target ?? (iron ? extraIronCells : extraBumperCells)[kg];
   for (let i = 0; i < uv.count; i++) {
     const u = uv.getX(i) * 4 - col, v = uv.getY(i) * 2 - row;
-    if (target === undefined) uv.setXY(i, u, v);
-    else uv.setXY(i, (u + target % 4) / 4, (v + Math.floor(target / 4)) / 2);
+    uv.setXY(i, (u + cell % 4) / 4, (v + Math.floor(cell / 4)) / 2);
   }
-  return target === undefined ? relabeledPlateMap(iron, kg) : undefined;
+  return target === undefined ? smallPlateMap : undefined;
 }
 
 function fitDiscGeometry(part, radius, bore, axialScale, hub) {
@@ -922,52 +861,14 @@ function plateLoadPlan(name, d, raw, parts) {
   const floorStart = groups.every(g => g.floorStart);
   // Reserve the outer sleeve for the fixed stand through the full plate travel.
   const reservedRun = floorStart ? standWidth + standTipGap + standHardwareGap : 0;
-  return {
-    kind: 'plates', remove,
-    build(kg) {
-      const checks = groups.map(g => ({ ...g, placed: [],
-        block: floorStart ? sleeveStand(g.sleeve, g.direction) : null }));
-      const live = checks.flatMap(c => c.block ? [c.block] : []);
-      const fallback = floorStart ? { live, checks, keepOriginal: true } : null;
+  return { kind: 'plates', remove, groups, floorStart,
+    layout(kg) {
       const specs = platesFor(Math.max(0, kg - totalBarKg) / groups.length);
-      if (!specs) return fallback;
-      const collarWidth = .027, gap = .0015;
-      const nominalThickness = specs.reduce((total, s) => total + s.thick, 0);
-      const fit = Math.min(1, ...groups.map(g =>
-        (g.run - reservedRun - collarWidth - gap * specs.length - .003) / nominalThickness));
-      if (specs.length && fit < .55) return fallback;
-      for (const check of checks) {
-        const { existing, source, base, sign, delta, bore, placed } = check;
-        let edge = delta;
-        const geometry = new Map();
-        for (const spec of specs) {
-          const width = spec.thick * fit;
-          const radius = spec.diameter / 2;
-          let finish = geometry.get(spec.kg);
-          if (!finish) {
-            const axialScale = existing ? width / boxSize(geometryBox(existing[1].geom)).z : 1;
-            const face = existing ? fitDiscGeometry(source, radius, bore, axialScale, false) : ringGeometry(bore, radius, width);
-            const hub = existing && fitDiscGeometry(existing[1], radius, bore, axialScale, true);
-            const texture = existing ? finishPlateFace(face, spec.kg) : undefined;
-            finish = { face, hub, texture };
-            geometry.set(spec.kg, finish);
-          }
-          const steps = plateSteps(base, edge + width / 2, sign);
-          live.push({ geom: finish.face, mat: source.mat, smooth: source.smooth, color: source.color,
-            texture: finish.texture, steps, ownedGeometry: true });
-          if (finish.hub) live.push({ geom: finish.hub, mat: existing[1].mat, smooth: existing[1].smooth,
-            color: existing[1].color, steps, ownedGeometry: true });
-          placed.push({ kg: spec.kg, width, radius, steps, geom: finish.face, offset: edge + width / 2 });
-          edge += width + gap;
-        }
-        if (specs.length) {
-          const steps = plateSteps(base, edge + collarWidth / 2, sign);
-          check.collar = { geom: ringGeometry(bore, .037, collarWidth), mat: 3, smooth: true,
-            color: [.19, .21, .23], steps, ownedGeometry: true };
-          live.push(check.collar);
-        }
-      }
-      return { live, checks };
+      if (!specs) return null;
+      const nominal = specs.reduce((total, spec) => total + spec.thick, 0);
+      const fit = nominal ? Math.min(1, ...groups.map(g =>
+        (g.run - reservedRun - COLLAR_WIDTH - PLATE_GAP * specs.length - .003) / nominal)) : 1;
+      return fit < .55 ? null : { specs, fit };
     },
   };
 }
@@ -988,60 +889,257 @@ function equipmentLoadPlan(name, d) {
   return (hasStack && stackLoadPlan(d, raw, parts)) || (hasPlates && plateLoadPlan(name, d, raw, parts)) || null;
 }
 
-function applyEquipmentLoad(m, kg) {
-  if (kg !== null && m.loadPlan === undefined) m.loadPlan = equipmentLoadPlan(m.name, m.data);
-  const result = kg === null ? null : m.loadPlan?.build(kg);
-  if (m.liveEquipment) {
-    m.group.remove(m.liveEquipment.group);
-    m.liveEquipment.group.traverse(o => {
-      if (o.isMesh) o.material.dispose();
-      if (o.isInstancedMesh) o.dispose();
+const COLLAR_WIDTH = .027, PLATE_GAP = .0015, CHANGE_MS = 750;
+const unit = x => Math.max(0, Math.min(1, x));
+const ramp = (t, start, end) => unit((t - start) / (end - start));
+const mix = (a,b,t) => a + (b-a)*t;
+const smooth = t => t*t*(3-2*t);
+// A short recoil limited in metres, not a percentage of the (often long) sleeve.
+const seat = (a,b,t,mm) => mix(a,b,1-(1-t)**3) - mm*.001*Math.sin(Math.PI*ramp(t,.62,1));
+
+function loadMesh(group, part) {
+  const mesh = new THREE.Mesh(part.geom, makePresetMaterial(part.mat, part.color, part.smooth, part.texture));
+  group.add(mesh);
+  return mesh;
+}
+// Sample the same two baked poses as pose(), once per sleeve/tower. The cursor,
+// vectors, matrices and materials used in the frame loop belong to the rig.
+function loadCursor(track, acts) {
+  const c = {i:0, j:0, t:0, sample(a) {
+    const n = track.length;
+    if (n === 1) return;
+    if (n !== acts?.length) {
+      const x = unit(a)*(n-1); c.i = Math.min(Math.floor(x), n-2); c.j = c.i+1; c.t = x-c.i;
+    } else phaseBracket(acts,a,c);
+  }};
+  return c;
+}
+function makeTower(group, tower, acts) {
+  const {plates, count, track, pitch, rowPitch, topZ, lowestLift, pin, pinParts, insertion, rod, outward} = tower;
+  const lift = new THREE.Vector3(), cur = loadCursor(track, acts);
+  const rows = Array.from({length:count}, (_, i) => {
+    const plate = plates[Math.min(i, plates.length-1)], first = plate.part.steps[0];
+    const mesh = loadMesh(group, plate.part), rest = first.p.clone();
+    mesh.quaternion.copy(first.q); mesh.scale.copy(first.s); mesh.scale.z *= rowPitch/pitch;
+    rest.z += topZ-i*rowPitch-plate.center.z + (first.p.z-plate.center.z)*(rowPitch/pitch-1);
+    mesh.material.emissive.setHex(0x63d6de); mesh.material.emissiveIntensity=0;
+    return {mesh,rest,weight:0,from:0,glowFrom:0};
+  });
+  const pins = pinParts.map(part => {
+    const mesh = loadMesh(group, part.part), first = part.part.steps[0];
+    mesh.quaternion.copy(first.q); mesh.scale.copy(first.s);
+    return {mesh,rest:first.p.clone().add(insertion)};
+  });
+  const extension = rod && loadMesh(group,{geom:new THREE.CylinderGeometry(.011,.011,1,12).rotateX(Math.PI/2), mat:3,color:[.30,.31,.32],smooth:true});
+  let k=0, hole=0, fromHole=0, pull=0, fromPull=0;
+  return { target(kg) {
+    const next = Math.min(count, Math.max(1, Math.round(kg/5)));
+    if (next===k) return false;
+    k=next; fromHole=hole; fromPull=pull;
+    for (const row of rows) { row.from=row.weight; row.glowFrom=row.mesh.material.emissiveIntensity; }
+    return true;
+  }, frame(t) {
+    const travel=smooth(ramp(t,135,398)), push=ramp(t,398,535);
+    hole=mix(fromHole,k-1,travel);
+    pull=t<135 ? mix(fromPull,1,smooth(t/135)) : t<398 ? 1 : push===1 ? 0 : (1-push)**2-.055*Math.sin(Math.PI*ramp(push,.55,1));
+    for (let i=0; i<count; i++) {
+      const row=rows[i]; row.weight=mix(row.from,+(i<k),travel);
+      const sweep=ramp(t,510+110*i/k,634+110*i/k);
+      row.mesh.material.emissiveIntensity=row.glowFrom*(1-ramp(t,0,105)) + (i<k && sweep<1 ? .8*Math.sin(Math.PI*sweep)**2 : 0);
+    }
+  }, pose(a) {
+    cur.sample(a); lift.lerpVectors(track[cur.i].p,track[cur.j].p,cur.t).sub(track[0].p); lift.z-=lowestLift;
+    for (let i=0; i<count; i++) rows[i].mesh.position.copy(rows[i].rest).addScaledVector(lift,rows[i].weight);
+    const z=topZ-hole*rowPitch;
+    for (let i=0; i<pins.length; i++) { const p=pins[i]; p.mesh.position.copy(p.rest).add(lift).addScaledVector(outward,pull); p.mesh.position.z+=z-pin.center.z; }
+    if (extension) {
+      const h=rod.box.min.z-(z-lowestLift);
+      extension.visible=h>.006;
+      extension.position.set(rod.center.x,rod.center.y,z-lowestLift+h/2).add(lift); extension.position.z+=lowestLift;
+      extension.scale.z=Math.max(0,h);
+    }
+  }};
+}
+
+function plateBody(g,spec) {
+  const {existing,source,bore}=g, r=spec.diameter/2;
+  const axial=existing ? spec.thick/boxSize(geometryBox(existing[1].geom)).z : 1;
+  const face=existing ? fitDiscGeometry(source,r,bore,axial,false) : ringGeometry(bore,r,spec.thick);
+  const parts=[{...source,geom:face,texture:existing ? finishPlateFace(face,spec.kg) : undefined}];
+  if (existing) parts.push({...existing[1],geom:fitDiscGeometry(existing[1],r,bore,axial,true)});
+  return parts;
+}
+function makeSleeve(group, g, acts) {
+  const {base,sign,delta,run}=g, tip=delta+run+.055;
+  const bodies=new Map(), pool=[], cur=loadCursor(base,acts);
+  const axes=base.map(step=>UP.clone().applyQuaternion(step.q).multiplyScalar(sign));
+  const origin=new THREE.Vector3(), axis=new THREE.Vector3(), rot=new THREE.Quaternion();
+  function piece(kg,parts,radius,width) {
+    const meshes=parts.map(part=>loadMesh(group,part));
+    // One shader variant for both solid and fading pieces. Sort solid metal before glass.
+    for (const m of meshes) m.material.transparent=true;
+    return {kg,meshes,radius,width,x:tip,alpha:0,scale:1, mode:'idle'};
+  }
+  function capture(p) { p.x0=p.x; p.a0=p.alpha; p.s0=p.scale; }
+  const collar=piece(0,[{geom:ringGeometry(g.bore,.037,COLLAR_WIDTH),mat:3,color:[.19,.21,.23],smooth:true}],.037,COLLAR_WIDTH);
+  let mounted=[], fit=0, collarEnd=tip, exits=0;
+  const standAxis=g.floorStart && g.sleeve.axis.clone().multiplyScalar(g.direction);
+  const standInner=standAxis && g.sleeve.center.dot(standAxis)+g.sleeve.length/2-standTipGap-standWidth;
+  function paint(p) {
+    let alpha=p.alpha;
+    if (alpha>0 && standAxis) {
+      // At the bottom of a deadlift the fixed support occupies the path off the
+      // sleeve. Fade before that contact, not through the stand. Once the rep
+      // lifts clear, the entire trip to/from the tip is visible again.
+      const innerGap=standInner-origin.dot(standAxis)-axis.dot(standAxis)*p.x-p.width*p.scale/2;
+      const above=origin.z+axis.z*p.x-p.radius-g.sleeve.row.box.min.z;
+      alpha*=smooth(unit(Math.max(innerGap,above)/.010));
+    }
+    for (let j=0;j<p.meshes.length;j++) {
+      const m=p.meshes[j]; m.visible=alpha>0;
+      if (!m.visible) continue;
+      m.position.copy(origin).addScaledVector(axis,p.x); m.quaternion.copy(rot); m.scale.z=p.scale;
+      const solid=alpha===1;
+      m.material.opacity=alpha; m.material.depthWrite=solid; m.renderOrder=solid ? -1 : 0;
+    }
+  }
+  return {target({specs,fit:nextFit}) {
+    let keep=0;
+    while (keep<mounted.length && keep<specs.length && mounted[keep].kg===specs[keep].kg) keep++;
+    if (keep===mounted.length && keep===specs.length && fit===nextFit) return false;
+    // Take the last *displayed* position/opacity, including partially inserted and
+    // exiting plates. Replace the one timeline rather than enqueueing another.
+    fit=nextFit; capture(collar);
+    const next=mounted.slice(0,keep);
+    const leaving=pool.filter(p=>!next.includes(p) && p.alpha>0).sort((a,b)=>b.x-a.x);
+    exits=leaving.length;
+    for (const p of pool) { capture(p); if (!next.includes(p)) p.mode='idle'; }
+    const outEnd=specs.length>keep ? 305 : 560;
+    leaving.forEach((p,i)=>{
+      const gap=Math.min(65,(outEnd-190)/Math.max(1,exits-1));
+      p.mode='out'; p.start=48+i*gap; p.end=outEnd-(exits-1-i)*gap;
     });
-    for (const geom of m.liveEquipment.mergedGeometries) geom.dispose();
-    for (const geom of m.liveEquipment.generatedGeometries) geom.dispose();
-    m.liveEquipment = null;
+    const inStart=exits ? 315 : 65;
+    const entering=[];
+    let edge=delta;
+    for (let i=0;i<specs.length;i++) {
+      const spec=specs[i]; let p=next[i];
+      if (!p) {
+        p=pool.find(p=>p.kg===spec.kg && p.mode==='idle' && !next.includes(p));
+        if (!p) {
+          if (!bodies.has(spec.kg)) bodies.set(spec.kg,plateBody(g,spec));
+          p=piece(spec.kg,bodies.get(spec.kg),spec.diameter/2,spec.thick); pool.push(p);
+        }
+        p.x=p.x0=tip; p.alpha=p.a0=0; p.scale=p.s0=fit; next.push(p);
+      }
+      p.dest=edge+spec.thick*fit/2; edge+=spec.thick*fit+PLATE_GAP;
+      if (i<keep && p.a0===1 && Math.abs(p.x0-p.dest)<1e-8 && p.s0===fit) p.mode='stay';
+      else {
+        p.mode='in'; entering.push(p);
+      }
+    }
+    const gap=Math.min(75,180/Math.max(1,entering.length-1));
+    entering.forEach((p,i)=>{ p.start=inStart+i*gap; p.end=630-(entering.length-1-i)*gap; });
+    mounted=next; collarEnd=edge+COLLAR_WIDTH/2;
+    return true;
+  }, frame(t) {
+    for (let i=0;i<pool.length;i++) {
+      const p=pool[i];
+      if (p.mode==='out') {
+        const u=ramp(t,p.start,p.end), f=smooth(u);
+        p.x=mix(p.x0,tip,f); p.alpha=p.a0*(1-f);
+        if (u===1) p.mode='idle';
+      } else if (p.mode==='in') {
+        const u=ramp(t,p.start,p.end);
+        p.x=u===1 ? p.dest : seat(p.x0,p.dest,u,1.1); p.alpha=mix(p.a0,1,ramp(u,0,.65)); p.scale=mix(p.s0,fit,smooth(u));
+      }
+    }
+    if (t<100) { const u=smooth(t/100); collar.x=mix(collar.x0,tip,u); collar.alpha=collar.a0*(1-u); }
+    else { const u=ramp(t,604,750); collar.x=u===1 ? collarEnd : seat(tip,collarEnd,u,1.2); collar.alpha=mounted.length ? ramp(u,0,.53) : 0; }
+  }, pose(a) {
+    cur.sample(a); origin.lerpVectors(base[cur.i].p,base[cur.j].p,cur.t);
+    rot.slerpQuaternions(base[cur.i].q,base[cur.j].q,cur.t);
+    axis.lerpVectors(axes[cur.i],axes[cur.j],cur.t); // interpolation of baked plate centres, even on rotating horns
+    for (let i=0;i<pool.length;i++) paint(pool[i]); paint(collar);
+  }};
+}
+
+function makeLoadRig(m) {
+  const plan=m.loadPlan, group=new THREE.Group(), stands=new THREE.Group(), stack=plan.kind==='stack';
+  const lanes=stack ? plan.towers.map(t=>makeTower(group,t,m.acts)) : plan.groups.map(g=>makeSleeve(group,g,m.acts));
+  if (plan.floorStart) for (const g of plan.groups) {
+    const part=sleeveStand(g.sleeve,g.direction), mesh=loadMesh(stands,part);
+    mesh.position.copy(part.steps[0].p); mesh.quaternion.copy(part.steps[0].q);
   }
-  const replaceLoad = result && !result.keepOriginal;
-  if (replaceLoad && !m.fixedEquipment) {
-    const parsed = m.data.parsed.filter(p => !m.loadPlan.remove.has(p));
-    m.fixedEquipment = buildGroup({ ...m.data, parsed });
+  m.group.add(group,stands); group.visible=stands.visible=false;
+  return {group,stands,lanes,moving:false, clickAt:stack ? 510 : 723,
+    pose(a) { for (let i=0;i<lanes.length;i++) lanes[i].pose(a); }};
+}
+function advanceLoad(rig, now) {
+  const t=Math.min(CHANGE_MS,Math.max(0,now-rig.start));
+  rig.moving=false;
+  for (let i=0;i<rig.lanes.length;i++) {
+    const lane=rig.lanes[i];
+    if (!lane.active) continue;
+    const local=Math.min(CHANGE_MS,Math.max(0,now-lane.start));
+    lane.frame(local); lane.active=local<CHANGE_MS;
+    if (lane.active) rig.moving=true;
   }
-  const equipment = replaceLoad ? m.fixedEquipment : (m.originalEquipment ||= buildGroup(m.data));
-  if (m.equipment !== equipment) {
+  if (t>=rig.clickAt && rig.tick && tickedRevision!==rig.revision && !document.hidden) {
+    tickedRevision=rig.revision; window.WatchCoachHaptics?.tick();
+  }
+}
+function applyEquipmentLoad(m,kg,animate=false) {
+  if (kg!==null && m.loadPlan===undefined) m.loadPlan=equipmentLoadPlan(m.name,m.data);
+  const plan=m.loadPlan, target=kg===null || !plan ? null : plan.kind==='stack' ? kg : plan.layout(kg);
+  const live=target!==null;
+  if (live && !m.fixedEquipment) m.fixedEquipment=buildGroup({...m.data,parsed:m.data.parsed.filter(p=>!plan.remove.has(p))});
+  const equipment=live ? m.fixedEquipment : (m.originalEquipment ||= buildGroup(m.data));
+  if (m.equipment!==equipment) {
     if (m.equipment) m.group.remove(m.equipment.group);
-    m.group.add(equipment.group); m.equipment = equipment;
+    m.group.add(equipment.group); m.equipment=equipment; m.objs=equipment.objs; m.instances=equipment.instances;
   }
-  m.objs = equipment.objs; m.instances = equipment.instances;
-  if (result) {
-    const layer = buildGroup({ ...m.data, parsed: result.live });
-    layer.generatedGeometries = new Set(result.live.filter(p => p.ownedGeometry).map(p => p.geom));
-    m.liveEquipment = layer;
-    m.group.add(layer.group);
-    m.objs = [...equipment.objs, ...layer.objs];
-    m.instances = [...equipment.instances, ...layer.instances];
+  if (plan && kg!==null && !m.loadRig) m.loadRig=makeLoadRig(m);
+  const rig=m.loadRig;
+  if (!rig) return;
+  const wasLive=rig.group.visible; rig.group.visible=live; rig.stands.visible=kg!==null;
+  if (!live) { rig.moving=false; return; }
+  const now=performance.now(), play=animate && wasLive;
+  let changed=false;
+  for (const lane of rig.lanes) {
+    if (lane.target(target)) { changed=true; lane.start=now; lane.active=true; }
+    if (!play) { lane.frame(CHANGE_MS); lane.active=false; }
   }
+  if (play && !changed) return;
+  rig.start=now; rig.revision=loadRevision;
+  rig.tick=play && (plan.kind==='stack' || target.specs.length>0);
+  advanceLoad(rig,now);
 }
 
 const tp = new THREE.Vector3(), tq = new THREE.Quaternion(), ts = new THREE.Vector3();
 const instancePose = new THREE.Matrix4();
 function pose(m, a) {
+  if (m.loadRig?.group.visible) m.loadRig.pose(a);
+  const phase = m.acts && phaseBracket(m.acts, a, m.cursor ||= {});
   for (const o of m.objs) {
     const n = o.steps.length;
     if (n === 1) { o.mesh.matrix.compose(o.steps[0].p, o.steps[0].q, o.steps[0].s); continue; }
     // Equipment sampled once per human frame follows the human's phase times (hang_clean's are non-uniform);
     // a track with its own sample count keeps the older uniform spacing.
     let i, j, t;
-    if (m.acts && n === m.acts.length) [i, j, t] = phaseBracket(m.acts, a);
+    if (phase && n === m.acts.length) { i=phase.i; j=phase.j; t=phase.t; }
     else { const x = Math.min(1, Math.max(0, a)) * (n - 1); i = Math.min(Math.floor(x), n - 2); j = i + 1; t = x - i; }
     const A = o.steps[i], B = o.steps[j];
     tp.lerpVectors(A.p, B.p, t); tq.slerpQuaternions(A.q, B.q, t); ts.lerpVectors(A.s, B.s, t);
     if (o.slot !== undefined) o.mesh.setMatrixAt(o.slot, instancePose.compose(tp, tq, ts));
     else { o.mesh.matrix.compose(tp, tq, ts); o.mesh.matrixWorldNeedsUpdate = true; }
   }
-  for (const mesh of m.instances ?? []) {
+  for (let i=0; i<(m.instances?.length ?? 0); i++) {
+    const mesh = m.instances[i];
     mesh.instanceMatrix.needsUpdate = true;
     // Camera framing, picking and frustum culling must use this pose, not the rest stack.
-    mesh.boundingBox = mesh.boundingSphere = null;
+    mesh.boundingBox = null;
+    if (mesh.boundingSphere) mesh.computeBoundingSphere(); // reuse the culling sphere in playback
   }
 }
 function setAct(a) { act = a; for (const m of shown) { pose(m, a); poseHuman(m, a); } }
@@ -1055,7 +1153,7 @@ function bounds(spec = {}) {
     for (const m of shown) { pose(m, a); poseHuman(m, a); if (m.human) m.human.geom.computeBoundingBox(); }   // bounds are cached per geometry: refresh for every sampled pose
     world.updateMatrixWorld(true);
     for (const m of shown) {
-      m.group.traverse(o => { if (o.isMesh && !(o === m.humanMesh) && !isFlat(o)) full.expandByObject(o); });   // a floor mat is not part of the subject
+      m.group.traverseVisible(o => { if (o.isMesh && !(o === m.humanMesh) && !isFlat(o)) full.expandByObject(o); });   // a floor mat is not part of the subject
       if (m.humanMesh) { person.expandByObject(m.humanMesh); full.expandByObject(m.humanMesh); }
     }
   }
@@ -1130,7 +1228,7 @@ function qViewDir(human, spec = {}, view = null) {
   if (!view) { const a = sideDir(1), b = sideDir(-1); return machineBehindPenalty(b, human) < machineBehindPenalty(a, human) ? b : a; }
   // Try both sides and a few small turns; keep the view where the machine hides the person least.
   const points = personPoints(), blockers = [];
-  for (const m of shown) m.group.traverse(o => { if (o.isMesh && o !== human.mesh) blockers.push(o); });
+  for (const m of shown) m.group.traverseVisible(o => { if (o.isMesh && o !== human.mesh) blockers.push(o); });
   const ray = new THREE.Raycaster(); let best = null;
   const turns = spec.lockYaw ? [0] : [0, 20, -20, 40, -40];
   for (const sign of [1, -1]) for (const turn of turns) {
@@ -1180,7 +1278,7 @@ async function show(models, cameraReady) {
   let x = 0;
   loaded.forEach((n, i) => {
     const data = cache[n];
-    const m = { name: n, data, group: new THREE.Group(), acts: data.acts };
+    const m = { name: n, data, group: new THREE.Group(), acts: data.acts, repMeta:v5Manifest?.clips.find(c=>c.id===n) };
     applyEquipmentLoad(m, loadKg);
     pose(m, 0);
     const b = new THREE.Box3().setFromObject(m.group);
@@ -1225,16 +1323,22 @@ let anim = null, looping = true;
 const REP = 2600; // ms for one full rep: 0 -> 1 -> 0
 function ease(t) { return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 const ALT_MIRROR = new Set(["alternating_dumbbell_curl", "alternating_hammer_curl"]);   // one arm per rep: the way back is the mirrored (other) arm
-function repMeta() { return v5Manifest?.clips.find(c=>c.id===shown[0]?.name); }
+function repMeta() { return shown[0]?.repMeta; }
 function repMs() { return repMeta()?.playback_ms || (shown.length===1 && ALT_MIRROR.has(shown[0].name) ? REP*2 : REP); }
-function repRange() { return repMeta()?.playback_range || [0,1]; }   // alternating curls play at half speed
+const fullRep = [0,1];
+function repRange() { return repMeta()?.playback_range || fullRep; }
 function playRep() { setAct(repRange()[0]); anim = { t0: performance.now() }; }
 
 renderer.setAnimationLoop(now => {
+  for (let i=0; i<shown.length; i++) {
+    const m=shown[i]; if (!m.loadRig?.moving) continue;
+    advanceLoad(m.loadRig, now);
+    if (!anim) m.loadRig.pose(act);
+  }
   if (anim) {
     const t = (now - anim.t0) / repMs();
     const [start,end] = repRange();
-    if (t >= 1) { setAct(start); anim = looping ? { t0: now } : null; }
+    if (t >= 1) { setAct(start); if (looping) anim.t0=now; else anim=null; }
     else setAct(start+(end-start)*(repMeta()?.playback_mode==="cycle" ? t : (t<.5 ? ease(t*2) : ease((1-t)*2))));
   }
   if (shown.length === 1 && ALT_MIRROR.has(shown[0].name)) shown[0].group.scale.x = anim && (now - anim.t0) / repMs() >= .5 ? -1 : 1;

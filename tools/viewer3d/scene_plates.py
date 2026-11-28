@@ -1,5 +1,6 @@
 """Only the round_plate rows from the reviewed role map. Retain the original JSON for every other part."""
 import json
+from shutil import copyfile
 from pathlib import Path
 
 import numpy as np
@@ -75,5 +76,6 @@ def build_overlays(data_dir, packer, pack_clip):
         clips[model], _, _ = pack_clip(model, raw['acts'], entries)
     with Image.open(HERE.parents[1]/'promo/parts/detail_gym_freeweight/plate_faces.png') as image:
         image.save(data_dir/'plate_faces.webp', 'WEBP', lossless=True, method=4)
+    copyfile(HERE/'plate_faces_extra.webp', data_dir/'plate_faces_extra.webp')
     print(f'Plate overlays: {len(clips)} clips, {sum(map(len,targets.values()))} plates')
     return targets, clips
