@@ -31,7 +31,10 @@ class ChestPressEvidenceTest {
     @Test fun unevenPressesKeepTheObservedReturnBetweenTheTwoNeighbors() {
         val doc = capture("2026-11-05", "123448")
         val ends = PhoneRepAnalyzer.analyze(doc, profile, 12).events.map { (it.endTimestampNs - doc.records.first().sample.timestampNs) / 1e9 }
-        assertTrue(ends.windowed(3).any { (a, b, c) -> a in 20.0..21.0 && b in 23.0..23.6 && c in 24.8..25.6 })
+        // AdaptivePressDetector closes each return at its velocity zero-crossing (~0.5-1.1s after
+        // ExcursionRepDetector's mid-return peak at 20.6/23.3/25.2s) and keeps the uneven middle
+        // return without period-doubling.
+        assertTrue(ends.windowed(3).any { (a, b, c) -> a in 21.0..22.0 && b in 23.4..24.2 && c in 25.8..26.7 }, "ends=$ends")
     }
 
     @Test fun isolatedReturnsAreReportedButDoNotReplaceTheWatchCount() {

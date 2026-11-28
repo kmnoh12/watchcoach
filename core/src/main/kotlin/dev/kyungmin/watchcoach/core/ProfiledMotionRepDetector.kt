@@ -138,10 +138,17 @@ class ProfiledMotionRepDetector(
         )
     }
 
+    private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
+    private val press = if (!legacyLobes &&
+        profile.family in setOf(MotionFamily.PRESS_RETURN, MotionFamily.TRANSLATION_PRESS_RETURN) &&
+        ExerciseMeasurementContracts.resolve(profile.exerciseId).recipe == MeasurementRecipe.CHEST_PRESS
+    ) AdaptivePressDetector(profile.family == MotionFamily.TRANSLATION_PRESS_RETURN) else null
+    val rackSettled: Boolean get() = press?.rackSettled == true
+
     private val poseCounter = if (profile.family == MotionFamily.FLEXION_EXTENSION)
         ReturnToPoseRepDetector(profile.minimumRepMs, pronationInvariant = profile.exerciseId in PRONATION_INVARIANT_POSES) else null
     private val verticalCounter = if (profile.family == MotionFamily.VERTICAL_PRESS_RETURN) VerticalPressRepDetector(profile) else null
-    private val translationCounter = if (profile.family == MotionFamily.TRANSLATION_PRESS_RETURN)
+    private val translationCounter = if (press == null && profile.family == MotionFamily.TRANSLATION_PRESS_RETURN)
         TranslationPressRepDetector(profile, rotateGravityByGyro = profile.exerciseId in GYRO_GRAVITY_PUSHDOWNS) else null
     private val hingeCounter = if (profile.family == MotionFamily.CYCLE_AXIS_RETURN && profile.exerciseId in HINGE_DISPLACEMENT)
         HingeDisplacementRepDetector() else null
@@ -163,8 +170,7 @@ class ProfiledMotionRepDetector(
         dynOnly = profile.exerciseId in DYN_ONLY_ROWS,
     ) else null
     private val arcCounter = if (profile.family == MotionFamily.ARC_RETURN) ForearmRotationRepDetector(profile) else null
-    private val legacyLobes = profile.id.substringBefore('+') == profile.family.legacyAlgorithmId
-    private val excursionCounter = if (!legacyLobes &&
+    private val excursionCounter = if (press == null && !legacyLobes &&
         profile.id.substringBefore('+') == profile.family.sharedAlgorithmId &&
         profile.family in setOf(MotionFamily.PULL_RETURN, MotionFamily.MULTI_AXIS_RETURN, MotionFamily.PRESS_RETURN)
     ) ExcursionRepDetector(profile, handwardX) else null
@@ -214,17 +220,18 @@ class ProfiledMotionRepDetector(
     var lastMotionNs: Long = 0L
         private set
 
-    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (rowReturnStopCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
+    val candidateStartNs: Long? get() = arcCounter?.candidateStartNs ?: if (press != null || rowReturnStopCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) null else translationCounter?.candidateStartNs ?: verticalCounter?.candidateStartNs ?: poseCounter?.candidateStartNs ?: pendingStartNs.takeIf { it > 0L }
         ?: lobeStartNs.takeIf { it > 0L && lobeDisplacement >= profile.minimumLobeDisplacement }
 
     fun add(sample: SensorSample): ProfiledMotionRepEvent? {
-        trackMotion(sample)
+        if (press == null) trackMotion(sample)
         cueScheduler.observe(sample)
         val event = detectSample(sample) ?: return null
         return event.copy(cueDelayMs = cueScheduler.schedule(event, sample.timestampNs))
     }
 
     private fun detectSample(sample: SensorSample): ProfiledMotionRepEvent? {
+        press?.let { val event = it.add(sample); lastMotionNs = it.lastMotionNs; return event }
         arcCounter?.let { return it.add(sample)?.asProfiledEvent() }
         translationCounter?.let { return it.add(sample) }
         verticalCounter?.let { return it.add(sample) }
@@ -283,7 +290,7 @@ class ProfiledMotionRepDetector(
 
     fun finish(): ProfiledMotionRepEvent? {
         arcCounter?.let { return it.finish()?.asProfiledEvent() }
-        if (translationCounter != null || verticalCounter != null || rowReturnStopCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) return null
+        if (press != null || translationCounter != null || verticalCounter != null || rowReturnStopCounter != null || cycleCounter != null || hingeCounter != null || excursionCounter != null) return null
         if (poseCounter != null) return null // A partial return never becomes a rep when the set ends.
         if (!legacyLobes) { resetAll(); return null } // Only observed quiet/reversal closes a new-engine lobe.
         if (direction == 0 || lastTimestampNs == 0L) return null
@@ -300,6 +307,7 @@ class ProfiledMotionRepDetector(
     fun finishAll(): List<ProfiledMotionRepEvent> = translationCounter?.finishAll() ?: hingeCounter?.finishAll() ?: rowReturnStopCounter?.finishAll() ?: cycleCounter?.finishAll() ?: listOfNotNull(finish())
 
     fun beginCounting() {
+        press?.reset()
         arcCounter?.beginCounting()
         translationCounter?.beginCounting()
         verticalCounter?.beginCounting()
@@ -331,6 +339,7 @@ class ProfiledMotionRepDetector(
         val iterator = samples.iterator()
         if (!iterator.hasNext()) return
         when {
+            press != null -> { press.prime(samples); return }
             arcCounter != null -> return
             translationCounter != null -> {
                 while (iterator.hasNext()) translationCounter.add(iterator.next())

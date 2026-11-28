@@ -98,7 +98,7 @@ class WearWorkoutService : Service(), SensorEventListener {
     private val postTargetGuard = dev.kyungmin.watchcoach.core.PostTargetTempoGuard()
     private var learnedRepWaitNs = 3_000_000_000L
     /** Silence that ends a set: 7 s while reps are still owed (a heavy set pausing mid-way), the usual 3 s once the target is met. */
-    private fun setEndWaitNs() = dev.kyungmin.watchcoach.core.SetEndGate.waitNs(reps, targetReps,
+    private fun setEndWaitNs() = if (activeDetector == null && profiledMotionDetector?.rackSettled == true) 0L else dev.kyungmin.watchcoach.core.SetEndGate.waitNs(reps, targetReps,
         if (activeDetector != null) learnedRepWaitNs else 3_000_000_000L)
     private val setEndTicker = object : Runnable {
         override fun run() {
