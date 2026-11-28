@@ -347,19 +347,14 @@ def apply() -> dict:
     m_left = _mat_banner_print(PFX + "Print_NeonMart", IMG_LEFT)
     m_right = _mat_banner_print(PFX + "Print_AstraTelecom", IMG_RIGHT)
 
-    # 3) Place the two stands neatly side by side along the west wall in the old Mart spot
-    # Both share yaw = 62 deg (facing +X/+Y toward the corridor viewer cleanly),
-    # separated by 0.625 m side-by-side (~3 cm gap between outer frames).
-    # Verified clear of: west wall plinth (x=-10.33), Elev_XBanner_Golf (y<=-16.45),
-    # DeliveryBox_Bottom (y>=-14.74), tactile patch, and elevator doors.
-    yaw_deg = 62.0
-    th = math.radians(yaw_deg)
-    rx, ry = -math.cos(th), math.sin(th)   # unit vector from Left stand -> Right stand
-    ctr_x, ctr_y = -9.915, -15.775
-    half_sep = 0.312                       # 0.624 m center-to-center (~3 cm frame gap)
-
-    pos_left = (ctr_x - rx * half_sep, ctr_y - ry * half_sep)
-    pos_right = (ctr_x + rx * half_sep, ctr_y + ry * half_sep)
+    # 3) Place the two stands neatly side-by-side along the bare east (gym-side) wall
+    # near the north stairs/restroom end (between recycling bins y=-2.555 and umbrella stand y=-4.357).
+    # Facing -X (yaw = -90 deg) into the corridor so people coming from the stairs, restroom,
+    # or hallway read both stands cleanly without obstructing passage (1.71 m clear walkway).
+    # Looking +X at the stands: viewer's LEFT is +Y (NeonMart), RIGHT is -Y (AstraTelecom).
+    yaw_deg = -90.0
+    pos_left = (-7.880, -3.135)
+    pos_right = (-7.880, -3.760)
 
     _, parts_l = _build_banner_stand(
         coll, PFX + "Stand_Left_NeonMart", pos_left, yaw_deg,
